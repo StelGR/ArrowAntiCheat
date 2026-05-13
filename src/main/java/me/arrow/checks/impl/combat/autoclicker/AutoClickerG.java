@@ -85,7 +85,8 @@ public class AutoClickerG extends Check {
                         if (buffer++ > 2) {
                             fail( "No outliers",
                                     "outliers " + MsgType.MAIN_THEME_COLOR.getMessage() + outliers
-                                            + "\nmaxOutliers " + MsgType.MAIN_THEME_COLOR.getMessage() + "6-e7");
+                                            + "\nmaxOutliers " + MsgType.MAIN_THEME_COLOR.getMessage() + "6-e7"
+                                            + "\ncps " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getCombatData().getCurrentCps());
                         }
                     } else {
                         buffer -= Math.min(buffer, 1.2);
