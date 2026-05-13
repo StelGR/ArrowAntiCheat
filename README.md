@@ -1,6 +1,6 @@
 Arrow anticheat, is my custom packet based Java and Bedrock anticheat
 
-Reason for open sourcing: i want to help the minecraft community, this project was a way for me to expand my java knowledge, and give something back to the community
+Reason for open sourcing: i want to help the minecraft community, this project was a way for me to expand my java knowledge, and give something back to the community.
 it is not perfect and i am still working on it, all other sources i've used will be credited at the bottom of the read me, please read my comments on Arrow main class.
 
 I wish everyone has a good experience, if you want to check out our discord to report issues or suggest ideas, feel free to join, we also have a website, links at the bottom of the read me.
