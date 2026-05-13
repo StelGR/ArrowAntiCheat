@@ -11,6 +11,9 @@ as a resource to help smaller servers that can't afford polar, if you can, then 
 I will not take seriously anyone who mocks the use of AI, as any tool is useful when trying to help a large community.
 AI can be very useful when applied correctly, and i have noted where i have used AI in the project classes at the top.
 
+If you are a server owner and do not wish to keep building the anticheat, you can download the loader, which i also will post source code of, from the website, again links at the bottom.
+It has automatic updates, so any fix that i make, will be pushed instantly to the loader.
+
 Credits to packages:
 
 --------------------------------------------------------------
