@@ -43,13 +43,13 @@ public class GroundB extends Check {
                 || profile.getVehicleData().getSinceVehicleTicks() < 5) return;
 
 
-        int airTicks = Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.getCustomHeavyAirTicks() : movementData.getCustomAirTicks();
+        int airTicks = movementData.getCustomAirTicks();
         int clientAirTicks = movementData.getClientAirTicks();
 
         boolean clientGround = movementData.isOnGround();
         boolean serverGround = movementData.isServerGround();
         boolean serverYGround = movementData.isServerYGround();
-        boolean inAir = Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.isCustomHeavyInAir() : movementData.isCustomInAir();
+        boolean inAir = movementData.isCustomInAir();
 
         double deltaXZ = movementData.getDeltaXZ();
         double deltaY = movementData.getDeltaY();

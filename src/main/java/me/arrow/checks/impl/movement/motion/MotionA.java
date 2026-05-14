@@ -115,7 +115,6 @@ public class MotionA extends Check {
             if (profile.getMovementData().getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting GhostBlock");
                 movementData.setCustomAirTicks(0);
-                movementData.setCustomHeavyAirTicks(0);
                 return;
             }
 

@@ -58,7 +58,7 @@ public class SpeedA extends Check {
             boolean sprinting = actionData.isSprinting();
             int clientAirTicks = movementData.getClientAirTicks();
             int serverGroundTicks = movementData.getServerGroundTicks();
-            int serverAirTicks = Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.getCustomHeavyAirTicks() : movementData.getCustomAirTicks();
+            int serverAirTicks = movementData.getCustomAirTicks();
             double movingSlimeTicks = movementData.getMovingOnSlimeTicks();
             int movingHoneyTicks = movementData.getMovingOnHoneyTicks();
             float movingIceTicks = movementData.getMovingOnIceTicks();
@@ -409,12 +409,14 @@ public class SpeedA extends Check {
 
         if (clientAirTicks == 2 && Math.abs(deltaY - expected2) < 1E-6) {
             expectedSpeed += speedLevel > 0 ? (0.0068 + (0.008D * speedLevel)) : 0.0068;
+            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.005 : 0;
         }
 
         double expected3 = 0.24813599859094637D;
 
         if (clientAirTicks == 3 && Math.abs(deltaY - expected3) < 1E-6) {
-            expectedSpeed += speedLevel > 0 ? (0.003 + (0.008D * speedLevel)) : 0.003;
+            expectedSpeed += speedLevel > 0 ? (0.00275 + (0.008D * speedLevel)) : 0.00275;
+            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.003 : 0;
         }
 
 
@@ -447,7 +449,8 @@ public class SpeedA extends Check {
                 + "* underBlockMoveTime " + MsgType.MAIN_THEME_COLOR.getMessage() + underBlockMoveTime + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* aSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + attr + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* bSpeed (s/ns) " + MsgType.MAIN_THEME_COLOR.getMessage() + SPRINT_BASE_SPEED + "/" + NO_SPRINT_BASE_SPEED + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                //+ "* baseSpeed (no attribute speed) " + MsgType.MAIN_THEME_COLOR.getMessage() + (AIR_BASE_SPEED - attr) + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                + "* moving Up Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                + "* moving Down Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* iceMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_ICE_INCREMENT_PER_TICK + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* maxIceSpeedBoost " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_MAX_ICE_SPEED_BOOST + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* slimeMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_SLIME_INCREMENT_PER_TICK + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()

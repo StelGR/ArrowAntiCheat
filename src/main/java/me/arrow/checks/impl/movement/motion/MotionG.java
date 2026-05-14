@@ -53,7 +53,7 @@ public class MotionG extends Check {
         final double deltaY = md.getDeltaY();
         final double lastDeltaY = md.getLastDeltaY();
         int clientAirTicks = md.getClientAirTicks();
-        int serverAirTicks = Config.Setting.HEAVY_PROCESSOR.getBoolean() ? md.getCustomHeavyAirTicks() : md.getCustomAirTicks();
+        int serverAirTicks = md.getCustomAirTicks();
 
 
         boolean exempt = profile.isBouncingOnSlime()

@@ -12,6 +12,8 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.custom.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
+import me.arrow.utils.customutils.animationSystem.Animation;
+import me.arrow.utils.customutils.animationSystem.BanAnimationGuiLayout;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -312,10 +314,10 @@ public class GuiManager {
 
     public void openSettingsGUI(Player player) {
         ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
-        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Arrow &7- &7Settings"));
+        Inventory gui = Bukkit.createInventory(player, 45, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Settings"));
 
         ItemStack alertsOnJoinItem = createToggleWool(Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean(), serverVersion);
-        gui.setItem(10, generateItem(alertsOnJoinItem, translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Alerts on Join"),
+        gui.setItem(10, generateItem(alertsOnJoinItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Alerts on Join"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable alerts for admins when they join?"),
@@ -325,7 +327,7 @@ public class GuiManager {
                 )));
 
         ItemStack alertConsoleItem = createToggleWool(Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean(), serverVersion);
-        gui.setItem(11, generateItem(alertConsoleItem, translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Alert Console"),
+        gui.setItem(12, generateItem(alertConsoleItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Alert Console"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we also send alerts in console?"),
@@ -335,7 +337,7 @@ public class GuiManager {
                 )));
 
         ItemStack logsItem = createToggleWool(Config.Setting.LOGS_ENABLED.getBoolean(), serverVersion);
-        gui.setItem(12, generateItem(logsItem, translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Logs"),
+        gui.setItem(14, generateItem(logsItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Logs"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable logging?"),
@@ -345,7 +347,7 @@ public class GuiManager {
                 )));
 
         ItemStack punishItem = createToggleWool(Config.Setting.PUNISH_ENABLED.getBoolean(), serverVersion);
-        gui.setItem(13, generateItem(punishItem, translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Punishments"),
+        gui.setItem(16, generateItem(punishItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Punishments"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we punish players for cheating?"),
@@ -357,7 +359,7 @@ public class GuiManager {
                 )));
 
         ItemStack testModeItem = createToggleWool(Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean(), serverVersion);
-        gui.setItem(14, generateItem(testModeItem, translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Test Server Mode"),
+        gui.setItem(28, generateItem(testModeItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Test Server Mode"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable the test server mode?"),
@@ -367,19 +369,18 @@ public class GuiManager {
                 )));
 
         ItemStack debugItem = createToggleWool(Config.Setting.DEBUG.getBoolean(), serverVersion);
-        gui.setItem(15, generateItem(debugItem, translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Debug Mode"),
+        gui.setItem(30, generateItem(debugItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Debug Mode"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable the debug mode?"),
-                        translate("&7DO NOT ENABLE THIS UNLESS TOLD MY AN ANTICHEAT ADMIN"),
+                        translate("&7DO NOT ENABLE THIS UNLESS TOLD BY AN ANTICHEAT ADMIN"),
                         "",
                         translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage() + Config.Setting.DEBUG.getBoolean()),
                         translate(guiLine())
                 )));
 
-
         ItemStack bypassItem = createToggleWool(Config.Setting.IGNORE_BEDROCK.getBoolean(), serverVersion);
-        gui.setItem(16, generateItem(bypassItem, translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Ignore Bedrock"),
+        gui.setItem(32, generateItem(bypassItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ignore Bedrock"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we ignore bedrock players?"),
@@ -388,7 +389,21 @@ public class GuiManager {
                         translate(guiLine())
                 )));
 
-        gui.setItem(22, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
+        ItemStack animationItem = createToggleWool(Config.Setting.BAN_ANIMATION_ENABLED.getBoolean(), serverVersion);
+        gui.setItem(34, generateItem(animationItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ban Animations"),
+                Arrays.asList(
+                        translate(guiLine()),
+                        translate("&7&oShould punishments use ban animations?"),
+                        "",
+                        translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage() + Config.Setting.BAN_ANIMATION_ENABLED.getBoolean()),
+                        translate("&7Current Animation: " + MsgType.MAIN_THEME_COLOR.getMessage() + Config.Setting.BAN_ANIMATION_CURRENT.getString()),
+                        "",
+                        translate("&aLeft Click &7to toggle animations."),
+                        translate("&eRight Click &7to select animation style."),
+                        translate(guiLine())
+                )));
+
+        gui.setItem(40, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7Click to go back."),
@@ -397,13 +412,93 @@ public class GuiManager {
 
         ItemStack spacer = createSpacer();
 
-        for (int slots = 0; slots < 27; slots++) {
+        for (int slots = 0; slots < 45; slots++) {
             if (gui.getItem(slots) == null) gui.setItem(slots, spacer);
         }
 
         player.openInventory(gui);
     }
 
+    public void openBanAnimationGUI(Player player) {
+        ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
+        Inventory gui = Bukkit.createInventory(player, 54, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Ban Animations"));
+
+        ItemStack spacer = createSpacer();
+
+        for (int slot = 0; slot < 54; slot++) {
+            int row = slot / 9;
+            int column = slot % 9;
+
+            if (row == 0 || row == 5 || column == 0 || column == 8) {
+                gui.setItem(slot, spacer);
+            }
+        }
+
+        Animation.Type currentType = getCurrentBanAnimationType();
+
+        for (Map.Entry<Integer, Animation.Type> entry : BanAnimationGuiLayout.getAnimationSlots().entrySet()) {
+            setAnimationItem(gui, serverVersion, entry.getKey(), entry.getValue(), currentType);
+        }
+
+        gui.setItem(49, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
+                Arrays.asList(
+                        translate(guiLine()),
+                        translate("&7Click to go back to settings."),
+                        translate(guiLine())
+                )));
+
+        for (int slot = 0; slot < 54; slot++) {
+            if (gui.getItem(slot) == null) {
+                gui.setItem(slot, spacer);
+            }
+        }
+
+        player.openInventory(gui);
+    }
+
+    private void setAnimationItem(Inventory gui, ServerVersion serverVersion, int slot, Animation.Type type, Animation.Type currentType) {
+        boolean active = type == currentType;
+
+        ItemStack item = createToggleWool(active, serverVersion);
+
+        gui.setItem(slot, generateItem(item, translate((active ? "&a" : "&c") + formatAnimationName(type)),
+                Arrays.asList(
+                        translate(guiLine()),
+                        translate("&7Status: " + (active ? "&aActive" : "&cInactive")),
+                        "",
+                        translate("&7Animation ID: " + MsgType.MAIN_THEME_COLOR.getMessage() + type.name()),
+                        "",
+                        translate("&eClick &7to select this animation."),
+                        translate(guiLine())
+                )));
+    }
+
+    private Animation.Type getCurrentBanAnimationType() {
+        try {
+            return Animation.Type.valueOf(Config.Setting.BAN_ANIMATION_CURRENT.getString().toUpperCase());
+        } catch (Exception ignored) {
+            return Animation.Type.DESTROYED;
+        }
+    }
+
+    private String formatAnimationName(Animation.Type type) {
+        String name = type.name().toLowerCase().replace("_", " ");
+        StringBuilder builder = new StringBuilder();
+
+        for (String part : name.split(" ")) {
+            if (part.isEmpty()) continue;
+
+            builder.append(Character.toUpperCase(part.charAt(0)));
+
+            if (part.length() > 1) {
+                builder.append(part.substring(1));
+            }
+
+            builder.append(" ");
+        }
+
+        return builder.toString().trim();
+    }
 
 
     public void openChecksGUI(Player player) {
@@ -508,53 +603,53 @@ public class GuiManager {
 
 
     public void openMovementChecksGUI(Player player) {
-    ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
-    Inventory gui = Bukkit.createInventory(player, 27, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Movement Checks"));
+        ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
+        Inventory gui = Bukkit.createInventory(player, 27, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Movement Checks"));
 
-    gui.setItem(10, GuiUtility.generateItem(new ItemStack(Material.FEATHER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Fly"),
-    Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-            OtherUtility.translate("&7Manage the fly checks"),
-            OtherUtility.translate(OtherUtility.guiLine())
-    )));
-    gui.setItem(11, GuiUtility.generateItem(new ItemStack(Material.SUGAR, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Speed"),
-    Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-            OtherUtility.translate("&7Manage the speed checks"),
-            OtherUtility.translate(OtherUtility.guiLine())
-    )));
-    gui.setItem(12, GuiUtility.generateItem(new ItemStack(Material.RABBIT_FOOT, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Motion"),
-    Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-            OtherUtility.translate("&7Manage the motion checks"),
-            OtherUtility.translate(OtherUtility.guiLine())
-    )));
-    gui.setItem(13, GuiUtility.generateItem(new ItemStack(Material.BEACON, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Analysis"),
-    Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-            OtherUtility.translate("&7Manage the analysis checks"),
-            OtherUtility.translate(OtherUtility.guiLine())
-    )));
-    gui.setItem(14, GuiUtility.generateItem(new ItemStack(Material.ANVIL, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ground"),
-    Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-            OtherUtility.translate("&7Manage the ground checks"),
-            OtherUtility.translate(OtherUtility.guiLine())
-    )));
-    gui.setItem(15, GuiUtility.generateItem(new ItemStack(serverVersion.isNewerThanOrEquals(ServerVersion.V_1_13) ? Material.ELYTRA : Material.BARRIER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Elytra"),
-    Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-            OtherUtility.translate("&7Manage the elytra checks"),
-            OtherUtility.translate(OtherUtility.guiLine())
-    )));
+        gui.setItem(10, GuiUtility.generateItem(new ItemStack(Material.FEATHER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Fly"),
+                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+                        OtherUtility.translate("&7Manage the fly checks"),
+                        OtherUtility.translate(OtherUtility.guiLine())
+                )));
+        gui.setItem(11, GuiUtility.generateItem(new ItemStack(Material.SUGAR, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Speed"),
+                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+                        OtherUtility.translate("&7Manage the speed checks"),
+                        OtherUtility.translate(OtherUtility.guiLine())
+                )));
+        gui.setItem(12, GuiUtility.generateItem(new ItemStack(Material.RABBIT_FOOT, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Motion"),
+                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+                        OtherUtility.translate("&7Manage the motion checks"),
+                        OtherUtility.translate(OtherUtility.guiLine())
+                )));
+        gui.setItem(13, GuiUtility.generateItem(new ItemStack(Material.BEACON, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Analysis"),
+                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+                        OtherUtility.translate("&7Manage the analysis checks"),
+                        OtherUtility.translate(OtherUtility.guiLine())
+                )));
+        gui.setItem(14, GuiUtility.generateItem(new ItemStack(Material.ANVIL, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ground"),
+                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+                        OtherUtility.translate("&7Manage the ground checks"),
+                        OtherUtility.translate(OtherUtility.guiLine())
+                )));
+        gui.setItem(15, GuiUtility.generateItem(new ItemStack(serverVersion.isNewerThanOrEquals(ServerVersion.V_1_13) ? Material.ELYTRA : Material.BARRIER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Elytra"),
+                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+                        OtherUtility.translate("&7Manage the elytra checks"),
+                        OtherUtility.translate(OtherUtility.guiLine())
+                )));
 
-    gui.setItem(22, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
-    Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-            OtherUtility.translate("&7Click to go back."),
-            OtherUtility.translate(OtherUtility.guiLine())
-    )));
+        gui.setItem(22, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
+                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+                        OtherUtility.translate("&7Click to go back."),
+                        OtherUtility.translate(OtherUtility.guiLine())
+                )));
 
-    ItemStack spacer = GuiUtility.createSpacer();
+        ItemStack spacer = GuiUtility.createSpacer();
 
-    for (int slots = 0; slots < 27; slots++) {
-    if (gui.getItem(slots) == null) gui.setItem(slots, spacer);
+        for (int slots = 0; slots < 27; slots++) {
+            if (gui.getItem(slots) == null) gui.setItem(slots, spacer);
 
-    }
-    player.openInventory(gui);
+        }
+        player.openInventory(gui);
     }
 
     public void openMiscChecksGUI(Player player) {

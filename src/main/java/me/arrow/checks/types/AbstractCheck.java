@@ -17,6 +17,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.utils.MiscUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.OtherUtility;
+import me.arrow.utils.customutils.animationSystem.Animation;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -137,7 +138,7 @@ public abstract class AbstractCheck {
                 this.checkType,
                 verboseTitle,
                 verboseInfo,
-                Config.Setting.PUNISH_ENABLED.getBoolean() ? this.vl++ : 0,
+                this.vl++,
                 this.maxVl,
                 this.experimental);
 
@@ -169,26 +170,64 @@ public abstract class AbstractCheck {
 
 
 
-        if (this.vl >= this.maxVl && Config.Setting.PUNISH_ENABLED.getBoolean() && isCanPunish() && getPunishMode().equals("BAN")) {
+        if (this.vl >= this.maxVl
+                && Config.Setting.PUNISH_ENABLED.getBoolean()
+                && isCanPunish()
+                && getPunishMode().equals("BAN")
+                && !profile.isBanned()
+        ) {
 
-            TaskUtils.task(() -> MiscUtils.consoleCommand(Config.Setting.PUNISH_COMMAND.getString().replace("%player%", p.getName())));
+            final String playerName = p.getName();
 
-            Bukkit.broadcastMessage(OtherUtility.getPunishMessage(p));
-            if (Config.Setting.WEBHOOK_ENABLED.getBoolean()) sendPunishWebhook(profile.getPlayer().getName(), "BAN");
+            // temporary test, i will later add a config option to select animation style
+            // and an toggle in the anticheat settings gui, to turn the animation completely off if you wish.
 
-            this.vl = 1;
-            this.buffer = 0;
-            profile.setBanned(true);
+            String animationName = Config.Setting.BAN_ANIMATION_CURRENT.getString();
+
+            Animation.Type animationType;
+
+            try {
+                animationType = Animation.Type.valueOf(animationName.toUpperCase());
+            } catch (Exception ignored) {
+                animationType = Animation.Type.DESTROYED;
+            }
+
+            boolean started = Arrow.getInstance().getAnimationManager().play(animationType, p, () -> {
+                profile.setBanned(true);
+
+                OtherUtility.antiCheatban(p);
+
+                TaskUtils.task(() -> MiscUtils.consoleCommand(
+                        Config.Setting.PUNISH_COMMAND.getString().replace("%player%", playerName)
+                ));
+
+                Bukkit.broadcastMessage(OtherUtility.getPunishMessage(p));
+
+                if (Config.Setting.WEBHOOK_ENABLED.getBoolean()) {
+                    sendPunishWebhook(playerName, "BAN");
+                }
+
+                this.vl = 1;
+                this.buffer = 0;
+            });
+
+            if (!started) {
+                return;
+            }
         }
-        else if (this.vl >= this.maxVl && Config.Setting.PUNISH_ENABLED.getBoolean() && isCanPunish() && getPunishMode().equals("KICK")) {
-
+        else if (this.vl >= this.maxVl
+                && Config.Setting.PUNISH_ENABLED.getBoolean()
+                && isCanPunish()
+                && getPunishMode().equals("KICK")
+                && !profile.isBanned()
+        ) {
+            profile.setBanned(true);
             profile.kick("Timed Out (A. K.)");
-            Bukkit.broadcastMessage(OtherUtility.getPunishMessage(p));
+            //Bukkit.broadcastMessage(OtherUtility.getPunishMessage(p));
             if (Config.Setting.WEBHOOK_ENABLED.getBoolean()) sendPunishWebhook(profile.getPlayer().getName(), "KICK");
 
             this.vl = 1;
             this.buffer = 0;
-            profile.setBanned(true);
         }
     }
 

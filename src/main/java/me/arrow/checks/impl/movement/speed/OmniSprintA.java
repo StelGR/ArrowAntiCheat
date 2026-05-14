@@ -8,13 +8,10 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.customutils.Math.MathUtil;
-import me.arrow.utils.customutils.OtherUtility;
 
 // Omni sprint check, alot of the examples i saw on open source anticheats, have alot of issues with the direction, and it seems like this isn't immune either
 // i tried to get gpt to help me make a proper direction check, and it did a decent job, but world desync still falses this alot
@@ -43,7 +40,6 @@ public class OmniSprintA extends Check {
         }
 
         MovementData movementData = profile.getMovementData();
-        RotationData rotationData = profile.getRotationData();
         ActionData actionData = profile.getActionData();
 
         boolean exempt =

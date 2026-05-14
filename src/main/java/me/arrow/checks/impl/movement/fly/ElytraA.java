@@ -65,7 +65,7 @@ public class ElytraA extends Check {
 
             boolean serverGround = movementData.isServerGround();
             boolean clientGround = movementData.isOnGround();
-            boolean inAir = Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.isCustomHeavyInAir() : movementData.isCustomInAir();
+            boolean inAir = movementData.isCustomInAir();
             double deltaY = movementData.getDeltaY();
             boolean isMoving = movementData.isMoving();
             int airTicks = movementData.getCustomAirTicks();

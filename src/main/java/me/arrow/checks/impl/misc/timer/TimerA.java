@@ -27,7 +27,7 @@ public class TimerA extends Check {
     public void handle(PacketSendEvent event) {
         if (event.getPacketType().equals(PacketType.Play.Server.PLAYER_POSITION_AND_LOOK)) {
             this.balance -= 800L;
-            balance = Math.max(-800L, balance);
+            balance = Math.min(-800L, balance);
         }
     }
 
@@ -56,28 +56,26 @@ public class TimerA extends Check {
 
             if ((profile.getConnectionData().getTransPing() - profile.getConnectionData().getLastTransPing()) > 1000) {
                 this.balance -= 800L;
-                balance = Math.max(-800L, balance);
+                balance = Math.min(-800L, balance);
             }
 
-            if (profile.getTick() > 60) {
-                balance = balance + 50 - elapsed;
+            balance = (balance + 50) - elapsed;
 
-                if (this.balance > this.maxValue)  {
-                    if (threshold++ > 2) {
-                        fail("Speeding up Time",
-                                "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + balance
-                                + "\nelapsed " + MsgType.MAIN_THEME_COLOR.getMessage() + elapsed
-                                + "\nlastMs " + MsgType.MAIN_THEME_COLOR.getMessage() + lastMs);
-                    }
-
-                    balance = 0;
-                    elapsed = 0;
-                    lastMs = now;
-
-                    //this.balance = 0;
-                } else {
-                    threshold -= Math.min(threshold, 0.1);
+            if (this.balance > this.maxValue)  {
+                if (threshold++ > 2) {
+                    fail("Speeding up Time",
+                            "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + balance
+                                    + "\nelapsed " + MsgType.MAIN_THEME_COLOR.getMessage() + elapsed
+                                    + "\nlastMs " + MsgType.MAIN_THEME_COLOR.getMessage() + lastMs);
                 }
+
+                balance = 0;
+                elapsed = 0;
+                lastMs = now;
+
+                //this.balance = 0;
+            } else {
+                threshold -= Math.min(threshold, 0.1);
             }
 
             verbose(this.getClass().getSimpleName(), balance, maxValue, "balance " + balance
@@ -87,7 +85,7 @@ public class TimerA extends Check {
             //this.lastPacket = now;
 
             lastMs = now;
-            balance = Math.max(-800L, balance);
+            balance = Math.min(-800L, balance);
         }
     }
 }

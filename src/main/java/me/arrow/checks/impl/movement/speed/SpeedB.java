@@ -311,7 +311,7 @@ public class SpeedB extends Check {
                         int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 30 : 15;
 
                         if (movementData.isMovingUp() || movementData.getVerticalMove() == MovementPredictionUtil.VerticalMove.UP) {
-                            vlBuffer = Math.max(0.0D, vlBuffer - 0.05D);
+                            vlBuffer = Math.max(0.0D, vlBuffer - 0.5D);
                             //lastMove = new Vector(deltaX, 0.0, deltaZ);
                             //return;
                         }

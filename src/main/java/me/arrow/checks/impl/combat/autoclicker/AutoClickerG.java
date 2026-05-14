@@ -26,7 +26,7 @@ public class AutoClickerG extends Check {
     }
 
     List<Integer> clickData = new CopyOnWriteArrayList<>();
-    double buffer, lastSTD;
+    double buffer;
 
     private int movements;
     private boolean digging;

@@ -11,7 +11,6 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.VehicleData;
 import org.bukkit.Location;
-import org.bukkit.block.PistonMoveReaction;
 import org.bukkit.entity.Boat;
 import org.bukkit.entity.Entity;
 

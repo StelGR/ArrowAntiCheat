@@ -16,6 +16,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 
 import java.lang.reflect.Method;
+import java.util.regex.Pattern;
 
 import static org.bukkit.Bukkit.getServer;
 
@@ -27,6 +28,12 @@ public class OtherUtility {
 
     public static String translate(String source) {
         return ChatColor.translateAlternateColorCodes('&', source);
+    }
+
+    private static final Pattern COLOR_CODE_PATTERN = Pattern.compile("§[0-9A-Fa-fK-ORk-o]");
+
+    public static String stripColorCodes(String input) {
+        return COLOR_CODE_PATTERN.matcher(input).replaceAll("");
     }
 
     public static void log(String info) {

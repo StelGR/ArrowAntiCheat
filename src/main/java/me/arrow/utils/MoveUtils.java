@@ -114,8 +114,8 @@ public final class MoveUtils {
 
 
     public static double getJumpMotion(Profile profile) {
-        float motion = profile.isBedrockPlayer()
-                ? (float) BEDROCK_JUMP_MOTION
+        double motion = profile.isBedrockPlayer()
+                ? BEDROCK_JUMP_MOTION
                 : 0.42F;
 
         if (profile.getPotionData().isHasJump()) {

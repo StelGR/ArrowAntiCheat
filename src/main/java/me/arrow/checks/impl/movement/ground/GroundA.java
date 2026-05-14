@@ -6,7 +6,6 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 
@@ -52,7 +51,7 @@ public class GroundA extends Check {
             boolean clientGround = movementData.isOnGround();
             boolean serverGround2 = movementData.isServerYGround();
 
-            boolean invalid2 = !serverGround2 && clientGround && (Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.getCustomHeavyAirTicks() : movementData.getCustomAirTicks()) != 0;
+            boolean invalid2 = !serverGround2 && clientGround && movementData.getCustomAirTicks() != 0;
 
             boolean invalid1 = !serverGround && !clientGround && movementData.isCustomInAir() && movementData.getClientAirTicks() == 0 && movementData.getServerAirTicks() > 3 && ( movementData.getCustomAirTicks() == 1 || movementData.getCustomAirTicks() > 5);
 
@@ -62,7 +61,7 @@ public class GroundA extends Check {
                     && !movementData.isMovingUp()
                     && movementData.getSincePredictDownwardsTicks() < 10
                     && movementData.getSincePredictUpwardsTicks() < 10
-                    && (Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.getCustomHeavyAirTicks() : movementData.getCustomAirTicks()) >= 2
+                    && movementData.getCustomAirTicks() >= 2
                     && !profile.isBedrockPlayer();
 
             if (invalid1 || invalid2
@@ -103,7 +102,7 @@ public class GroundA extends Check {
                     !serverGround && clientGround && !movementData.isMovingDown()
                             && movementData.getSincePredictDownwardsTicks() < 10
                             && movementData.getSincePredictUpwardsTicks() < 10
-                            && (Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.getCustomHeavyAirTicks() : movementData.getCustomAirTicks()) > 1
+                            && movementData.getCustomAirTicks() > 1
                     : (!serverGround && clientGround );
 
             if (invalid) {

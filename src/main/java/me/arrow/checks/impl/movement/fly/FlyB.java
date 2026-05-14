@@ -174,15 +174,14 @@ public class FlyB extends Check {
             if (profile.getPotionData().isHasSlowFalling()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (slow falling)");
                 movementData.setCustomAirTicks(0);
-                movementData.setCustomHeavyAirTicks(0);
             }
 
-            int clientAirTicks = Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.getCustomHeavyAirTicks() : movementData.getCustomAirTicks();
+            int clientAirTicks = movementData.getCustomAirTicks();
 
             double deltaY = movementData.getDeltaY();
             double fallDistance = profile.getPlayer().getFallDistance();
             double deltaXZ = movementData.getDeltaXZ();
-            boolean inAir = Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.isCustomHeavyInAir() : movementData.isCustomInAir();
+            boolean inAir = movementData.isCustomInAir();
             boolean serverGround = movementData.isServerGround();
             boolean clientGround = movementData.isOnGround();
 
@@ -322,7 +321,7 @@ public class FlyB extends Check {
 
             if (inAir
                     && profile.getLastBlockPlaceTimer().passed(2 + profile.getConnectionData().getClientTickTrans())
-                    && (Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.getCustomHeavyAirTicks() : movementData.getCustomAirTicks()) > maxTicks
+                    && movementData.getCustomAirTicks() > maxTicks
                     && !movementData.isNearWater()
                     && !movementData.isNearWebs()
                     && !movementData.isInsideLiquid()) {

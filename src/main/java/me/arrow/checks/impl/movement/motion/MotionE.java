@@ -51,11 +51,11 @@ public class MotionE extends Check {
             MovementData movementData = profile.getMovementData();
 
             int clientAirTicks = movementData.getClientAirTicks();
-            int serverAirTicks = Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.getCustomHeavyAirTicks() : movementData.getCustomAirTicks();
+            int serverAirTicks = movementData.getCustomAirTicks();
 
             double deltaY = movementData.getDeltaY();
             double deltaXZ = movementData.getDeltaXZ();
-            boolean inAir = Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.isCustomHeavyInAir() : movementData.isCustomInAir();
+            boolean inAir = movementData.isCustomInAir();
             boolean serverGround = movementData.isServerGround();
             boolean clientGround = movementData.isOnGround();
 

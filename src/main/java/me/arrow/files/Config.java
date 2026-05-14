@@ -4,6 +4,7 @@ import lombok.Getter;
 import me.arrow.Arrow;
 import me.arrow.files.commentedfiles.CommentedFileConfiguration;
 import me.arrow.managers.Initializer;
+import me.arrow.utils.customutils.animationSystem.Animation;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -76,7 +77,9 @@ public class Config implements Initializer {
 
         TRANSACTION_KICKS("transaction_kicks", true, "Should we kick for transactions? Do not turn this off unless you are facing issues, because the entire anti cheat almost can be disabled by a cheater cancelling transaction packets."),
 
-        HEAVY_PROCESSOR("heavy_processor", false, "Should we use the more precise air processor? Will cause performance issues on weaker hardware!!!"),
+        BAN_ANIMATION("animation", "", "Animation Settings"),
+        BAN_ANIMATION_ENABLED("animation.enabled", true, "Should we use ban animations?"),
+        BAN_ANIMATION_CURRENT("animation.currentAnimation", Animation.Type.DESTROYED.name(), "Which animation should we use? (ANVIL, DESTROYED or LOUD)"),
 
         //DISABLE_BYPASS_PERMISSION("disable_bypass_permission", true, "Should we disable the bypass permission?", "Disable this for some perfomance gain"),
 

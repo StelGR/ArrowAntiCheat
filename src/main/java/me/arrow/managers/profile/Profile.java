@@ -336,10 +336,10 @@ public class Profile {
 
     public boolean isOnGhostBlock() {
 
-        boolean isGhostBlock = (Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.isCustomHeavyInAir() : movementData.isCustomInAir())
+        boolean isGhostBlock = movementData.isCustomInAir()
                 && movementData.isOnGround()
                 && getTick() > 20
-                && (Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.getCustomHeavyAirTicks() : movementData.getCustomAirTicks()) >= 2
+                && movementData.getCustomAirTicks() >= 2
                 && !isExempt().isTeleports()
                 && isExempt().isRespawned()
                 && !isExempt().isDead()

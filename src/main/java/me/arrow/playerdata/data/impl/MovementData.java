@@ -76,7 +76,7 @@ public class MovementData implements Data {
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround, isDigging,
-        nearWater, nearBubble, nearLava, nearContact, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, customHeavyInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onHoney, onSoulSand, movingUp, movingDown, isRiptiding;
+        nearWater, nearBubble, nearLava, nearContact, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onHoney, onSoulSand, movingUp, movingDown, isRiptiding;
 
 
     @Getter
@@ -84,7 +84,7 @@ public class MovementData implements Data {
     int clientAirTicks, serverAirTicks, serverGroundTicks, serverGroundTicksPlus, lastServerGroundTicks, nearGroundTicks, lastNearGroundTicks,
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
-            customAirTicks, customHeavyAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
+            customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
             sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, tick, sinceTeleportTicks;
 
     @Getter
@@ -618,7 +618,6 @@ public class MovementData implements Data {
         climb = MaterialType.isMaterial(nms.getType(location.clone().subtract(0D, -1D, 0D).getBlock()).name(), MaterialType.CLIMBABLE)
                 || MaterialType.isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
 
-        customHeavyInAir = isCustomHeavyInAir(getLocation());
     }
 
     private boolean isCustomHeavyInAir(CustomLocation location) {
@@ -759,11 +758,6 @@ public class MovementData implements Data {
 
         moving = (deltaXZ != 0.0D && deltaXZ != lastDeltaXZ) || (deltaY != 0.0D && deltaY != lastDeltaY);
 
-
-        if (profile.isBedrockPlayer()) {
-            boolean jumpedCleanly = !isOnGround() && isLastOnGround() && deltaY > 0.4199D && deltaY < 0.421D;
-            MoveUtils.BEDROCK_JUMP_MOTION = deltaY;
-        }
         //Ghost Blocks
 
         //this.ghostBlockProcessor.process();
@@ -906,21 +900,6 @@ public class MovementData implements Data {
             customAirTicks = 0;
         }
 
-        if (isCustomHeavyInAir()
-                && !profile.getPlayer().isInsideVehicle()
-                && !isClimb()
-                && !isNearWebs()
-                && !EntityUtil.isOnBoat(profile)
-                && !profile.isBouncingOnSlime()
-                && profile.getVelocityData().getTotalVerticalVelocity() < 1
-                && profile.getMovementData().getSinceOnGhostBlock() > (4 + profile.getConnectionData().getClientTickTrans())
-            //&& !CollisionUtils.isNearEdge(getLocation())
-        ) {
-            customHeavyAirTicks++;
-        } else {
-            customHeavyAirTicks = 0;
-        }
-
         if (isNearWall()
                 && !(isNearLava() || isInsideWater() || isNearWebs())
                 && !profile.getPlayer().isInsideVehicle()){
@@ -1060,6 +1039,41 @@ public class MovementData implements Data {
         else sinceOnGhostBlock++;
 
         dolphinGraceBoost = dolphinGraceMomentum();
+
+
+        // very poor attempt at syncing the randomized jump height to prevent falses on the checks.
+        // there should be a better way right... anyway, bedrock is cancer but i must support bedrock
+        // no matter what, as you can spoof your client to be on bedrock, or yk cheats exist on bedrock
+        if (profile.isBedrockPlayer()) {
+            boolean groundTransition = !isOnGround() && isLastOnGround();
+
+            boolean cleanContext =
+                    !profile.shouldCancel()
+                            && !profile.getExempt().vehicle()
+                            && !profile.getVelocityData().isTakingVelocity()
+                            && profile.getMovementData().getSinceCollideTicks() > 5
+                            && profile.getMovementData().isNearClimbable()
+                            && profile.getMovementData().getSinceNearWaterTicks() > 5
+                            && profile.getMovementData().isNearWebs()
+                            && profile.getMovementData().getSinceSlimeTicks() > 5
+                            && profile.getMovementData().getSinceTeleportTicks() > 5;
+
+            boolean possibleJump =
+                    deltaY > 0.41D
+                            && deltaY < 0.43D;
+
+            if (groundTransition && cleanContext && possibleJump) {
+                MoveUtils.BEDROCK_JUMP_MOTION = deltaY;
+            }
+            if (Config.Setting.DEBUG.getBoolean()) {
+                OtherUtility.log("[Bedrock Jump Calibration] "
+                        + profile.getPlayer().getName()
+                        + " possibleJump " + possibleJump
+                        + " deltaY=" + deltaY
+                        + " lastGround=" + isLastOnGround()
+                        + " ground=" + isOnGround());
+            }
+        }
 
 //        if (profile.getTick() > 120) {
 //            if (profile.getConnectionData().getTransDropTick() > (profile.getConnectionData().getLastTransPing() + (profile.getConnectionData().getClientTickTrans() * 3))) {

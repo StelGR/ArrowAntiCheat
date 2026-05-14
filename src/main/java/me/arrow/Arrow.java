@@ -3,6 +3,7 @@ package me.arrow;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -32,9 +33,11 @@ import me.arrow.tasks.TickTask;
 import me.arrow.tasks.ViolationTask;
 import me.arrow.utils.MiscUtils;
 import me.arrow.utils.ReflectionUtils;
+import me.arrow.utils.customutils.GeyserConfigEnforcer;
 import me.arrow.utils.customutils.GuiStuff.GuiListener;
 import me.arrow.utils.customutils.GuiStuff.GuiManager;
 import me.arrow.utils.customutils.OtherUtility;
+import me.arrow.utils.customutils.animationSystem.AnimationManager;
 import me.arrow.utils.versionutils.impl.VelocityClientVersionBridge;
 import org.bukkit.Bukkit;
 import org.bukkit.event.HandlerList;
@@ -93,7 +96,7 @@ public final class Arrow {
     private static final GuiManager guiManager = new GuiManager();
 
     @Getter
-    private final String version = "106-pre3";
+    private final String version = "106";
 
     @Getter
     private final JavaPlugin host;     // the “real” plugin, either ArrowPlugin or ArrowLoader
@@ -125,6 +128,9 @@ public final class Arrow {
 
     @Getter
     private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+
+    @Getter
+    private AnimationManager animationManager;
 
     @Getter
     public boolean hasLoaded;
@@ -185,6 +191,8 @@ public final class Arrow {
             (this.checks = new Checks(getHost())).initialize();
             log(translate("&6" + "➪  Checks file Initialized"));
 
+
+
             PacketEvents.getAPI().getEventManager().registerListener(new NetworkListener(this));
             log(translate("&6" + "➪  NetworkListener Initialized"));
 
@@ -224,12 +232,13 @@ public final class Arrow {
 
             log(translate("&6" + "➪  Bukkit Listeners Initialized"));
 
-            getHost().getCommand("arrow").setExecutor(new CommandManager(this));
+            Objects.requireNonNull(getHost().getCommand("arrow")).setExecutor(new CommandManager(this));
 
             log(translate("&6" + "➪  Command Manager Initialized"));
 
-            if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean())
-                getHost().getCommand("stuck").setExecutor(new Stuck());
+            if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
+                Objects.requireNonNull(getHost().getCommand("stuck")).setExecutor(new Stuck());
+            }
 
             if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) System.setProperty("com.viaversion.handlePingsAsInvAcknowledgements", "true");
             try {
@@ -247,6 +256,9 @@ public final class Arrow {
                 e.printStackTrace();
             }
 
+            this.animationManager = new AnimationManager(getHost());
+            log(translate("&6" + "➪  Animation Manager initialized"));
+
             RodData.init(getHost());
 
             long endTime = System.currentTimeMillis();
@@ -261,7 +273,7 @@ public final class Arrow {
 
             hasLoaded = true;
 
-        }, 8L);
+        }, 10L);
 
     }
 
@@ -318,6 +330,13 @@ public final class Arrow {
     public void logBedrockSupport() {
         boolean enabled = floodgatePresent || geyserPresent;
         log(translate("&6➪  Bedrock support is " + (enabled ? "&aENABLED" : "&cDISABLED")));
+
+        if (Bukkit.getPluginManager().isPluginEnabled("Geyser-Spigot")
+                || Bukkit.getPluginManager().isPluginEnabled("Geyser-Bukkit")
+                || Bukkit.getPluginManager().isPluginEnabled("Geyser")) {
+
+            GeyserConfigEnforcer.enforceForwardPlayerPing(getHost(), true);
+        }
     }
 
 }

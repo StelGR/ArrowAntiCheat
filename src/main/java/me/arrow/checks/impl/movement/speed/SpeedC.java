@@ -140,7 +140,7 @@ public class SpeedC extends Check {
                             + "\n * blockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
                             + "\n * frictionMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + frictionMultiplier
                             + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaY()
-                            + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks() +"|"+ movementData.getCustomHeavyAirTicks()
+                            + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
                             + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
                             + "\n * attributeValue " + MsgType.MAIN_THEME_COLOR.getMessage() + MathUtil.getAttributeSpeed(profile, isSprinting)
                             + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)

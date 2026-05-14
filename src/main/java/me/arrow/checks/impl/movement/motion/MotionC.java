@@ -98,7 +98,7 @@ public class MotionC extends Check {
             boolean serverGround = movementData.isServerYGround();
             boolean clientGround = movementData.isOnGround();
             int nearWallTicks = movementData.getNearWallTicks();
-            int serverAirTicks = Config.Setting.HEAVY_PROCESSOR.getBoolean() ? movementData.getCustomHeavyAirTicks() : movementData.getCustomAirTicks();
+            int serverAirTicks = movementData.getCustomAirTicks();
 
             boolean blockInHand = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer()).getType().isBlock();
             boolean blockInOffHand = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInOffHand(profile.getPlayer()).getType().isBlock();

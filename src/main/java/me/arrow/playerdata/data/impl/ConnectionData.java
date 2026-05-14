@@ -73,77 +73,40 @@ public class ConnectionData implements Data {
 
     private void processTransaction(int pingID, short actionID, Player user) {
         Profile profileT = Arrow.getInstance().getProfileManager().getProfile(user);
+        if (profileT == null) return;
 
-        //OtherUtility.log("processing: " + actionId);
-        boolean modernTransaction = PacketEvents.getAPI()
-                .getServerManager()
-                .getVersion()
-                .isNewerThanOrEquals(ServerVersion.V_1_17) && !profileT.isBedrockPlayer();
+        Long sentTime = null;
 
-        if (modernTransaction) {
-            if (profileT.getISentTransactions().containsKey(pingID)) {
-                long sentTime = profileT.getISentTransactions().get(pingID);
-
-                if (!profileT.isHasReceivedTransaction()) {
-                    transactionStamp = sentTime;
-                }
-
-                profileT.setHasReceivedTransaction(true);
-                lastTransPing = transPing;
-                transPing = (int) (System.currentTimeMillis() - sentTime);
-                flyingTick = 0;
-                transDropTick = 0;
-                lastFlyingReceived++;
-                dropTransTime = Math.abs(transPing - lastTransPing);
-                clientTickTrans = (int) Math.ceil(transPing / 50.0);
-
-                pingList.add(transPing);
-                if (pingList.size() > 250) {
-                    averageTransactionPing = (int) MathUtil.getAverage(pingList);
-                    pingList.clear();
-                }
-                profileT.getISentTransactions().remove(pingID);
-                //OtherUtility.log("Processed: " + actionId);
-            }
-        } else {
-            if (profileT.getSSentTransactions().containsKey(actionID)) {
-                long sentTime = profileT.getSSentTransactions().get(actionID);
-
-                if (!profileT.isHasReceivedTransaction()) {
-                    transactionStamp = sentTime;
-                }
-
-                profileT.setHasReceivedTransaction(true);
-                lastTransPing = transPing;
-                transPing = (int) (System.currentTimeMillis() - sentTime);
-                flyingTick = 0;
-                transDropTick = 0;
-                lastFlyingReceived++;
-                dropTransTime = Math.abs(transPing - lastTransPing);
-                clientTickTrans = (int) Math.ceil(transPing / 50.0);
-
-                pingList.add(transPing);
-                if (pingList.size() > 250) {
-                    averageTransactionPing = (int) MathUtil.getAverage(pingList);
-                    pingList.clear();
-                }
-
-                profileT.getSSentTransactions().remove(actionID);
-            }
+        if (profileT.getISentTransactions().containsKey(pingID)) {
+            sentTime = profileT.getISentTransactions().remove(pingID);
+        } else if (profileT.getSSentTransactions().containsKey(actionID)) {
+            sentTime = profileT.getSSentTransactions().remove(actionID);
         }
-    }
 
-    private void processKeepAlive(long keepAliveId, Player user) {
-        Profile profileKA = Arrow.getInstance().getProfileManager().getProfile(user);
+        if (sentTime == null) {
+            return;
+        }
 
-        if (profileKA.getSentKeepAlives().containsKey(keepAliveId)) {
-            long sentTime = profileKA.getSentKeepAlives().get(keepAliveId);
-            ping = (int) (System.currentTimeMillis() - sentTime);
-            lastFlyingReceived++;
-            keepDropTick = 0;
-            clientTick = (int) Math.ceil(ping / 50.0);
-            //log("Received Keep-Alive ID: "+keepAliveId);
-            profileKA.getSentKeepAlives().remove(keepAliveId);
+        if (!profileT.isHasReceivedTransaction()) {
+            transactionStamp = sentTime;
+        }
+
+        profileT.setHasReceivedTransaction(true);
+
+        lastTransPing = transPing;
+        transPing = (int) (System.currentTimeMillis() - sentTime);
+
+        flyingTick = 0;
+        transDropTick = 0;
+        lastFlyingReceived++;
+        dropTransTime = Math.abs(transPing - lastTransPing);
+        clientTickTrans = (int) Math.ceil(transPing / 50.0);
+
+        pingList.add(transPing);
+
+        if (pingList.size() > 250) {
+            averageTransactionPing = (int) MathUtil.getAverage(pingList);
+            pingList.clear();
         }
     }
 }
