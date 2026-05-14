@@ -184,23 +184,17 @@ public class VelocityData implements Data {
     }
 
     private void handleAck(int id, short id2) {
-        if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_17)) {
-            WrappedData wrappedData = pWrappedDataMap.remove(id);
+        WrappedData wrappedData = pWrappedDataMap.remove(id);
 
-            if (wrappedData == null) {
-                return;
-            }
-
-            handleWrappedData(wrappedData);
-        } else {
-            WrappedData wrappedData = tWrappedDataMap.remove(id2);
-
-            if (wrappedData == null) {
-                return;
-            }
-
-            handleWrappedData(wrappedData);
+        if (wrappedData == null) {
+            wrappedData = tWrappedDataMap.remove(id2);
         }
+
+        if (wrappedData == null) {
+            return;
+        }
+
+        handleWrappedData(wrappedData);
     }
 
     private void handleWrappedData(WrappedData wrappedData) {
@@ -262,8 +256,7 @@ public class VelocityData implements Data {
     }
 
     public void add(Actions action, Vector vector) {
-        int transactionId = profile.getTransactionProcessor().getNextTimeTransaction();
-        short sTransactionId = profile.getTransactionProcessor().getNextSTimeTransaction();
+        if (vector == null) return;
 
         WrappedData wrappedData = new WrappedData(
                 System.currentTimeMillis(),
@@ -274,19 +267,24 @@ public class VelocityData implements Data {
         boolean modernTransaction = PacketEvents.getAPI()
                 .getServerManager()
                 .getVersion()
-                .isNewerThanOrEquals(ServerVersion.V_1_17) && !profile.isBedrockPlayer();
+                .isNewerThanOrEquals(ServerVersion.V_1_17);
 
         if (modernTransaction) {
+            int transactionId = profile.getTransactionProcessor().getNextTimeTransaction();
+
             WrapperPlayServerPing packetConfirm = new WrapperPlayServerPing(transactionId);
             pWrappedDataMap.put(packetConfirm.getId(), wrappedData);
             profile.sendPacket(packetConfirm);
-        } else {
-            WrapperPlayServerWindowConfirmation packet =
-                    new WrapperPlayServerWindowConfirmation(0, sTransactionId, false);
-
-            tWrappedDataMap.put(packet.getActionId(), wrappedData);
-            profile.sendPacket(packet);
+            return;
         }
+
+        short sTransactionId = profile.getTransactionProcessor().getNextSTimeTransaction();
+
+        WrapperPlayServerWindowConfirmation packet =
+                new WrapperPlayServerWindowConfirmation(0, sTransactionId, false);
+
+        tWrappedDataMap.put(packet.getActionId(), wrappedData);
+        profile.sendPacket(packet);
     }
 
     public enum Actions {
