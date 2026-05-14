@@ -44,3 +44,13 @@ Thank you everyone who has helped me throughout the years in testing, improving,
 
 Website: https://arrow-anticheat.xyz
 Discord: https://discord.gg/yDACvQtNjB
+
+--------------------------------------------------------------
+
+Arrow Anticheat is licensed under the GNU Affero General Public License v3.0 or later.
+
+You may use, modify, and redistribute this software under the terms of the AGPLv3.
+
+If you run a modified version on a public or private Minecraft server, you must provide the complete corresponding source code of your modified version to users who interact with that server, as required by AGPLv3 section 13.
+
+The names "Arrow", "Arrow Anticheat", logos, artwork, website branding, and official service names are not licensed for use in modified or redistributed versions without explicit permission.
