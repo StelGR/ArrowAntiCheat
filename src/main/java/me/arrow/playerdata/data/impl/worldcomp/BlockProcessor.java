@@ -68,6 +68,8 @@ public class BlockProcessor implements Data {
     private int lastGhostBlockTick = 100;
     private int lastGhostLiquidWebTick = 100;
 
+
+
     private boolean nearGhostBlock;
     private boolean onGhostBlock;
     private boolean insideGhostBlock;
@@ -473,6 +475,33 @@ public class BlockProcessor implements Data {
         this.underGhostBlock = false;
         this.interactingGhostBlock = false;
 
+        ClientWorldTracker.CollisionResult clientWorldResult =
+                data.getClientWorldTracker() != null
+                        ? data.getClientWorldTracker().scanPlayerCollision()
+                        : null;
+
+        if (clientWorldResult != null && clientWorldResult.shouldExemptMovementChecks()) {
+            this.nearGhostBlock = clientWorldResult.nearGhostBlock;
+            this.onGhostBlock = clientWorldResult.onGhostBlock;
+            this.insideGhostBlock = clientWorldResult.insideGhostBlock || clientWorldResult.insideServerOnlyBlock;
+            this.underGhostBlock = clientWorldResult.underGhostBlock;
+            this.interactingGhostBlock = clientWorldResult.interactingGhostBlock || clientWorldResult.nearGhostBlock;
+            this.lastGhostBlockTick = 0;
+
+            if (clientWorldResult.physicsMismatch || clientWorldResult.clientOnlyBlock || clientWorldResult.serverOnlyBlock) {
+                this.lastGhostLiquidWebTick = 0;
+            }
+
+            if (autoCorrectGhostBlocks && this.lastGhostInteractionAreaSyncTick > GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS) {
+                data.getClientWorldTracker().syncCollisionArea(clientWorldResult);
+                this.lastGhostInteractionAreaSyncTick = 0;
+            }
+
+            if (clientWorldResult.shouldSetback()) {
+                data.getMovementData().getSetbackProcessor().causeSetBack(this.getClass().getSimpleName());
+            }
+        }
+
         CustomLocation location = data.getMovementData().getLocation();
 
         if (location == null) {
@@ -482,51 +511,49 @@ public class BlockProcessor implements Data {
         boolean physicsGhost = false;
 
         synchronized (ghostBlockLock) {
-            if (ghostBlocks.isEmpty()) {
-                return;
-            }
+            if (!ghostBlocks.isEmpty()) {
+                for (GhostBlock ghost : ghostBlocks) {
+                    boolean near = isPlayerCloseTo(ghost.position, 2.25D, 2.75D);
+                    boolean on = isPlayerStandingOnGhost(ghost.position);
+                    boolean inside = isPlayerInsideGhost(ghost.position);
+                    boolean under = isPlayerUnderGhost(ghost.position);
 
-            for (GhostBlock ghost : ghostBlocks) {
-                boolean near = isPlayerCloseTo(ghost.position, 2.25D, 2.75D);
-                boolean on = isPlayerStandingOnGhost(ghost.position);
-                boolean inside = isPlayerInsideGhost(ghost.position);
-                boolean under = isPlayerUnderGhost(ghost.position);
+                    if (near || on || inside || under) {
+                        this.nearGhostBlock = true;
+                        this.interactingGhostBlock = true;
+                        this.lastGhostBlockTick = 0;
 
-                if (near || on || inside || under) {
-                    this.nearGhostBlock = true;
-                    this.interactingGhostBlock = true;
-                    this.lastGhostBlockTick = 0;
+                        ghost.interactionTicks++;
 
-                    ghost.interactionTicks++;
-
-                    if (isPhysicsGhostMaterial(ghost.material)) {
-                        physicsGhost = true;
-                    }
-
-                    if (autoCorrectGhostBlocks && ghost.syncCooldownTicks <= 0) {
-                        syncRealBlockToClient(ghost.position);
-                        syncRealBlockToClient(ghost.position.clone().add(new Vector(0, 1, 0)));
-                        syncRealBlockToClient(ghost.position.clone().add(new Vector(0, -1, 0)));
-
-                        if (this.lastGhostInteractionAreaSyncTick > GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS) {
-                            syncRealBlocksAroundPlayer(2, 2, 3);
-                            this.lastGhostInteractionAreaSyncTick = 0;
+                        if (isPhysicsGhostMaterial(ghost.material)) {
+                            physicsGhost = true;
                         }
 
-                        ghost.syncCooldownTicks = GHOST_SYNC_COOLDOWN_TICKS;
+                        if (autoCorrectGhostBlocks && ghost.syncCooldownTicks <= 0) {
+                            syncRealBlockToClient(ghost.position);
+                            syncRealBlockToClient(ghost.position.clone().add(new Vector(0, 1, 0)));
+                            syncRealBlockToClient(ghost.position.clone().add(new Vector(0, -1, 0)));
+
+                            if (this.lastGhostInteractionAreaSyncTick > GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS) {
+                                syncRealBlocksAroundPlayer(2, 2, 3);
+                                this.lastGhostInteractionAreaSyncTick = 0;
+                            }
+
+                            ghost.syncCooldownTicks = GHOST_SYNC_COOLDOWN_TICKS;
+                        }
                     }
-                }
 
-                if (on) {
-                    this.onGhostBlock = true;
-                }
+                    if (on) {
+                        this.onGhostBlock = true;
+                    }
 
-                if (inside) {
-                    this.insideGhostBlock = true;
-                }
+                    if (inside) {
+                        this.insideGhostBlock = true;
+                    }
 
-                if (under) {
-                    this.underGhostBlock = true;
+                    if (under) {
+                        this.underGhostBlock = true;
+                    }
                 }
             }
         }

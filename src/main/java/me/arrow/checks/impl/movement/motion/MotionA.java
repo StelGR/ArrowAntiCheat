@@ -9,6 +9,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.custom.MaterialType;
@@ -66,6 +67,17 @@ public class MotionA extends Check {
                     || profile.getMovementData().isNearBoat()) return;
 
             MovementData movementData = profile.getMovementData();
+
+            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+            if (world.shouldExemptMovementChecks()
+                    || world.nextToGhostWall
+                    || world.physicsMismatch
+                    || world.onGhostBlock
+                    || world.insideGhostBlock
+                    || world.underGhostBlock) {
+                return;
+            }
 
             if (profile.getPlayer().getLastDamageCause() != null) {
                 EntityDamageEvent.DamageCause cause = profile.getPlayer().getLastDamageCause().getCause();

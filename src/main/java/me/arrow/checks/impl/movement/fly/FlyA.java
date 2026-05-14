@@ -10,6 +10,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.apache.commons.math3.util.FastMath;
@@ -87,6 +88,17 @@ public class FlyA extends Check {
                     || movementData.isNearShulkerBox()
                     || profile.getExempt().isVehicle()
                     || movementData.getSinceLevitationEffectTicks() < 10) {
+                return;
+            }
+
+            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+            if (world.shouldExemptMovementChecks()
+                    || world.nextToGhostWall
+                    || world.physicsMismatch
+                    || world.onGhostBlock
+                    || world.insideGhostBlock
+                    || world.underGhostBlock) {
                 return;
             }
 

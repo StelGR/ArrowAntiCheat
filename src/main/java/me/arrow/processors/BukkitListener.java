@@ -428,12 +428,12 @@ public class BukkitListener implements Listener {
         try {
             Profile profile = Arrow.getInstance().getProfileManager().getProfile(event.getPlayer());
 
-            if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
-                if (hasGroupManager()) {
-                    event.getPlayer().setDisplayName(OtherUtility.translate(getPrefix(event.getPlayer()) + event.getPlayer().getName()));
-                    event.getPlayer().setPlayerListName(OtherUtility.translate(getPrefix(event.getPlayer()) + event.getPlayer().getName()));
-                }
-            }
+//            if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
+//                if (hasGroupManager()) {
+//                    event.getPlayer().setDisplayName(OtherUtility.translate(getPrefix(event.getPlayer()) + event.getPlayer().getName()));
+//                    event.getPlayer().setPlayerListName(OtherUtility.translate(getPrefix(event.getPlayer()) + event.getPlayer().getName()));
+//                }
+//            }
 
             getServer().getScheduler().runTaskLater(Arrow.getInstance().getHost(), () -> {
                 if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {

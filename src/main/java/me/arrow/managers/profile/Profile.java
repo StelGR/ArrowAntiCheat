@@ -16,6 +16,7 @@ import me.arrow.managers.threads.ProfileThread;
 import me.arrow.playerdata.data.impl.*;
 import me.arrow.playerdata.data.impl.teleport.TeleportData;
 import me.arrow.playerdata.data.impl.worldcomp.BlockProcessor;
+import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.playerdata.processors.impl.KeepAliveProcessor;
 import me.arrow.playerdata.processors.impl.NMSProcessor;
 import me.arrow.playerdata.processors.impl.ReachProcessor;
@@ -64,6 +65,7 @@ public class Profile {
     //private final LocationData locationData;
     private final ClientBrandListener clientBrandListener;
     private final BlockProcessor blockProcessor;
+    private final ClientWorldTracker clientWorldTracker;
     private final NMSProcessor nmsProcessor;
     private final ReachProcessor reachProcessor;
     //-------------------------------------------
@@ -176,6 +178,7 @@ public class Profile {
         this.vehicleData = new VehicleData(this);
         //this.locationData = new LocationData(this);
         this.nmsProcessor = new NMSProcessor(this);
+        this.clientWorldTracker = new ClientWorldTracker(this);
         this.blockProcessor = new BlockProcessor(this);
         this.reachProcessor = new ReachProcessor(this);
         this.clientBrandListener = new ClientBrandListener(Arrow.getInstance());
@@ -213,7 +216,7 @@ public class Profile {
         this.predictionData.processReceive(event);
         this.potionData.processReceive(event);
         this.vehicleData.processReceive(event);
-        //this.locationData.processReceive(event);
+        this.clientWorldTracker.processReceive(event);
         this.blockProcessor.processReceive(event);
         this.clientBrandListener.processReceive(event);
         this.nmsProcessor.processReceive(event);
@@ -239,7 +242,7 @@ public class Profile {
         this.predictionData.processSend(event);
         this.potionData.processSend(event);
         this.vehicleData.processSend(event);
-        //this.locationData.processSend(event);
+        this.clientWorldTracker.processSend(event);
         this.blockProcessor.processSend(event);
         this.clientBrandListener.processSend(event);
         this.nmsProcessor.processSend(event);
