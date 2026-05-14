@@ -19,7 +19,6 @@ public final class MoveUtils {
     public static final double WATER_FRICTION = .800000011920929D;
     public static final double MOTION_Y_FRICTION = .9800000190734863D;
     public static final double JAVA_JUMP_MOTION = .41999998688697815D;
-    public static double BEDROCK_JUMP_MOTION = .41999998688697815D;
 
     public static final double LAND_GROUND_MOTION = -.07840000152587834D;
     public static final float JUMP_MOVEMENT_FACTOR = 0.026F;
@@ -114,11 +113,13 @@ public final class MoveUtils {
 
 
     public static double getJumpMotion(Profile profile) {
-        double motion = profile.isBedrockPlayer()
-                ? BEDROCK_JUMP_MOTION
-                : 0.42F;
+        double motion = JAVA_JUMP_MOTION;
 
-        if (profile.getPotionData().isHasJump()) {
+        if (profile != null && profile.isBedrockPlayer() && profile.getMovementData() != null) {
+            motion = profile.getMovementData().getBEDROCK_JUMP_MOTION();
+        }
+
+        if (profile != null && profile.getPotionData().isHasJump()) {
             int level = profile.getPotionData().getJumpAmplifier();
 
             if (level > 0) {

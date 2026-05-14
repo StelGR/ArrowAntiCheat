@@ -41,7 +41,13 @@ import static com.github.retrooper.packetevents.protocol.packettype.PacketType.P
 // this is the entire main data of the anticheat, there's alot of crap thrown in here, and some of them should be in other data classes
 // there will be a big recode to organize stuff in the future.
 
+@Getter
+@Setter
 public class MovementData implements Data {
+
+    @Getter
+    @Setter
+    double BEDROCK_JUMP_MOTION;
 
     Profile profile;
 
@@ -152,7 +158,7 @@ public class MovementData implements Data {
             this.lastLastLocation = this.lastLocation;
             this.lastLocation = this.location;
 
-            processLocationData();
+            //processLocationData();
         }
         if (event.getPacketType().equals(PLAYER_POSITION)) {
             WrapperPlayClientPlayerPosition move = new WrapperPlayClientPlayerPosition(event);
@@ -304,6 +310,44 @@ public class MovementData implements Data {
         //this.getGhostBlockProcessor().process();
 
         predictPlayerMovement();
+
+        // very poor attempt at syncing the randomized jump height to prevent falses on the checks.
+        // there should be a better way right... anyway, bedrock is cancer but i must support bedrock
+        // no matter what, as you can spoof your client to be on bedrock, or yk cheats exist on bedrock
+        if (profile.isBedrockPlayer()) {
+            boolean groundTransition = !isOnGround() && isLastOnGround();
+
+            boolean cleanContext =
+                    !profile.shouldCancel()
+                            && !profile.getExempt().vehicle()
+                            && !profile.getVelocityData().isTakingVelocity()
+                            && profile.getMovementData().getSinceCollideTicks() > 5
+                            && !profile.getMovementData().isNearClimbable()
+                            && profile.getMovementData().getSinceNearWaterTicks() > 5
+                            && !profile.getMovementData().isNearWebs()
+                            && profile.getMovementData().getSinceSlimeTicks() > 5
+                            && !profile.isBouncingOnSlime()
+                            && profile.getMovementData().getSinceTeleportTicks() > 5;
+
+            boolean possibleJump =
+                    deltaY > 0.4199D
+                            && deltaY < 0.421D;
+
+            if (groundTransition
+                    //&& cleanContext
+                    && possibleJump
+            ) {
+                this.BEDROCK_JUMP_MOTION = deltaY;
+            }
+            if (Config.Setting.DEBUG.getBoolean()) {
+                OtherUtility.log("[Bedrock Jump Calibration] "
+                        + profile.getPlayer().getName()
+                        + " possibleJump " + possibleJump
+                        + " deltaY=" + deltaY
+                        + " lastGround=" + isLastOnGround()
+                        + " ground=" + isOnGround());
+            }
+        }
     }
 
     private void predictPlayerMovement() {
@@ -1041,39 +1085,7 @@ public class MovementData implements Data {
         dolphinGraceBoost = dolphinGraceMomentum();
 
 
-        // very poor attempt at syncing the randomized jump height to prevent falses on the checks.
-        // there should be a better way right... anyway, bedrock is cancer but i must support bedrock
-        // no matter what, as you can spoof your client to be on bedrock, or yk cheats exist on bedrock
-        if (profile.isBedrockPlayer()) {
-            boolean groundTransition = !isOnGround() && isLastOnGround();
 
-            boolean cleanContext =
-                    !profile.shouldCancel()
-                            && !profile.getExempt().vehicle()
-                            && !profile.getVelocityData().isTakingVelocity()
-                            && profile.getMovementData().getSinceCollideTicks() > 5
-                            && profile.getMovementData().isNearClimbable()
-                            && profile.getMovementData().getSinceNearWaterTicks() > 5
-                            && profile.getMovementData().isNearWebs()
-                            && profile.getMovementData().getSinceSlimeTicks() > 5
-                            && profile.getMovementData().getSinceTeleportTicks() > 5;
-
-            boolean possibleJump =
-                    deltaY > 0.41D
-                            && deltaY < 0.43D;
-
-            if (groundTransition && cleanContext && possibleJump) {
-                MoveUtils.BEDROCK_JUMP_MOTION = deltaY;
-            }
-            if (Config.Setting.DEBUG.getBoolean()) {
-                OtherUtility.log("[Bedrock Jump Calibration] "
-                        + profile.getPlayer().getName()
-                        + " possibleJump " + possibleJump
-                        + " deltaY=" + deltaY
-                        + " lastGround=" + isLastOnGround()
-                        + " ground=" + isOnGround());
-            }
-        }
 
 //        if (profile.getTick() > 120) {
 //            if (profile.getConnectionData().getTransDropTick() > (profile.getConnectionData().getLastTransPing() + (profile.getConnectionData().getClientTickTrans() * 3))) {
