@@ -74,7 +74,11 @@ public class MotionF extends Check {
             // checking for velocity here, is very useless, also i think jump ampliefier math is wrong
             // i haven't seen a false though
 
-            if (deltaY > (0.5975d + (profile.getPotionData().getJumpAmplifier() * 0.1F))
+            double stepHeight = 0.5975D;
+
+            if (profile.getPotionData().isHasJump()) stepHeight += (profile.getPotionData().getJumpAmplifier() * 0.1F);
+
+            if (deltaY > stepHeight
                     && movementData.isNearWall()
                     && !profile.isBouncingOnSlime()
                     && !profile.isExempt().isTeleports()
@@ -83,7 +87,7 @@ public class MotionF extends Check {
                     || movementData.isNearBoat())
                     && !profile.getVelocityData().isTakingVelocity()
                     && movementData.getSinceRiptidingTicks() > 15
-                    && profile.isBouncingOnSlime()
+                    && !profile.isBouncingOnSlime()
                     && movementData.getSinceGlidingTicks() > 15) {
                 verbose(this.getClass().getSimpleName(),deltaY, 1.0, data);
                 fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);

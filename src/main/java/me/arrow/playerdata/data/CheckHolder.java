@@ -137,7 +137,7 @@ public class CheckHolder {
                 new BadPacketsB(this.profile),
                 new BadPacketsC(this.profile),
 
-                new PhaseA(this.profile),
+                //new PhaseA(this.profile),
 
                 new TimerA(this.profile),
                 new TimerB(this.profile),

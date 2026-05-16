@@ -113,13 +113,7 @@ public class GroundC extends Check {
             if (profile.getMovementData().getSinceOnGhostBlock() <= 1) {
                 boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
 
-                if (!nearEdge) {
-                    fail("On Ghostblock?", verboseInfo);
-                    setBuffer(getBuffer() > 6 ? 6 : getBuffer());
-                } else if (increaseBuffer() > 5) {
-                    fail("On Ghostblock?", verboseInfo);
-                    setBuffer(getBuffer() > 8 ? 8 : getBuffer());
-                }
+                fail("On Ghostblock?", verboseInfo);
 
                 //fail("On Ghostblock?", verboseInfo);
                 if (Config.Setting.DEBUG.getBoolean()) {

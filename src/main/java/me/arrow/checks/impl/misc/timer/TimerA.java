@@ -78,7 +78,7 @@ public class TimerA extends Check {
         balance = Math.max(MIN_BALANCE, newBalance);
 
         if (balance > nextFlagBalance) {
-            if (++threshold > 2.0D) {
+            if (++threshold > 20.0D) {
                 fail("Speeding up Time",
                         "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(balance)
                                 + "\nelapsed " + MsgType.MAIN_THEME_COLOR.getMessage() + format(elapsed)
@@ -86,9 +86,11 @@ public class TimerA extends Check {
                                 + "\nthreshold " + MsgType.MAIN_THEME_COLOR.getMessage() + threshold);
             }
 
+            threshold = Math.min(25, threshold);
+
             nextFlagBalance += FLAG_INTERVAL;
         } else {
-            threshold = Math.max(0.0D, threshold - 0.005D);
+            threshold = Math.max(0.0D, threshold - 0.5D);
 
             if (balance < MAX_BALANCE) {
                 nextFlagBalance = MAX_BALANCE;
@@ -131,7 +133,7 @@ public class TimerA extends Check {
         }
 
         return !profile.getMovementData().isMoving()
-                && profile.getVersion().isOlderThan(ClientVersion.V_1_9);
+                && profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_9);
     }
 
     private void reset(long now) {

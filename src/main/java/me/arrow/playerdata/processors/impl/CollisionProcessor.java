@@ -12,10 +12,16 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-// this is another GPT made processor, the goal is to detect interaction with other hitboxes, no matter the version of the game, or the entity, so you can properly account for entity push effect on 1.9+, when 2 hitboxes get pushed, it does not seem to work properly though, and it sometimes seems to not detect as colliding, and there for breaks my speed checks
 
 public class CollisionProcessor implements Processor {
 
@@ -23,6 +29,14 @@ public class CollisionProcessor implements Processor {
     private static final AtomicBoolean STARTED = new AtomicBoolean(false);
 
     private static final Method ENTITY_GET_BOUNDING_BOX = findMethod(Entity.class, "getBoundingBox");
+
+    private static final float INTERSECTION_EPSILON = 0.045F;
+
+    /*
+     * Only needed for packet-only NPCs.
+     * Bukkit-backed NPCs such as Citizens/Shopkeepers should be detected automatically.
+     */
+    private static final Map<UUID, VirtualBox> VIRTUAL_NPCS = new ConcurrentHashMap<>();
 
     private static volatile Class<?> BUKKIT_BOX_CLASS;
     private static volatile Method BUKKIT_BOX_MIN_X;
@@ -33,11 +47,32 @@ public class CollisionProcessor implements Processor {
     private static volatile Method BUKKIT_BOX_MAX_Z;
 
     public static boolean isColliding(Player player, BoundingBox playerBox) {
-        if (player == null) {
+        if (!STARTED.get()) {
+            startUpdater();
+        }
+
+        if (player == null || playerBox == null) {
             return false;
         }
 
-        return isColliding(player.getUniqueId(), playerBox);
+        Snapshot snapshot = SNAPSHOT;
+
+        Box self = snapshot.byId.get(player.getUniqueId());
+        Integer worldIndex = snapshot.worldIndexes.get(player.getWorld().getUID());
+
+        if (snapshotCollides(player.getUniqueId(), playerBox, snapshot, self != null ? self.worldIndex : worldIndex)) {
+            return true;
+        }
+
+        /*
+         * If the snapshot is one tick behind, try a live nearby fallback.
+         * This must only run on the primary thread because Bukkit entity access is not async-safe.
+         */
+        if (Bukkit.isPrimaryThread() && liveNearbyCollision(player, playerBox)) {
+            return true;
+        }
+
+        return virtualCollision(player, playerBox);
     }
 
     public static boolean isColliding(UUID playerId, BoundingBox playerBox) {
@@ -56,7 +91,13 @@ public class CollisionProcessor implements Processor {
             return false;
         }
 
-        int worldIndex = self.worldIndex;
+        return snapshotCollides(playerId, playerBox, snapshot, self.worldIndex);
+    }
+
+    private static boolean snapshotCollides(UUID playerId, BoundingBox playerBox, Snapshot snapshot, Integer worldIndex) {
+        if (playerId == null || playerBox == null || snapshot == null || worldIndex == null) {
+            return false;
+        }
 
         int minChunkX = Math.floorDiv(floor(playerBox.minX), 16);
         int maxChunkX = Math.floorDiv(floor(playerBox.maxX), 16);
@@ -72,7 +113,7 @@ public class CollisionProcessor implements Processor {
                 }
 
                 for (Box box : boxes) {
-                    if (box.uuid.equals(playerId)) {
+                    if (box == null || box.uuid.equals(playerId)) {
                         continue;
                     }
 
@@ -81,6 +122,56 @@ public class CollisionProcessor implements Processor {
                     }
                 }
             }
+        }
+
+        return false;
+    }
+
+    private static boolean liveNearbyCollision(Player player, BoundingBox playerBox) {
+        try {
+            for (Entity entity : player.getNearbyEntities(3.0D, 3.0D, 3.0D)) {
+                if (entity == null || entity.getUniqueId().equals(player.getUniqueId())) {
+                    continue;
+                }
+
+                if (!shouldTrack(entity)) {
+                    continue;
+                }
+
+                Location location = entity.getLocation();
+
+                if (location == null || location.getWorld() == null || !location.getWorld().equals(player.getWorld())) {
+                    continue;
+                }
+
+                Box box = getBoxForEntity(-1, entity, location);
+
+                if (box != null && intersects(playerBox, box)) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return false;
+    }
+
+    private static boolean virtualCollision(Player player, BoundingBox playerBox) {
+        try {
+            UUID worldId = player.getWorld().getUID();
+
+            for (VirtualBox virtual : VIRTUAL_NPCS.values()) {
+                if (virtual == null || !virtual.worldId.equals(worldId)) {
+                    continue;
+                }
+
+                Box box = virtual.toBox(-1);
+
+                if (intersects(playerBox, box)) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
         }
 
         return false;
@@ -101,6 +192,10 @@ public class CollisionProcessor implements Processor {
             int worldIndexCounter = 0;
 
             for (World world : Bukkit.getWorlds()) {
+                if (world == null) {
+                    continue;
+                }
+
                 Integer existing = worldIndexes.get(world.getUID());
 
                 int worldIndex;
@@ -117,7 +212,13 @@ public class CollisionProcessor implements Processor {
                         continue;
                     }
 
-                    Location location = entity.getLocation();
+                    Location location;
+
+                    try {
+                        location = entity.getLocation();
+                    } catch (Throwable ignored) {
+                        continue;
+                    }
 
                     if (location == null || location.getWorld() == null) {
                         continue;
@@ -130,27 +231,71 @@ public class CollisionProcessor implements Processor {
                     }
 
                     byId.put(entity.getUniqueId(), box);
-
-                    int minChunkX = Math.floorDiv(floor(box.minX), 16);
-                    int maxChunkX = Math.floorDiv(floor(box.maxX), 16);
-                    int minChunkZ = Math.floorDiv(floor(box.minZ), 16);
-                    int maxChunkZ = Math.floorDiv(floor(box.maxZ), 16);
-
-                    for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-                        for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                            long key = chunkKey(worldIndex, chunkX, chunkZ);
-                            chunkBuilder.computeIfAbsent(key, ignored -> new ArrayList<>()).add(box);
-                        }
-                    }
+                    addBoxToChunks(chunkBuilder, box);
                 }
             }
 
-            SNAPSHOT = new Snapshot(Collections.unmodifiableMap(byId), LongBoxMap.from(chunkBuilder));
+            for (VirtualBox virtual : VIRTUAL_NPCS.values()) {
+                if (virtual == null) {
+                    continue;
+                }
+
+                Integer worldIndex = worldIndexes.get(virtual.worldId);
+
+                if (worldIndex == null) {
+                    continue;
+                }
+
+                Box box = virtual.toBox(worldIndex);
+                byId.put(box.uuid, box);
+                addBoxToChunks(chunkBuilder, box);
+            }
+
+            SNAPSHOT = new Snapshot(
+                    Collections.unmodifiableMap(byId),
+                    Collections.unmodifiableMap(worldIndexes),
+                    LongBoxMap.from(chunkBuilder)
+            );
         }, 0L, 1L);
     }
 
+    private static void addBoxToChunks(Map<Long, List<Box>> chunkBuilder, Box box) {
+        if (box == null) {
+            return;
+        }
+
+        int minChunkX = Math.floorDiv(floor(box.minX), 16);
+        int maxChunkX = Math.floorDiv(floor(box.maxX), 16);
+        int minChunkZ = Math.floorDiv(floor(box.minZ), 16);
+        int maxChunkZ = Math.floorDiv(floor(box.maxZ), 16);
+
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                long key = chunkKey(box.worldIndex, chunkX, chunkZ);
+                chunkBuilder.computeIfAbsent(key, ignored -> new ArrayList<>()).add(box);
+            }
+        }
+    }
+
     private static boolean shouldTrack(Entity entity) {
-        if (entity == null || entity.isDead() || !entity.isValid()) {
+        if (entity == null || entity.isDead()) {
+            return false;
+        }
+
+        /*
+         * Important:
+         * Check NPC metadata before entity.isValid().
+         * Some NPC plugins use wrapped/fake entities that can behave strangely with validity.
+         */
+        if (isNpcLike(entity)) {
+            return true;
+        }
+
+        try {
+            if (!entity.isValid()) {
+                return false;
+            }
+        } catch (Throwable ignored) {
             return false;
         }
 
@@ -160,13 +305,77 @@ public class CollisionProcessor implements Processor {
 
         String type = getTypeName(entity);
 
-        return type.contains("BOAT") || type.contains("MINECART");
+        return type.contains("BOAT")
+                || type.contains("MINECART")
+                || type.contains("NPC")
+                || type.equals("INTERACTION");
+    }
+
+    private static boolean isNpcLike(Entity entity) {
+        if (entity == null) {
+            return false;
+        }
+
+        String type = getTypeName(entity);
+
+        if (type.contains("NPC")) {
+            return true;
+        }
+
+        try {
+            if (entity.hasMetadata("NPC")
+                    || entity.hasMetadata("npc")
+                    || entity.hasMetadata("CitizensNPC")
+                    || entity.hasMetadata("citizensnpc")
+                    || entity.hasMetadata("SHOPKEEPER")
+                    || entity.hasMetadata("shopkeeper")
+                    || entity.hasMetadata("SHOPKEEPERS_NPC")
+                    || entity.hasMetadata("arrow_npc")) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            Collection<String> tags = entity.getScoreboardTags();
+
+            for (String tag : tags) {
+                if (tag == null) {
+                    continue;
+                }
+
+                String lower = tag.toLowerCase(Locale.ROOT);
+
+                if (lower.contains("npc")
+                        || lower.contains("citizens")
+                        || lower.contains("shopkeeper")
+                        || lower.contains("shop_keeper")) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            String name = entity.getCustomName();
+
+            if (name != null) {
+                String lower = name.toLowerCase(Locale.ROOT);
+
+                if (lower.contains("npc")) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return false;
     }
 
     private static Box getBoxForEntity(int worldIndex, Entity entity, Location location) {
         Box exact = getBukkitBox(worldIndex, entity);
 
-        if (exact != null) {
+        if (exact != null && (!isNpcLike(entity) || !isSuspiciouslyTiny(exact))) {
             return exact;
         }
 
@@ -243,8 +452,8 @@ public class CollisionProcessor implements Processor {
             width = 0.6D;
             height = 1.8D;
         } else if (type.equals("ARMOR_STAND")) {
-            width = 0.5D;
-            height = 1.975D;
+            width = isMarkerArmorStand(entity) ? 0.0D : 0.5D;
+            height = isMarkerArmorStand(entity) ? 0.0D : 1.975D;
         } else if (type.equals("BAT")) {
             width = 0.5D;
             height = 0.9D;
@@ -284,7 +493,11 @@ public class CollisionProcessor implements Processor {
         } else if (type.equals("DOLPHIN")) {
             width = 0.9D;
             height = 0.6D;
-        } else if (type.equals("DONKEY") || type.equals("MULE") || type.equals("HORSE") || type.equals("SKELETON_HORSE") || type.equals("ZOMBIE_HORSE")) {
+        } else if (type.equals("DONKEY")
+                || type.equals("MULE")
+                || type.equals("HORSE")
+                || type.equals("SKELETON_HORSE")
+                || type.equals("ZOMBIE_HORSE")) {
             width = 1.3965D;
             height = 1.6D;
         } else if (type.equals("ELDER_GUARDIAN")) {
@@ -299,7 +512,13 @@ public class CollisionProcessor implements Processor {
         } else if (type.equals("ENDERMITE") || type.equals("SILVERFISH")) {
             width = 0.4D;
             height = 0.3D;
-        } else if (type.equals("EVOKER") || type.equals("ILLUSIONER") || type.equals("PILLAGER") || type.equals("VILLAGER") || type.equals("VINDICATOR") || type.equals("WANDERING_TRADER") || type.equals("WITCH")) {
+        } else if (type.equals("EVOKER")
+                || type.equals("ILLUSIONER")
+                || type.equals("PILLAGER")
+                || type.equals("VILLAGER")
+                || type.equals("VINDICATOR")
+                || type.equals("WANDERING_TRADER")
+                || type.equals("WITCH")) {
             width = 0.6D;
             height = 1.95D;
         } else if (type.equals("FOX")) {
@@ -341,7 +560,9 @@ public class CollisionProcessor implements Processor {
         } else if (type.equals("PIG")) {
             width = 0.9D;
             height = 0.9D;
-        } else if (type.equals("PIGLIN") || type.equals("PIGLIN_BRUTE") || type.equals("ZOMBIFIED_PIGLIN")) {
+        } else if (type.equals("PIGLIN")
+                || type.equals("PIGLIN_BRUTE")
+                || type.equals("ZOMBIFIED_PIGLIN")) {
             width = 0.6D;
             height = 1.95D;
         } else if (type.equals("PUFFERFISH")) {
@@ -407,6 +628,10 @@ public class CollisionProcessor implements Processor {
             height = 0.5625D;
         }
 
+        if (width <= 0.0D || height <= 0.0D) {
+            return null;
+        }
+
         if (isBaby(entity)) {
             width *= 0.5D;
             height *= 0.5D;
@@ -422,13 +647,43 @@ public class CollisionProcessor implements Processor {
         return new Box(entity.getUniqueId(), worldIndex, minX, minY, minZ, maxX, maxY, maxZ);
     }
 
+    private static boolean isMarkerArmorStand(Entity entity) {
+        try {
+            Method method = entity.getClass().getMethod("isMarker");
+            Object result = method.invoke(entity);
+
+            if (result instanceof Boolean) {
+                return (Boolean) result;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return false;
+    }
+
+    private static boolean isSuspiciouslyTiny(Box box) {
+        if (box == null) {
+            return true;
+        }
+
+        float widthX = box.maxX - box.minX;
+        float widthZ = box.maxZ - box.minZ;
+        float height = box.maxY - box.minY;
+
+        return widthX < 0.05F || widthZ < 0.05F || height < 0.05F;
+    }
+
     private static boolean intersects(BoundingBox a, Box b) {
-        return b.maxX > a.minX
-                && b.minX < a.maxX
-                && b.maxY > a.minY
-                && b.minY < a.maxY
-                && b.maxZ > a.minZ
-                && b.minZ < a.maxZ;
+        if (a == null || b == null) {
+            return false;
+        }
+
+        return b.maxX > a.minX - INTERSECTION_EPSILON
+                && b.minX < a.maxX + INTERSECTION_EPSILON
+                && b.maxY > a.minY - INTERSECTION_EPSILON
+                && b.minY < a.maxY + INTERSECTION_EPSILON
+                && b.maxZ > a.minZ - INTERSECTION_EPSILON
+                && b.minZ < a.maxZ + INTERSECTION_EPSILON;
     }
 
     private static boolean isBaby(Entity entity) {
@@ -508,20 +763,75 @@ public class CollisionProcessor implements Processor {
                 | ((long) chunkZ & 0xFFFFFFL);
     }
 
+    public static void registerVirtualNpc(UUID uuid, World world, double x, double y, double z, double width, double height) {
+        if (uuid == null || world == null || width <= 0.0D || height <= 0.0D) {
+            return;
+        }
+
+        VIRTUAL_NPCS.put(uuid, new VirtualBox(
+                uuid,
+                world.getUID(),
+                (float) (x - width * 0.5D),
+                (float) y,
+                (float) (z - width * 0.5D),
+                (float) (x + width * 0.5D),
+                (float) (y + height),
+                (float) (z + width * 0.5D)
+        ));
+    }
+
+    public static void unregisterVirtualNpc(UUID uuid) {
+        if (uuid != null) {
+            VIRTUAL_NPCS.remove(uuid);
+        }
+    }
+
+    public static void clearVirtualNpcs() {
+        VIRTUAL_NPCS.clear();
+    }
+
     @Override
     public void process() {
         startUpdater();
     }
 
     private static final class Snapshot {
-        private static final Snapshot EMPTY = new Snapshot(Collections.emptyMap(), LongBoxMap.EMPTY);
+        private static final Snapshot EMPTY = new Snapshot(Collections.emptyMap(), Collections.emptyMap(), LongBoxMap.EMPTY);
 
         private final Map<UUID, Box> byId;
+        private final Map<UUID, Integer> worldIndexes;
         private final LongBoxMap chunks;
 
-        private Snapshot(Map<UUID, Box> byId, LongBoxMap chunks) {
+        private Snapshot(Map<UUID, Box> byId, Map<UUID, Integer> worldIndexes, LongBoxMap chunks) {
             this.byId = byId;
+            this.worldIndexes = worldIndexes;
             this.chunks = chunks;
+        }
+    }
+
+    private static final class VirtualBox {
+        private final UUID uuid;
+        private final UUID worldId;
+        private final float minX;
+        private final float minY;
+        private final float minZ;
+        private final float maxX;
+        private final float maxY;
+        private final float maxZ;
+
+        private VirtualBox(UUID uuid, UUID worldId, float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
+            this.uuid = uuid;
+            this.worldId = worldId;
+            this.minX = minX;
+            this.minY = minY;
+            this.minZ = minZ;
+            this.maxX = maxX;
+            this.maxY = maxY;
+            this.maxZ = maxZ;
+        }
+
+        private Box toBox(int worldIndex) {
+            return new Box(uuid, worldIndex, minX, minY, minZ, maxX, maxY, maxZ);
         }
     }
 
@@ -582,6 +892,11 @@ public class CollisionProcessor implements Processor {
 
             for (Map.Entry<Long, List<Box>> entry : source.entrySet()) {
                 List<Box> list = entry.getValue();
+
+                if (list == null || list.isEmpty()) {
+                    continue;
+                }
+
                 map.put(entry.getKey(), list.toArray(new Box[0]));
             }
 
