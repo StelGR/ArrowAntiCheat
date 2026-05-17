@@ -66,7 +66,7 @@ public class MotionD extends Check {
             boolean invalid = deltaY == -lastDeltaY && deltaY != 0.0;
 
             if (invalid) {
-                if (++buffer > 5) {
+                if (++buffer > 7) {
                     fail("Impossible Vertical Motion",
                             "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                             + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY

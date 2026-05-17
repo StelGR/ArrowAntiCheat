@@ -69,6 +69,7 @@ public class ConnectionData implements Data {
 
     @Override
     public void processSend(PacketSendEvent event) {
+
     }
 
     private void processTransaction(int pingID, short actionID, Player user) {
@@ -104,7 +105,7 @@ public class ConnectionData implements Data {
 
         pingList.add(transPing);
 
-        if (pingList.size() > 250) {
+        if (pingList.size() > 1000) {
             averageTransactionPing = (int) MathUtil.getAverage(pingList);
             pingList.clear();
         }

@@ -65,10 +65,7 @@ public class FlyC extends Check {
                     || profile.getLastBlockPlaceTimer().hasNotPassed(10 + profile.getConnectionData().getClientTickTrans())
                     || movementData.isNearBed()
                     || movementData.isNearLava()
-                    || movementData.isNearWater()
                     || movementData.getSinceNearWaterTicks() < 15 + profile.getConnectionData().getClientTickTrans()
-                    || movementData.isInsideLiquid()
-                    || movementData.isOnTopOfWater()
                     || movementData.isNearClimbable()
                     || movementData.getSlimeTicks() > 0
                     || movementData.isMovingUp()
@@ -150,7 +147,10 @@ public class FlyC extends Check {
                     + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                     + "\njumpStart " + MsgType.MAIN_THEME_COLOR.getMessage() + jumpStart
                     + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + totalVerticalVelocity;
-            if (invalid || invalidY) {
+            if ((invalid
+             && (!movementData.isNearWater()
+                || !movementData.isInsideLiquid()))
+                    || invalidY) {
                 if (increaseBuffer() > 2 || invalidY) {
                     fail("Impossible vertical speed " + (invalid ? "(1)" : "(2)"),
                             verboseInfo);

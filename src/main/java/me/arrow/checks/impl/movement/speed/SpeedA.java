@@ -232,6 +232,11 @@ public class SpeedA extends Check {
         double difference = predicted - allowedLimit;
         double bufferAmount = difference > 0.5 ? 0 : 6;
         double serverGroundMaxTicks = 8;
+//
+//        if (difference > 0.9D + profile.getVelocityData().getTotalHorizontalVelocity()) {
+//            serverGroundMaxTicks = 1;
+//            bufferAmount = 0;
+//        }
 
         if (serverGroundTicks > serverGroundMaxTicks && predicted > allowedLimit) {
 
@@ -642,8 +647,15 @@ public class SpeedA extends Check {
 
         if (profile.getVelocityData().isTakingVelocity() ) airticklimit +=  (extraTicks + 4);
 
+//        if (deltaXZ > 0.9D + profile.getVelocityData().getTotalHorizontalVelocity()) {
+//            airticklimit = 1;
+//            maxStrafeBuffer = 0;
+//        }
+
 
         final boolean invalid = difference > 0.00747 && deltaXZ > limit && airTicks > airticklimit ;
+
+
 
 
         String data = MsgType.MAIN_THEME_COLOR.getMessage()+"* Verbose (Strafe)\n * deltaXZ "+MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ

@@ -110,10 +110,15 @@ public class GroundC extends Check {
                     + "\nlocY (floor) " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.floor(movementData.getLocation().getY())
                     + "\nlocY - locY(floor) difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()));
 
-            if (profile.getMovementData().getSinceOnGhostBlock() <= 1) {
+            if (profile.getMovementData().getSinceOnGhostBlock() == 0) {
                 boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
 
-                fail("On Ghostblock?", verboseInfo);
+
+//                 this is completely retarded
+                if (increaseBuffer() > 2) {
+                    fail("On Ghostblock?", verboseInfo);
+                }
+
 
                 //fail("On Ghostblock?", verboseInfo);
                 if (Config.Setting.DEBUG.getBoolean()) {

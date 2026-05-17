@@ -20,6 +20,9 @@ import java.util.Set;
 // the worst velocity check i've ever seen in my life
 // although , i did not code it, it was a test from GPT 5 to get an idea of velocity checks, still hard to understand
 // how to make accurate velocity on modern, but i am not this kind of dev, only really understand movement
+// check velocity B for more info
+
+// updated from claude
 
 @Experimental
 public class VelocityA extends Check {
@@ -36,8 +39,14 @@ public class VelocityA extends Check {
     private static final double ZERO_BUFFER_MAX = 1.75D;
     private static final double DELAY_BUFFER_MAX = 1.75D;
 
+    // Cumulative miss counter – persists across velocity events to detect habitual ignoring
+    private double cumulativeMissBuffer;
+    private static final double CUMULATIVE_MISS_MAX = 3.5D;
+
     private boolean tracking;
     private boolean acceptedAnyMotion;
+    // Whether the player was airborne when this tracking session started
+    private boolean wasAirborneAtStart;
 
     private double initialY;
     private double expectedY;
@@ -102,7 +111,6 @@ public class VelocityA extends Check {
                 || profile.getMovementData() == null
                 || profile.getVelocityData() == null
                 || profile.getBlockProcessor().isUnderGhostBlock()
-//                || profile.getBlockProcessor().isNearGhostBlock()
                 || profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
             resetTracking();
             return;
@@ -114,6 +122,7 @@ public class VelocityA extends Check {
         if (isExempt(movementData)) {
             resetTracking();
             decayBuffers(0.20D);
+            cumulativeMissBuffer -= Math.min(cumulativeMissBuffer, 0.10D);
             return;
         }
 
@@ -121,11 +130,12 @@ public class VelocityA extends Check {
         int velocityTicks = velocityData.getVelocityTicks();
 
         if (shouldStartTracking(velocityY, velocityTicks)) {
-            startTracking(velocityY, velocityTicks);
+            startTracking(velocityY, velocityTicks, movementData);
         }
 
         if (!tracking) {
             decayBuffers(0.03D);
+            cumulativeMissBuffer -= Math.min(cumulativeMissBuffer, 0.02D);
             return;
         }
 
@@ -151,14 +161,23 @@ public class VelocityA extends Check {
 
         boolean recentUnderPlace = hasRecentUnderPlace();
         boolean grounded = isGrounded(movementData);
+        // isMidAirJumpMotion is now much more conservative – only first 2 ticks of an airborne start
         boolean midAirJumpMotion = isMidAirJumpMotion(movementData, deltaY, lastDeltaY);
 
         double expected = expectedY;
         double vanillaAirExpected = predictVanillaAirY(lastDeltaY);
         double offset = expected - deltaY;
+
+        // Guard ratio when expected is very small to avoid division instability
+        double ratio;
+        if (expected > 0.05D) {
+            ratio = deltaY / expected;
+        } else {
+            ratio = deltaY >= 0.0D ? 1.0D : 0.0D;
+        }
+
         double allowed = getAllowedOffset(expected, deltaY, recentUnderPlace, grounded, midAirJumpMotion);
         double minRatio = getMinRatio(recentUnderPlace, grounded, midAirJumpMotion);
-        double ratio = expected > 0.0D ? deltaY / expected : 1.0D;
 
         bestDeltaY = Math.max(bestDeltaY, deltaY);
         bestRatio = Math.max(bestRatio, ratio);
@@ -176,9 +195,15 @@ public class VelocityA extends Check {
                 && deltaY >= vanillaAirExpected - getJumpMotionTolerance(movementData)
                 && deltaY > -0.035D;
 
+        // If the player already proved they accepted the velocity (bestRatio >= minRatio),
+        // do not treat later decayed ticks as "reduced" – natural drift in the trajectory
+        // after the peak is not evidence of cheating.
+        boolean alreadyProvedAcceptance = acceptedAnyMotion && bestRatio >= minRatio;
+
         boolean reduced = expectedPositive
                 && !waitingForVelocityResponse
                 && !validJumpMotion
+                && !alreadyProvedAcceptance
                 && ratio < minRatio
                 && offset > allowed;
 
@@ -197,33 +222,19 @@ public class VelocityA extends Check {
         } else if (reduced) {
             double add = 0.75D;
 
-            if (ratio < 0.90D) {
-                add += 0.45D;
-            }
+            if (ratio < 0.90D) add += 0.45D;
+            if (ratio < 0.75D) add += 0.65D;
+            if (ratio < 0.50D) add += 0.85D;
 
-            if (ratio < 0.75D) {
-                add += 0.65D;
-            }
-
-            if (ratio < 0.50D) {
-                add += 0.85D;
-            }
-
-            if (recentUnderPlace) {
-                add *= 0.70D;
-            }
-
-            if (grounded && trackedTicks > 2) {
-                add *= 0.80D;
-            }
-
-            if (midAirJumpMotion) {
-                add *= 0.35D;
-            }
+            if (recentUnderPlace) add *= 0.70D;
+            if (grounded && trackedTicks > 2) add *= 0.80D;
+            if (midAirJumpMotion) add *= 0.50D; // still lenient, but less than before
 
             reducedBuffer += add;
         } else {
-            reducedBuffer -= Math.min(reducedBuffer, validJumpMotion ? 0.35D : 0.18D);
+            // Decay rate is higher once the player has already proved they accepted the velocity
+            double decayRate = alreadyProvedAcceptance ? 0.55D : (validJumpMotion ? 0.35D : 0.18D);
+            reducedBuffer -= Math.min(reducedBuffer, decayRate);
         }
 
         if (zero) {
@@ -258,36 +269,49 @@ public class VelocityA extends Check {
                         + "\n * recentUnderPlace " + MsgType.MAIN_THEME_COLOR.getMessage() + recentUnderPlace
                         + "\n * grounded " + MsgType.MAIN_THEME_COLOR.getMessage() + grounded
                         + "\n * midAirJumpMotion " + MsgType.MAIN_THEME_COLOR.getMessage() + midAirJumpMotion
+                        + "\n * wasAirborneAtStart " + MsgType.MAIN_THEME_COLOR.getMessage() + wasAirborneAtStart
                         + "\n * validJumpMotion " + MsgType.MAIN_THEME_COLOR.getMessage() + validJumpMotion
+                        + "\n * alreadyProved " + MsgType.MAIN_THEME_COLOR.getMessage() + alreadyProvedAcceptance
                         + "\n * reduced " + MsgType.MAIN_THEME_COLOR.getMessage() + reduced
                         + "\n * zero " + MsgType.MAIN_THEME_COLOR.getMessage() + zero
                         + "\n * delayed " + MsgType.MAIN_THEME_COLOR.getMessage() + delayed
                         + "\n * reducedBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(reducedBuffer)
                         + "\n * zeroBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(zeroBuffer)
-                        + "\n * delayedBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(delayedBuffer));
+                        + "\n * delayedBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(delayedBuffer)
+                        + "\n * cumulativeMiss " + MsgType.MAIN_THEME_COLOR.getMessage() + format(cumulativeMissBuffer));
 
         if (zeroBuffer > ZERO_BUFFER_MAX) {
+            cumulativeMissBuffer += 0.60D;
             failAndReset("Zero vertical velocity", movementData, velocityData, expected, offset, allowed, ratio, minRatio, recentUnderPlace, grounded, midAirJumpMotion);
             return;
         }
 
         if (delayedBuffer > DELAY_BUFFER_MAX) {
+            cumulativeMissBuffer += 0.60D;
             failAndReset("Delayed vertical velocity", movementData, velocityData, expected, offset, allowed, ratio, minRatio, recentUnderPlace, grounded, midAirJumpMotion);
             return;
         }
 
         double requiredReducedBuffer = REDUCED_BUFFER_MAX;
 
-        if (recentUnderPlace) {
-            requiredReducedBuffer += 0.75D;
-        }
-
-        if (midAirJumpMotion) {
-            requiredReducedBuffer += 2.0D;
-        }
+        if (recentUnderPlace) requiredReducedBuffer += 0.75D;
+        if (midAirJumpMotion) requiredReducedBuffer += 1.25D; // was 2.0 – tighter now
 
         if (reducedBuffer > requiredReducedBuffer) {
+            cumulativeMissBuffer += 0.60D;
             failAndReset("Reduced vertical velocity", movementData, velocityData, expected, offset, allowed, ratio, minRatio, recentUnderPlace, grounded, midAirJumpMotion);
+            return;
+        }
+
+        // Cumulative cross-hit detection: if player has consistently missed many velocity events
+        if (cumulativeMissBuffer > CUMULATIVE_MISS_MAX) {
+            cumulativeMissBuffer *= 0.35D;
+            fail("Habitual velocity ignore",
+                    "cumulativeMiss " + MsgType.MAIN_THEME_COLOR.getMessage() + format(cumulativeMissBuffer)
+                            + "\ninitialY " + MsgType.MAIN_THEME_COLOR.getMessage() + format(initialY)
+                            + "\nbestDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestDeltaY)
+                            + "\nbestRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestRatio));
+            resetTracking();
             return;
         }
 
@@ -296,6 +320,13 @@ public class VelocityA extends Check {
         int maxTicks = Math.max(10, allowedDelayTicks + 5);
 
         if (trackedTicks > maxTicks || expectedY <= 0.0D) {
+            // If the player never accepted any motion over the full tracking window, note it cumulatively
+            if (!acceptedAnyMotion && trackedTicks >= 3) {
+                cumulativeMissBuffer += 0.30D;
+            } else {
+                // Accepted velocity – reward with cumulative decay
+                cumulativeMissBuffer -= Math.min(cumulativeMissBuffer, 0.20D);
+            }
             resetTracking();
         }
     }
@@ -318,9 +349,10 @@ public class VelocityA extends Check {
         return velocityTicks <= 1 && Math.abs(velocityY - lastStartedY) > 1.0E-4D;
     }
 
-    private void startTracking(double velocityY, int velocityTicks) {
+    private void startTracking(double velocityY, int velocityTicks, MovementData movementData) {
         tracking = true;
         acceptedAnyMotion = false;
+        wasAirborneAtStart = movementData.isCustomInAir() && !isGrounded(movementData);
 
         initialY = velocityY;
         expectedY = velocityY;
@@ -332,11 +364,15 @@ public class VelocityA extends Check {
         startVelocityTicks = velocityTicks;
         allowedDelayTicks = getAllowedDelayTicks();
 
-        reducedBuffer = 0.0D;
-        zeroBuffer = 0.0D;
-        delayedBuffer = 0.0D;
+        // Carry over 40% of existing buffers so re-hits don't give a free reset
+        reducedBuffer *= 0.40D;
+        zeroBuffer *= 0.40D;
+        delayedBuffer *= 0.40D;
     }
 
+    /**
+     * Simplified velocity Y confirmation using existing helper methods.
+     */
     private double getConfirmedVelocityY(VelocityData velocityData) {
         double y = 0.0D;
 
@@ -357,28 +393,19 @@ public class VelocityA extends Check {
 
         try {
             Vector velocity = velocityData.getVelocity();
-
-            if (velocity != null) {
-                y = Math.max(y, velocity.getY());
-            }
+            if (velocity != null) y = Math.max(y, velocity.getY());
         } catch (Throwable ignored) {
         }
 
         try {
             Vector sustain = velocityData.getVelocitySustain();
-
-            if (sustain != null) {
-                y = Math.max(y, sustain.getY());
-            }
+            if (sustain != null) y = Math.max(y, sustain.getY());
         } catch (Throwable ignored) {
         }
 
         try {
             Vector fvc = velocityData.getVelocityfvc();
-
-            if (fvc != null) {
-                y = Math.max(y, fvc.getY());
-            }
+            if (fvc != null) y = Math.max(y, fvc.getY());
         } catch (Throwable ignored) {
         }
 
@@ -406,28 +433,18 @@ public class VelocityA extends Check {
         allowed += Math.min(0.006D, Math.abs(deltaY) * 0.015D);
         allowed += Math.min(0.018D, getPingTicks() * 0.0015D);
 
-        if (recentUnderPlace) {
-            allowed += 0.020D;
-        }
+        if (recentUnderPlace) allowed += 0.020D;
+        if (grounded && trackedTicks > 1) allowed += 0.010D;
+        if (midAirJumpMotion) allowed += 0.055D; // was 0.070 – slightly tighter
+        if (profile.isBedrockPlayer()) allowed += 0.025D;
 
-        if (grounded && trackedTicks > 1) {
-            allowed += 0.010D;
-        }
-
-        if (midAirJumpMotion) {
-            allowed += 0.070D;
-        }
-
-        if (profile.isBedrockPlayer()) {
-            allowed += 0.025D;
-        }
-
-        return Math.min(midAirJumpMotion ? 0.125D : 0.035D, allowed);
+        return Math.min(midAirJumpMotion ? 0.110D : 0.035D, allowed);
     }
 
     private double getMinRatio(boolean recentUnderPlace, boolean grounded, boolean midAirJumpMotion) {
         if (midAirJumpMotion) {
-            return 0.45D;
+            // Was 0.45 – now 0.55 so it can still catch blatant cheats even mid-air
+            return 0.55D;
         }
 
         double ratio;
@@ -440,17 +457,9 @@ public class VelocityA extends Check {
             ratio = 0.825D;
         }
 
-        if (recentUnderPlace) {
-            ratio -= 0.08D;
-        }
-
-        if (grounded && trackedTicks > 1) {
-            ratio -= 0.04D;
-        }
-
-        if (profile.isBedrockPlayer()) {
-            ratio -= 0.06D;
-        }
+        if (recentUnderPlace) ratio -= 0.08D;
+        if (grounded && trackedTicks > 1) ratio -= 0.04D;
+        if (profile.isBedrockPlayer()) ratio -= 0.06D;
 
         return Math.max(0.70D, ratio);
     }
@@ -590,12 +599,14 @@ public class VelocityA extends Check {
                         + "\nstartVelocityTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + startVelocityTicks
                         + "\ntrackedTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + trackedTicks
                         + "\nallowedDelay " + MsgType.MAIN_THEME_COLOR.getMessage() + allowedDelayTicks
+                        + "\nwasAirborneAtStart " + MsgType.MAIN_THEME_COLOR.getMessage() + wasAirborneAtStart
                         + "\nrecentUnderPlace " + MsgType.MAIN_THEME_COLOR.getMessage() + recentUnderPlace
                         + "\ngrounded " + MsgType.MAIN_THEME_COLOR.getMessage() + grounded
                         + "\nmidAirJumpMotion " + MsgType.MAIN_THEME_COLOR.getMessage() + midAirJumpMotion
                         + "\nreducedBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(reducedBuffer)
                         + "\nzeroBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(zeroBuffer)
-                        + "\ndelayedBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(delayedBuffer));
+                        + "\ndelayedBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(delayedBuffer)
+                        + "\ncumulativeMiss " + MsgType.MAIN_THEME_COLOR.getMessage() + format(cumulativeMissBuffer));
 
         reducedBuffer *= 0.25D;
         zeroBuffer *= 0.25D;
@@ -613,6 +624,7 @@ public class VelocityA extends Check {
     private void resetTracking() {
         tracking = false;
         acceptedAnyMotion = false;
+        wasAirborneAtStart = false;
 
         initialY = 0.0D;
         expectedY = 0.0D;
@@ -635,7 +647,18 @@ public class VelocityA extends Check {
         return String.format(Locale.US, "%.5f", value);
     }
 
+    /**
+     * True ONLY when the player received velocity while they were genuinely mid-jump,
+     * and we are still in the first few ticks where the observed motion may differ from
+     * the velocity Y due to lag. This is now deliberately narrow to prevent the previous
+     * issue where ANY upward air-motion triggered lenient mid-air thresholds.
+     */
     private boolean isMidAirJumpMotion(MovementData data, double deltaY, double lastDeltaY) {
+        // Must have been airborne when tracking started (player was jumping before being hit)
+        if (!wasAirborneAtStart) {
+            return false;
+        }
+
         if (isGrounded(data)) {
             return false;
         }
@@ -644,28 +667,24 @@ public class VelocityA extends Check {
             return false;
         }
 
-        if (data.getCustomAirTicks() <= 0 || data.getCustomAirTicks() > 14 + getPingTicks()) {
+        // Only applies during the initial response window (first 2 ticks after delay)
+        // After that the client must show velocity-based motion regardless
+        int graceTicks = Math.max(2, 1 + getPingTicks() / 3);
+        if (trackedTicks > graceTicks) {
             return false;
         }
 
-        double jumpMotion = 0.42D;
-
+        double jumpMotion;
         try {
             jumpMotion = me.arrow.utils.MoveUtils.getJumpMotion(profile);
         } catch (Throwable ignored) {
+            jumpMotion = 0.42D;
         }
 
-        if (lastDeltaY > 0.0D || deltaY > 0.0D) {
-            return true;
-        }
+        // Player's pre-hit deltaY was consistent with a natural jump upward arc
+        boolean wasJumping = lastDeltaY > 0.05D || Math.abs(lastDeltaY - jumpMotion) <= 0.10D;
 
-        if (Math.abs(deltaY - jumpMotion) <= 0.08D) {
-            return true;
-        }
-
-        return lastDeltaY < 0.0D
-                && deltaY < 0.0D
-                && data.getCustomAirTicks() <= 10 + getPingTicks();
+        return wasJumping;
     }
 
     private double predictVanillaAirY(double lastDeltaY) {

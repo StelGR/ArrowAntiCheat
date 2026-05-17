@@ -108,10 +108,11 @@ public class NoSlowdown extends Check {
                 && actionData.isLastSprinting()
                 && actionData.isLastLastSprinting() ? movementData.getDeltaXZ() > 0.08 : movementData.getDeltaXZ() > 0.062)
                 && movementData.getClientGroundTicks() > 7
-                && !predictionData.isUseSword()
                 && usageTicks > 15
-                && (MaterialType.isMaterial(profile.getPlayer().getItemInHand().getType().name(), MaterialType.SHIELD)
-                || MaterialType.isMaterial(profile.getPlayer().getItemInHand().getType().name(), MaterialType.BOW));
+                && ((MaterialType.isMaterial(profile.getPlayer().getInventory().getItemInMainHand().getType().name(), MaterialType.SHIELD)
+                || MaterialType.isMaterial(profile.getPlayer().getInventory().getItemInMainHand().getType().name(), MaterialType.BOW))
+                || (MaterialType.isMaterial(profile.getPlayer().getInventory().getItemInOffHand().getType().name(), MaterialType.SHIELD)
+                || MaterialType.isMaterial(profile.getPlayer().getInventory().getItemInOffHand().getType().name(), MaterialType.BOW)));
 
         if (invalid2) {
             actionData.getDesync().fix(DesyncType.BLOCKING);

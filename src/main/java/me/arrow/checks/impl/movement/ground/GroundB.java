@@ -40,7 +40,10 @@ public class GroundB extends Check {
         if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()
                 || profile.getExempt().isVehicle()
                 || profile.getExempt().isTeleports()
-                || profile.getVehicleData().getSinceVehicleTicks() < 5) return;
+                || profile.getVehicleData().getSinceVehicleTicks() < 5
+                || movementData.isInsideLiquid()
+                || movementData.isNearLava()
+                || movementData.isNearWater()) return;
 
 
         int airTicks = movementData.getCustomAirTicks();

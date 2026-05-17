@@ -196,11 +196,17 @@ public class Checks implements Initializer {
         KILLAURA_A_PUNiSH_MODE("KillauraA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         KILLAURA_A_MAX_VL("KillauraA.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        VELOCITY_A("VelocityA.enabled", true, "Should we enable this module?"),
+        VELOCITY_A("VelocityA.enabled", false, "Should we enable this module?"),
         VELOCITY_A_PUNISH("VelocityA.punish", "", "Punishment settings"),
         VELOCITY_A_PUNiSH_ENABLED("VelocityA.punish.enabled", false, "Should punishments be enabled for this check?"),
         VELOCITY_A_PUNiSH_MODE("VelocityA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         VELOCITY_A_MAX_VL("VelocityA.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        VELOCITY_B("VelocityB.enabled", false, "Should we enable this module?"),
+        VELOCITY_B_PUNISH("VelocityB.punish", "", "Punishment settings"),
+        VELOCITY_B_PUNiSH_ENABLED("VelocityB.punish.enabled", false, "Should punishments be enabled for this check?"),
+        VELOCITY_B_PUNiSH_MODE("VelocityB.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        VELOCITY_B_MAX_VL("VelocityB.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
         INTERACT_A("InteractA.enabled", true, "Should we enable this module?"),
         INTERACT_A_PUNISH("InteractA.punish", "", "Punishment settings"),

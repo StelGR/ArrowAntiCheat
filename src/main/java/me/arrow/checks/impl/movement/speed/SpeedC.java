@@ -54,7 +54,8 @@ public class SpeedC extends Check {
                 || profile.getPlayer().isDead()
                 || movementData.isOnBoat()
                 || movementData.isNearBoat()
-                || movementData.isInsideWater()) {
+                || movementData.isNearWater()
+                || movementData.isInsideLiquid()) {
             buffer1 = 0;
             return;
         }
