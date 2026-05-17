@@ -23,6 +23,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+
+// terrible Phase check i made with GPT 5 to check world tracker, it is literally useless as modern paper blocks most types of clipping.
+
 @Experimental
 public class PhaseA extends Check {
 

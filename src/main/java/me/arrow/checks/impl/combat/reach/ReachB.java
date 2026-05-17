@@ -18,6 +18,10 @@ import java.util.Locale;
 
 // Credits: MrPlugin (doesn't work though)
 
+// extra info, this is meant to be transaction based reach im pretty sure,
+// this does not work though as it was converted from another devs base, and clearly the conversion was poor,
+// the main issue is the ReachProcessor and NewTrackedEntity.
+
 @Experimental
 public class ReachB extends Check {
 

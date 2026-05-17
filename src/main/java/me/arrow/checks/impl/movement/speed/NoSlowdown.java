@@ -104,9 +104,9 @@ public class NoSlowdown extends Check {
         else usageTicks = 0;
 
         boolean invalid2 = (predictionData.isUseItem() || predictionData.isUseShield())
-                && (actionData.isSprinting()
+                && ((actionData.isSprinting()
                 && actionData.isLastSprinting()
-                && actionData.isLastLastSprinting() ? movementData.getDeltaXZ() > 0.08 : movementData.getDeltaXZ() > 0.062)
+                && actionData.isLastLastSprinting()) ? movementData.getDeltaXZ() > 0.08 : movementData.getDeltaXZ() > 0.062)
                 && movementData.getClientGroundTicks() > 7
                 && usageTicks > 15
                 && ((MaterialType.isMaterial(profile.getPlayer().getInventory().getItemInMainHand().getType().name(), MaterialType.SHIELD)

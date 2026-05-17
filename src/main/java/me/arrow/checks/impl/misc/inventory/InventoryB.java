@@ -58,6 +58,9 @@ public class InventoryB extends Check {
                     + "\nstd " + MsgType.MAIN_THEME_COLOR.getMessage() + std
                     + "\ndelta " + MsgType.MAIN_THEME_COLOR.getMessage() + delta
                     + "\nlastDelta " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDelta;
+
+            verbose(this.getClass().getSimpleName(), deviation, 5.5, verboseInfo);
+
             if (deviation > 0D && deviation < 5.5D && average < 65D) {
                 fail("Clicking in inventory too fast",
                         verboseInfo);

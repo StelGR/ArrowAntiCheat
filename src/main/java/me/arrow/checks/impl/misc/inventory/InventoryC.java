@@ -45,7 +45,7 @@ public class InventoryC extends Check {
                     || movementData.isNearLava()
                     || movementData.isNearWebs())) {
                 if (!profile.getActionData().isInInventory() && profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_12_2)) {
-                    fail("Clicking in inventory while its not open", "");
+                    fail("Clicking in inventory while its not open", "(No Debug Prodived)");
                     TaskUtils.task(() -> profile.getPlayer().closeInventory());
                     profile.getActionData().setInInventory(false);
                 }
@@ -65,7 +65,7 @@ public class InventoryC extends Check {
                         || movementData.isNearLava()
                         || movementData.isNearWebs())
                         && profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_12_2)) {
-                    fail("Clicking in inventory while moving", "");
+                    fail("Clicking in inventory while moving", "(No Debug Prodived)");
                     TaskUtils.task(() -> profile.getPlayer().closeInventory());
                     profile.getActionData().setInInventory(false);
                 }
@@ -85,7 +85,7 @@ public class InventoryC extends Check {
 
             if (wrapperPlayClientInteractEntity.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
                 if (profile.getActionData().isInInventory() && profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_12_2)) {
-                    fail("Attacking while in inventory", "");
+                    fail("Attacking while in inventory", "(No Debug Prodived)");
                     TaskUtils.task(() -> profile.getPlayer().closeInventory());
                     profile.getActionData().setInInventory(false);
                 }
