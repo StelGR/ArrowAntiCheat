@@ -85,7 +85,6 @@ public class PredictionData implements Data {
             }
 
             if (wrappedInBlockDigPacket.getAction() == DiggingAction.SWAP_ITEM_WITH_OFFHAND) {
-
                 useSword = false;
                 useItem = false;
                 useShield = false;
@@ -103,7 +102,6 @@ public class PredictionData implements Data {
         }
         if (event.getPacketType().equals(SLOT_STATE_CHANGE)) {
             //profile.getPlayer().sendMessage("Packet: " + event.getPacketType());
-
             useSword = false;
             useItem = false;
             useShield = false;

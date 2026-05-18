@@ -34,7 +34,7 @@ public class AutoClickerE extends Check {
 
 
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
-            if (profile.getPredictionData().isDigging()) return;
+            if (profile.getPredictionData().isDigging() || averageCps < 11) return;
 
             clickSamples.add(averageCps);
 

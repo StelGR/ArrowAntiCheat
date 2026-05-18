@@ -11,6 +11,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.utils.custom.desync.DesyncType;
 import me.arrow.utils.customutils.Math.MathUtil;
 
 // Omni sprint check, alot of the examples i saw on open source anticheats, have alot of issues with the direction, and it seems like this isn't immune either
@@ -102,6 +103,7 @@ public class OmniSprintA extends Check {
                                 "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting +
                                 "\nlastSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + actionData.isLastSprinting());
                 buffer = 9;
+                actionData.getDesync().fix(DesyncType.SPRINTING);
             }
 
         } else {

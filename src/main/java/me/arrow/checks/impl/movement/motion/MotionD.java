@@ -38,9 +38,10 @@ public class MotionD extends Check {
 
             if (profile.shouldCancel()
                     || profile.isBouncingOnSlime()
-                    || profile.getMovementData().isOnSlime()
+                    || movementData.isOnSlime()
                     || profile.isExempt().isTeleports()
                     || movementData.isUnderblock()
+                    || movementData.isNearBed()
                     || movementData.isOnBoat()
                     || movementData.isNearWebs()
                     || movementData.isNearBoat()

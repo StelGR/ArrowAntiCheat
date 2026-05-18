@@ -462,7 +462,7 @@ public class ViolationListener implements Listener {
                     + "\"embeds\": [{"
                     + "\"title\": \"" + title + "\","
                     + "\"description\": \"**" + safePlayer + "** failed **" + safeCheck + " " + safeType
-                    + (experimental ? " " + MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "")
+                    + (experimental ? " " + OtherUtility.stripColorCodes(OtherUtility.translate(MsgType.EXPERIMENTAL_SYMBOL.getMessage())) : "")
                     + "** x" + vl + "\","
                     + "\"color\": 16711680"
                     + "}]"

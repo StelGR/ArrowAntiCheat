@@ -105,19 +105,23 @@ public class VelocityA extends Check {
             return;
         }
 
+
+
+        MovementData movementData = profile.getMovementData();
+        VelocityData velocityData = profile.getVelocityData();
+
         if (profile == null
                 || profile.getPlayer() == null
                 || !profile.getPlayer().isOnline()
                 || profile.getMovementData() == null
                 || profile.getVelocityData() == null
+                || movementData.isMovingUp()
+                || movementData.getSinceMovingUpTicks() < 5
                 || profile.getBlockProcessor().isUnderGhostBlock()
                 || profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
             resetTracking();
             return;
         }
-
-        MovementData movementData = profile.getMovementData();
-        VelocityData velocityData = profile.getVelocityData();
 
         if (isExempt(movementData)) {
             resetTracking();

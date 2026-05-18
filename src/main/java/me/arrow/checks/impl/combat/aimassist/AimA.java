@@ -39,7 +39,9 @@ public class AimA extends Check {
                         if (profile.getTrustFactor().getTrust() >= 80) {
                             profile.getTrustFactor().decreaseTrust();
                         } else {
-                            fail("Rounding Rotations", "pitchDifference " + MsgType.MAIN_THEME_COLOR.getMessage() + pitch);
+                            fail("Rounding Rotations", "pitchDifference " + MsgType.MAIN_THEME_COLOR.getMessage() + pitch +
+                                    "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + rotationData.getPitch() +
+                                    "\nlastPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + rotationData.getLastPitch());
                             profile.getTrustFactor().decreaseTrustBy(2);
                         }
                     }

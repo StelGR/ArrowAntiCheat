@@ -29,7 +29,8 @@ public enum CheckType {
     NOSLOWDOWN("NoSlowdown", CheckCategory.MOVEMENT),
     VEHICLE("Vehicle", CheckCategory.MOVEMENT),
     BACKTRACK("BackTrack", CheckCategory.CONNECTION),
-    XRAY("XRay", CheckCategory.WORLD);
+    XRAY("XRay", CheckCategory.WORLD),
+    MACRO("Macro", CheckCategory.COMBAT);
 
     private final String checkName;
     private final CheckCategory checkCategory;

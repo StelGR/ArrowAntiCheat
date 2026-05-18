@@ -28,7 +28,7 @@ public class CombatData implements Data {
     private int movementTicks, cancelTicks;
     private final List<Integer> movements = new ArrayList<>();
 
-    private SampleList<Double> cpsSamples = new SampleList<>(120);
+    private SampleList<Double> cpsSamples = new SampleList<>(1000);
 
     Map<Integer, UUID> trackedEntities = new HashMap<>();
 

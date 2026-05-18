@@ -29,31 +29,11 @@ public class AutoClickerF extends Check {
     List<Double> clickData = new ArrayList<>();
     double buffer, lastSTD;
 
-    private boolean digging;
-    private long lastDiggingUpdate;
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
-            WrapperPlayClientPlayerDigging wrapper = new WrapperPlayClientPlayerDigging(event);
-
-            if (wrapper.getAction() == DiggingAction.START_DIGGING) {
-                digging = true;
-                lastDiggingUpdate = System.currentTimeMillis();
-            }
-            else if (wrapper.getAction() == DiggingAction.FINISHED_DIGGING
-                    || wrapper.getAction() == DiggingAction.CANCELLED_DIGGING) {
-                digging = false;
-                lastDiggingUpdate = System.currentTimeMillis();
-            }
-            return;
-        }
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
-
-            if (digging || System.currentTimeMillis() - lastDiggingUpdate < 250L) {
-                buffer = 0;
-                return;
-            }
+            if (profile.getPredictionData().isDigging()) return;
 
             clickData.add(profile.getCombatData().getCurrentCps());
 

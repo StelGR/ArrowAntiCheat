@@ -185,6 +185,12 @@ public class Checks implements Initializer {
         AUTOCLICKER_G_PUNiSH_MODE("AutoClickerG.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         AUTOCLICKER_G_MAX_VL("AutoClickerG.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        MACRO_A("MacroA.enabled", true, "Should we enable this module?"),
+        MACRO_A_PUNISH("MacroA.punish", "", "Punishment settings"),
+        MACRO_A_PUNiSH_ENABLED("MacroA.punish.enabled", false, "Should punishments be enabled for this check?"),
+        MACRO_A_PUNiSH_MODE("MacroA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        MACRO_A_MAX_VL("MacroA.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
+
         KILLAURA_A("KillauraA.enabled", true, "Should we enable this module?"),
         KILLAURA_A_PUNISH("KillauraA.punish", "", "Punishment settings"),
         KILLAURA_A_PUNiSH_ENABLED("KillauraA.punish.enabled", false, "Should punishments be enabled for this check?"),

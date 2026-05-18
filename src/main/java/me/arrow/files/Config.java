@@ -94,7 +94,7 @@ public class Config implements Initializer {
 
         PUNISH("punishments", "", "Punishment settings"),
         PUNISH_ENABLED("punishments.enabled", true, "Should we punish players for cheating?"),
-        PUNISH_COMMAND("punishments.command", "ban %player% Unfair Advantage", "The command we should run to punish the player"),
+        PUNISH_COMMAND("punishments.command", "ban %player% &8[&6Arrow&8] &cUnfair Advantage", "The command we should run to punish the player"),
 
         WEBHOOK("webhook", "", "Webhook settings"),
         WEBHOOK_ENABLED("webhook.enabled", false, "Should we print anticheat alerts and punishments in our discord?"),

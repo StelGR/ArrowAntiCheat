@@ -7,11 +7,14 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWi
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
+import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.customutils.RunUtils;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
 // a transaction processor that has brain damage slightly, only slightly though, please fix it for bedrock players, as without this all velocity calculation
@@ -224,6 +227,21 @@ public class TransactionProcessor implements Runnable {
                                 + ", bedrock=" + profile.isBedrockPlayer()
                                 + ", id=" + (currentModernTransaction ? currentIntId : currentShortId))
                 ));
+
+                for (Player staff : Bukkit.getOnlinePlayers()) {
+
+                    final Profile staffProfile = Arrow.getInstance().getProfileManager().getProfile(staff);
+
+                    if (staffProfile == null || !staffProfile.isAlerts()) {
+                        continue;
+                    }
+
+                    if (!staff.hasPermission(Permissions.ALERTS.getPermission())) {
+                        continue;
+                    }
+
+                    staff.sendMessage(OtherUtility.translate("&8[&6Arrow&8] &c" + profile.getPlayer().getDisplayName() + " was kicked due to transaction timeout."));
+                }
             }
         } catch (Exception e) {
             OtherUtility.log("Failed to kick/log transaction timeout: " + e.getMessage());

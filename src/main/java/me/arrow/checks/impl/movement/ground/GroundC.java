@@ -26,6 +26,9 @@ public class GroundC extends Check {
     public GroundC(Profile profile) {
         super(profile, CheckType.GROUND, "C", "Ghostblock handler (Silent)");
     }
+
+    double buffer;
+
     @Override
     public void handle(PacketSendEvent event) {
 
@@ -87,6 +90,7 @@ public class GroundC extends Check {
                     || profile.getLastBlockPlaceTimer().hasNotPassed(15 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || profile.getLastBlockBreakTimer().hasNotPassed(15 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || movementData.isNearGhast()
+                    || profile.getActionData().getLastConfirmedUnderPlaceTicks() < (15 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || movementData.isNearBoat()) {
                 return;
             }
@@ -110,14 +114,12 @@ public class GroundC extends Check {
                     + "\nlocY (floor) " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.floor(movementData.getLocation().getY())
                     + "\nlocY - locY(floor) difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()));
 
-            if (profile.getMovementData().getSinceOnGhostBlock() == 0) {
+            if (profile.getMovementData().getSinceOnGhostBlock() <= 1) {
                 boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
 
 
 //                 this is completely retarded
-                if (increaseBuffer() > 2) {
-                    fail("On Ghostblock?", verboseInfo);
-                }
+                fail("On Ghostblock?", verboseInfo);
 
 
                 //fail("On Ghostblock?", verboseInfo);
@@ -125,7 +127,7 @@ public class GroundC extends Check {
                     OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
                 }
             } else {
-                decreaseBufferBy(0.25);
+                buffer -= Math.min(buffer, 0.25);
             }
         }
     }

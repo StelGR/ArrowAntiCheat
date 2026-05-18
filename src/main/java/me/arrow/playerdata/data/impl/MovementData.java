@@ -1085,8 +1085,6 @@ public class MovementData implements Data {
         dolphinGraceBoost = dolphinGraceMomentum();
 
 
-
-
 //        if (profile.getTick() > 120) {
 //            if (profile.getConnectionData().getTransDropTick() > (profile.getConnectionData().getLastTransPing() + (profile.getConnectionData().getClientTickTrans() * 3))) {
 //                profile.kick("Timed out (T. O.)");
