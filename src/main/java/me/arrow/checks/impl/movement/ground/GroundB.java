@@ -70,7 +70,7 @@ public class GroundB extends Check {
 
         //invalid 1 was a terribly made check, i removed it, invalid2 does most of the job. but it can still false, needs improvements
 
-        boolean invalid = false;
+        boolean invalid = airTicks > airTickLimit && clientGround && serverGround && inAir;
 //                (inAir && (airTicks >= 6 || clientAirTicks >= 8) && serverYGround && !serverGround && !clientGround)
 //                && movementData.getDeltaXZ() >= (0.9 + profile.getVelocityData().getTotalHorizontalVelocity())
 //                && movementData.getSinceRiptidingTicks() > 15;
@@ -151,10 +151,6 @@ public class GroundB extends Check {
                                    boolean recentlyPlaced,
                                    boolean recentlyCancelledPlace) {
 
-        /*
-         * Normal vanilla jump usually does not need 9+ custom-air ticks while both
-         * client/server are claiming ground. Lower base catches Verus-style spoofing faster.
-         */
         double limit = 5.0D;
 
         int jumpBoost = getJumpBoostLevel();
