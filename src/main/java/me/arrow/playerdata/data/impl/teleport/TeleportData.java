@@ -38,10 +38,10 @@ public class TeleportData implements Data {
     private static final double TELEPORT_EXACT_DIST = 1.0E-4D;
 
     private static final int MIN_TELEPORT_TIMEOUT_TICKS = 1;
-    private static final int MAX_TELEPORT_TIMEOUT_TICKS = 20;
+    private static final int MAX_TELEPORT_TIMEOUT_TICKS = 60;
 
     private static final int MIN_POST_TELEPORT_GRACE_TICKS = 1;
-    private static final int MAX_POST_TELEPORT_GRACE_TICKS = 20;
+    private static final int MAX_POST_TELEPORT_GRACE_TICKS = 6;
 
     private boolean teleportPhaseActive;
     private boolean possiblyTeleporting;

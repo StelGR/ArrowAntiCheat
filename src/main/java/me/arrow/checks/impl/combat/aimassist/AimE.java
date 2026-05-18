@@ -47,8 +47,10 @@ public class AimE extends Check {
             RotationData data = profile.getRotationData();
 
             if (!profile.getMovementData().isMoving()
-                    || profile.getCombatData().getAttackedTicks() > 35
-                    || data.getCinematicProcessor().isCinematic()) return;
+                    || profile.getCombatData().getAttackedTicks() > 20
+                    || data.getCinematicProcessor().isCinematic()) {
+                return;
+            }
 
             Player target = getPlayerByEntityId(profile.getCombatData().getTarget());
 

@@ -205,8 +205,7 @@ public class BackTrackB extends Check {
     }
 
     private boolean isInCombat(long now) {
-        return profile.getCombatData().getAttackedTicks() <= 10
-                || now - lastAttackTime <= COMBAT_MS;
+        return profile.getCombatData().getAttackedTicks() <= 10;
     }
 
     private boolean isExempt() {

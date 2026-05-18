@@ -95,7 +95,7 @@ public class OmniSprintA extends Check {
                         "\nlastSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + actionData.isLastSprinting());
 
         if (invalid) {
-            if (++buffer > 15.0) {
+            if (++buffer > 20.0) {
                 fail("Sprinting in impossible direction",
                         "direction " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getRelative() +
                                 "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ +

@@ -275,6 +275,15 @@ public final class Arrow {
 
         }, 10L);
 
+        Bukkit.getScheduler().runTaskLater(this.host, () -> {
+            log("➪ Remember, stay away from the cult of islam.");
+            log("➪ The cult that degrades young girls, Quran 65:4");
+            log("➪ Calls them braindead. 2:282");
+            log("➪ And your sex slaves. 2:223, 4:24");
+            log("");
+            log("➪ Ephesians 5:11 NRSVUE");
+            log("➪ Take no part in the unfruitful works of darkness; rather, expose them.");
+        }, 20L);
     }
 
     public void onDisable() {

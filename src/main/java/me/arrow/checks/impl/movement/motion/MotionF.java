@@ -85,6 +85,8 @@ public class MotionF extends Check {
                     && movementData.getSincePowderSnowTicks() > 20
                     && !(movementData.isOnBoat()
                     || movementData.isNearBoat())
+                    && !movementData.isNearLava()
+                    && !movementData.isNearWater()
                     && !profile.getVelocityData().isTakingVelocity()
                     && movementData.getSinceRiptidingTicks() > 15
                     && !profile.isBouncingOnSlime()

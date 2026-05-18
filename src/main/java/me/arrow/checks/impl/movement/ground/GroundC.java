@@ -114,7 +114,7 @@ public class GroundC extends Check {
                     + "\nlocY (floor) " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.floor(movementData.getLocation().getY())
                     + "\nlocY - locY(floor) difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()));
 
-            if (profile.getMovementData().getSinceOnGhostBlock() <= 1) {
+            if (profile.getMovementData().getSinceOnGhostBlock() < 2) {
                 boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
 
 
@@ -126,7 +126,8 @@ public class GroundC extends Check {
                 if (Config.Setting.DEBUG.getBoolean()) {
                     OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
                 }
-            } else {
+            }
+            else {
                 buffer -= Math.min(buffer, 0.25);
             }
         }

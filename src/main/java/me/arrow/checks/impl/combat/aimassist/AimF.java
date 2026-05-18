@@ -37,7 +37,7 @@ import java.util.Collections;
 @Experimental
 public class AimF extends Check {
 
-    private static final int SAMPLE_SIZE = 1000;
+    private static final int SAMPLE_SIZE = 500;
 
     private static final double MIN_DELTA = 1.0E-4D;
     private static final double MAX_VALID_DELTA = 180.0D;
@@ -54,8 +54,8 @@ public class AimF extends Check {
     private static final double FAIL_SUSPICION = 13.0D;
     private static final double SOFT_SUSPICION = 9.0D;
 
-    private static final int ATTACK_SAMPLE_SIZE = 400;
-    private static final int MIN_ATTACK_SAMPLE_SIZE = 400;
+    private static final int ATTACK_SAMPLE_SIZE = 300;
+    private static final int MIN_ATTACK_SAMPLE_SIZE = 200;
 
     private static final double CENTER_LOCK_DISTANCE = 0.085D;
     private static final double CENTER_LOCK_DISTANCE_LAG = 0.145D;
