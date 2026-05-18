@@ -114,7 +114,10 @@ public class GroundC extends Check {
                     + "\nlocY (floor) " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.floor(movementData.getLocation().getY())
                     + "\nlocY - locY(floor) difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()));
 
-            if (profile.getMovementData().getSinceOnGhostBlock() < 2) {
+            if (profile.getMovementData().getSinceOnGhostBlock() < 2
+                    || profile.getBlockProcessor().isInsideGhostBlock()
+                    || profile.getBlockProcessor().getLastGhostLiquidWebTick() < 5
+                    || profile.getBlockProcessor().isOnGhostBlock()) {
                 boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
 
 

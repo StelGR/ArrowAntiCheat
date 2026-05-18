@@ -112,7 +112,9 @@ public class FlyC extends Check {
             final double deltaY = movementData.getDeltaY();
             final double lastDeltaY = movementData.getLastDeltaY();
 
-            final double acceleration = deltaY - lastDeltaY;
+            double acceleration = deltaY - lastDeltaY;
+
+//            acceleration = Math.abs(acceleration);
 
             double jumpStart = MoveUtils.getJumpMotion(profile);
             double totalVerticalVelocity = profile.getVelocityData().getTotalVerticalVelocity();
@@ -133,7 +135,7 @@ public class FlyC extends Check {
                             && isNotJumpStart
                             && !vd.isTakingVelocity();
 
-            final boolean invalidNegativeY = acceleration < -1 && (clientAirTicks == 1 || movementData.isServerGround()) && !vd.isTakingVelocity();
+            final boolean invalidNegativeY = acceleration < -expectedY && (clientAirTicks == 1 || movementData.isServerGround()) && !vd.isTakingVelocity();
 
             final boolean invalid = (acceleration > 0.0 && !vd.isTakingVelocity()) && (serverAirTicks > 8 || clientAirTicks > 8) && !profile.getPotionData().isHasSlowFalling();
 

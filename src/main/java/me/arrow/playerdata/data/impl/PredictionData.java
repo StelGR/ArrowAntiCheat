@@ -92,12 +92,12 @@ public class PredictionData implements Data {
 
             if (wrappedInBlockDigPacket.getAction() == DiggingAction.START_DIGGING) {
                 digging = true;
-                lastDiggingUpdate = System.currentTimeMillis();
+                lastDiggingUpdate = event.getTimestamp();
             }
             else if (wrappedInBlockDigPacket.getAction() == DiggingAction.FINISHED_DIGGING
                     || wrappedInBlockDigPacket.getAction() == DiggingAction.CANCELLED_DIGGING) {
                 digging = false;
-                lastDiggingUpdate = System.currentTimeMillis();
+                lastDiggingUpdate = event.getTimestamp();
             }
         }
         if (event.getPacketType().equals(SLOT_STATE_CHANGE)) {

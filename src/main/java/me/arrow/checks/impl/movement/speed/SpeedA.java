@@ -199,11 +199,14 @@ public class SpeedA extends Check {
         }
 
         allowedLimit += movementData.elytraMomentum();
+        allowedLimit += movementData.getDolphinGraceBoost();
 
         if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): is Exempting (ghostblock liquid/web)");
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): is Exempting (ghostblock liquid/web)");
             allowedLimit += 0.2;
         }
+
+
 
         if (serverGround && deltaXZ != 0) {
             verbose(this.getClass().getSimpleName(), predicted, allowedLimit,
@@ -381,7 +384,7 @@ public class SpeedA extends Check {
         if (movementData.isInsideWater()) expectedSpeed += depthStriderBoost;
 
 
-        expectedSpeed += movementData.getDolphinGraceBoost();
+
 
 
         boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 15 + profile.getConnectionData().getClientTickTrans();
@@ -407,15 +410,15 @@ public class SpeedA extends Check {
         double expected2 = 0.33319999363422426D;
 
         if (clientAirTicks == 2 && Math.abs(deltaY - expected2) < 1E-6) {
-            expectedSpeed += speedLevel > 0 ? (0.0075 + (0.008D * speedLevel)) : 0.0075;
-            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.009 : 0;
+            expectedSpeed += speedLevel > 0 ? (0.009 + (0.008D * speedLevel)) : 0.009;
+            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.012 : 0;
         }
 
         double expected3 = 0.24813599859094637D;
 
         if (clientAirTicks == 3 && Math.abs(deltaY - expected3) < 1E-6) {
-            expectedSpeed += speedLevel > 0 ? (0.00425 + (0.008D * speedLevel)) : 0.004;
-            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.00625 : 0;
+            expectedSpeed += speedLevel > 0 ? (0.0075 + (0.008D * speedLevel)) : 0.0075;
+            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.0095 : 0;
         }
 
 
@@ -432,6 +435,7 @@ public class SpeedA extends Check {
         }
 
         expectedSpeed += movementData.elytraMomentum();
+        expectedSpeed += movementData.getDolphinGraceBoost();
 
         if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): is Exempting (ghostblock liquid/web)");

@@ -1167,8 +1167,8 @@ public class MovementData implements Data {
     private boolean dolphinGraceWasActive;
 
     private float dolphinGraceMomentum() {
-        final float start = 0.1275f;
-        final float step = 0.025f;
+        final float start = 0.2f;
+        final float step = 0.0275f;
         final float stepAfterWater = 0.03025f;
         final float stepAfterAir = 0.0105f;
 
