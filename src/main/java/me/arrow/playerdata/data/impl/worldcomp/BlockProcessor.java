@@ -40,7 +40,10 @@ import java.util.Iterator;
 @Getter
 public class BlockProcessor implements Data {
 
-    private static final int MAX_GHOST_BLOCK_TICKS = 20 * 60;
+    private static final int MAX_GHOST_BLOCK_TICKS = 20 * 8;
+    private static final int MAX_CANCELLED_PLACE_GHOST_TICKS = 20;
+    private static final int MAX_CLICK_INTERACTION_GHOST_TICKS = 10;
+
     private static final int GHOST_SYNC_COOLDOWN_TICKS = 8;
     private static final int GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS = 4;
 
@@ -149,17 +152,30 @@ public class BlockProcessor implements Data {
         Vector placedVector = getPlacedVector(x, y, z, faceValue);
 
         boolean clickedAirLike = isAirLike(clickedServerMaterial);
-        boolean knownGhostNearInteraction = isKnownGhostNear(clickedVector, 2.25D)
-                || isKnownGhostNear(placedVector, 2.25D)
-                || isPlayerNearAnyGhost();
+        boolean knownGhostNearInteraction =
+                isKnownGhostNear(clickedVector, 2.25D)
+                        || isKnownGhostNear(placedVector, 2.25D)
+                        || isPlayerNearAnyGhost();
 
-        if (clickedAirLike || knownGhostNearInteraction) {
-            this.interactingGhostBlock = true;
-            this.nearGhostBlock = true;
-            this.lastGhostBlockTick = 0;
+        /*
+         * Important:
+         * Do NOT create a new ghostblock just because the player right-clicked near
+         * a previous ghostblock. That is what makes levers/buttons and old WG areas
+         * re-trigger GroundC.
+         */
+        if (knownGhostNearInteraction && autoCorrectGhostBlocks) {
+            syncGhostInteractionArea(clickedVector, placedVector);
+        }
 
-            addGhostBlock(clickedVector, attemptedMaterial != null ? attemptedMaterial : Material.AIR,
-                    attemptedMaterial != null ? "client-interacted-server-air" : "client-interacted-ghost-without-block-item");
+        /*
+         * If the clicked block is air and the player is not actually trying to place
+         * a block, they probably interacted with a client-only block. Track it briefly.
+         *
+         * If they ARE holding a block, wait for the delayed placement confirmation
+         * below in handleMovementPacket. That path knows the intended placedVector.
+         */
+        if (clickedAirLike && attemptedMaterial == null) {
+            addGhostBlock(clickedVector, Material.AIR, "client-interacted-server-air-without-place", MAX_CLICK_INTERACTION_GHOST_TICKS);
 
             if (autoCorrectGhostBlocks) {
                 syncGhostInteractionArea(clickedVector, placedVector);
@@ -243,13 +259,29 @@ public class BlockProcessor implements Data {
 
             if (!isSamePlacedMaterial(serverMaterial, attempted)) {
                 this.lastConfirmedCancelPlaceTimer.reset();
-                addGhostBlock(vector, attempted, "placement-cancelled-or-mismatch");
 
-                if (isPhysicsGhostMaterial(attempted) && isPlayerCloseTo(vector, 2.35D, 2.75D)) {
-                    this.lastGhostLiquidWebTick = 0;
+                addGhostBlock(vector, attempted, "placement-cancelled-or-mismatch", MAX_CANCELLED_PLACE_GHOST_TICKS);
+
+                boolean on = isPlayerStandingOnGhost(vector);
+                boolean inside = isPlayerInsideGhost(vector);
+                boolean under = isPlayerUnderGhost(vector);
+                boolean contact = on || inside || under;
+
+                /*
+                 * Near a cancelled placement = sync/exempt context only.
+                 * Actual on/inside/under = GroundC-relevant ghost state.
+                 */
+                if (contact) {
                     this.lastGhostBlockTick = 0;
                     this.nearGhostBlock = true;
                     this.interactingGhostBlock = true;
+                    this.onGhostBlock = this.onGhostBlock || on;
+                    this.insideGhostBlock = this.insideGhostBlock || inside;
+                    this.underGhostBlock = this.underGhostBlock || under;
+
+                    if (isPhysicsGhostMaterial(attempted)) {
+                        this.lastGhostLiquidWebTick = 0;
+                    }
                 }
 
                 if (autoCorrectGhostBlocks && isPlayerCloseTo(vector, 3.0D, 3.0D)) {
@@ -297,10 +329,29 @@ public class BlockProcessor implements Data {
 
                 try {
                     StateType type = blockData.getBlockState(data.getVersion()).getType();
+                    String stateName = type != null ? type.getName() : null;
 
-                    if (isAirLike(serverMaterial) && type != null && !type.getName().equalsIgnoreCase("air")) {
-                        addGhostBlock(vector, serverMaterial, "multi-block-client-server-mismatch");
+                    boolean serverAir = isAirLike(serverMaterial);
+                    boolean clientAir = isStateAirLike(stateName);
+
+                    if (serverAir && !clientAir) {
+                        Material clientMaterial = materialFromStateName(stateName);
+
+                        addGhostBlock(
+                                vector,
+                                clientMaterial != null ? clientMaterial : Material.AIR,
+                                "multi-block-client-server-mismatch",
+                                MAX_GHOST_BLOCK_TICKS
+                        );
+
+                        if (autoCorrectGhostBlocks && isPlayerCloseTo(vector, 3.0D, 3.0D)) {
+                            syncRealBlockToClient(vector);
+                        }
+
+                        return;
                     }
+
+                    removeGhostBlock(vector);
                 } catch (Throwable ignored) {
                 }
             });
@@ -330,7 +381,7 @@ public class BlockProcessor implements Data {
                 return;
             }
 
-            if (distanceFromUpdate < 3.0D && serverMaterial.name().equals(MaterialType.WEB.name())) {
+            if (distanceFromUpdate < 3.0D && isWebMaterial(serverMaterial)) {
                 this.lastWebUpdateTick = 0;
             }
 
@@ -338,11 +389,36 @@ public class BlockProcessor implements Data {
 
             try {
                 StateType type = blockChange.getBlockState().getType();
+                String stateName = type != null ? type.getName() : null;
 
-                if (serverMaterial.name().equals(MaterialType.TRANSPARENT.name())
-                        && !type.getName().equals(MaterialType.TRANSPARENT.name())) {
-                    addGhostBlock(vector, serverMaterial, "block-change-client-server-mismatch");
+                boolean serverAir = isAirLike(serverMaterial);
+                boolean clientAir = isStateAirLike(stateName);
+
+                /*
+                 * Server says air, packet says non-air:
+                 * client may see a block that server does not.
+                 */
+                if (serverAir && !clientAir) {
+                    Material clientMaterial = materialFromStateName(stateName);
+
+                    addGhostBlock(
+                            vector,
+                            clientMaterial != null ? clientMaterial : Material.AIR,
+                            "block-change-client-server-mismatch",
+                            MAX_GHOST_BLOCK_TICKS
+                    );
+
+                    if (autoCorrectGhostBlocks && isPlayerCloseTo(vector, 3.0D, 3.0D)) {
+                        syncRealBlockToClient(vector);
+                    }
+
+                    return;
                 }
+
+                /*
+                 * Server and client packet agree, so remove stale ghost history.
+                 */
+                removeGhostBlock(vector);
             } catch (Throwable ignored) {
             }
         });
@@ -475,95 +551,84 @@ public class BlockProcessor implements Data {
         this.underGhostBlock = false;
         this.interactingGhostBlock = false;
 
-        ClientWorldTracker.CollisionResult clientWorldResult =
-                data.getClientWorldTracker() != null
-                        ? data.getClientWorldTracker().scanPlayerCollision()
-                        : null;
-
-        if (clientWorldResult != null && clientWorldResult.shouldExemptMovementChecks()) {
-            this.nearGhostBlock = clientWorldResult.nearGhostBlock;
-            this.onGhostBlock = clientWorldResult.onGhostBlock;
-            this.insideGhostBlock = clientWorldResult.insideGhostBlock || clientWorldResult.insideServerOnlyBlock;
-            this.underGhostBlock = clientWorldResult.underGhostBlock;
-            this.interactingGhostBlock = clientWorldResult.interactingGhostBlock || clientWorldResult.nearGhostBlock;
-            this.lastGhostBlockTick = 0;
-
-            if (clientWorldResult.physicsMismatch || clientWorldResult.clientOnlyBlock || clientWorldResult.serverOnlyBlock) {
-                this.lastGhostLiquidWebTick = 0;
-            }
-
-            if (autoCorrectGhostBlocks && this.lastGhostInteractionAreaSyncTick > GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS) {
-                data.getClientWorldTracker().syncCollisionArea(clientWorldResult);
-                this.lastGhostInteractionAreaSyncTick = 0;
-            }
-
-            if (clientWorldResult.shouldSetback()) {
-                data.getMovementData().getSetbackProcessor().causeSetBack(this.getClass().getSimpleName());
-            }
-        }
-
         CustomLocation location = data.getMovementData().getLocation();
 
         if (location == null) {
             return;
         }
 
-        boolean physicsGhost = false;
-
         synchronized (ghostBlockLock) {
-            if (!ghostBlocks.isEmpty()) {
-                for (GhostBlock ghost : ghostBlocks) {
-                    boolean near = isPlayerCloseTo(ghost.position, 2.25D, 2.75D);
-                    boolean on = isPlayerStandingOnGhost(ghost.position);
-                    boolean inside = isPlayerInsideGhost(ghost.position);
-                    boolean under = isPlayerUnderGhost(ghost.position);
+            if (ghostBlocks.isEmpty()) {
+                return;
+            }
 
-                    if (near || on || inside || under) {
-                        this.nearGhostBlock = true;
-                        this.interactingGhostBlock = true;
-                        this.lastGhostBlockTick = 0;
+            for (GhostBlock ghost : ghostBlocks) {
+                boolean near = isPlayerCloseTo(ghost.position, 2.25D, 2.75D);
+                boolean on = isPlayerStandingOnGhost(ghost.position);
+                boolean inside = isPlayerInsideGhost(ghost.position);
+                boolean under = isPlayerUnderGhost(ghost.position);
 
-                        ghost.interactionTicks++;
+                boolean contact = on || inside || under;
 
-                        if (isPhysicsGhostMaterial(ghost.material)) {
-                            physicsGhost = true;
-                        }
+                if (near) {
+                    this.nearGhostBlock = true;
 
-                        if (autoCorrectGhostBlocks && ghost.syncCooldownTicks <= 0) {
-                            syncRealBlockToClient(ghost.position);
-                            syncRealBlockToClient(ghost.position.clone().add(new Vector(0, 1, 0)));
-                            syncRealBlockToClient(ghost.position.clone().add(new Vector(0, -1, 0)));
+                    /*
+                     * Nearby ghosts should be synced, but they must not refresh
+                     * lastGhostBlockTick / lastGhostLiquidWebTick.
+                     */
+                    if (autoCorrectGhostBlocks && ghost.syncCooldownTicks <= 0) {
+                        syncRealBlockToClient(ghost.position);
 
-                            if (this.lastGhostInteractionAreaSyncTick > GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS) {
-                                syncRealBlocksAroundPlayer(2, 2, 3);
-                                this.lastGhostInteractionAreaSyncTick = 0;
-                            }
-
-                            ghost.syncCooldownTicks = GHOST_SYNC_COOLDOWN_TICKS;
-                        }
-                    }
-
-                    if (on) {
-                        this.onGhostBlock = true;
-                    }
-
-                    if (inside) {
-                        this.insideGhostBlock = true;
-                    }
-
-                    if (under) {
-                        this.underGhostBlock = true;
+                        ghost.syncCooldownTicks = GHOST_SYNC_COOLDOWN_TICKS;
                     }
                 }
-            }
-        }
 
-        if (physicsGhost) {
-            this.lastGhostLiquidWebTick = 0;
+                if (contact) {
+                    this.nearGhostBlock = true;
+                    this.interactingGhostBlock = true;
+                    this.lastGhostBlockTick = 0;
+
+                    ghost.interactionTicks++;
+
+                    if (isPhysicsGhostMaterial(ghost.material)) {
+                        this.lastGhostLiquidWebTick = 0;
+                    }
+
+                    if (autoCorrectGhostBlocks && ghost.syncCooldownTicks <= 0) {
+                        syncRealBlockToClient(ghost.position);
+                        syncRealBlockToClient(ghost.position.clone().add(new Vector(0, 1, 0)));
+                        syncRealBlockToClient(ghost.position.clone().add(new Vector(0, -1, 0)));
+
+                        if (this.lastGhostInteractionAreaSyncTick > GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS) {
+                            syncRealBlocksAroundPlayer(1, 1, 2);
+                            this.lastGhostInteractionAreaSyncTick = 0;
+                        }
+
+                        ghost.syncCooldownTicks = GHOST_SYNC_COOLDOWN_TICKS;
+                    }
+                }
+
+                if (on) {
+                    this.onGhostBlock = true;
+                }
+
+                if (inside) {
+                    this.insideGhostBlock = true;
+                }
+
+                if (under) {
+                    this.underGhostBlock = true;
+                }
+            }
         }
     }
 
     private void addGhostBlock(Vector position, Material material, String reason) {
+        addGhostBlock(position, material, reason, resolveGhostMaxTicks(reason));
+    }
+
+    private void addGhostBlock(Vector position, Material material, String reason, int maxTicks) {
         if (position == null) {
             return;
         }
@@ -584,8 +649,80 @@ public class BlockProcessor implements Data {
                 }
             }
 
-            ghostBlocks.add(new GhostBlock(new Vector(x, y, z), material, reason));
+            ghostBlocks.add(new GhostBlock(new Vector(x, y, z), material, reason, Math.max(1, maxTicks)));
         }
+    }
+
+    private int resolveGhostMaxTicks(String reason) {
+        if (reason == null) {
+            return MAX_GHOST_BLOCK_TICKS;
+        }
+
+        if (reason.contains("placement-cancelled")) {
+            return MAX_CANCELLED_PLACE_GHOST_TICKS;
+        }
+
+        if (reason.contains("client-interacted")) {
+            return MAX_CLICK_INTERACTION_GHOST_TICKS;
+        }
+
+        return MAX_GHOST_BLOCK_TICKS;
+    }
+
+    private void removeGhostBlock(Vector position) {
+        if (position == null) {
+            return;
+        }
+
+        int x = position.getBlockX();
+        int y = position.getBlockY();
+        int z = position.getBlockZ();
+
+        synchronized (ghostBlockLock) {
+            Iterator<GhostBlock> iterator = ghostBlocks.iterator();
+
+            while (iterator.hasNext()) {
+                GhostBlock ghost = iterator.next();
+
+                if (sameBlock(ghost.position, x, y, z)) {
+                    iterator.remove();
+                }
+            }
+        }
+    }
+
+    private boolean isStateAirLike(String stateName) {
+        if (stateName == null || stateName.isEmpty()) {
+            return true;
+        }
+
+        String name = stateName
+                .replace("minecraft:", "")
+                .toUpperCase();
+
+        return name.equals("AIR")
+                || name.equals("CAVE_AIR")
+                || name.equals("VOID_AIR");
+    }
+
+    private Material materialFromStateName(String stateName) {
+        if (stateName == null || stateName.isEmpty()) {
+            return null;
+        }
+
+        return matchMaterialCompat(stateName);
+    }
+
+    private boolean isWebMaterial(Material material) {
+        if (material == null) {
+            return false;
+        }
+
+        String name = material.name();
+
+        return name.equals("WEB")
+                || name.equals("COBWEB")
+                || name.contains("WEB");
     }
 
     private void ageGhostBlocks() {
@@ -607,12 +744,41 @@ public class BlockProcessor implements Data {
 
                 Material serverMaterial = getServerMaterial(ghost.position);
 
+                /*
+                 * If the server now actually has the attempted material, it is no longer
+                 * a ghostblock.
+                 */
                 if (isSamePlacedMaterial(serverMaterial, ghost.material)) {
                     iterator.remove();
                     continue;
                 }
 
-                if (ghost.ticks > MAX_GHOST_BLOCK_TICKS) {
+                /*
+                 * If this was a WG/cancelled placement and the player is no longer in
+                 * actual contact with it, clear it quickly. It only exists to sync the
+                 * client correction, not to poison the area.
+                 */
+                boolean cancelledPlacement =
+                        ghost.reason != null
+                                && (ghost.reason.contains("placement-cancelled")
+                                || ghost.reason.contains("client-interacted-server-air"));
+
+                boolean contact =
+                        isPlayerStandingOnGhost(ghost.position)
+                                || isPlayerInsideGhost(ghost.position)
+                                || isPlayerUnderGhost(ghost.position);
+
+                if (cancelledPlacement && !contact && ghost.ticks > ghost.maxTicks) {
+                    iterator.remove();
+                    continue;
+                }
+
+                if (!contact && isAirLike(serverMaterial) && ghost.interactionTicks <= 0 && ghost.ticks > ghost.maxTicks) {
+                    iterator.remove();
+                    continue;
+                }
+
+                if (ghost.ticks > ghost.maxTicks) {
                     iterator.remove();
                 }
             }
@@ -626,18 +792,31 @@ public class BlockProcessor implements Data {
             return false;
         }
 
-        double px = loc.getX();
-        double py = loc.getY();
-        double pz = loc.getZ();
+        double playerMinX = loc.getX() - 0.3001D;
+        double playerMaxX = loc.getX() + 0.3001D;
+        double playerMinZ = loc.getZ() - 0.3001D;
+        double playerMaxZ = loc.getZ() + 0.3001D;
 
-        double bx = block.getBlockX() + 0.5D;
-        double by = block.getBlockY() + 1.0D;
-        double bz = block.getBlockZ() + 0.5D;
+        double blockMinX = block.getBlockX();
+        double blockMaxX = block.getBlockX() + 1.0D;
+        double blockMinZ = block.getBlockZ();
+        double blockMaxZ = block.getBlockZ() + 1.0D;
 
-        return Math.abs(px - bx) <= 0.92D
-                && Math.abs(pz - bz) <= 0.92D
-                && py >= by - 0.35D
-                && py <= by + 0.28D;
+        boolean horizontalOverlap =
+                playerMaxX > blockMinX + 0.001D
+                        && playerMinX < blockMaxX - 0.001D
+                        && playerMaxZ > blockMinZ + 0.001D
+                        && playerMinZ < blockMaxZ - 0.001D;
+
+        if (!horizontalOverlap) {
+            return false;
+        }
+
+        double feetY = loc.getY();
+        double blockTop = block.getBlockY() + 1.0D;
+
+        return feetY >= blockTop - 0.075D
+                && feetY <= blockTop + 0.075D;
     }
 
     private boolean isPlayerInsideGhost(Vector block) {
@@ -647,25 +826,26 @@ public class BlockProcessor implements Data {
             return false;
         }
 
-        double px = loc.getX();
-        double py = loc.getY();
-        double pz = loc.getZ();
+        double playerMinX = loc.getX() - 0.3001D;
+        double playerMaxX = loc.getX() + 0.3001D;
+        double playerMinY = loc.getY() + 0.001D;
+        double playerMaxY = loc.getY() + 1.799D;
+        double playerMinZ = loc.getZ() - 0.3001D;
+        double playerMaxZ = loc.getZ() + 0.3001D;
 
-        double minX = block.getBlockX() - 0.31D;
-        double maxX = block.getBlockX() + 1.31D;
-        double minY = block.getBlockY() - 0.05D;
-        double maxY = block.getBlockY() + 1.05D;
-        double minZ = block.getBlockZ() - 0.31D;
-        double maxZ = block.getBlockZ() + 1.31D;
+        double blockMinX = block.getBlockX();
+        double blockMaxX = block.getBlockX() + 1.0D;
+        double blockMinY = block.getBlockY();
+        double blockMaxY = block.getBlockY() + 1.0D;
+        double blockMinZ = block.getBlockZ();
+        double blockMaxZ = block.getBlockZ() + 1.0D;
 
-        double playerMaxY = py + 1.8D;
-
-        return px >= minX
-                && px <= maxX
-                && pz >= minZ
-                && pz <= maxZ
-                && playerMaxY >= minY
-                && py <= maxY;
+        return playerMaxX > blockMinX + 0.001D
+                && playerMinX < blockMaxX - 0.001D
+                && playerMaxY > blockMinY + 0.001D
+                && playerMinY < blockMaxY - 0.001D
+                && playerMaxZ > blockMinZ + 0.001D
+                && playerMinZ < blockMaxZ - 0.001D;
     }
 
     private boolean isPlayerUnderGhost(Vector block) {
@@ -675,20 +855,31 @@ public class BlockProcessor implements Data {
             return false;
         }
 
-        double px = loc.getX();
-        double py = loc.getY();
-        double pz = loc.getZ();
+        double playerMinX = loc.getX() - 0.3001D;
+        double playerMaxX = loc.getX() + 0.3001D;
+        double playerMinZ = loc.getZ() - 0.3001D;
+        double playerMaxZ = loc.getZ() + 0.3001D;
 
-        double bx = block.getBlockX() + 0.5D;
-        double by = block.getBlockY();
-        double bz = block.getBlockZ() + 0.5D;
+        double blockMinX = block.getBlockX();
+        double blockMaxX = block.getBlockX() + 1.0D;
+        double blockMinZ = block.getBlockZ();
+        double blockMaxZ = block.getBlockZ() + 1.0D;
 
-        double headY = py + 1.8D;
+        boolean horizontalOverlap =
+                playerMaxX > blockMinX + 0.001D
+                        && playerMinX < blockMaxX - 0.001D
+                        && playerMaxZ > blockMinZ + 0.001D
+                        && playerMinZ < blockMaxZ - 0.001D;
 
-        return Math.abs(px - bx) <= 0.85D
-                && Math.abs(pz - bz) <= 0.85D
-                && by >= headY - 0.35D
-                && by <= headY + 0.75D;
+        if (!horizontalOverlap) {
+            return false;
+        }
+
+        double headY = loc.getY() + 1.8D;
+        double blockBottom = block.getBlockY();
+
+        return headY >= blockBottom - 0.075D
+                && headY <= blockBottom + 0.125D;
     }
 
     private boolean isPlayerCloseTo(Vector block, double horizontal, double vertical) {
@@ -1200,15 +1391,17 @@ public class BlockProcessor implements Data {
         private final Vector position;
         private final Material material;
         private final String reason;
+        private final int maxTicks;
 
         private int ticks;
         private int interactionTicks;
         private int syncCooldownTicks;
 
-        private GhostBlock(Vector position, Material material, String reason) {
+        private GhostBlock(Vector position, Material material, String reason, int maxTicks) {
             this.position = position;
             this.material = material;
             this.reason = reason;
+            this.maxTicks = maxTicks;
         }
     }
 }

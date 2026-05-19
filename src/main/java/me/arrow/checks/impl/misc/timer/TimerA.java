@@ -61,22 +61,17 @@ public class TimerA extends Check {
             if (this.ready()) {
                 if (++this.violations > 1.0D) {
                     if (!this.capped) {
-                        fail("Speeding up Time",
-                                "* Timer"
-                                        + "\n* BL " + MsgType.MAIN_THEME_COLOR.getMessage() + this.balance / 1_000_000L
-                                        + "\n* RATE " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min(FLYING_OFFSET / diff, 10L)
-                                        + "\n* EXISTED " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick());
+                        fail("Speeding up game clock (1)",
+                                "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + this.balance / 1_000_000L
+                                        + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min(FLYING_OFFSET / diff, 10L)
+                                        + "\nlastPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + now
+                                        + "\nuserTick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick());
                     } else {
-                        /*
-                         * Karhu kicks here.
-                         * You said you do not want timerKicked, so fail instead.
-                         */
-                        fail("Speeding up Time",
-                                "* Timer"
-                                        + "\n* BL " + MsgType.MAIN_THEME_COLOR.getMessage() + this.balance / 1_000_000L
-                                        + "\n* RATE " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min(FLYING_OFFSET / diff, 10L)
-                                        + "\n* EXISTED " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick()
-                                        + "\n* CAPPED " + MsgType.MAIN_THEME_COLOR.getMessage() + true);
+                        fail("Speeding up game clock (2)",
+                                        "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + this.balance / 1_000_000L
+                                        + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min(FLYING_OFFSET / diff, 10L)
+                                        + "\nlastPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + now
+                                        + "\nuserTick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick());
                     }
                 }
             }

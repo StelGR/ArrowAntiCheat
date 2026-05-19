@@ -150,7 +150,7 @@ public class SlimeProcessor {
 
         // No session: test for initial bounce tick using conservative rules
         // Must be on slime block now
-        if (!md.isOnSlime()) return false;
+        if (!md.isOnExtendedHitboxSlime()) return false;
 
         boolean wasFalling = lastDeltaY < -EPS_FALL || lastFallDistance > MIN_FALLDIST_FOR_FALL;
         boolean nowMovingUp = deltaY > EPS_UP;

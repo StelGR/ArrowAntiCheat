@@ -227,6 +227,10 @@ public class GuiListener implements Listener {
             case 15:
                 getGuiManager().openArrowCheckGUI(player, "Timer", "Timer");
                 break;
+
+            case 16:
+                getGuiManager().openArrowCheckGUI(player, "Macro", "Macro");
+                break;
         }
     }
 

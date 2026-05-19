@@ -82,7 +82,7 @@ public class MovementData implements Data {
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround, isDigging,
-        nearWater, nearBubble, nearLava, nearContact, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onHoney, onSoulSand, movingUp, movingDown, isRiptiding;
+        nearWater, nearBubble, nearLava, nearContact, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, movingDown, isRiptiding;
 
 
     @Getter
@@ -847,10 +847,33 @@ public class MovementData implements Data {
             iceTicks = Math.max(0, iceTicks - 1);
         }
 
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow = CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), true);
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lower = CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), true);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), true);
+
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove = CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), true);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lower = CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), true);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), true);
+
+        boolean slimeBelow0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultBelow, true, MaterialType.SLIME);
+        boolean slimeBelow1 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultBelow_lower, true, MaterialType.SLIME);
+        boolean slimeBelow2 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultBelow_lowest, true, MaterialType.SLIME);
+
+        boolean slimeAbove0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultAbove, true, MaterialType.SLIME);
+        boolean slimeAbove1 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultAbove_lower, true, MaterialType.SLIME);
+        boolean slimeAbove2 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultAbove_lowest, true, MaterialType.SLIME);
+
         boolean onSlime0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, true, MaterialType.SLIME);
         boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, true, MaterialType.SLIME);
         boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, true, MaterialType.SLIME);
         onSlime = onSlime0 || onSlime1 || onSlime2;
+
+
+        // this is a temporary, test fix, for piston movable slime blocks, it may not work properly in all scenarios, but it will do for now
+        // assuming that it even works...
+        onExtendedHitboxSlime = onSlime || slimeBelow0 || slimeBelow1 || slimeBelow2 || slimeAbove0 || slimeAbove1 || slimeAbove2;
 
         if (moving && (onSlime0 || onSlime1 || onSlime2)) {
             movingOnSlimeTicks += (movingOnSlimeTicks < 30 ? 1F : 0F);

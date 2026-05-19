@@ -685,6 +685,11 @@ public class GuiManager {
                 OtherUtility.translate("&7Manage the timer checks"),
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
+        gui.setItem(16, GuiUtility.generateItem(new ItemStack(Material.DIAMOND_AXE, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Macro"),
+                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+                        OtherUtility.translate("&7Manage the Macro checks"),
+                        OtherUtility.translate(OtherUtility.guiLine())
+                )));
 
         gui.setItem(22, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
         Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),

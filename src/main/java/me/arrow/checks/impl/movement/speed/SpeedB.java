@@ -134,7 +134,6 @@ public class SpeedB extends Check {
                                       double velocityH,
                                       boolean sprinting) {
 
-        // Karhu: boolean velocity = this.data.getTickedVelocity() != null;
         boolean velocity = profile.getVelocityData().isTakingVelocity();
 
         if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 15 + profile.getConnectionData().getClientTickTrans()) {
@@ -255,8 +254,6 @@ public class SpeedB extends Check {
                     double bestBlocking2 = Math.min(this.getBest(subtractedPlain, true, forceSprint, true), this.getBest(subtractedPlain, true, force, false));
 
                     if (bestNormal2 > threshold * tMult && bestBlocking2 > threshold * tMult) {
-
-                        // if (moveTicks <= 1) { if (++shit > 3) disallow + decrease; set lastMove; } else shit = min(0, shit-0.1)
                         if (movingTicks <= 3.0F) {
                             if (++smallBuffer > 3.0) {
                                 smallBuffer = 3.0;
