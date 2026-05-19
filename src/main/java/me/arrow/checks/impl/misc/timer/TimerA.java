@@ -3,17 +3,19 @@ package me.arrow.checks.impl.misc.timer;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.custom.CustomLocation;
 
 public class TimerA extends Check {
 
     private static final long TELEPORT_OFFSET = 50_000_000L;
     private static final long FLYING_OFFSET = 50_000_000L;
 
-    private static final long TIMER_A_CAP_LENGTH = 800_000_000L;
+    private static final long TIMER_A_CAP_LENGTH = 2_000_000_000L;
 
     private long lastFlyingPacket = System.nanoTime();
     private long balance;
@@ -34,7 +36,14 @@ public class TimerA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!isFlyingPacket(event)) {
+
+        if (profile.getConnectionData().getTransPing() > 2000 && ready()) {
+            if (increaseBuffer() > 20) {
+                profile.kick("Your ping is constantly high, do something about it.");
+            }
+        } else decreaseBufferBy(1);
+
+        if (!isFlyingPacket(event) || profile.getConnectionData().getTransPing() > 1500) {
             return;
         }
 
@@ -105,9 +114,12 @@ public class TimerA extends Check {
     }
 
     private boolean ready() {
+
+        CustomLocation loc = profile.getMovementData().getLocation();
         return profile.getTick() > 100
                 && !profile.shouldCancel()
                 && !profile.isExempt().isTeleports()
-                && !profile.isExempt().vehicle();
+                && !profile.isExempt().vehicle()
+                && Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(loc.getWorld(), (int) loc.getX(), (int) loc.getZ());
     }
 }

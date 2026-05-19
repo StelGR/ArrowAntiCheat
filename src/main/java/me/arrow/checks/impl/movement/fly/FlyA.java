@@ -195,6 +195,7 @@ public class FlyA extends Check {
             return;
         }
 
+
         if (profile.isBouncingOnSlime()) { debugExempt("slimeBounce"); return; }
         if (movementData.isOnTopOfWater()) { debugExempt("onTopOfWater"); return; }
         if (movementData.isInsideWater()) { debugExempt("insideWater"); return; }
@@ -235,6 +236,9 @@ public class FlyA extends Check {
 
         double totalUp = Math.abs(deltaY - prediction);
         double max = computeAllowedDelta(profile, deltaY);
+
+        double motion = MoveUtils.getJumpMotion(profile);
+        if (deltaY == motion && movementData.getClientAirTicks() == 1) return;
 
         if (deltaY != 0.0D) {
             verbose(this.getClass().getSimpleName(), bufferA, 4,

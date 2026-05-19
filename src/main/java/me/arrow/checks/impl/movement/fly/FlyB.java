@@ -265,7 +265,7 @@ public class FlyB extends Check {
 
             double baseTicksVel = 5;
             double baseVelocity = 0.0005;
-            double scale = 12.5;
+            double scale = 13;
             double maxExtra = 200;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + Math.min(scale * (velMag - baseVelocity), maxExtra);

@@ -410,8 +410,8 @@ public class SpeedA extends Check {
         double expected2 = 0.33319999363422426D;
 
         if (clientAirTicks == 2 && Math.abs(deltaY - expected2) < 1E-6) {
-            expectedSpeed += speedLevel > 0 ? (0.009 + (0.008D * speedLevel)) : 0.009;
-            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.012 : 0;
+            expectedSpeed += speedLevel > 0 ? (0.0096 + (0.008D * speedLevel)) : 0.0096;
+            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.01225 : 0;
         }
 
         double expected3 = 0.24813599859094637D;

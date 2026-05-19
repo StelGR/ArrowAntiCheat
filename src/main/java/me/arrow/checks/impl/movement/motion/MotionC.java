@@ -122,13 +122,14 @@ public class MotionC extends Check {
             if (profile.isBouncingOnSlime()) {
                 return;
             }
+
             double horizontal = profile.getVelocityData().getTotalHorizontalVelocitySustain();
             double vertical = profile.getVelocityData().getTotalVerticalVelocitySustain();
             double velMag = horizontal + (vertical * 2);
 
             double baseTicksVel = 5;
             double baseVelocity = 0.0005;
-            double scale = 10;
+            double scale = 13;
             double maxExtra = 200;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + Math.min(scale * (velMag - baseVelocity), maxExtra);

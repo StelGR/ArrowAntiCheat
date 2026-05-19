@@ -237,7 +237,7 @@ public abstract class AbstractCheck {
         if (p == null) return;
 
         if (profile.getVerbosingClass().equals(verbosingClass) || profile.getVerbosingClass().equalsIgnoreCase("All")) {
-            if (profile.isVerbose() && p.getPlayer().hasPermission(Permissions.VERBOSE.getPermission())) {
+            if (profile.isVerbose()) {
 
                 VerboseEvent violationEvent = new VerboseEvent(
                         p,
@@ -250,8 +250,6 @@ public abstract class AbstractCheck {
                 Bukkit.getPluginManager().callEvent(violationEvent);
             }
         }
-
-
     }
 
     public CheckCategory getCategory() {

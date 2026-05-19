@@ -338,6 +338,7 @@ public class GuiListener implements Listener {
                     || inventoryTitle.contains("Inventory")
                     || inventoryTitle.contains("Slowdown")
                     || inventoryTitle.contains("Scaffold")
+                    || inventoryTitle.contains("Macro")
                     || inventoryTitle.contains("Timer")) {
                 getGuiManager().openMiscChecksGUI(player);
             }

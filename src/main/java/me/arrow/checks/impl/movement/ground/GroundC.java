@@ -114,8 +114,9 @@ public class GroundC extends Check {
                     + "\nlocY (floor) " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.floor(movementData.getLocation().getY())
                     + "\nlocY - locY(floor) difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()));
 
-            if (profile.getMovementData().getSinceOnGhostBlock() < 2
+            if (profile.getMovementData().getSinceOnGhostBlock() <= 1
                     || profile.getBlockProcessor().isInsideGhostBlock()
+                    || profile.getBlockProcessor().isNearGhostBlock()
                     || profile.getBlockProcessor().getLastGhostLiquidWebTick() < 5
                     || profile.getBlockProcessor().isOnGhostBlock()) {
                 boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
@@ -124,15 +125,17 @@ public class GroundC extends Check {
 //                 this is completely retarded
                 fail("On Ghostblock?", verboseInfo);
 
+                movementData.setCustomAirTicks(0);
+
 
                 //fail("On Ghostblock?", verboseInfo);
                 if (Config.Setting.DEBUG.getBoolean()) {
                     OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
                 }
             }
-            else {
-                buffer -= Math.min(buffer, 0.25);
-            }
+//            else {
+//                buffer -= Math.min(buffer, 0.25);
+//            }
         }
     }
 }

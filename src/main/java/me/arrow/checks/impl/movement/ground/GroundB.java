@@ -70,7 +70,7 @@ public class GroundB extends Check {
 
         //invalid 1 was a terribly made check, i removed it, invalid2 does most of the job. but it can still false, needs improvements
 
-        boolean invalid = airTicks > (airTickLimit + 10) && clientGround && serverGround && inAir;
+        boolean invalid = airTicks > (airTickLimit + 12) && clientGround && serverGround && inAir;
 //                (inAir && (airTicks >= 6 || clientAirTicks >= 8) && serverYGround && !serverGround && !clientGround)
 //                && movementData.getDeltaXZ() >= (0.9 + profile.getVelocityData().getTotalHorizontalVelocity())
 //                && movementData.getSinceRiptidingTicks() > 15;

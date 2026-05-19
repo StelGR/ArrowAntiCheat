@@ -6,12 +6,13 @@ import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.CheckHolder;
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.Arrays;
 
-import static me.arrow.utils.customutils.OtherUtility.*;
+import static me.arrow.utils.customutils.OtherUtility.translate;
 
 public class VerboseCommand extends SubCommand {
 
@@ -28,12 +29,12 @@ public class VerboseCommand extends SubCommand {
 
     @Override
     protected String getDescription() {
-        return "Toggle the verbose";
+        return "Toggle verbose for a check";
     }
 
     @Override
     protected String getSyntax() {
-        return "verbose";
+        return "verbose <check|All> [player]";
     }
 
     @Override
@@ -43,7 +44,7 @@ public class VerboseCommand extends SubCommand {
 
     @Override
     protected int maxArguments() {
-        return 1;
+        return 3;
     }
 
     @Override
@@ -53,61 +54,135 @@ public class VerboseCommand extends SubCommand {
 
     @Override
     protected void perform(CommandSender sender, String[] args) {
-        final Profile profile = plugin.getProfileManager().getProfile((Player) sender);
-
-        if (args.length < 2) {
-            sender.sendMessage(translate("&cUsage: /arrow verbose <check|All>"));
+        if (!(sender instanceof Player senderPlayer)) {
+            sender.sendMessage(translate("&cOnly players can use this command."));
             return;
         }
 
-        String input = args[1]; // case-sensitive
-        CheckHolder holder = profile.getCheckHolder();
+        if (args.length < 2 || args.length > 3) {
+            sender.sendMessage(translate("&cUsage: /arrow verbose <check|All> [player]"));
+            return;
+        }
 
-        // validate input
-        boolean exists = Arrays.stream(holder.getChecks())
-                .anyMatch(check -> check.getClass().getSimpleName().equals(input));
+        Profile senderProfile = plugin.getProfileManager().getProfile(senderPlayer);
 
-        if (!exists && !input.equals("All")) {
+        if (senderProfile == null) {
+            sender.sendMessage(translate("&cYour profile is not loaded."));
+            return;
+        }
+
+        String input = args[1];
+
+        if (args.length == 2) {
+            String checkName = resolveCheckName(senderProfile, input);
+
+            if (checkName == null) {
+                sender.sendMessage(translate("&cUnknown check: " + input));
+                return;
+            }
+
+            toggleVerbose(sender, senderProfile, senderPlayer, checkName, true);
+            return;
+        }
+
+        Player targetPlayer = Bukkit.getPlayerExact(args[2]);
+
+        if (targetPlayer == null) {
+            targetPlayer = Bukkit.getPlayer(args[2]);
+        }
+
+        if (targetPlayer == null || !targetPlayer.isOnline()) {
+            sender.sendMessage(translate("&cThat player is not online."));
+            return;
+        }
+
+        Profile targetProfile = plugin.getProfileManager().getProfile(targetPlayer);
+
+        if (targetProfile == null) {
+            sender.sendMessage(translate("&cThat player's profile is not loaded."));
+            return;
+        }
+
+        String checkName = resolveCheckName(targetProfile, input);
+
+        if (checkName == null) {
             sender.sendMessage(translate("&cUnknown check: " + input));
             return;
         }
 
-        String previous = profile.getVerbosingClass();
+        toggleVerbose(sender, targetProfile, targetPlayer, checkName, false);
+    }
 
-        if (previous.equals(input)) {
-            // Toggle off if it's the same
-            profile.setVerbose(false);
-            profile.setVerbosingClass("None");
-            sender.sendMessage(translate(MsgType.PREFIX.getMessage() + "&cDisabled verbose for &f" + input));
-        } else {
-            // Enable and replace previous
-            profile.setVerbose(true);
-            profile.setVerbosingClass(input);
+    private String resolveCheckName(Profile profile, String input) {
+        if (profile == null || input == null || input.trim().isEmpty()) {
+            return null;
+        }
 
-            if (previous.equals("None")) {
-                sender.sendMessage(translate(MsgType.PREFIX.getMessage() + "&aEnabled verbose for &f" + input));
+        if (input.equalsIgnoreCase("All")) {
+            return "All";
+        }
+
+        CheckHolder holder = profile.getCheckHolder();
+
+        if (holder == null || holder.getChecks() == null) {
+            return null;
+        }
+
+        return Arrays.stream(holder.getChecks())
+                .map(check -> check.getClass().getSimpleName())
+                .filter(name -> name.equalsIgnoreCase(input))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void toggleVerbose(CommandSender sender, Profile targetProfile, Player targetPlayer, String checkName, boolean self) {
+        String previous = targetProfile.getVerbosingClass();
+
+        if (previous == null) {
+            previous = "None";
+        }
+
+        boolean disablingSameCheck = targetProfile.isVerbose() && previous.equalsIgnoreCase(checkName);
+
+        if (disablingSameCheck) {
+            targetProfile.setVerbose(false);
+            targetProfile.setVerbosingClass("None");
+
+            if (self) {
+                sender.sendMessage(translate(MsgType.PREFIX.getMessage()
+                        + "&cDisabled verbose for &f" + checkName));
             } else {
-                sender.sendMessage(translate(MsgType.PREFIX.getMessage() +
-                        "&aEnabled verbose for &f" + input + " &7and disabled verbose for &f" + previous));
+                sender.sendMessage(translate(MsgType.PREFIX.getMessage()
+                        + "&cDisabled verbose for &f" + checkName
+                        + " &7on &f" + targetPlayer.getName()));
+            }
+
+            return;
+        }
+
+        targetProfile.setVerbose(true);
+        targetProfile.setVerbosingClass(checkName);
+
+        if (self) {
+            if (previous.equalsIgnoreCase("None")) {
+                sender.sendMessage(translate(MsgType.PREFIX.getMessage()
+                        + "&aEnabled verbose for &f" + checkName));
+            } else {
+                sender.sendMessage(translate(MsgType.PREFIX.getMessage()
+                        + "&aEnabled verbose for &f" + checkName
+                        + " &7and disabled verbose for &f" + previous));
+            }
+        } else {
+            if (previous.equalsIgnoreCase("None")) {
+                sender.sendMessage(translate(MsgType.PREFIX.getMessage()
+                        + "&aEnabled verbose for &f" + checkName
+                        + " &7on &f" + targetPlayer.getName()));
+            } else {
+                sender.sendMessage(translate(MsgType.PREFIX.getMessage()
+                        + "&aEnabled verbose for &f" + checkName
+                        + " &7on &f" + targetPlayer.getName()
+                        + " &7and disabled verbose for &f" + previous));
             }
         }
     }
-
-
-
-
-//    @Override
-//    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
-//        if (args.length == 2 && sender instanceof Player player) {
-//            Profile profile = plugin.getProfileManager().getProfile(player);
-//            if (profile == null) return Collections.emptyList();
-//
-//            return Arrays.stream(profile.getCheckHolder().getChecks())
-//                    .map(check -> check.getClass().getSimpleName()) // only class name, no package
-//                    .filter(name -> name.startsWith(args[1]))
-//                    .toList();
-//        }
-//        return Collections.emptyList();
-//    }
-
 }

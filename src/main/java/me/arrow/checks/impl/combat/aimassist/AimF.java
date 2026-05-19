@@ -51,8 +51,8 @@ public class AimF extends Check {
     private static final double SPIKE_PREVIOUS_MAX = 1.25D;
     private static final double SPIKE_NEXT_MAX = 2.25D;
 
-    private static final double FAIL_SUSPICION = 13.0D;
-    private static final double SOFT_SUSPICION = 9.0D;
+    private static final double FAIL_SUSPICION = 10.0D;
+    private static final double SOFT_SUSPICION = 6.0D;
 
     private static final int ATTACK_SAMPLE_SIZE = 300;
     private static final int MIN_ATTACK_SAMPLE_SIZE = 200;

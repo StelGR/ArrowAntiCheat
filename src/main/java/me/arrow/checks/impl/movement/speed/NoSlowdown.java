@@ -57,7 +57,7 @@ public class NoSlowdown extends Check {
     }
 
     public void NoSlowA(MovementData movementData, ActionData actionData, PredictionData predictionData) {
-        boolean invalid1 = profile.getPlayer().getFoodLevel() < 6 && actionData.isSprinting() && actionData.isLastSprinting() && actionData.isLastLastSprinting();
+        boolean invalid1 = profile.getPlayer().getFoodLevel() < 6 && actionData.isSprinting();
 
         if (invalid1) fail("Sprinting while hungry", "(No Debug Information)");
     }

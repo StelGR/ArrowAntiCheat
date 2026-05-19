@@ -123,7 +123,7 @@ public final class MoveUtils {
             int level = profile.getPotionData().getJumpAmplifier();
 
             if (level > 0) {
-                motion += level * 0.1F;
+                motion += level * 0.1;
             }
         }
 
