@@ -113,17 +113,21 @@ public final class MoveUtils {
 
 
     public static double getJumpMotion(Profile profile) {
-        double motion = JAVA_JUMP_MOTION;
+        float motion = 0.42F;
 
         if (profile != null && profile.isBedrockPlayer() && profile.getMovementData() != null) {
-            motion = profile.getMovementData().getBEDROCK_JUMP_MOTION();
+            double bedrockMotion = profile.getMovementData().getBEDROCK_JUMP_MOTION();
+
+            if (bedrockMotion > 0.0D) {
+                motion = (float) bedrockMotion;
+            }
         }
 
-        if (profile != null && profile.getPotionData().isHasJump()) {
+        if (profile != null && profile.getPotionData() != null && profile.getPotionData().isHasJump()) {
             int level = profile.getPotionData().getJumpAmplifier();
 
             if (level > 0) {
-                motion += level * 0.1;
+                motion += level * 0.1F;
             }
         }
 

@@ -158,15 +158,6 @@ public class MotionA extends Check {
 
             double maxJumpHeight = onHoney ? motion * 0.5F : motion;
 
-
-
-// this here was made for towering, as it used to false, i do not remember why, and it does not do it anymore, so yeah this is commented out
-
-//            if (profile.getLastBlockPlaceTimer().hasNotPassed(15 + profile.getConnectionData().getClientTickTrans()) && (deltaY > 0.4044448 && deltaY < 0.404445) && !isGround && lastGround && !serverGround && !lastServerGround && !positionGround && !lastPositionGround) {
-//                buffer = 0;
-//                return;
-//            }
-
             String data = MsgType.MAIN_THEME_COLOR.getMessage() +"* Verbose\n * deltaY "+MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                     + "\n * maxJumpHeight "+MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
                     + "\n * clientGround "+MsgType.MAIN_THEME_COLOR.getMessage() + isGround

@@ -206,7 +206,7 @@ public class FlyB extends Check {
             boolean hasJumpBoost = profile.getPotionData().isHasJump();
             double jumpLevel = hasJumpBoost
                     ? profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST)
-                    + (3 + (profile.getPotionData().getJumpAmplifier() * 2))
+                    + (4 + (profile.getPotionData().getJumpAmplifier()))
                     : 0;
 
             int clientTickTrans = profile.getConnectionData().getClientTickTrans();
