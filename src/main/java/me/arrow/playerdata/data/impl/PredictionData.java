@@ -47,6 +47,7 @@ public class PredictionData implements Data {
 
     private boolean digging;
     private long lastDiggingUpdate;
+    private boolean activelyDigging;
 
     private boolean riptideCharging;
     private boolean riptidePending;
@@ -56,6 +57,8 @@ public class PredictionData implements Data {
     private int riptidePendingPackets = -1;
     private int riptideActivePackets = -1;
     private int riptideFailedCooldownPackets = 0;
+
+
 
     Profile profile;
 
@@ -91,13 +94,14 @@ public class PredictionData implements Data {
             }
 
             if (wrappedInBlockDigPacket.getAction() == DiggingAction.START_DIGGING) {
+                activelyDigging = true;
+                lastDiggingUpdate = System.currentTimeMillis();
                 digging = true;
-                lastDiggingUpdate = event.getTimestamp();
-            }
-            else if (wrappedInBlockDigPacket.getAction() == DiggingAction.FINISHED_DIGGING
+            } else if (wrappedInBlockDigPacket.getAction() == DiggingAction.FINISHED_DIGGING
                     || wrappedInBlockDigPacket.getAction() == DiggingAction.CANCELLED_DIGGING) {
-                digging = false;
-                lastDiggingUpdate = event.getTimestamp();
+                activelyDigging = false;
+                lastDiggingUpdate = System.currentTimeMillis();
+                digging = true;
             }
         }
         if (event.getPacketType().equals(SLOT_STATE_CHANGE)) {
@@ -213,9 +217,7 @@ public class PredictionData implements Data {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
 
-            if (System.currentTimeMillis() - lastDiggingUpdate < 250L) {
-                digging = true;
-            }
+            updateDiggingState();
 
             handleRiptideTick();
 
@@ -497,5 +499,11 @@ public class PredictionData implements Data {
         //profile.getPlayer().sendMessage(getRiptideLevel(main) + " |"+"| " + getRiptideLevel(off));
 
         return getRiptideLevel(main) > 0 || getRiptideLevel(off) > 0;
+    }
+
+    private void updateDiggingState() {
+        long now = System.currentTimeMillis();
+
+        digging = activelyDigging || now - lastDiggingUpdate <= 250L;
     }
 }

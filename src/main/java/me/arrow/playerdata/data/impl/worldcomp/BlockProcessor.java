@@ -40,7 +40,9 @@ import java.util.Iterator;
 @Getter
 public class BlockProcessor implements Data {
 
+    private static final int CLEARED_GHOST_CONTEXT_TICK = 100;
     private static final int PLACE_CONFIRMATION_GRACE_TICKS = 4;
+    private static final int PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS = 10;
     private static final int RECENT_PLACE_BLOCK_CHANGE_GRACE_TICKS = 8;
     private static final double CANCELLED_PHYSICS_GHOST_RANGE_XZ = 2.0D;
     private static final double CANCELLED_PHYSICS_GHOST_RANGE_Y = 2.0D;
@@ -75,6 +77,7 @@ public class BlockProcessor implements Data {
     private int face;
     private int lastGhostBlockTick = 100;
     private int lastGhostLiquidWebTick = 100;
+    private int lastPendingPhysicsPlaceTick = 100;
     private int recentPlacePacketTicks = 100;
     private Vector recentPlaceVector;
     private Material recentPlaceMaterial;
@@ -215,6 +218,7 @@ public class BlockProcessor implements Data {
         this.blockUpdateTicks++;
         this.lastWebUpdateTick++;
         this.lastGhostLiquidWebTick++;
+        this.lastPendingPhysicsPlaceTick++;
         this.lastGhostBlockTick++;
         this.lastGhostInteractionAreaSyncTick++;
         this.recentPlacePacketTicks++;
@@ -243,20 +247,24 @@ public class BlockProcessor implements Data {
                 }
 
                 Vector placeVector = this.currentBlockCords;
+                Vector clickedVector = this.lastClickedBlockVector;
                 Material attempted = this.blockPlaceMaterial;
-                Material serverMaterial = getServerMaterial(placeVector);
+                Material confirmedMaterial = findConfirmedPlacedMaterial(placeVector, clickedVector, attempted);
 
-                if (serverMaterial == null) {
-                    return;
-                }
+                if (confirmedMaterial != null) {
+                    this.main = confirmedMaterial;
 
-                if (isSamePlacedMaterial(serverMaterial, attempted)) {
-                    this.main = serverMaterial;
+                    clearConfirmedPlacementGhostContext(placeVector, attempted, confirmedMaterial);
+
                     this.blockPlaceMaterial = null;
                     return;
                 }
 
-                if (this.pendingPlacementTicks < PLACE_CONFIRMATION_GRACE_TICKS) {
+                int requiredGrace = isCancelledPhysicsContextMaterial(attempted)
+                        ? PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS
+                        : PLACE_CONFIRMATION_GRACE_TICKS;
+
+                if (this.pendingPlacementTicks < requiredGrace) {
                     return;
                 }
 
@@ -265,6 +273,12 @@ public class BlockProcessor implements Data {
         }
 
         if (this.main != null) {
+            Material confirmedServerMaterial = this.main;
+            Material attempted = this.lastAttemptedPlaceMaterial;
+            Vector vector = this.currentBlockCords;
+
+            clearConfirmedPlacementGhostContext(vector, attempted, confirmedServerMaterial);
+
             this.lastConfirmedBlockPlaceTimer.reset();
             this.placeTicks = 0;
             this.pendingPlacementTicks = 0;
@@ -280,6 +294,20 @@ public class BlockProcessor implements Data {
 
             Material attempted = this.lastAttemptedPlaceMaterial;
             Vector vector = this.currentBlockCords;
+            Material confirmedMaterial = findConfirmedPlacedMaterial(vector, this.lastClickedBlockVector, attempted);
+
+            if (confirmedMaterial != null) {
+                clearConfirmedPlacementGhostContext(vector, attempted, confirmedMaterial);
+
+                this.lastConfirmedBlockPlaceTimer.reset();
+                this.placeTicks = 0;
+                this.pendingPlacementTicks = 0;
+                this.main = null;
+                this.lastAttemptedPlaceMaterial = null;
+                this.currentBlockCords = null;
+                return;
+            }
+
             Material serverMaterial = getServerMaterial(vector);
 
             if (!isSamePlacedMaterial(serverMaterial, attempted)) {
@@ -355,10 +383,141 @@ public class BlockProcessor implements Data {
             return;
         }
 
-        this.lastGhostLiquidWebTick = 0;
-        this.lastGhostBlockTick = 0;
-        this.nearGhostBlock = true;
-        this.interactingGhostBlock = true;
+        this.lastPendingPhysicsPlaceTick = 0;
+    }
+
+    private void clearConfirmedPlacementGhostContext(Vector vector, Material attemptedMaterial, Material serverMaterial) {
+        if (vector != null) {
+            removeGhostBlock(vector);
+        }
+
+        boolean physics =
+                isPhysicsPlacementMaterial(attemptedMaterial)
+                        || isPhysicsPlacementMaterial(serverMaterial)
+                        || isLiquidMaterial(attemptedMaterial)
+                        || isLiquidMaterial(serverMaterial);
+
+        if (!physics) {
+            return;
+        }
+
+        this.lastGhostLiquidWebTick = CLEARED_GHOST_CONTEXT_TICK;
+        this.lastPendingPhysicsPlaceTick = CLEARED_GHOST_CONTEXT_TICK;
+        this.lastGhostBlockTick = CLEARED_GHOST_CONTEXT_TICK;
+
+        if (!hasActiveGhostContact()) {
+            this.nearGhostBlock = false;
+            this.onGhostBlock = false;
+            this.insideGhostBlock = false;
+            this.underGhostBlock = false;
+            this.interactingGhostBlock = false;
+        }
+    }
+
+    private boolean isPhysicsPlacementMaterial(Material material) {
+        if (material == null || material == Material.AIR) {
+            return false;
+        }
+
+        String name = material.name();
+
+        return name.contains("WATER")
+                || name.contains("LAVA")
+                || name.contains("WEB")
+                || name.contains("COBWEB")
+                || name.contains("HONEY")
+                || name.contains("SLIME")
+                || name.contains("POWDER_SNOW")
+                || name.contains("BUBBLE")
+                || name.contains("ICE")
+                || name.contains("SOUL_SAND")
+                || name.contains("LADDER")
+                || name.contains("VINE")
+                || name.contains("VINES")
+                || name.contains("CAVE_VINES")
+                || name.contains("WEEPING_VINES")
+                || name.contains("TWISTING_VINES")
+                || name.contains("GLOW_BERRIES")
+                || name.contains("SCAFFOLDING")
+                || name.contains("COD_BUCKET")
+                || name.contains("SALMON_BUCKET")
+                || name.contains("TROPICAL_FISH_BUCKET")
+                || name.contains("PUFFERFISH_BUCKET")
+                || name.contains("AXOLOTL_BUCKET")
+                || name.contains("TADPOLE_BUCKET");
+    }
+
+    private boolean hasActiveGhostContact() {
+        synchronized (ghostBlockLock) {
+            if (ghostBlocks.isEmpty()) {
+                return false;
+            }
+
+            for (GhostBlock ghost : ghostBlocks) {
+                if (ghost == null || ghost.position == null) {
+                    continue;
+                }
+
+                if (isPlayerStandingOnGhost(ghost.position)
+                        || isPlayerInsideGhost(ghost.position)
+                        || isPlayerUnderGhost(ghost.position)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+    private Material findConfirmedPlacedMaterial(Vector placeVector, Vector clickedVector, Material attempted) {
+        if (attempted == null) {
+            return null;
+        }
+
+        Material direct = getServerMaterial(placeVector);
+
+        if (isSamePlacedMaterial(direct, attempted)) {
+            return direct;
+        }
+
+        Material clicked = getServerMaterial(clickedVector);
+
+        if (isSamePlacedMaterial(clicked, attempted)) {
+            return clicked;
+        }
+
+        if (!isCancelledPhysicsContextMaterial(attempted)) {
+            return null;
+        }
+
+        if (placeVector != null) {
+            for (int x = placeVector.getBlockX() - 1; x <= placeVector.getBlockX() + 1; x++) {
+                for (int y = placeVector.getBlockY() - 1; y <= placeVector.getBlockY() + 1; y++) {
+                    for (int z = placeVector.getBlockZ() - 1; z <= placeVector.getBlockZ() + 1; z++) {
+                        Material material = getServerMaterial(x, y, z);
+
+                        if (isSamePlacedMaterial(material, attempted)) {
+                            return material;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (clickedVector != null) {
+            for (int x = clickedVector.getBlockX() - 1; x <= clickedVector.getBlockX() + 1; x++) {
+                for (int y = clickedVector.getBlockY() - 1; y <= clickedVector.getBlockY() + 1; y++) {
+                    for (int z = clickedVector.getBlockZ() - 1; z <= clickedVector.getBlockZ() + 1; z++) {
+                        Material material = getServerMaterial(x, y, z);
+
+                        if (isSamePlacedMaterial(material, attempted)) {
+                            return material;
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     private void handleMultiBlockChange(PacketSendEvent event) {
@@ -1554,6 +1713,7 @@ public class BlockProcessor implements Data {
         this.pendingPlacementTicks = 0;
         this.recentPlaceMaterial = null;
         this.recentPlaceVector = null;
+        this.lastPendingPhysicsPlaceTick = CLEARED_GHOST_CONTEXT_TICK;
         this.lastClickedBlockVector = null;
         this.lastClickedBlockMaterial = null;
         this.lastPlacementFace = -1;

@@ -58,8 +58,13 @@ public class MotionC extends Check {
                 return;
             }
 
-            if (movementData.getSinceOnGhostBlock() <= 10 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting GhostBlock");
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
+
+            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (ghostblock liquid/web/pending physics place)");
                 return;
             }
 
@@ -129,8 +134,8 @@ public class MotionC extends Check {
 
             double baseTicksVel = 5;
             double baseVelocity = 0.0005;
-            double scale = 13;
-            double maxExtra = 200;
+            double scale = 15;
+            double maxExtra = 225;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + Math.min(scale * (velMag - baseVelocity), maxExtra);
 
@@ -156,6 +161,7 @@ public class MotionC extends Check {
                         + "\n * nearWallTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + nearWallTicks
                         + "\n * clientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                         + "\n * serverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
+                        + "\n * airTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit
                         + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                         + "\n * airTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit
                         + "\n * velocity Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getVelocityTicks()
@@ -168,6 +174,7 @@ public class MotionC extends Check {
                         + "\nnearWallTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + nearWallTicks
                         + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                         + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
+                        + "\nairTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit
                         + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
             }
         }

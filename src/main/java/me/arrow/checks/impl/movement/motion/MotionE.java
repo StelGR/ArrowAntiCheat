@@ -44,6 +44,7 @@ public class MotionE extends Check {
                     || profile.getMovementData().isNearBoat()
                     || Arrow.getInstance().getNmsManager().getNmsInstance().isSwimming(profile.getPlayer())
                     || profile.getMovementData().getSinceRiptidingTicks() < 5
+                    || profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5
                     || profile.getMovementData().isNearBuggyBlock()) {
                 return;
             }

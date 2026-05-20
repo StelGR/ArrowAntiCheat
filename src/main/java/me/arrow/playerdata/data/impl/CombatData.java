@@ -68,7 +68,7 @@ public class CombatData implements Data {
             movementTicks = 0;
         } else if (event.getPacketType().equals(ANIMATION)) {
             // Handle block actions
-            if (profile.getLastBlockBreakTimer().hasNotPassed(3) || profile.getPredictionData().isDigging()) {
+            if (profile.getLastBlockBreakTimer().hasNotPassed(20) || profile.getPredictionData().isDigging()) {
                 movementTicks = 0;
                 movements.clear();
                 return;

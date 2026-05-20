@@ -38,7 +38,7 @@ public class TimerA extends Check {
     public void handle(PacketReceiveEvent event) {
 
         if (profile.getConnectionData().getTransPing() > 2000 && ready()) {
-            if (increaseBuffer() > 20) {
+            if (increaseBuffer() > 60) {
                 profile.kick("Your ping is constantly high, do something about it.");
             }
         } else decreaseBufferBy(1);
@@ -68,7 +68,7 @@ public class TimerA extends Check {
 
         if (this.balance > FLYING_OFFSET + 5_000_000L) {
             if (this.ready()) {
-                if (++this.violations > 1.0D) {
+                if (++this.violations > 3.0D) {
                     if (!this.capped) {
                         fail("Speeding up game clock (1)",
                                 "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + this.balance / 1_000_000L

@@ -81,8 +81,13 @@ public class FlyB extends Check {
                 return;
             }
 
-            if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (ghostblock liquid/web)");
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
+
+            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (ghostblock liquid/web/pending physics place)");
                 return;
             }
 
@@ -265,8 +270,8 @@ public class FlyB extends Check {
 
             double baseTicksVel = 5;
             double baseVelocity = 0.0005;
-            double scale = 13;
-            double maxExtra = 200;
+            double scale = 15;
+            double maxExtra = 225;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + Math.min(scale * (velMag - baseVelocity), maxExtra);
 

@@ -200,13 +200,12 @@ public class SpeedA extends Check {
 
         allowedLimit += movementData.elytraMomentum();
         allowedLimit += movementData.getDolphinGraceBoost();
+        allowedLimit += movementData.isColliding() ? 0.2 : 0;
 
         if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): is Exempting (ghostblock liquid/web)");
             allowedLimit += 0.2;
         }
-
-
 
         if (serverGround && deltaXZ != 0) {
             verbose(this.getClass().getSimpleName(), predicted, allowedLimit,

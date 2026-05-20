@@ -135,7 +135,10 @@ public class FlyC extends Check {
                             && isNotJumpStart
                             && !vd.isTakingVelocity();
 
-            final boolean invalidNegativeY = acceleration < -expectedY && (clientAirTicks == 1 || movementData.isServerGround()) && !vd.isTakingVelocity();
+            final boolean invalidNegativeY = acceleration < -expectedY && (clientAirTicks == 1 || movementData.isServerGround())
+                    && !vd.isTakingVelocity()
+                    && !movementData.isUnderblock()
+                    && movementData.getMovingUnderblockTicks() == 0;
 
             final boolean invalid = (acceleration > 0.0 && !vd.isTakingVelocity()) && (serverAirTicks > 8 || clientAirTicks > 8) && !profile.getPotionData().isHasSlowFalling();
 
@@ -143,7 +146,8 @@ public class FlyC extends Check {
 
             String verboseInfo = "acceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
                     + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                    + "\nexpected " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedY
+                    + "\n+expected " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedY
+                    + "\n-expected " + MsgType.MAIN_THEME_COLOR.getMessage() + (-expectedY)
                     + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
                     + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
                     + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
