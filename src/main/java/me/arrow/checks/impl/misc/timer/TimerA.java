@@ -37,8 +37,8 @@ public class TimerA extends Check {
     @Override
     public void handle(PacketReceiveEvent event) {
 
-        if (profile.getConnectionData().getTransPing() > 2000 && ready()) {
-            if (increaseBuffer() > 60) {
+        if (profile.getConnectionData().getTransPing() > 1600 && ready()) {
+            if (increaseBuffer() > 180) {
                 profile.kick("Your ping is constantly high, do something about it.");
             }
         } else decreaseBufferBy(1);

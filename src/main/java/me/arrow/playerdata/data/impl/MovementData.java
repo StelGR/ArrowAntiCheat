@@ -412,14 +412,16 @@ public class MovementData implements Data {
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.WALL))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.STAIRS))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SLAB)));
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SLAB))
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW)));
 
         movingDown = moving && getDeltaY() < 0
                 && (nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.FENCE))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.WALL))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.STAIRS))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SLAB)));
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SLAB))
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW)));
        // OtherUtility.log("Player: " + profile.getPlayer().getName() + " | isPhasing: " + isPhasing(profile));
 
 

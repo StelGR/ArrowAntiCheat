@@ -74,16 +74,17 @@ public class MacroA extends Check {
                     if (isArmorSlot) {
                         armorBreakTime = event.getTimestamp();
                         triggerReason  = "armor_break(slot=" + slot + ")";
-                    } else {
-                        // off-hand slot became empty; only flag if there was a
-                        // totem there previously (totemPopTime handles that, but
-                        // this provides a secondary catch when the status packet
-                        // wasn't observed).
-                        if (totemPopTime <= 0) {
-                            totemPopTime = event.getTimestamp();
-                            triggerReason = "offhand_empty";
-                        }
                     }
+//                    else {
+//                        // off-hand slot became empty; only flag if there was a
+//                        // totem there previously (totemPopTime handles that, but
+//                        // this provides a secondary catch when the status packet
+//                        // wasn't observed).
+//                        if (totemPopTime <= 0) {
+//                            totemPopTime = event.getTimestamp();
+//                            triggerReason = "offhand_empty";
+//                        }
+//                    }
                 }
             } catch (Throwable ignored) { }
         }

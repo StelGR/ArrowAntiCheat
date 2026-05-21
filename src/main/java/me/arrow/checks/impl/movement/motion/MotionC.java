@@ -23,7 +23,7 @@ public class MotionC extends Check {
         super(profile, CheckType.MOTION, "C", "Checks for wallclimb");
     }
 
-    double airTickLimit = 6;
+    double airTickLimit = 7;
 
 
     @Override
@@ -119,10 +119,10 @@ public class MotionC extends Check {
                     airTickLimit = 8 + jumpLevel - (profile.getPotionData().getJumpAmplifier() * 0.1F);
                 }
             } else {
-                airTickLimit = (recentlyPlaced && holdingBlock) ? 10 : 6;
+                airTickLimit = (recentlyPlaced && holdingBlock) ? 11 : 7;
             }
 
-            if (deltaXZ != 0) airTickLimit += (recentlyPlaced && holdingBlock) ? 3 : 1;
+            if (deltaXZ != 0) airTickLimit += (recentlyPlaced && holdingBlock) ? 4 : 2;
 
             if (profile.isBouncingOnSlime()) {
                 return;
