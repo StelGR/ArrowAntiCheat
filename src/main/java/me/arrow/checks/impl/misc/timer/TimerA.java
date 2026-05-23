@@ -37,17 +37,21 @@ public class TimerA extends Check {
     @Override
     public void handle(PacketReceiveEvent event) {
 
-        if (profile.getConnectionData().getTransPing() > 1600 && ready()) {
-            if (increaseBuffer() > 180) {
+        if (profile.getConnectionData().getTransPing() >= 2500 && ready()) {
+            if (increaseBuffer() > 500) {
                 profile.kick("Your ping is constantly high, do something about it.");
             }
         } else decreaseBufferBy(1);
 
-        if (!isFlyingPacket(event) || profile.getConnectionData().getTransPing() > 1500) {
-            return;
-        }
+
 
         long now = System.nanoTime();
+
+        if (!isFlyingPacket(event) || profile.getConnectionData().getTransPing() > 1000) {
+            lastFlyingPacket = 0;
+            balance = -1000;
+            return;
+        }
 
         if (now == 0L && this.lastFlyingPacket == 0L) {
             return;
@@ -62,22 +66,26 @@ public class TimerA extends Check {
         long delay = FLYING_OFFSET - (now - this.lastFlyingPacket);
         long diff = Math.max(FLYING_OFFSET, now - this.lastFlyingPacket);
 
+
+
         this.balance = Math.max(-capLength, this.balance + delay);
 
-        if (!profile.getMovementData().isMoving()) balance = -200;
+        if (!profile.getMovementData().isMoving()) balance = -profile.getConnectionData().getTransPing();
 
         if (this.balance > FLYING_OFFSET + 5_000_000L) {
             if (this.ready()) {
                 if (++this.violations > 3.0D) {
                     if (!this.capped) {
                         fail("Speeding up game clock (1)",
-                                "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + this.balance / 1_000_000L
-                                        + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min(FLYING_OFFSET / diff, 10L)
+                                "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + (this.balance / 1_000_000L)
+                                        + "\nmaxBalance" + MsgType.MAIN_THEME_COLOR.getMessage() + (FLYING_OFFSET + 5_000_000L)
+                                        + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math. min(FLYING_OFFSET / diff, 10L)
                                         + "\nlastPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + now
                                         + "\nuserTick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick());
                     } else {
                         fail("Speeding up game clock (2)",
-                                        "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + this.balance / 1_000_000L
+                                        "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + (this.balance / 1_000_000L)
+                                        + "\nmaxBalance" + MsgType.MAIN_THEME_COLOR.getMessage() + (FLYING_OFFSET + 5_000_000L)
                                         + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min(FLYING_OFFSET / diff, 10L)
                                         + "\nlastPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + now
                                         + "\nuserTick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick());

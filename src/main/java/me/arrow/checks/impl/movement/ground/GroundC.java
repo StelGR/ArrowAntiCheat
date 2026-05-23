@@ -10,6 +10,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -125,11 +126,24 @@ public class GroundC extends Check {
                 }
             }
 
+
+            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+            if (world.shouldHardSetback()) {
+                fail("WorldTracker: Real ghostblock collision", verboseInfo);
+                movementData.setCustomAirTicks(0);
+
+                if (Config.Setting.DEBUG.getBoolean()) {
+                    OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
+                }
+            }
+
+
             if (profile.getBlockProcessor().isInsideGhostBlock()
                     || profile.getBlockProcessor().isNearGhostBlock()
                     || profile.getBlockProcessor().getLastGhostLiquidWebTick() < 5
                     || profile.getBlockProcessor().isOnGhostBlock() ) {
-                fail("On Ghostblock?", verboseInfo);
+                fail("BlockProcessor: On Ghostblock?", verboseInfo);
 
                 movementData.setCustomAirTicks(0);
                 if (Config.Setting.DEBUG.getBoolean()) {

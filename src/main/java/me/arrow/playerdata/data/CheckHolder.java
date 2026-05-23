@@ -113,6 +113,8 @@ public class CheckHolder {
                 new InventoryC(this.profile),
 
                 new ScaffoldA(this.profile),
+                new ScaffoldB(this.profile),
+                new ScaffoldC(this.profile),
 
 
                 new SpeedA(this.profile),

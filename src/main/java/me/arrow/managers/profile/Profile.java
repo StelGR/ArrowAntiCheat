@@ -282,7 +282,7 @@ public class Profile {
                 || getLastFlightToggleTimer().hasNotPassed(20)
                 || player.getGameMode() == GameMode.CREATIVE
                 || player.getGameMode() == GameMode.SPECTATOR
-                || getTick() < 40
+                || getTick() < 120
                 //|| !Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(movementData.getLocation().getWorld(), (int) movementData.getLocation().getX(), (int) movementData.getLocation().getZ())
                 //|| isExempt().isSetback()
                 ;
@@ -359,7 +359,45 @@ public class Profile {
     //1.8
 
     public int getPing() {
-        return getPlayer().getPing();
+        Player player = getPlayer();
+
+        if (player == null) {
+            return 0;
+        }
+
+        try {
+            Object value = player.getClass().getMethod("getPing").invoke(player);
+
+            if (value instanceof Number) {
+                return Math.max(0, ((Number) value).intValue());
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            Object handle = player.getClass().getMethod("getHandle").invoke(player);
+
+            try {
+                Object value = handle.getClass().getField("ping").get(handle);
+
+                if (value instanceof Number) {
+                    return Math.max(0, ((Number) value).intValue());
+                }
+            } catch (Throwable ignored) {
+            }
+
+            try {
+                Object value = handle.getClass().getField("latency").get(handle);
+
+                if (value instanceof Number) {
+                    return Math.max(0, ((Number) value).intValue());
+                }
+            } catch (Throwable ignored) {
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return 0;
     }
 
     public boolean isWearingFunctionalElytra() {

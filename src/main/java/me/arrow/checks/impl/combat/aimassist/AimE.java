@@ -143,7 +143,7 @@ public class AimE extends Check {
 
                 if (increaseBuffer() > requiredBuffer) {
                     if (profile.getTrustFactor().getTrust() >= 80) {
-                        profile.getTrustFactor().decreaseTrustBy(2);
+                        profile.getTrustFactor().decreaseTrustBy(1.25);
                     } else {
                         fail("Aim Analysis (Yaw)", "avg " + MsgType.MAIN_THEME_COLOR.getMessage() + avg
                                 + "\nmin " + MsgType.MAIN_THEME_COLOR.getMessage() + min
@@ -159,14 +159,14 @@ public class AimE extends Check {
                                 + "\nReasons " + MsgType.MAIN_THEME_COLOR.getMessage() + reasons.trim());
                         heuristics.reset();
                         rotationHistory.clear();
-                        profile.getTrustFactor().decreaseTrustBy(5);
+                        profile.getTrustFactor().decreaseTrustBy(2);
                     }
                 }
             }
             else {
                 decreaseBufferBy(0.05);
                 if (profile.getTick() % 20 == 0 && profile.getTick() != 0) {
-                    profile.getTrustFactor().increaseTrustBy(0.0075);
+                    profile.getTrustFactor().increaseTrustBy(0.0125);
                 }
             }
         }

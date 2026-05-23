@@ -10,6 +10,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.custom.SampleList;
@@ -54,6 +55,16 @@ public class FlyB extends Check {
 
             MovementData movementData = profile.getMovementData();
             int serverAirTicks = movementData.getCustomAirTicks();
+
+            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+            if (world.shouldExemptMovementChecks()
+                    || world.physicsMismatch
+                    || world.onGhostBlock
+                    || world.nearGhostBlock
+                    || world.insideGhostBlock) {
+                return;
+            }
 
             if (profile.shouldCancel()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (shouldCancel)");

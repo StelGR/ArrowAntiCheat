@@ -1150,18 +1150,38 @@ public class MovementData implements Data {
 //        }
     }
 
-    boolean isWaterOrWaterlogged(Block block) {
-        // Always check for normal water first
-        if (MaterialType.isMaterial(block.getType().name(), MaterialType.WATER)) {
+    public boolean isWaterOrWaterlogged(Block block) {
+        if (block == null || block.getType() == null) {
+            return false;
+        }
+
+        Material material = block.getType();
+        String name = material.name();
+
+        if (MaterialType.isMaterial(name, MaterialType.WATER)) {
             return true;
         }
 
-        // Only check for Waterlogged blocks on 1.13+
+        if (isWaterPlantOrFluid(name)) {
+            return true;
+        }
+
         if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
             try {
-                Object blockData = block.getBlockData(); // Safe, only called on 1.13+
-                if (blockData instanceof Waterlogged waterlogged) {
-                    return waterlogged.isWaterlogged();
+                Object blockData = block.getClass().getMethod("getBlockData").invoke(block);
+
+                if (blockData == null) {
+                    return false;
+                }
+
+                try {
+                    Object value = blockData.getClass().getMethod("isWaterlogged").invoke(blockData);
+
+                    if (value instanceof Boolean) {
+                        return (Boolean) value;
+                    }
+                } catch (NoSuchMethodException ignored) {
+                    return false;
                 }
             } catch (Throwable ignored) {
                 return false;
@@ -1169,6 +1189,21 @@ public class MovementData implements Data {
         }
 
         return false;
+    }
+
+    private boolean isWaterPlantOrFluid(String name) {
+        if (name == null) {
+            return false;
+        }
+
+        return name.equals("KELP")
+                || name.equals("KELP_PLANT")
+                || name.equals("SEAGRASS")
+                || name.equals("TALL_SEAGRASS")
+                || name.equals("BUBBLE_COLUMN")
+                || name.equals("WATER_CAULDRON")
+                || name.equals("LEGACY_STATIONARY_WATER")
+                || name.equals("LEGACY_WATER");
     }
 
     public float elytraMomentum() {

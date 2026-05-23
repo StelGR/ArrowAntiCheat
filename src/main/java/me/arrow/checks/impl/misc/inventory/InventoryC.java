@@ -71,7 +71,7 @@ public class InventoryC extends Check {
                 }
             }
         }
-        else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
+        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
                 || event.getPacketType().equals(PLAYER_POSITION)
                 || event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PLAYER_ROTATION)) {
@@ -80,7 +80,8 @@ public class InventoryC extends Check {
             } else {
                 invTicks -= Math.min(invTicks, 1);
             }
-        } else if (event.getPacketType().equals(INTERACT_ENTITY)) {
+        }
+        if (event.getPacketType().equals(INTERACT_ENTITY)) {
             WrapperPlayClientInteractEntity wrapperPlayClientInteractEntity = new WrapperPlayClientInteractEntity(event);
 
             if (wrapperPlayClientInteractEntity.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {

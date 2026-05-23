@@ -8,6 +8,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 
 // i think i don't need to explain this, very simple check
 
@@ -32,6 +33,16 @@ public class MotionD extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
 
             MovementData movementData = profile.getMovementData();
+
+            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+            if (world.shouldExemptMovementChecks()
+                    || world.physicsMismatch
+                    || world.onGhostBlock
+                    || world.underGhostBlock
+                    || world.insideGhostBlock) {
+                return;
+            }
 
             double deltaY = movementData.getDeltaY();
             double lastDeltaY = movementData.getLastDeltaY();

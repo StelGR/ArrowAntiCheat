@@ -19,7 +19,7 @@ public final class GeyserConfigEnforcer {
         File configFile = findGeyserConfigFile();
 
         if (configFile == null || !configFile.exists()) {
-            plugin.getLogger().info("[Arrow] Geyser config was not found. Skipping forward-player-ping enforcement.");
+            plugin.getLogger().info("Geyser config was not found. Skipping forward-player-ping enforcement.");
             return false;
         }
 
@@ -43,24 +43,24 @@ public final class GeyserConfigEnforcer {
         }
 
         if (!changed) {
-            plugin.getLogger().info("[Arrow] Geyser forward-player-ping is already enabled.");
+            plugin.getLogger().info("Geyser forward-player-ping is already enabled.");
             return true;
         }
 
         try {
             config.save(configFile);
         } catch (IOException e) {
-            plugin.getLogger().warning("[Arrow] Failed to save Geyser config.yml: " + e.getMessage());
+            plugin.getLogger().warning("Failed to save Geyser config.yml: " + e.getMessage());
             return false;
         }
 
-        plugin.getLogger().warning("[Arrow] Enabled Geyser forward-player-ping in " + configFile.getPath() + ".");
+        plugin.getLogger().warning("Enabled Geyser forward-player-ping in " + configFile.getPath() + ".");
 
         if (reloadGeyser) {
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "geyser reload");
-            plugin.getLogger().warning("[Arrow] Ran /geyser reload. Geyser players may be kicked by the reload.");
+            plugin.getLogger().warning("Ran /geyser reload. Geyser players may be kicked by the reload.");
         } else {
-            plugin.getLogger().warning("[Arrow] Restart the server or run /geyser reload for this to fully apply.");
+            plugin.getLogger().warning("Restart the server or run /geyser reload for this to fully apply.");
         }
 
         return true;

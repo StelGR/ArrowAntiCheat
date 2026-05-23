@@ -37,6 +37,12 @@ public final class ClientWorldTracker implements Data {
     private static final int MAX_RECENT_PHYSICS_UPDATE_TICKS = 20 * 4;
 
     private static final int AUTO_SYNC_COOLDOWN_TICKS = 10;
+    private static final int CLIENT_MIRROR_REPAIR_EVERY_TICKS = 2;
+    private static final int CLIENT_MIRROR_REPAIR_RADIUS_XZ = 3;
+    private static final int CLIENT_MIRROR_REPAIR_DOWN = 2;
+    private static final int CLIENT_MIRROR_REPAIR_UP = 3;
+    private static final int ACTIVE_WORLD_REPAIR_TICKS = 20;
+    private static final int MAX_REPAIR_UPDATES_PER_TICK = 96;
 
     private static volatile Method cachedGetBlockDataMethod;
     private static volatile Method cachedModernSendBlockChangeMethod;
@@ -59,6 +65,7 @@ public final class ClientWorldTracker implements Data {
     private int tick;
     private int lastCollisionScanTick = -1;
     private int lastAutoSyncTick = 100;
+    private int activeWorldRepairTicks;
 
     public ClientWorldTracker(Profile profile) {
         this.profile = profile;
@@ -71,6 +78,20 @@ public final class ClientWorldTracker implements Data {
             lastAutoSyncTick++;
             age();
             ensurePlayerChunksKnown(1);
+
+            if (activeWorldRepairTicks > 0 || tick % CLIENT_MIRROR_REPAIR_EVERY_TICKS == 0) {
+                repairClientMirrorAroundPlayer(
+                        CLIENT_MIRROR_REPAIR_RADIUS_XZ,
+                        CLIENT_MIRROR_REPAIR_DOWN,
+                        CLIENT_MIRROR_REPAIR_UP,
+                        MAX_REPAIR_UPDATES_PER_TICK
+                );
+
+                if (activeWorldRepairTicks > 0) {
+                    activeWorldRepairTicks--;
+                }
+            }
+
             preCheckScan();
         }
     }
@@ -116,18 +137,28 @@ public final class ClientWorldTracker implements Data {
         }
 
         Material previousClientMaterial = getClientMaterial(x, y, z);
+        boolean trackableUpdate = shouldTrackServerUpdate(previousClientMaterial, clientMaterial);
 
-        rememberPhysicsUpdateIfNeeded(
-                x,
-                y,
-                z,
-                previousClientMaterial,
-                clientMaterial,
-                "block-change"
-        );
+        if (trackableUpdate) {
+            rememberPhysicsUpdateIfNeeded(
+                    x,
+                    y,
+                    z,
+                    previousClientMaterial,
+                    clientMaterial,
+                    "block-change"
+            );
 
-        markPendingArea(AffectedArea.single(x, y, z));
+            markPendingArea(AffectedArea.single(x, y, z));
+        } else {
+            clearHistoryAt(x, y, z);
+        }
+
         setClientMaterial(x, y, z, clientMaterial);
+
+        if (trackableUpdate || isBlockNearPlayer(x, y, z, 8.0D, 5.0D)) {
+            requestActiveWorldRepair();
+        }
     }
 
     private void handleMultiBlockChange(PacketSendEvent event) {
@@ -143,18 +174,12 @@ public final class ClientWorldTracker implements Data {
         int maxX = Integer.MIN_VALUE;
         int maxY = Integer.MIN_VALUE;
         int maxZ = Integer.MIN_VALUE;
+        boolean trackableArea = false;
 
         for (WrapperPlayServerMultiBlockChange.EncodedBlock block : wrapper.getBlocks()) {
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            minZ = Math.min(minZ, z);
-            maxX = Math.max(maxX, x);
-            maxY = Math.max(maxY, y);
-            maxZ = Math.max(maxZ, z);
 
             Material clientMaterial = null;
 
@@ -169,21 +194,39 @@ public final class ClientWorldTracker implements Data {
             }
 
             Material previousClientMaterial = getClientMaterial(x, y, z);
+            boolean trackableUpdate = shouldTrackServerUpdate(previousClientMaterial, clientMaterial);
 
-            rememberPhysicsUpdateIfNeeded(
-                    x,
-                    y,
-                    z,
-                    previousClientMaterial,
-                    clientMaterial,
-                    "multi-block-change"
-            );
+            if (trackableUpdate) {
+                trackableArea = true;
+
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                minZ = Math.min(minZ, z);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
+                maxZ = Math.max(maxZ, z);
+
+                rememberPhysicsUpdateIfNeeded(
+                        x,
+                        y,
+                        z,
+                        previousClientMaterial,
+                        clientMaterial,
+                        "multi-block-change"
+                );
+            } else {
+                clearHistoryAt(x, y, z);
+            }
 
             setClientMaterial(x, y, z, clientMaterial);
         }
 
-        if (minX != Integer.MAX_VALUE) {
+        if (trackableArea && minX != Integer.MAX_VALUE) {
             markPendingArea(new AffectedArea(minX, minY, minZ, maxX, maxY, maxZ));
+        }
+
+        if (trackableArea) {
+            requestActiveWorldRepair();
         }
     }
 
@@ -250,6 +293,7 @@ public final class ClientWorldTracker implements Data {
         return result.shouldExemptMovementChecks()
                 || result.nextToGhostWall
                 || result.physicsMismatch
+                || result.touchingPhysicsGhost
                 || result.onGhostBlock
                 || result.insideGhostBlock
                 || result.underGhostBlock;
@@ -278,9 +322,9 @@ public final class ClientWorldTracker implements Data {
         int blockMinZ = floor(minZ);
         int blockMaxZ = floor(maxZ);
 
-        for (int x = blockMinX - 1; x <= blockMaxX + 1; x++) {
-            for (int y = blockMinY - 1; y <= blockMaxY + 1; y++) {
-                for (int z = blockMinZ - 1; z <= blockMaxZ + 1; z++) {
+        for (int x = blockMinX - 2; x <= blockMaxX + 2; x++) {
+            for (int y = blockMinY - 2; y <= blockMaxY + 2; y++) {
+                for (int z = blockMinZ - 2; z <= blockMaxZ + 2; z++) {
                     Material client = getClientMaterial(x, y, z);
                     Material server = getServerMaterial(x, y, z);
 
@@ -296,43 +340,82 @@ public final class ClientWorldTracker implements Data {
                     }
 
                     if (sameMaterialFamily(client, server)) {
+                        clearHistoryAt(x, y, z);
                         continue;
                     }
 
                     boolean clientCollidable = isCollidableForAnticheat(client);
                     boolean serverCollidable = isCollidableForAnticheat(server);
+                    boolean clientPhysics = isPhysicsSensitive(client);
+                    boolean serverPhysics = isPhysicsSensitive(server);
+
+                    boolean feet = isFeetOnBlock(loc, x, y, z);
+                    boolean body = isBodyInsideBlock(loc, x, y, z);
+                    boolean head = isHeadInBlock(loc, x, y, z);
+                    boolean wall = isWallTouch(loc, x, y, z);
+                    boolean physicsContact = isPhysicsInfluenceContact(loc, x, y, z, client, server);
+
+                    if (!feet && !body && !head && !wall && !physicsContact && !isNearPlayerAabb(loc, x, y, z, 2.0D, 2.0D)) {
+                        continue;
+                    }
 
                     if (clientCollidable && !serverCollidable) {
                         result.clientOnlyBlock = true;
                         result.nearGhostBlock = true;
-                        result.interactingGhostBlock = true;
+                        result.interactingGhostBlock = result.interactingGhostBlock || feet || body || head || wall || physicsContact;
                         result.desyncCount++;
                         result.closestGhost = new Vector(x, y, z);
 
-                        if (isFeetOnBlock(loc, x, y, z)) result.onGhostBlock = true;
-                        if (isHeadInBlock(loc, x, y, z)) result.underGhostBlock = true;
-                        if (isBodyInsideBlock(loc, x, y, z)) result.insideGhostBlock = true;
-                        if (isWallTouch(loc, x, y, z)) result.nextToGhostWall = true;
+                        if (feet) result.onGhostBlock = true;
+                        if (head) result.underGhostBlock = true;
+                        if (body) result.insideGhostBlock = true;
+                        if (wall) result.nextToGhostWall = true;
+
+                        if (clientPhysics && physicsContact) {
+                            result.physicsMismatch = true;
+                            result.touchingPhysicsGhost = true;
+                            result.nextToGhostWall = result.nextToGhostWall || wall;
+                        }
 
                         rememberDesync(x, y, z, client, server, "client-only-block");
                     } else if (!clientCollidable && serverCollidable) {
                         result.serverOnlyBlock = true;
                         result.nearGhostBlock = true;
-                        result.interactingGhostBlock = true;
+                        result.interactingGhostBlock = result.interactingGhostBlock || feet || body || head || wall || physicsContact;
                         result.desyncCount++;
                         result.closestGhost = new Vector(x, y, z);
 
-                        if (isBodyInsideBlock(loc, x, y, z)) {
+                        if (body) {
                             result.insideServerOnlyBlock = true;
                         }
 
+                        if (feet) result.onGhostBlock = true;
+                        if (head) result.underGhostBlock = true;
+                        if (wall) result.nextToGhostWall = true;
+
+                        if (serverPhysics && physicsContact) {
+                            result.physicsMismatch = true;
+                            result.touchingPhysicsGhost = true;
+                            result.nextToGhostWall = result.nextToGhostWall || wall;
+                        }
+
                         rememberDesync(x, y, z, client, server, "server-only-block");
-                    } else if (isPhysicsSensitive(client) || isPhysicsSensitive(server)) {
+                    } else if (clientPhysics || serverPhysics) {
+                        if (!physicsContact) {
+                            continue;
+                        }
+
                         result.physicsMismatch = true;
+                        result.touchingPhysicsGhost = true;
                         result.nearGhostBlock = true;
                         result.interactingGhostBlock = true;
                         result.desyncCount++;
                         result.closestGhost = new Vector(x, y, z);
+
+                        if (feet) result.onGhostBlock = true;
+                        if (body) result.insideGhostBlock = true;
+                        if (head) result.underGhostBlock = true;
+                        if (wall) result.nextToGhostWall = true;
 
                         rememberDesync(x, y, z, client, server, "physics-mismatch");
                     }
@@ -364,6 +447,7 @@ public final class ClientWorldTracker implements Data {
         }
 
         syncBlocksAround(center, 1, 1, 2);
+        requestActiveWorldRepair();
     }
 
     public void syncBlocksAround(Vector center, int radiusXZ, int down, int up) {
@@ -390,6 +474,7 @@ public final class ClientWorldTracker implements Data {
                         Block block = world.getBlockAt(x, y, z);
                         sendBlockChangeCompat(player, block);
                         setClientMaterial(x, y, z, block.getType());
+                        clearHistoryAt(x, y, z);
                     }
                 }
             }
@@ -418,6 +503,91 @@ public final class ClientWorldTracker implements Data {
         return false;
     }
 
+    public void requestActiveWorldRepair() {
+        this.activeWorldRepairTicks = Math.max(this.activeWorldRepairTicks, ACTIVE_WORLD_REPAIR_TICKS);
+    }
+
+    public void forceRepairAroundPlayer() {
+        repairClientMirrorAroundPlayer(4, 2, 4, 160);
+        requestActiveWorldRepair();
+    }
+
+    private void repairClientMirrorAroundPlayer(int radiusXZ, int down, int up, int maxUpdates) {
+        if (profile.getPlayer() == null || !profile.getPlayer().isOnline()) {
+            return;
+        }
+
+        if (profile.getMovementData() == null || profile.getMovementData().getLocation() == null) {
+            return;
+        }
+
+        CustomLocation loc = profile.getMovementData().getLocation();
+        World world = profile.getPlayer().getWorld();
+
+        if (world == null) {
+            return;
+        }
+
+        int baseX = floor(loc.getX());
+        int baseY = floor(loc.getY());
+        int baseZ = floor(loc.getZ());
+        int sent = 0;
+
+        for (int x = baseX - radiusXZ; x <= baseX + radiusXZ; x++) {
+            for (int y = baseY - down; y <= baseY + up; y++) {
+                for (int z = baseZ - radiusXZ; z <= baseZ + radiusXZ; z++) {
+                    if (sent >= maxUpdates) {
+                        return;
+                    }
+
+                    Material client = getClientMaterial(x, y, z);
+                    Material server = getServerMaterial(x, y, z);
+
+                    if (!shouldRepairClientMirror(client, server)) {
+                        continue;
+                    }
+
+                    Block block = world.getBlockAt(x, y, z);
+                    sendBlockChangeCompat(profile.getPlayer(), block);
+                    setClientMaterial(x, y, z, block.getType());
+                    clearHistoryAt(x, y, z);
+                    sent++;
+                }
+            }
+        }
+    }
+
+    private boolean shouldRepairClientMirror(Material client, Material server) {
+        if (client == null || server == null) {
+            return false;
+        }
+
+        if (sameMaterialFamily(client, server)) {
+            return false;
+        }
+
+        if (isAirLike(client) != isAirLike(server)) {
+            return true;
+        }
+
+        return isWorldUpdateRelevant(client)
+                || isWorldUpdateRelevant(server)
+                || isPhysicsSensitive(client)
+                || isPhysicsSensitive(server);
+    }
+
+    private boolean isBlockNearPlayer(int x, int y, int z, double horizontal, double vertical) {
+        if (profile.getMovementData() == null || profile.getMovementData().getLocation() == null) {
+            return false;
+        }
+
+        CustomLocation loc = profile.getMovementData().getLocation();
+
+        return Math.abs(loc.getX() - (x + 0.5D)) <= horizontal
+                && Math.abs(loc.getZ() - (z + 0.5D)) <= horizontal
+                && Math.abs(loc.getY() - (y + 0.5D)) <= vertical;
+    }
+
     private void markPendingArea(AffectedArea area) {
         if (area == null) {
             return;
@@ -426,14 +596,26 @@ public final class ClientWorldTracker implements Data {
         pendingAreas.put(area.key(), new PendingArea(tick, area));
     }
 
-    private boolean hasPendingNear(int x, int y, int z) {
+    public boolean hasPendingNear(Vector vector, int margin) {
+        if (vector == null) {
+            return false;
+        }
+
+        return hasPendingNear(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ(), margin);
+    }
+
+    public boolean hasPendingNear(int x, int y, int z, int margin) {
         for (PendingArea pending : pendingAreas.values()) {
-            if (pending.affects(x, y, z, 2)) {
+            if (pending.affects(x, y, z, margin)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private boolean hasPendingNear(int x, int y, int z) {
+        return hasPendingNear(x, y, z, 2);
     }
 
     private void ensurePlayerChunksKnown(int radius) {
@@ -666,6 +848,64 @@ public final class ClientWorldTracker implements Data {
         return 0;
     }
 
+
+    private boolean shouldTrackServerUpdate(Material oldMaterial, Material newMaterial) {
+        if (oldMaterial == null && newMaterial == null) {
+            return false;
+        }
+
+        if (sameMaterialFamily(oldMaterial, newMaterial)) {
+            return false;
+        }
+
+        boolean oldRelevant = isWorldUpdateRelevant(oldMaterial);
+        boolean newRelevant = isWorldUpdateRelevant(newMaterial);
+
+        return oldRelevant || newRelevant;
+    }
+
+    private boolean isWorldUpdateRelevant(Material material) {
+        if (material == null || isAirLike(material)) {
+            return false;
+        }
+
+        String name = material.name();
+
+        if (name.contains("BUTTON")
+                || name.contains("LEVER")
+                || name.contains("PRESSURE_PLATE")
+                || name.contains("REDSTONE")
+                || name.contains("SIGN")
+                || name.contains("BANNER")
+                || name.contains("TORCH")
+                || name.contains("TRIPWIRE")
+                || name.contains("STRING")
+                || name.contains("FLOWER")
+                || name.contains("SAPLING")
+                || name.contains("TULIP")
+                || name.contains("DANDELION")
+                || name.contains("POPPY")
+                || name.contains("ORCHID")
+                || name.contains("ALLIUM")
+                || name.contains("DAISY")
+                || name.contains("DEAD_BUSH")
+                || name.contains("MUSHROOM")
+                || name.contains("ROOTS")
+                || name.contains("SPROUTS")) {
+            return false;
+        }
+
+        return isCollidableForAnticheat(material) || isPhysicsSensitive(material);
+    }
+
+    private void clearHistoryAt(int x, int y, int z) {
+        long key = blockKey(x, y, z);
+
+        recentDesyncs.remove(key);
+        recentPhysicsUpdates.remove(key);
+        pendingAreas.entrySet().removeIf(entry -> entry.getValue().affects(x, y, z, 0));
+    }
+
     private void age() {
         pendingAreas.entrySet().removeIf(entry -> tick - entry.getValue().tick > MAX_PENDING_AREA_TICKS);
         recentDesyncs.entrySet().removeIf(entry -> tick - entry.getValue().tick > MAX_RECENT_DESYNC_TICKS);
@@ -706,13 +946,24 @@ public final class ClientWorldTracker implements Data {
                 continue;
             }
 
-            if (!isLikelyAffectedByRecentPhysics(update)) {
+            Material clientNow = getClientMaterial(update.x, update.y, update.z);
+            Material serverNow = getServerMaterial(update.x, update.y, update.z);
+
+            if (sameMaterialFamily(clientNow, serverNow)) {
+                clearHistoryAt(update.x, update.y, update.z);
+                continue;
+            }
+
+            boolean physicsContact = isPhysicsInfluenceContact(loc, update.x, update.y, update.z, clientNow, serverNow);
+
+            if (!physicsContact && !isLikelyAffectedByRecentPhysics(update)) {
                 continue;
             }
 
             result.nearGhostBlock = true;
             result.interactingGhostBlock = true;
             result.physicsMismatch = true;
+            result.touchingPhysicsGhost = result.touchingPhysicsGhost || physicsContact;
             result.desyncCount++;
             result.closestGhost = new Vector(update.x, update.y, update.z);
 
@@ -725,8 +976,8 @@ public final class ClientWorldTracker implements Data {
                     update.x,
                     update.y,
                     update.z,
-                    update.oldMaterial,
-                    update.newMaterial,
+                    clientNow,
+                    serverNow,
                     "recent-physics-history:" + update.reason
             );
 
@@ -754,7 +1005,8 @@ public final class ClientWorldTracker implements Data {
         if (isFeetOnBlock(loc, update.x, update.y, update.z)
                 || isBodyInsideBlock(loc, update.x, update.y, update.z)
                 || isHeadInBlock(loc, update.x, update.y, update.z)
-                || isWallTouch(loc, update.x, update.y, update.z)) {
+                || isWallTouch(loc, update.x, update.y, update.z)
+                || isPhysicsInfluenceContact(loc, update.x, update.y, update.z, update.oldMaterial, update.newMaterial)) {
             return true;
         }
 
@@ -986,63 +1238,157 @@ public final class ClientWorldTracker implements Data {
         return name.equals("CAVE_AIR") || name.equals("VOID_AIR");
     }
 
-    private boolean isFeetOnBlock(CustomLocation loc, int x, int y, int z) {
-        double feetY = loc.getY();
-        double blockTop = y + 1.0D;
-
-        return feetY >= blockTop - 0.35D
-                && feetY <= blockTop + 0.28D
-                && loc.getX() >= x - 0.31D
-                && loc.getX() <= x + 1.31D
-                && loc.getZ() >= z - 0.31D
-                && loc.getZ() <= z + 1.31D;
-    }
-
-    private boolean isBodyInsideBlock(CustomLocation loc, int x, int y, int z) {
-        double minX = x - 0.31D;
-        double maxX = x + 1.31D;
-        double minY = y - 0.05D;
-        double maxY = y + 1.05D;
-        double minZ = z - 0.31D;
-        double maxZ = z + 1.31D;
-
+    private boolean isNearPlayerAabb(CustomLocation loc, int x, int y, int z, double horizontal, double vertical) {
+        double playerMinX = loc.getX() - 0.3001D;
+        double playerMaxX = loc.getX() + 0.3001D;
         double playerMinY = loc.getY();
         double playerMaxY = loc.getY() + 1.8D;
+        double playerMinZ = loc.getZ() - 0.3001D;
+        double playerMaxZ = loc.getZ() + 0.3001D;
 
-        return loc.getX() >= minX
-                && loc.getX() <= maxX
-                && loc.getZ() >= minZ
-                && loc.getZ() <= maxZ
-                && playerMaxY >= minY
-                && playerMinY <= maxY;
+        double blockMaxX = x + 1.0D;
+        double blockMaxY = y + 1.0D;
+        double blockMaxZ = z + 1.0D;
+
+        return playerMaxX >= (double) x - horizontal
+                && playerMinX <= blockMaxX + horizontal
+                && playerMaxY >= (double) y - vertical
+                && playerMinY <= blockMaxY + vertical
+                && playerMaxZ >= (double) z - horizontal
+                && playerMinZ <= blockMaxZ + horizontal;
     }
 
-    private boolean isHeadInBlock(CustomLocation loc, int x, int y, int z) {
-        double headY = loc.getY() + 1.8D;
+    private boolean isPhysicsInfluenceContact(CustomLocation loc, int x, int y, int z, Material client, Material server) {
+        Material physics = isPhysicsSensitive(client) ? client : server;
 
-        return headY >= y - 0.20D
-                && headY <= y + 1.20D
-                && loc.getX() >= x - 0.31D
-                && loc.getX() <= x + 1.31D
-                && loc.getZ() >= z - 0.31D
-                && loc.getZ() <= z + 1.31D;
-    }
-
-    private boolean isWallTouch(CustomLocation loc, int x, int y, int z) {
-        double px = loc.getX();
-        double py = loc.getY();
-        double pz = loc.getZ();
-
-        boolean yOverlap = py + 1.8D >= y && py <= y + 1.0D;
-
-        if (!yOverlap) {
+        if (physics == null || isAirLike(physics)) {
             return false;
         }
 
-        boolean xTouch = Math.abs(px - (x + 0.5D)) <= 0.86D;
-        boolean zTouch = Math.abs(pz - (z + 0.5D)) <= 0.86D;
+        String name = physics.name();
 
-        return xTouch || zTouch;
+        if (name.contains("WATER")
+                || name.contains("LAVA")
+                || name.contains("WEB")
+                || name.contains("COBWEB")
+                || name.contains("POWDER_SNOW")
+                || name.contains("BUBBLE")) {
+            return intersectsPlayerBox(loc, x, y, z, -0.04D);
+        }
+
+        if (name.contains("HONEY")) {
+            return isWallTouchExpanded(loc, x, y, z, 0.16D)
+                    || isBodyInsideBlock(loc, x, y, z)
+                    || isFeetOnBlock(loc, x, y, z);
+        }
+
+        if (name.contains("LADDER")
+                || name.contains("VINE")
+                || name.contains("SCAFFOLDING")) {
+            return isWallTouchExpanded(loc, x, y, z, 0.14D)
+                    || isBodyInsideBlock(loc, x, y, z);
+        }
+
+        if (name.contains("SLIME")
+                || name.contains("SOUL_SAND")
+                || name.contains("ICE")
+                || name.contains("RAIL")) {
+            return isFeetOnBlock(loc, x, y, z)
+                    || isBodyInsideBlock(loc, x, y, z);
+        }
+
+        return isFeetOnBlock(loc, x, y, z)
+                || isBodyInsideBlock(loc, x, y, z)
+                || isHeadInBlock(loc, x, y, z)
+                || isWallTouch(loc, x, y, z);
+    }
+
+    private boolean isWallTouchExpanded(CustomLocation loc, int x, int y, int z, double expansion) {
+        double playerMinY = loc.getY() + 0.001D;
+        double playerMaxY = loc.getY() + 1.799D;
+
+        if (playerMaxY <= y + 0.001D || playerMinY >= y + 1.0D - 0.001D) {
+            return false;
+        }
+
+        double playerMinX = loc.getX() - 0.3001D;
+        double playerMaxX = loc.getX() + 0.3001D;
+        double playerMinZ = loc.getZ() - 0.3001D;
+        double playerMaxZ = loc.getZ() + 0.3001D;
+
+        double blockMaxX = x + 1.0D;
+        double blockMaxZ = z + 1.0D;
+
+        double zOverlap = Math.min(playerMaxZ, blockMaxZ) - Math.max(playerMinZ, z);
+        double xOverlap = Math.min(playerMaxX, blockMaxX) - Math.max(playerMinX, x);
+
+        boolean touchingXWall = zOverlap > -0.03D
+                && (Math.abs(playerMaxX - (double) x) <= expansion || Math.abs(playerMinX - blockMaxX) <= expansion);
+
+        boolean touchingZWall = xOverlap > -0.03D
+                && (Math.abs(playerMaxZ - (double) z) <= expansion || Math.abs(playerMinZ - blockMaxZ) <= expansion);
+
+        return touchingXWall || touchingZWall;
+    }
+
+    private boolean isFeetOnBlock(CustomLocation loc, int x, int y, int z) {
+        if (!overlapsPlayerXZ(loc, x, z, 0.001D)) {
+            return false;
+        }
+
+        double feetY = loc.getY();
+        double blockTop = y + 1.0D;
+
+        return feetY >= blockTop - 0.075D
+                && feetY <= blockTop + 0.075D;
+    }
+
+    private boolean isBodyInsideBlock(CustomLocation loc, int x, int y, int z) {
+        return intersectsPlayerBox(loc, x, y, z, 0.001D);
+    }
+
+    private boolean isHeadInBlock(CustomLocation loc, int x, int y, int z) {
+        if (!overlapsPlayerXZ(loc, x, z, 0.001D)) {
+            return false;
+        }
+
+        double headY = loc.getY() + 1.8D;
+        double blockTop = y + 1.0D;
+
+        return headY > (double) y + 0.001D
+                && headY < blockTop - 0.001D;
+    }
+
+    private boolean isWallTouch(CustomLocation loc, int x, int y, int z) {
+        return isWallTouchExpanded(loc, x, y, z, 0.04D);
+    }
+
+    private boolean overlapsPlayerXZ(CustomLocation loc, int x, int z, double epsilon) {
+        double playerMinX = loc.getX() - 0.3001D;
+        double playerMaxX = loc.getX() + 0.3001D;
+        double playerMinZ = loc.getZ() - 0.3001D;
+        double playerMaxZ = loc.getZ() + 0.3001D;
+
+        return playerMaxX > x + epsilon
+                && playerMinX < x + 1.0D - epsilon
+                && playerMaxZ > z + epsilon
+                && playerMinZ < z + 1.0D - epsilon;
+    }
+
+    private boolean intersectsPlayerBox(CustomLocation loc, int x, int y, int z, double epsilon) {
+        double playerMinX = loc.getX() - 0.3001D;
+        double playerMaxX = loc.getX() + 0.3001D;
+        double playerMinY = loc.getY() + 0.001D;
+        double playerMaxY = loc.getY() + 1.799D;
+        double playerMinZ = loc.getZ() - 0.3001D;
+        double playerMaxZ = loc.getZ() + 0.3001D;
+
+        return playerMaxX > x + epsilon
+                && playerMinX < x + 1.0D - epsilon
+                && playerMaxY > y + epsilon
+                && playerMinY < y + 1.0D - epsilon
+                && playerMaxZ > z + epsilon
+                && playerMinZ < z + 1.0D - epsilon;
     }
 
     private int getWorldMinY(World world) {
@@ -1088,6 +1434,8 @@ public final class ClientWorldTracker implements Data {
         return value < i ? i - 1 : i;
     }
 
+
+
     public static final class CollisionResult {
         public boolean nearGhostBlock;
         public boolean onGhostBlock;
@@ -1100,6 +1448,7 @@ public final class ClientWorldTracker implements Data {
         public boolean serverOnlyBlock;
         public boolean insideServerOnlyBlock;
         public boolean physicsMismatch;
+        public boolean touchingPhysicsGhost;
         public boolean pendingLagCompensated;
         public boolean unknownClientChunk;
 
@@ -1113,6 +1462,7 @@ public final class ClientWorldTracker implements Data {
                     || clientOnlyBlock
                     || serverOnlyBlock
                     || physicsMismatch
+                    || touchingPhysicsGhost
                     || pendingLagCompensated
                     || unknownClientChunk;
         }
@@ -1121,6 +1471,7 @@ public final class ClientWorldTracker implements Data {
             return clientOnlyBlock
                     || serverOnlyBlock
                     || physicsMismatch
+                    || touchingPhysicsGhost
                     || onGhostBlock
                     || insideGhostBlock
                     || underGhostBlock
@@ -1128,7 +1479,27 @@ public final class ClientWorldTracker implements Data {
         }
 
         public boolean shouldSetback() {
-            return onGhostBlock || insideServerOnlyBlock;
+            return shouldHardSetback();
+        }
+
+        public boolean shouldHardSetback() {
+            if (pendingLagCompensated || unknownClientChunk) {
+                return false;
+            }
+
+            return serverOnlyBlock && insideServerOnlyBlock;
+        }
+
+        public boolean shouldPhaseExempt() {
+            return pendingLagCompensated
+                    || unknownClientChunk
+                    || nearGhostBlock
+                    || interactingGhostBlock
+                    || clientOnlyBlock
+                    || serverOnlyBlock
+                    || physicsMismatch
+                    || touchingPhysicsGhost
+                    || nextToGhostWall;
         }
     }
 
@@ -1300,13 +1671,12 @@ public final class ClientWorldTracker implements Data {
 
         private static Material decode(char value) {
             Material[] values = Material.values();
-            int ordinal = value;
 
-            if (ordinal < 0 || ordinal >= values.length) {
+            if ((int) value < 0 || (int) value >= values.length) {
                 return Material.AIR;
             }
 
-            return values[ordinal];
+            return values[value];
         }
     }
 }

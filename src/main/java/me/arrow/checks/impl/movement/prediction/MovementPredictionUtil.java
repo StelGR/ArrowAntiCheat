@@ -1,12 +1,11 @@
 package me.arrow.checks.impl.movement.prediction;
 
 import lombok.Getter;
+import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.MaterialType;
 import org.bukkit.Material;
 import org.bukkit.World;
-
-// this is really cool, but probably terrible, it was made by GPT, to help detect if you are moving up a block or down a block, it helps fix some issues with my gravity checks
-// but it's not perfect, the idea is decent though i think, can be improved
 
 public class MovementPredictionUtil {
 
@@ -33,8 +32,145 @@ public class MovementPredictionUtil {
         STATIONARY
     }
 
+    public enum MovementSector {
+        FORWARD,
+        FORWARD_LEFT,
+        FORWARD_RIGHT,
+        LEFT,
+        RIGHT,
+        BACKWARD_LEFT,
+        BACKWARD_RIGHT,
+        BACKWARD,
+        STATIONARY
+    }
+
+    @Getter
+    public static final class DirectionalMovement {
+
+        private final double deltaX;
+        private final double deltaZ;
+        private final double deltaXZ;
+
+        private final float yaw;
+
+        private final double moveX;
+        private final double moveZ;
+
+        private final double forwardX;
+        private final double forwardZ;
+
+        /**
+         *  1.0 = fully forward
+         *  0.0 = pure sideways
+         * -1.0 = fully backwards
+         */
+        private final double dot;
+
+        /**
+         * Negative = left
+         * Positive = right
+         */
+        private final double cross;
+
+        /**
+         * Signed movement angle relative to yaw.
+         *
+         * 0      = forward
+         * 90     = right
+         * -90    = left
+         * +/-180 = backwards
+         */
+        private final double signedAngle;
+
+        /**
+         * Absolute angle away from forward.
+         *
+         * 0   = forward
+         * 45  = vanilla W+A / W+D
+         * 90  = pure A / D
+         * 180 = pure S
+         */
+        private final double absoluteAngle;
+
+        private final MovementSector sector;
+
+        private DirectionalMovement(double deltaX,
+                                    double deltaZ,
+                                    double deltaXZ,
+                                    float yaw,
+                                    double moveX,
+                                    double moveZ,
+                                    double forwardX,
+                                    double forwardZ,
+                                    double dot,
+                                    double cross,
+                                    double signedAngle,
+                                    double absoluteAngle,
+                                    MovementSector sector) {
+            this.deltaX = deltaX;
+            this.deltaZ = deltaZ;
+            this.deltaXZ = deltaXZ;
+            this.yaw = yaw;
+            this.moveX = moveX;
+            this.moveZ = moveZ;
+            this.forwardX = forwardX;
+            this.forwardZ = forwardZ;
+            this.dot = dot;
+            this.cross = cross;
+            this.signedAngle = signedAngle;
+            this.absoluteAngle = absoluteAngle;
+            this.sector = sector;
+        }
+
+        public boolean isMoving() {
+            return deltaXZ > MOVE_EPS;
+        }
+
+        public boolean isForward() {
+            return sector == MovementSector.FORWARD
+                    || sector == MovementSector.FORWARD_LEFT
+                    || sector == MovementSector.FORWARD_RIGHT;
+        }
+
+        public boolean isSideways() {
+            return sector == MovementSector.LEFT
+                    || sector == MovementSector.RIGHT;
+        }
+
+        public boolean isBackwards() {
+            return sector == MovementSector.BACKWARD
+                    || sector == MovementSector.BACKWARD_LEFT
+                    || sector == MovementSector.BACKWARD_RIGHT;
+        }
+
+        public boolean isLeft() {
+            return cross < 0.0D;
+        }
+
+        public boolean isRight() {
+            return cross > 0.0D;
+        }
+
+        public RelativeMove toSimpleRelativeMove() {
+            if (!isMoving()) {
+                return RelativeMove.STATIONARY;
+            }
+
+            if (absoluteAngle <= 67.5D) {
+                return RelativeMove.FORWARD;
+            }
+
+            if (absoluteAngle >= 112.5D) {
+                return RelativeMove.BACKWARD;
+            }
+
+            return cross > 0.0D ? RelativeMove.RIGHT : RelativeMove.LEFT;
+        }
+    }
+
     @Getter
     public static final class BlockSample {
+
         private final int x;
         private final int y;
         private final int z;
@@ -46,7 +182,6 @@ public class MovementPredictionUtil {
             this.z = z;
             this.material = material;
         }
-
     }
 
     public static BlockSample[] scanAroundFeet(World world, double x, double y, double z) {
@@ -59,8 +194,10 @@ public class MovementPredictionUtil {
 
         for (int dy = 0; dy >= -DEPTH; dy--) {
             int py = baseY + dy;
+
             for (int dx = -RADIUS; dx <= RADIUS; dx++) {
                 int px = baseX + dx;
+
                 for (int dz = -RADIUS; dz <= RADIUS; dz++) {
                     int pz = baseZ + dz;
                     Material material = world.getBlockAt(px, py, pz).getType();
@@ -92,34 +229,94 @@ public class MovementPredictionUtil {
         return VerticalMove.HORIZONTAL;
     }
 
-    public static RelativeMove predictRelativeMove(double deltaX, double deltaZ, float yaw) {
-        double horizontalLen = Math.hypot(deltaX, deltaZ);
-        if (horizontalLen < MOVE_EPS) {
-            return RelativeMove.STATIONARY;
+    public static DirectionalMovement predictDirectionalMovement(double deltaX, double deltaZ, float yaw) {
+        double deltaXZ = Math.hypot(deltaX, deltaZ);
+
+        if (deltaXZ < MOVE_EPS) {
+            return new DirectionalMovement(
+                    deltaX,
+                    deltaZ,
+                    deltaXZ,
+                    yaw,
+                    0.0D,
+                    0.0D,
+                    0.0D,
+                    0.0D,
+                    0.0D,
+                    0.0D,
+                    0.0D,
+                    0.0D,
+                    MovementSector.STATIONARY
+            );
         }
 
-        double moveX = deltaX / horizontalLen;
-        double moveZ = deltaZ / horizontalLen;
+        double moveX = deltaX / deltaXZ;
+        double moveZ = deltaZ / deltaXZ;
 
         double rad = Math.toRadians(yaw);
-        double lookX = -Math.sin(rad);
-        double lookZ = Math.cos(rad);
 
-        double dot = lookX * moveX + lookZ * moveZ;
-        double cross = lookX * moveZ - lookZ * moveX;
+        /*
+         * Minecraft yaw:
+         *
+         * yaw 0    = +Z
+         * yaw 90   = -X
+         * yaw -90  = +X
+         * yaw 180  = -Z
+         */
+        double forwardX = -Math.sin(rad);
+        double forwardZ = Math.cos(rad);
 
-        if (dot >= SIDE_EPS) {
-            return RelativeMove.FORWARD;
-        }
+        double dot = clamp((forwardX * moveX) + (forwardZ * moveZ), -1.0D, 1.0D);
 
-        if (dot <= -SIDE_EPS) {
-            return RelativeMove.BACKWARD;
-        }
+        /*
+         * Positive cross = right
+         * Negative cross = left
+         */
+        double cross = clamp((forwardX * moveZ) - (forwardZ * moveX), -1.0D, 1.0D);
 
-        return cross > 0.0D ? RelativeMove.RIGHT : RelativeMove.LEFT;
+        double signedAngle = Math.toDegrees(Math.atan2(cross, dot));
+        double absoluteAngle = Math.abs(signedAngle);
+
+        MovementSector sector = classifySector(signedAngle, absoluteAngle);
+
+        return new DirectionalMovement(
+                deltaX,
+                deltaZ,
+                deltaXZ,
+                yaw,
+                moveX,
+                moveZ,
+                forwardX,
+                forwardZ,
+                dot,
+                cross,
+                signedAngle,
+                absoluteAngle,
+                sector
+        );
     }
 
-    public static VerticalMove predictVerticalMove(me.arrow.playerdata.data.impl.MovementData md) {
+    public static DirectionalMovement predictDirectionalMovement(MovementData movementData, float yaw) {
+        return predictDirectionalMovement(
+                movementData.getDeltaX(),
+                movementData.getDeltaZ(),
+                yaw
+        );
+    }
+
+    public static DirectionalMovement predictDirectionalMovement(MovementData movementData, RotationData rotationData) {
+        return predictDirectionalMovement(
+                movementData.getDeltaX(),
+                movementData.getDeltaZ(),
+                rotationData.getTrustedYaw()
+        );
+    }
+
+    public static RelativeMove predictRelativeMove(double deltaX, double deltaZ, float yaw) {
+        return predictDirectionalMovement(deltaX, deltaZ, yaw).toSimpleRelativeMove();
+    }
+
+    public static VerticalMove predictVerticalMove(MovementData md) {
         return predictVerticalMove(
                 md.getLocation().getWorld(),
                 md.getLocation().getX(),
@@ -130,9 +327,59 @@ public class MovementPredictionUtil {
         );
     }
 
-    public static RelativeMove predictRelativeMove(me.arrow.playerdata.data.impl.MovementData md,
-                                                   me.arrow.playerdata.data.impl.RotationData rd) {
+    public static RelativeMove predictRelativeMove(MovementData md, RotationData rd) {
         return predictRelativeMove(md.getDeltaX(), md.getDeltaZ(), rd.getTrustedYaw());
+    }
+
+    public static float wrapDegrees(float value) {
+        value %= 360.0F;
+
+        if (value >= 180.0F) {
+            value -= 360.0F;
+        }
+
+        if (value < -180.0F) {
+            value += 360.0F;
+        }
+
+        return value;
+    }
+
+    public static float yawDifference(float first, float second) {
+        return Math.abs(wrapDegrees(first - second));
+    }
+
+    public static double movementYawFromDelta(double deltaX, double deltaZ) {
+        if (Math.hypot(deltaX, deltaZ) < MOVE_EPS) {
+            return 0.0D;
+        }
+
+        /*
+         * Inverse of:
+         * forwardX = -sin(yaw)
+         * forwardZ = cos(yaw)
+         */
+        return wrapDegrees((float) Math.toDegrees(Math.atan2(-deltaX, deltaZ)));
+    }
+
+    private static MovementSector classifySector(double signedAngle, double absoluteAngle) {
+        if (absoluteAngle < 22.5D) {
+            return MovementSector.FORWARD;
+        }
+
+        if (absoluteAngle < 67.5D) {
+            return signedAngle > 0.0D ? MovementSector.FORWARD_RIGHT : MovementSector.FORWARD_LEFT;
+        }
+
+        if (absoluteAngle < 112.5D) {
+            return signedAngle > 0.0D ? MovementSector.RIGHT : MovementSector.LEFT;
+        }
+
+        if (absoluteAngle < 157.5D) {
+            return signedAngle > 0.0D ? MovementSector.BACKWARD_RIGHT : MovementSector.BACKWARD_LEFT;
+        }
+
+        return MovementSector.BACKWARD;
     }
 
     private static double surfaceScore(World world, double x, double y, double z) {
@@ -142,6 +389,7 @@ public class MovementPredictionUtil {
 
         for (int dy = 0; dy >= -DEPTH; dy--) {
             int py = by + dy;
+
             if (isBlocking(world, bx, py, bz)) {
                 return py + 1.0D;
             }
@@ -153,32 +401,26 @@ public class MovementPredictionUtil {
     private static boolean isBlocking(World world, int x, int y, int z) {
         String type = world.getBlockAt(x, y, z).getType().name();
 
-        // Air → not blocking
         if (MaterialType.isMaterial(type, MaterialType.AIR)) return false;
-
-        // Liquids → not blocking (you can enter them)
         if (MaterialType.isMaterial(type, MaterialType.LIQUID)) return false;
-
-        // Plants / transparent → not blocking
         if (MaterialType.isMaterial(type, MaterialType.TRANSPARENT)) return false;
 
-        // Half blocks (carpets, slabs etc.) → depends on your use case
-        // If you want strict collision → treat as blocking
         if (MaterialType.isMaterial(type, MaterialType.HALF_BLOCK)) return true;
-
-        // Special non-full but still collidable
         if (MaterialType.isMaterial(type, MaterialType.PANE)) return true;
         if (MaterialType.isMaterial(type, MaterialType.FENCE)) return true;
         if (MaterialType.isMaterial(type, MaterialType.WALL)) return true;
         if (MaterialType.isMaterial(type, MaterialType.DOOR)) return true;
         if (MaterialType.isMaterial(type, MaterialType.TRAPDOOR)) return true;
 
-        // Default: treat everything else as blocking
         return true;
     }
 
     private static int floor(double value) {
         int i = (int) value;
         return value < i ? i - 1 : i;
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 }

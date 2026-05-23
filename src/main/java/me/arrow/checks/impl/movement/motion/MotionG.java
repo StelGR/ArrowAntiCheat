@@ -39,6 +39,9 @@ public class MotionG extends Check {
         VelocityData vd = profile.getVelocityData();
         PotionData pot = profile.getPotionData();
 
+
+
+
         if (profile.shouldCancel()
                 || profile.getPlayer().isDead()
                 || !profile.isExempt().isRespawned()

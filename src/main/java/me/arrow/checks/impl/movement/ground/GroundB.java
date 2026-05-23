@@ -11,6 +11,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.PotionType;
 
 // other impossible states, like the description claims, it uses material from the world, instead of listening to either the server
@@ -70,10 +71,15 @@ public class GroundB extends Check {
 
         //invalid 1 was a terribly made check, i removed it, invalid2 does most of the job. but it can still false, needs improvements
 
+
+
         boolean invalid = airTicks > (airTickLimit + 12) && clientGround && serverGround && inAir;
 //                (inAir && (airTicks >= 6 || clientAirTicks >= 8) && serverYGround && !serverGround && !clientGround)
 //                && movementData.getDeltaXZ() >= (0.9 + profile.getVelocityData().getTotalHorizontalVelocity())
 //                && movementData.getSinceRiptidingTicks() > 15;
+
+        boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
+        if (nearEdge && movementData.getLastDeltaY() != 0) invalid = false;
 
         boolean invalid2 = (
                 (clientGround && serverGround && inAir)

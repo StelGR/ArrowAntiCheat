@@ -87,6 +87,7 @@ public class FlyA extends Check {
                     || movementData.isNearShulker()
                     || movementData.isNearShulkerBox()
                     || profile.getExempt().isVehicle()
+                    || profile.shouldCancel()
                     || movementData.getSinceLevitationEffectTicks() < 10) {
                 return;
             }
@@ -126,7 +127,12 @@ public class FlyA extends Check {
                 }
             }
 
-            if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
+
+            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
                 if (Config.Setting.DEBUG.getBoolean()) {
                     OtherUtility.log("Fly A: is Exempting (ghostblock liquid/web)");
                 }

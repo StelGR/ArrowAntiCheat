@@ -8,6 +8,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 
 // fairly simply ground desync/spoof check, the main one is mismatched ground (1), although (2), (3) and (4) are
 // for edge cases, from clients that are able to spoof server side flooring
@@ -30,6 +31,16 @@ public class GroundA extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
 
             MovementData movementData = profile.getMovementData();
+
+            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+            if (world.shouldExemptMovementChecks()
+                    || world.physicsMismatch
+                    || world.onGhostBlock
+                    || world.underGhostBlock
+                    || world.insideGhostBlock) {
+                return;
+            }
 
             if (profile.shouldCancel()
                     || profile.getMovementData().isOnBoat()
