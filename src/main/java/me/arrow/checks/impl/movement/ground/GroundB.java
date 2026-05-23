@@ -13,6 +13,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.PotionType;
+import me.arrow.utils.customutils.OtherUtility;
 
 // other impossible states, like the description claims, it uses material from the world, instead of listening to either the server
 // from math, or client packet, it sees what is in the chunks, kind of, and verifies if you are in air or not.
@@ -41,11 +42,17 @@ public class GroundB extends Check {
         if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()
                 || profile.getExempt().isVehicle()
                 || profile.getExempt().isTeleports()
+                || profile.isBouncingOnSlime()
                 || profile.getVehicleData().getSinceVehicleTicks() < 5
                 || movementData.isInsideLiquid()
                 || movementData.isNearLava()
                 || movementData.isNearWater()) return;
 
+
+        if (profile.getMovementData().getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground B: is Exempting (elytra glide)");
+            return;
+        }
 
         int airTicks = movementData.getCustomAirTicks();
         int clientAirTicks = movementData.getClientAirTicks();
@@ -79,7 +86,7 @@ public class GroundB extends Check {
 //                && movementData.getSinceRiptidingTicks() > 15;
 
         boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
-        if (nearEdge && movementData.getLastDeltaY() != 0) invalid = false;
+        if (nearEdge && movementData.getLastDeltaY() != 0 && movementData.getClientAirTicks() == 0) invalid = false;
 
         boolean invalid2 = (
                 (clientGround && serverGround && inAir)

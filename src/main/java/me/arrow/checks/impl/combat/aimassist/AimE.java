@@ -58,6 +58,12 @@ public class AimE extends Check {
                 return;
             }
 
+            Profile targetProfile = Arrow.getInstance().getProfileManager().getProfile(target);
+
+            if (targetProfile == null || targetProfile.getMovementData() == null) {
+                return;
+            }
+
             float deltaYaw = data.getDeltaYaw();
             heuristics.process(deltaYaw);
             rotationHistory.add((double) deltaYaw);

@@ -147,7 +147,7 @@ public class FlyB extends Check {
                 return;
             }
 
-            if (profile.getMovementData().getSinceOnGhostBlock() < 12 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            if (profile.getMovementData().getSinceOnGhostBlock() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (ghost block)");
                 return;
             }

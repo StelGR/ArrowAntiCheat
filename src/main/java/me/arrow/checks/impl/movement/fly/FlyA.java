@@ -233,7 +233,8 @@ public class FlyA extends Check {
                 || movementData.isMovingDown()
                 || movementData.getSincePredictUpwardsTicks() < 10
                 || movementData.getSincePredictDownwardsTicks() < 10) {
-            bufferA -= Math.min(bufferA, 0.25D);
+            bufferA -= Math.min(bufferA, 0.75D);
+            return;
         }
 
         double normalPrediction = getPrediction(profile, deltaY);
@@ -459,7 +460,8 @@ public class FlyA extends Check {
 
         if (md.isMovingUp()
                 || md.isMovingDown()
-                || md.getSincePredictUpwardsTicks() < 3) {
+                || md.getSincePredictUpwardsTicks() < 10
+                || md.getSincePredictDownwardsTicks() < 10) {
             lastOffset = 0.0D;
             return;
         }

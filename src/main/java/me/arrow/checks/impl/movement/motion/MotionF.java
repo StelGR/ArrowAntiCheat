@@ -45,6 +45,7 @@ public class MotionF extends Check {
                     || profile.isExempt().isTeleports()
                     || profile.getVehicleData().getSinceVehicleTicks() < 5
                     || movementData.isNearBed()
+                    || profile.isBouncingOnSlime()
                     || movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
                 return;
             }

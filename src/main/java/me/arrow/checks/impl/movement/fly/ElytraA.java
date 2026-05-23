@@ -121,6 +121,8 @@ public class ElytraA extends Check {
 
             if (inAir && profile.getPlayer().isGliding()
                     && !movementData.isUnderblock()
+                    && !movementData.isNearWater()
+                    && !movementData.isNearLava()
                     && movementData.getSinceInsideWaterTicks() > 10
                     && movementData.getSinceBubbleTicks() > 15) {
                 if (deltaY != movementData.getLastDeltaY()) {

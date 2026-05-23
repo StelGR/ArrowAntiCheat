@@ -328,7 +328,7 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (movementData.isMovingUp()) {
+        if (movementData.getSincePredictUpwardsTicks() < 10) {
             airBuffer = 0;
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - movingUp");
             return;

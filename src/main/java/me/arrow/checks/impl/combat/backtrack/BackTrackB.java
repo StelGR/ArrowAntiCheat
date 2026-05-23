@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import me.arrow.Arrow;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -11,6 +12,8 @@ import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 import java.text.DecimalFormat;
 import java.util.ArrayDeque;
@@ -80,6 +83,18 @@ public class BackTrackB extends Check {
                 || profile.getCombatData() == null
                 || profile.getMovementData() == null) {
             reset();
+            return;
+        }
+
+
+        Player target = getPlayerByEntityId(profile.getCombatData().getTarget());
+
+        if (target == null || !target.isOnline() || target == profile.getPlayer()) {
+            return;
+        }
+        Profile targetProfile = Arrow.getInstance().getProfileManager().getProfile(target);
+
+        if (targetProfile == null || targetProfile.getMovementData() == null) {
             return;
         }
 
@@ -292,6 +307,16 @@ public class BackTrackB extends Check {
             } catch (Throwable ignored2) {
             }
         }
+    }
+
+    private Player getPlayerByEntityId(int entityId) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.getEntityId() == entityId) {
+                return player;
+            }
+        }
+
+        return null;
     }
 
     private Stats buildStats() {

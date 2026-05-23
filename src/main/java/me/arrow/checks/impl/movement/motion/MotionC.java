@@ -78,6 +78,11 @@ public class MotionC extends Check {
                 return;
             }
 
+            if (profile.getMovementData().getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (elytra glide)");
+                return;
+            }
+
 //            if (movementData.getSinceGl() < 20) {
 //                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (Elytra Equip)");
 //                return;

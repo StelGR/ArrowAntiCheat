@@ -28,7 +28,6 @@ import me.arrow.utils.customutils.raytrace.BlockRayCastResult;
 import me.arrow.utils.customutils.raytrace.RayCastUtility;
 import org.bukkit.*;
 import org.bukkit.block.Block;
-import org.bukkit.block.data.Waterlogged;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -407,7 +406,7 @@ public class MovementData implements Data {
         profile.setBouncingOnSlime(getSlimeProcessor().isBouncing(profile.getMovementData(), profile.getPotionData()));
         if (Config.Setting.DEBUG.getBoolean()) profile.getPlayer().sendMessage(OtherUtility.translate( "Bouncing on Slime: &c" + profile.isBouncingOnSlime()));
 
-        movingUp = moving && getDeltaY() > 0
+        movingUp = moving && (getDeltaY() > 0 || getLastDeltaY() > 0)
                 && (nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.FENCE))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.WALL))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
@@ -415,7 +414,7 @@ public class MovementData implements Data {
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SLAB))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW)));
 
-        movingDown = moving && getDeltaY() < 0
+        movingDown = moving && (getDeltaY() < 0 || getLastDeltaY() < 0)
                 && (nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.FENCE))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.WALL))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
@@ -1041,12 +1040,22 @@ public class MovementData implements Data {
         if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN) {
             sincePredictDownwardsTicks = 0;
         }
-        else sincePredictDownwardsTicks += 1;
+        else sincePredictDownwardsTicks++;
 
         if (verticalMove == MovementPredictionUtil.VerticalMove.UP) {
             sincePredictUpwardsTicks = 0;
         }
-        else sincePredictUpwardsTicks += 1;
+        else sincePredictUpwardsTicks++;
+
+        if (isMovingUp()) {
+            sincePredictDownwardsTicks = 0;
+        }
+        else sincePredictDownwardsTicks++;
+
+        if (isMovingUp()) {
+            sincePredictUpwardsTicks = 0;
+        }
+        else sincePredictUpwardsTicks++;
 
         if (profile.getPotionData().isHasSpeed()) sinceSpeedPotionEffectTicks = 0;
         else sinceSpeedPotionEffectTicks += 1;

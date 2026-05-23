@@ -217,12 +217,6 @@ public class BlockProcessor implements Data {
             syncGhostInteractionArea(clickedVector, placedVector);
         }
 
-        if (attemptedMaterial != null
-                && isCancelledPhysicsContextMaterial(attemptedMaterial)
-                && isPhysicsPlacementNearPlayer(clickedVector, placedVector)) {
-            markPendingPhysicsPlacementContext(placedVector, attemptedMaterial);
-        }
-
         if (rawAttemptedMaterial == null || attemptedMaterial == null) {
             clearPendingPlacement();
             return;
@@ -266,6 +260,8 @@ public class BlockProcessor implements Data {
 
         if (isCancelledPhysicsContextMaterial(attemptedMaterial)
                 && isPhysicsPlacementNearPlayer(clickedVector, placedVector)) {
+            // Start the simple WorldGuard/protection physics grace only after interaction-only clicks
+            // have been filtered out. Lever/button/chest clicks must not reach this point.
             markPendingPhysicsPlacementContext(placedVector, attemptedMaterial);
         }
 
@@ -1927,19 +1923,15 @@ public class BlockProcessor implements Data {
     }
 
     private boolean isInteractionOnlyClick(Material clickedMaterial, Material heldMaterial, int faceValue) {
-        // Detects right-click interactions that are not actual placement attempts.
+        // Treats normal right-clicks on interactive blocks as interactions, not placement attempts.
+        // This must run before physics placement context is started, otherwise clicking a lever/button
+        // while holding water/cobweb/vines/etc. becomes a fake cancelled placement and poisons GroundC/Fly.
         if (clickedMaterial == null || heldMaterial == null || heldMaterial == Material.AIR) {
             return false;
         }
 
         if (data.getActionData() != null && data.getActionData().isSneaking()) {
             return false;
-        }
-
-        String name = clickedMaterial.name();
-
-        if (name.contains("BUTTON")) {
-            return faceValue != 1;
         }
 
         return isInteractiveBlock(clickedMaterial);

@@ -307,9 +307,10 @@ public class SpeedB extends Check {
 
                         int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 50 : 30;
 
-                        if (movementData.isMovingUp() || movementData.getVerticalMove() == MovementPredictionUtil.VerticalMove.UP) {
+                        if (movementData.getSincePredictUpwardsTicks() < 10
+                                || movementData.getSincePredictDownwardsTicks() < 10) {
                             vlBuffer = Math.max(0.0D, vlBuffer - 0.5D);
-
+                            return;
                         }
 
                         if (invalid) {
