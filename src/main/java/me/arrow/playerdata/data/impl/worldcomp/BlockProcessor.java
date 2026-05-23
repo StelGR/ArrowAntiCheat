@@ -60,8 +60,8 @@ public class BlockProcessor implements Data {
     private static final int PLACE_CONFIRMATION_GRACE_TICKS = 4;
     private static final int PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS = 10;
     private static final int RECENT_PLACE_BLOCK_CHANGE_GRACE_TICKS = 8;
-    private static final double CANCELLED_PHYSICS_GHOST_RANGE_XZ = 2.0D;
-    private static final double CANCELLED_PHYSICS_GHOST_RANGE_Y = 2.0D;
+    private static final double CANCELLED_PHYSICS_GHOST_RANGE_XZ = 3.0D;
+    private static final double CANCELLED_PHYSICS_GHOST_RANGE_Y = 3.0D;
 
     private static final int MAX_GHOST_BLOCK_TICKS = 20 * 8;
     private static final int MAX_CANCELLED_PLACE_GHOST_TICKS = 20;
@@ -73,6 +73,8 @@ public class BlockProcessor implements Data {
     private static final int MAX_AREA_SYNC_BLOCKS = 32;
     private static final int MAX_SYNC_BLOCKS_PER_FLUSH = 4;
     private static final int SELF_SYNC_IGNORE_TICKS = 3;
+    private static final int CANCELLED_PHYSICS_CONTEXT_TICKS = 40;
+
 
     private int lastGhostInteractionAreaSyncTick = 100;
     private int lastAreaSyncTick = 100;
@@ -110,6 +112,14 @@ public class BlockProcessor implements Data {
     private Material lastClickedBlockMaterial;
     private int lastPlacementFace = -1;
 
+    private boolean pendingVineLadderWallPlace;
+    private int pendingVineLadderWallTick;
+    private Vector pendingVineLadderWallVector;
+    private Material pendingVineLadderWallMaterial;
+
+    private int cancelledPhysicsContextTicks;
+    private Vector cancelledPhysicsContextVector;
+    private Material cancelledPhysicsContextMaterial;
 
     private boolean nearGhostBlock;
     private boolean onGhostBlock;
@@ -207,6 +217,12 @@ public class BlockProcessor implements Data {
             syncGhostInteractionArea(clickedVector, placedVector);
         }
 
+        if (attemptedMaterial != null
+                && isCancelledPhysicsContextMaterial(attemptedMaterial)
+                && isPhysicsPlacementNearPlayer(clickedVector, placedVector)) {
+            markPendingPhysicsPlacementContext(placedVector, attemptedMaterial);
+        }
+
         if (rawAttemptedMaterial == null || attemptedMaterial == null) {
             clearPendingPlacement();
             return;
@@ -224,6 +240,22 @@ public class BlockProcessor implements Data {
             return;
         }
 
+        if (!isPhysicsPlacementNearPlayer(clickedVector, placedVector)
+                && isCancelledPhysicsContextMaterial(attemptedMaterial)) {
+            clearPendingPlacement();
+            return;
+        }
+
+        if (isVineOrLadderPlacement(attemptedMaterial) && faceValue == 1) {
+            clearPendingPlacement();
+            this.pendingVineLadderWallPlace = true;
+            this.pendingVineLadderWallTick = 0;
+            this.pendingVineLadderWallVector = placedVector;
+            this.pendingVineLadderWallMaterial = attemptedMaterial;
+            this.lastPendingPhysicsPlaceTick = 0;
+            return;
+        }
+
         this.face = faceValue;
         this.materialPlaced = clickedServerMaterial;
         this.currentBlockCords = placedVector;
@@ -231,6 +263,11 @@ public class BlockProcessor implements Data {
         this.lastAttemptedPlaceMaterial = attemptedMaterial;
         this.pendingPlacementTicks = 0;
         this.placeTicks++;
+
+        if (isCancelledPhysicsContextMaterial(attemptedMaterial)
+                && isPhysicsPlacementNearPlayer(clickedVector, placedVector)) {
+            markPendingPhysicsPlacementContext(placedVector, attemptedMaterial);
+        }
 
         this.hasPlacedBlock = this.recentC2SPacket;
         this.recentPlacePacketTicks = 0;
@@ -255,6 +292,8 @@ public class BlockProcessor implements Data {
         ageGhostBlocks();
         ageSelfSyncedBlocks();
         scheduleSyncFlush();
+        handlePendingVineLadderWallPlace();
+        refreshCancelledPhysicsPlacementContext();
 
         this.recentC2SPacket = flying.hasRotationChanged() && !flying.hasPositionChanged();
 
@@ -368,10 +407,7 @@ public class BlockProcessor implements Data {
                 boolean contact = on || inside || under;
 
                 if (physicsContext && nearCancelledPlacement) {
-                    this.lastGhostLiquidWebTick = 0;
-                    this.lastGhostBlockTick = 0;
-                    this.nearGhostBlock = true;
-                    this.interactingGhostBlock = true;
+                    beginCancelledPhysicsPlacementContext(vector, attempted);
                 }
 
                 if (contact) {
@@ -415,7 +451,57 @@ public class BlockProcessor implements Data {
             return;
         }
 
+        markPendingPhysicsPlacementContext(this.currentBlockCords, attempted);
+    }
+
+    private void markPendingPhysicsPlacementContext(Vector vector, Material material) {
+        // Physics placements are client-predicted immediately, so movement checks must exempt while confirmation is pending.
         this.lastPendingPhysicsPlaceTick = 0;
+        this.lastGhostLiquidWebTick = 0;
+        this.lastGhostBlockTick = 0;
+
+        if (vector != null) {
+            this.nearGhostBlock = true;
+            this.interactingGhostBlock = true;
+        }
+    }
+
+    private void beginCancelledPhysicsPlacementContext(Vector vector, Material material) {
+        // A nearby physics placement was not accepted by the server, so keep liquid/web-style exemptions alive for a short fixed grace.
+        this.cancelledPhysicsContextTicks = CANCELLED_PHYSICS_CONTEXT_TICKS;
+        this.cancelledPhysicsContextVector = vector != null ? vector.clone() : null;
+        this.cancelledPhysicsContextMaterial = material;
+        this.lastGhostLiquidWebTick = 0;
+        this.lastPendingPhysicsPlaceTick = 0;
+        this.lastGhostBlockTick = 0;
+        this.nearGhostBlock = true;
+        this.interactingGhostBlock = true;
+    }
+
+    private void refreshCancelledPhysicsPlacementContext() {
+        // Keeps cancelled water/lava/web/vine/etc. placements exempt even if the player is only affected by client-side fluid physics.
+        if (this.cancelledPhysicsContextTicks <= 0) {
+            return;
+        }
+
+        this.cancelledPhysicsContextTicks--;
+
+        if (this.cancelledPhysicsContextVector != null
+                && !isPlayerNearPlacement(this.cancelledPhysicsContextVector, CANCELLED_PHYSICS_GHOST_RANGE_XZ + 0.75D, CANCELLED_PHYSICS_GHOST_RANGE_Y + 1.0D)) {
+            return;
+        }
+
+        this.lastGhostLiquidWebTick = 0;
+        this.lastPendingPhysicsPlaceTick = 0;
+        this.lastGhostBlockTick = 0;
+        this.nearGhostBlock = true;
+        this.interactingGhostBlock = true;
+    }
+
+    private boolean isPhysicsPlacementNearPlayer(Vector clickedVector, Vector placedVector) {
+        // Uses both clicked and predicted placed coordinates, because buckets/vines can affect the client from either point.
+        return isPlayerNearPlacement(placedVector, CANCELLED_PHYSICS_GHOST_RANGE_XZ, CANCELLED_PHYSICS_GHOST_RANGE_Y)
+                || isPlayerNearPlacement(clickedVector, CANCELLED_PHYSICS_GHOST_RANGE_XZ, CANCELLED_PHYSICS_GHOST_RANGE_Y);
     }
 
     private void clearConfirmedPlacementGhostContext(Vector vector, Material attemptedMaterial, Material serverMaterial) {
@@ -423,6 +509,10 @@ public class BlockProcessor implements Data {
         if (vector != null) {
             removeGhostBlock(vector);
         }
+
+        this.cancelledPhysicsContextTicks = 0;
+        this.cancelledPhysicsContextVector = null;
+        this.cancelledPhysicsContextMaterial = null;
 
         boolean physics =
                 isPhysicsPlacementMaterial(attemptedMaterial)
@@ -507,7 +597,7 @@ public class BlockProcessor implements Data {
         return false;
     }
     private Material findConfirmedPlacedMaterial(Vector placeVector, Vector clickedVector, Material attempted) {
-        // Looks around the attempted placement to see whether the server accepted it.
+        // Looks at the exact predicted placement targets to see whether the server accepted it.
         if (attempted == null) {
             return null;
         }
@@ -524,36 +614,13 @@ public class BlockProcessor implements Data {
             return clicked;
         }
 
-        if (!isCancelledPhysicsContextMaterial(attempted)) {
+        /*
+         * Do not loose-scan around water/lava/web/vine/honey/etc. cancelled placement
+         * attempts. WorldGuard/protection cancels leave the target as air, and a nearby
+         * existing water/vine/honey block must not be mistaken as confirmation.
+         */
+        if (isCancelledPhysicsContextMaterial(attempted)) {
             return null;
-        }
-
-        if (placeVector != null) {
-            for (int x = placeVector.getBlockX() - 1; x <= placeVector.getBlockX() + 1; x++) {
-                for (int y = placeVector.getBlockY() - 1; y <= placeVector.getBlockY() + 1; y++) {
-                    for (int z = placeVector.getBlockZ() - 1; z <= placeVector.getBlockZ() + 1; z++) {
-                        Material material = getServerMaterial(x, y, z);
-
-                        if (isSamePlacedMaterial(material, attempted)) {
-                            return material;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (clickedVector != null) {
-            for (int x = clickedVector.getBlockX() - 1; x <= clickedVector.getBlockX() + 1; x++) {
-                for (int y = clickedVector.getBlockY() - 1; y <= clickedVector.getBlockY() + 1; y++) {
-                    for (int z = clickedVector.getBlockZ() - 1; z <= clickedVector.getBlockZ() + 1; z++) {
-                        Material material = getServerMaterial(x, y, z);
-
-                        if (isSamePlacedMaterial(material, attempted)) {
-                            return material;
-                        }
-                    }
-                }
-            }
         }
 
         return null;
@@ -604,6 +671,8 @@ public class BlockProcessor implements Data {
                 this.lastWebUpdateTick = 0;
             }
 
+            confirmPendingVineLadderWallPlace(packetMaterial, vector, distanceXZ, dy);
+
             if (shouldRepairServerBlockUpdate(packetMaterial, distanceXZ, dy)) {
                 syncBlockUpdatePatch(x, y, z, packetMaterial);
                 repaired++;
@@ -648,6 +717,8 @@ public class BlockProcessor implements Data {
         if (packetMaterial != null && distanceXZ < 3.0D && isWebMaterial(packetMaterial)) {
             this.lastWebUpdateTick = 0;
         }
+
+        confirmPendingVineLadderWallPlace(packetMaterial, vector, distanceXZ, dy);
 
         if (shouldRepairServerBlockUpdate(packetMaterial, distanceXZ, dy)) {
             syncBlockUpdatePatch(x, y, z, packetMaterial);
@@ -1608,6 +1679,66 @@ public class BlockProcessor implements Data {
                 || name.contains("GLOW_BERRIES")
                 || name.contains("SCAFFOLDING");
     }
+    private void handlePendingVineLadderWallPlace() {
+        // Keeps a short pending physics exemption for vine/ladder top-face placements whose final attached block is yaw-dependent.
+        if (!this.pendingVineLadderWallPlace) {
+            return;
+        }
+
+        this.pendingVineLadderWallTick++;
+
+        if (this.pendingVineLadderWallTick <= PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS) {
+            this.lastPendingPhysicsPlaceTick = 0;
+            return;
+        }
+
+        this.pendingVineLadderWallPlace = false;
+        this.pendingVineLadderWallTick = 0;
+        this.pendingVineLadderWallVector = null;
+        this.pendingVineLadderWallMaterial = null;
+        this.lastPendingPhysicsPlaceTick = CLEARED_GHOST_CONTEXT_TICK;
+    }
+
+    private void confirmPendingVineLadderWallPlace(Material packetMaterial, Vector vector, double distanceXZ, double deltaY) {
+        // Clears the special vine/ladder pending state when a nearby server block update confirms it.
+        if (!this.pendingVineLadderWallPlace) {
+            return;
+        }
+
+        if (packetMaterial == null || !isVineOrLadderPlacement(packetMaterial)) {
+            return;
+        }
+
+        if (distanceXZ > 16.0D || Math.abs(deltaY) > 4.0D) {
+            return;
+        }
+
+        this.lastConfirmedBlockPlaceTimer.reset();
+        this.placeTicks = 0;
+        this.pendingVineLadderWallPlace = false;
+        this.pendingVineLadderWallTick = 0;
+        this.pendingVineLadderWallVector = null;
+        this.pendingVineLadderWallMaterial = null;
+        this.lastPendingPhysicsPlaceTick = CLEARED_GHOST_CONTEXT_TICK;
+    }
+
+    private boolean isVineOrLadderPlacement(Material material) {
+        // Detects vine/ladder-style placements that may attach to a different block than the clicked face predicts.
+        if (material == null || material == Material.AIR) {
+            return false;
+        }
+
+        String name = material.name();
+
+        return name.contains("LADDER")
+                || name.equals("VINE")
+                || name.contains("VINES")
+                || name.contains("CAVE_VINES")
+                || name.contains("WEEPING_VINES")
+                || name.contains("TWISTING_VINES")
+                || name.contains("GLOW_BERRIES");
+    }
+
     private boolean isPlayerNearPlacement(Vector block, double horizontal, double vertical) {
         // Limits cancelled-placement exemptions to blocks close to the player.
         CustomLocation loc = data.getMovementData().getLocation();
@@ -1724,6 +1855,9 @@ public class BlockProcessor implements Data {
         this.lastClickedBlockVector = null;
         this.lastClickedBlockMaterial = null;
         this.lastPlacementFace = -1;
+        this.cancelledPhysicsContextTicks = 0;
+        this.cancelledPhysicsContextVector = null;
+        this.cancelledPhysicsContextMaterial = null;
     }
 
     private Vector getPlacedVector(int x, int y, int z, int faceValue) {

@@ -279,9 +279,9 @@ public class FlyB extends Check {
             double vertical = profile.getVelocityData().getTotalVerticalVelocitySustain();
             double velMag = horizontal + (vertical * 2);
 
-            double baseTicksVel = 5;
+            double baseTicksVel = 6;
             double baseVelocity = 0.0005;
-            double scale = 15;
+            double scale = 15.5;
             double maxExtra = 225;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + Math.min(scale * (velMag - baseVelocity), maxExtra);
