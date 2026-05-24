@@ -273,18 +273,21 @@ public class FlyB extends Check {
                 }
             }
 
-
-
-            double horizontal = profile.getVelocityData().getTotalHorizontalVelocitySustain();
-            double vertical = profile.getVelocityData().getTotalVerticalVelocitySustain();
-            double velMag = horizontal + (vertical * 2);
+            double horizontal = Math.max(
+                    profile.getVelocityData().getTotalHorizontalVelocitySustain(),
+                    profile.getVelocityData().getStackedHorizontalVelocity()
+            );
+            double vertical = Math.max(
+                    profile.getVelocityData().getTotalVerticalVelocitySustain(),
+                    profile.getVelocityData().getStackedVerticalVelocity()
+            );
+            double velMag = (horizontal / 2) + vertical;
 
             double baseTicksVel = 6;
             double baseVelocity = 0.0005;
-            double scale = 15.5;
-            double maxExtra = 225;
+            double scale = 9;
 
-            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + Math.min(scale * (velMag - baseVelocity), maxExtra);
+            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
 
 //            double connectionAdj = Math.min(
 //                    0,

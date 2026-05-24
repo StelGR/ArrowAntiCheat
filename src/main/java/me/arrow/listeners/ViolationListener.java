@@ -147,7 +147,9 @@ public class ViolationListener implements Listener {
             final String playerName = punishedPlayer.getName();
             final int vl = event.getVl();
 
-            final String composedCheck = checkPlusCheckType + (experimental ? " " + MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "");
+            String composedCheck = checkPlusCheckType + (experimental ? " " + MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "");
+
+            if (vl >= event.getMaxVl()) composedCheck = "&c"+checkPlusCheckType + (experimental ? " " + MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "");
 
             this.plugin.getLogManager().addLogToQueue(new PlayerLog(
                     playerName,

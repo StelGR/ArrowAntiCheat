@@ -30,6 +30,7 @@ public class CommandManager implements TabExecutor {
         this.subCommands.add(new SetbacksCommand(plugin));
         this.subCommands.add(new GuiCommand(plugin));
         this.subCommands.add(new LogsCommand(plugin));
+        this.subCommands.add(new PasteLogsCommand(plugin));
         this.subCommands.add(new PingCommand(plugin));
         this.subCommands.add(new InfoCommand(plugin));
         this.subCommands.add(new ReloadCommand(plugin));

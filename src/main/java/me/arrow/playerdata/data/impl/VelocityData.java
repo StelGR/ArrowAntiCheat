@@ -46,6 +46,15 @@ public class VelocityData implements Data {
 
     private double velocityHSustain, velocityVSustain;
 
+    private static final double STACKED_PACKET_EPSILON = 0.001D;
+    private static final double STACKED_STOP_EPSILON = 0.003D;
+    private static final int STACKED_VERTICAL_STOP_TICKS = 4;
+    private static final int STACKED_HORIZONTAL_STOP_TICKS = 4;
+
+    private double stackedVerticalVelocity;
+    private double stackedHorizontalVelocity;
+    private int stackedVerticalZeroTicks;
+    private int stackedHorizontalZeroTicks;
     private int velocityTicks;
 
     private final Profile profile;
@@ -86,7 +95,10 @@ public class VelocityData implements Data {
             if (currentTick - lastDecayTick >= 2) {
                 lastDecayTick = currentTick;
 
-                if (!profile.getMovementData().isMoving()) velocitySustain = new Vector(0, 0, 0);
+                if (!profile.getMovementData().isMoving()
+                        || (profile.getMovementData().getDeltaXZ() < STACKED_STOP_EPSILON && profile.getMovementData().getDeltaY() < STACKED_STOP_EPSILON)) {
+                    resetHorizontalVelocitySustain();
+                }
 
                 if (velocityH > 0.0D) {
                     double totalH = velocityH;
@@ -110,15 +122,12 @@ public class VelocityData implements Data {
 
                 if (velocityV < 0.00001D) {
                     velocityV = 0.0D;
-                    velocityVSustain = 0.0D;
-                    velocitySustain.setY(0.0D);
+                    resetVerticalVelocitySustain();
                 }
 
                 if (velocityH < 0.00001D) {
                     velocityH = 0.0D;
-                    velocityHSustain = 0.0D;
-                    velocitySustain.setX(0.0D);
-                    velocitySustain.setZ(0.0D);
+                    resetHorizontalVelocitySustain();
                 }
 
                 explosionKnockback.multiply(0.95D);
@@ -139,6 +148,8 @@ public class VelocityData implements Data {
                     explosionKnockbackSustain = new Vector();
                 }
             }
+
+            updateStackedVelocityState();
         }
 
         if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
@@ -225,6 +236,8 @@ public class VelocityData implements Data {
             double horizontal = Math.hypot(vector.getX(), vector.getZ());
             double vertical = vector.getY();
 
+            addStackedVelocity(copy(vector));
+
             setVelocityH(horizontal);
             setVelocityV(vertical);
 
@@ -252,6 +265,120 @@ public class VelocityData implements Data {
              * Transaction-confirmed sustain explosion velocity.
              */
             setExplosionKnockbackSustain(maxVector(getExplosionKnockbackSustain(), vector));
+
+            addStackedVelocity(copy(vector));
+        }
+    }
+
+
+    private void addStackedVelocity(Vector vector) {
+        if (vector == null) {
+            return;
+        }
+
+        double horizontal = Math.hypot(vector.getX(), vector.getZ());
+        double vertical = Math.max(vector.getY(), 0.0D);
+
+        if (horizontal > 0.0D) {
+            setStackedHorizontalVelocity(getStackedHorizontalVelocity() + horizontal);
+            stackedHorizontalZeroTicks = 0;
+        }
+
+        if (vertical > 0.0D) {
+            setStackedVerticalVelocity(getStackedVerticalVelocity() + vertical);
+            stackedVerticalZeroTicks = 0;
+        }
+    }
+
+
+    private void updateStackedVelocityState() {
+        if (profile == null || profile.getMovementData() == null) {
+            resetStackedVelocity();
+            resetVelocitySustain();
+            return;
+        }
+
+        MovementData movementData = profile.getMovementData();
+
+        boolean grounded = movementData.isOnGround() || movementData.isServerGround();
+
+        if (grounded) {
+            resetStackedVelocity();
+            return;
+        }
+
+        boolean verticalStopped =
+                Math.abs(movementData.getDeltaY()) < STACKED_STOP_EPSILON
+                        && Math.abs(movementData.getLastDeltaY()) < STACKED_STOP_EPSILON;
+
+        boolean horizontalStopped =
+                movementData.getDeltaXZ() < STACKED_STOP_EPSILON
+                        && movementData.getLastDeltaXZ() < STACKED_STOP_EPSILON;
+
+        if (verticalStopped) {
+            stackedVerticalZeroTicks++;
+        } else {
+            stackedVerticalZeroTicks = 0;
+        }
+
+        if (horizontalStopped) {
+            stackedHorizontalZeroTicks++;
+        } else {
+            stackedHorizontalZeroTicks = 0;
+        }
+
+        if (stackedVerticalZeroTicks >= STACKED_VERTICAL_STOP_TICKS) {
+            resetStackedVerticalVelocity();
+        }
+
+        if (stackedHorizontalZeroTicks >= STACKED_HORIZONTAL_STOP_TICKS) {
+            resetStackedHorizontalVelocity();
+        }
+    }
+
+    public void resetStackedVelocity() {
+        resetStackedVerticalVelocity();
+        resetStackedHorizontalVelocity();
+    }
+
+    public void resetStackedVerticalVelocity() {
+        this.stackedVerticalVelocity = 0.0D;
+        this.stackedVerticalZeroTicks = 0;
+    }
+
+    public void resetStackedHorizontalVelocity() {
+        this.stackedHorizontalVelocity = 0.0D;
+        this.stackedHorizontalZeroTicks = 0;
+    }
+
+    public void resetVelocitySustain() {
+        resetVerticalVelocitySustain();
+        resetHorizontalVelocitySustain();
+    }
+
+    public void resetVerticalVelocitySustain() {
+        this.velocityVSustain = 0.0D;
+
+        if (this.velocitySustain != null) {
+            this.velocitySustain.setY(0.0D);
+        }
+
+        if (this.explosionKnockbackSustain != null) {
+            this.explosionKnockbackSustain.setY(0.0D);
+        }
+    }
+
+    public void resetHorizontalVelocitySustain() {
+        this.velocityHSustain = 0.0D;
+
+        if (this.velocitySustain != null) {
+            this.velocitySustain.setX(0.0D);
+            this.velocitySustain.setZ(0.0D);
+        }
+
+        if (this.explosionKnockbackSustain != null) {
+            this.explosionKnockbackSustain.setX(0.0D);
+            this.explosionKnockbackSustain.setZ(0.0D);
         }
     }
 
@@ -348,7 +475,12 @@ public class VelocityData implements Data {
     }
 
     public boolean isTakingVelocity() {
-        return getTotalHorizontalVelocity() > 0.0D || getTotalVerticalVelocity() > 0.0D;
+        return getTotalHorizontalVelocity() > 0.0D
+                || getTotalVerticalVelocity() > 0.0D
+                || getTotalHorizontalVelocitySustain() > 0.0D
+                || getTotalVerticalVelocitySustain() > 0.0D
+                || stackedHorizontalVelocity > 0.0D
+                || stackedVerticalVelocity > 0.0D;
     }
 
     private static Vector copy(Vector vector) {

@@ -613,10 +613,17 @@ public class SpeedA extends Check {
 
         //limit += profile.getVelocityData().getTotalHorizontalVelocity() * 1.25;
 
+        double horizontal = Math.max(
+                profile.getVelocityData().getTotalHorizontalVelocitySustain(),
+                profile.getVelocityData().getStackedHorizontalVelocity()
+        );
+        double vertical = Math.max(
+                profile.getVelocityData().getTotalVerticalVelocitySustain(),
+                profile.getVelocityData().getStackedVerticalVelocity()
+        );
+        double velMag = horizontal + vertical;
 
-        int extraTicks = (int) (profile.getVelocityData().getTotalHorizontalVelocity() * 125);
-
-
+        int extraTicks = (int) (velMag * 125);
 
         int clientTickTrans = profile.getConnectionData().getClientTickTrans();
         int transPing = profile.getConnectionData().getTransPing();

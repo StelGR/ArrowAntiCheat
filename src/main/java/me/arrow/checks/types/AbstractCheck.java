@@ -154,7 +154,7 @@ public abstract class AbstractCheck {
         if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
             this.maxVl = 50;
 
-            if (this.vl >= this.maxVl) {
+            if (this.vl > this.maxVl) {
                 profile.kick("Detected L");
                 TaskUtils.task(() -> profile.getPlayer().getWorld().strikeLightningEffect(profile.getPlayer().getLocation()));
                 Bukkit.broadcastMessage(OtherUtility.getPunishMessage(p));
@@ -170,7 +170,7 @@ public abstract class AbstractCheck {
 
 
 
-        if (this.vl >= this.maxVl
+        if (this.vl > this.maxVl
                 && Config.Setting.PUNISH_ENABLED.getBoolean()
                 && isCanPunish()
                 && getPunishMode().equals("BAN")
@@ -178,9 +178,6 @@ public abstract class AbstractCheck {
         ) {
 
             final String playerName = p.getName();
-
-            // temporary test, i will later add a config option to select animation style
-            // and an toggle in the anticheat settings gui, to turn the animation completely off if you wish.
 
             String animationName = Config.Setting.BAN_ANIMATION_CURRENT.getString();
 
@@ -215,7 +212,7 @@ public abstract class AbstractCheck {
                 return;
             }
         }
-        else if (this.vl >= this.maxVl
+        else if (this.vl > this.maxVl
                 && Config.Setting.PUNISH_ENABLED.getBoolean()
                 && isCanPunish()
                 && getPunishMode().equals("KICK")

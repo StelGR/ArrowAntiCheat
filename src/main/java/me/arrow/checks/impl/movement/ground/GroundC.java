@@ -117,7 +117,7 @@ public class GroundC extends Check {
 
             if (profile.getMovementData().getSinceOnGhostBlock() <= 1) {
                 boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
-                //if (nearEdge && movementData.getLastDeltaY() != 0) return;
+                if (nearEdge && movementData.getLastDeltaY() != 0 && movementData.getDeltaY() == 0 && movementData.getClientAirTicks() == 0) return;
 
                 fail("On Ghostblock?", verboseInfo);
 

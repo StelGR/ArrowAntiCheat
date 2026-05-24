@@ -11,8 +11,6 @@ import me.arrow.checks.impl.combat.backtrack.BackTrackB;
 import me.arrow.checks.impl.combat.killaura.KillauraA;
 import me.arrow.checks.impl.combat.reach.ReachA;
 import me.arrow.checks.impl.combat.reach.ReachB;
-import me.arrow.checks.impl.combat.velocity.VelocityA;
-import me.arrow.checks.impl.combat.velocity.VelocityB;
 import me.arrow.checks.impl.misc.badpackets.*;
 import me.arrow.checks.impl.misc.interact.InteractA;
 import me.arrow.checks.impl.misc.interact.InteractB;
@@ -20,7 +18,6 @@ import me.arrow.checks.impl.misc.interact.InteractC;
 import me.arrow.checks.impl.misc.inventory.InventoryA;
 import me.arrow.checks.impl.misc.inventory.InventoryB;
 import me.arrow.checks.impl.misc.inventory.InventoryC;
-import me.arrow.checks.impl.misc.phase.PhaseA;
 import me.arrow.checks.impl.misc.scaffold.*;
 import me.arrow.checks.impl.misc.timer.TimerA;
 import me.arrow.checks.impl.misc.timer.TimerB;
@@ -101,8 +98,8 @@ public class CheckHolder {
 
 
                 // both vel checks are terrible.
-                new VelocityA(this.profile),
-                new VelocityB(this.profile),
+//                new VelocityA(this.profile),
+//                new VelocityB(this.profile),
 
                 new InteractA(this.profile),
                 new InteractB(this.profile),

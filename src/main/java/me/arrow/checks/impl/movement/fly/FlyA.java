@@ -392,7 +392,7 @@ public class FlyA extends Check {
                                     + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isClientGround
                                     + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isServerGround
                                     + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isServerYGround);
-                    bufferB = Math.max(8, bufferB );
+                    bufferB = Math.max(8, bufferB);
                 }
             }
         } else {
