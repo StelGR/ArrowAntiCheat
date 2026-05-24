@@ -52,7 +52,6 @@ public class FlyB extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
 
-
             MovementData movementData = profile.getMovementData();
             int serverAirTicks = movementData.getCustomAirTicks();
 
@@ -204,6 +203,8 @@ public class FlyB extends Check {
             if (movementData.getSinceLevitationEffectTicks() < 10
                     || movementData.isNearShulker()
                     || movementData.isNearShulkerBox()
+                    || movementData.isNearLava()
+                    || movementData.isNearWater()
                     || movementData.getSinceRiptidingTicks() < 30
                     || movementData.getSinceBubbleTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
                 //serverAirTicks = 0;

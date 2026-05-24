@@ -139,8 +139,12 @@ public class ElytraA extends Check {
                 }
             }
 
+            double maxSpeed = 3.6;
+            if (profile.getRotationData().getPitch() < 45) maxSpeed = 5;
+            maxSpeed += profile.getVelocityData().getTotalHorizontalVelocity();
+
             if (inAir && profile.getPlayer().isGliding() && (Math.abs(pitch) <= 85)
-                    && (movementData.getDeltaXZ() > (3.6 + profile.getVelocityData().getVelocityHSustain())
+                    && (movementData.getDeltaXZ() > (maxSpeed)
                     || movementData.getDeltaY() > (2 + profile.getVelocityData().getVelocityV())
                     || movementData.getDeltaY() < (-3.2))
                     ) {

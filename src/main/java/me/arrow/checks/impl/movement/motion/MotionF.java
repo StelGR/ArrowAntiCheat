@@ -102,6 +102,12 @@ public class MotionF extends Check {
 
             expectedSpeed *= air_speedMultiplier;
             expectedSpeed += profile.getVelocityData().getTotalHorizontalVelocity();
+            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 15 + profile.getConnectionData().getClientTickTrans();
+
+            if (currentlyRiptiding) {
+                double riptideCap = 1.45 + (1.5 * profile.getPredictionData().riptideLevel());
+                expectedSpeed += riptideCap;
+            }
 
             if (deltaXZ > expectedSpeed) {
                 verbose(this.getClass().getSimpleName(),deltaXZ, 9.9, MsgType.MAIN_THEME_COLOR.getMessage() +"* Verbose\n * deltaXZ "+MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ);

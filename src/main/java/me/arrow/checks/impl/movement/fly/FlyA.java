@@ -86,6 +86,8 @@ public class FlyA extends Check {
                     || movementData.isNearBoat()
                     || movementData.isNearShulker()
                     || movementData.isNearShulkerBox()
+                    || movementData.isNearLava()
+                    || movementData.isNearWater()
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
                     || movementData.getSinceLevitationEffectTicks() < 10) {
