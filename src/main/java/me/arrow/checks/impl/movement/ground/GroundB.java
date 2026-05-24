@@ -86,7 +86,7 @@ public class GroundB extends Check {
 //                && movementData.getSinceRiptidingTicks() > 15;
 
         boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
-        if (nearEdge && movementData.getLastDeltaY() != 0 && movementData.getClientAirTicks() == 0) invalid = false;
+        if (nearEdge && movementData.getLastDeltaY() != 0 && deltaY == 0 && movementData.getClientAirTicks() == 0) invalid = false;
 
         boolean invalid2 = (
                 (clientGround && serverGround && inAir)
@@ -124,7 +124,7 @@ public class GroundB extends Check {
                             + "\n * JumpExpected " + MsgType.MAIN_THEME_COLOR.getMessage() + getExpectedJumpMotion());
         }
 
-        if (invalid || invalid2) {
+        if ( (invalid && increaseBuffer() > 2) || invalid2) {
             fail("Impossible ground state " + (invalid ? "(1)" : "(2)"),
                         "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                 + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverYGround
@@ -137,26 +137,6 @@ public class GroundB extends Check {
                                 + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
 
         }
-    }
-
-    private boolean shouldExempt(MovementData movementData) {
-        return profile.shouldCancel()
-                || profile.getPlayer().isDead()
-                || profile.getMovementData().isOnBoat()
-                || profile.getMovementData().isNearBoat()
-                || movementData.isNearClimbable()
-                || movementData.isNearWater()
-                || movementData.isNearLava()
-                || movementData.isInsideLiquid()
-                || movementData.isNearBubble()
-                || movementData.isNearWebs()
-                || movementData.isNearShulker()
-                || movementData.isNearShulkerBox()
-                || movementData.isNearGhast()
-                || movementData.isUnderblock()
-                || movementData.getSincePowderSnowTicks() < 10
-//                || profile.isExempt().isTeleports()
-                || profile.getVehicleData().getSinceNearVehicleTicks() < 5;
     }
 
     private double getAirTickLimit(MovementData movementData,

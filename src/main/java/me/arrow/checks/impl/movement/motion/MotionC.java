@@ -23,7 +23,7 @@ public class MotionC extends Check {
         super(profile, CheckType.MOTION, "C", "Checks for wallclimb");
     }
 
-    double airTickLimit = 7;
+    double airTickLimit = 8;
 
 
     @Override
@@ -83,11 +83,6 @@ public class MotionC extends Check {
                 return;
             }
 
-//            if (movementData.getSinceGl() < 20) {
-//                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (Elytra Equip)");
-//                return;
-//            }
-
             if (movementData.isNearShulkerBox()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (ShulkerBox)");
                 return;
@@ -124,7 +119,7 @@ public class MotionC extends Check {
                     airTickLimit = 8 + jumpLevel - (profile.getPotionData().getJumpAmplifier() * 0.1F);
                 }
             } else {
-                airTickLimit = (recentlyPlaced && holdingBlock) ? 11 : 7;
+                airTickLimit = (recentlyPlaced && holdingBlock) ? 12 : 8;
             }
 
             if (deltaXZ != 0) airTickLimit += (recentlyPlaced && holdingBlock) ? 4 : 2;

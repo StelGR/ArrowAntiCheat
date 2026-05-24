@@ -141,7 +141,6 @@ public class GroundC extends Check {
 
             if (profile.getBlockProcessor().isInsideGhostBlock()
                     || profile.getBlockProcessor().isNearGhostBlock()
-                    || profile.getBlockProcessor().getLastGhostLiquidWebTick() < 5
                     || profile.getBlockProcessor().isOnGhostBlock() ) {
                 fail("BlockProcessor: On Ghostblock?", verboseInfo);
 

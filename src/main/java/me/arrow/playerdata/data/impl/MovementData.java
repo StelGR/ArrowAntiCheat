@@ -329,8 +329,8 @@ public class MovementData implements Data {
                             && profile.getMovementData().getSinceTeleportTicks() > 5;
 
             boolean possibleJump =
-                    deltaY > 0.4199D
-                            && deltaY < 0.421D;
+                    deltaY > 0.4198D
+                            && deltaY < 0.422D;
 
             if (groundTransition
                     //&& cleanContext

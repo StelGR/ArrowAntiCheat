@@ -766,7 +766,9 @@ public class FlyA extends Check {
         double allowed = getFastFallAllowed(profile, data, dy, lastDy, expectedDY);
         double excess = expectedDY - dy;
 
-        boolean slowFalling = profile.getPotionData().isHasSlowFalling() && lastDy <= 0.0D;
+        boolean slowFalling = profile.getPotionData().isHasSlowFalling();
+
+        if (slowFalling) return;
         boolean tooFast = dy < expectedDY - allowed;
 
         boolean doubleGravityMatch = tooFast

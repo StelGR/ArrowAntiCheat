@@ -232,11 +232,6 @@ public class SpeedA extends Check {
         double difference = predicted - allowedLimit;
         double bufferAmount = difference > 0.5 ? 0 : 6;
         double serverGroundMaxTicks = 8;
-//
-//        if (difference > 0.9D + profile.getVelocityData().getTotalHorizontalVelocity()) {
-//            serverGroundMaxTicks = 1;
-//            bufferAmount = 0;
-//        }
 
         if (serverGroundTicks > serverGroundMaxTicks && predicted > allowedLimit) {
 
@@ -381,10 +376,6 @@ public class SpeedA extends Check {
 
         double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
         if (movementData.isInsideWater()) expectedSpeed += depthStriderBoost;
-
-
-
-
 
         boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 15 + profile.getConnectionData().getClientTickTrans();
 

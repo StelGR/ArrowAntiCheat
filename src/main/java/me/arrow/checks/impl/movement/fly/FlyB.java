@@ -188,7 +188,7 @@ public class FlyB extends Check {
 
             if (profile.getPotionData().isHasSlowFalling()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (slow falling)");
-                movementData.setCustomAirTicks(0);
+                return;
             }
 
             int clientAirTicks = movementData.getCustomAirTicks();

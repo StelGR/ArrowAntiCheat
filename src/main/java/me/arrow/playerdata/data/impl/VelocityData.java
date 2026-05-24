@@ -94,16 +94,7 @@ public class VelocityData implements Data {
 
                 MovementData movementData = profile.getMovementData();
 
-                boolean verticalStopped =
-                        Math.abs(movementData.getDeltaY()) < STACKED_STOP_EPSILON
-                                && Math.abs(movementData.getLastDeltaY()) < STACKED_STOP_EPSILON;
-
-                boolean horizontalStopped =
-                        movementData.getDeltaXZ() < STACKED_STOP_EPSILON
-                                && movementData.getLastDeltaXZ() < STACKED_STOP_EPSILON;
-
-                if (!movementData.isMoving()
-                        || (horizontalStopped && verticalStopped)) {
+                if (!movementData.isMoving()) {
                     resetHorizontalVelocitySustain();
                 }
 
@@ -301,7 +292,6 @@ public class VelocityData implements Data {
     private void updateStackedVelocityState() {
         if (profile == null || profile.getMovementData() == null) {
             resetStackedVelocity();
-            resetVelocitySustain();
             return;
         }
 
@@ -332,7 +322,6 @@ public class VelocityData implements Data {
 
         if (stackedFullStopTicks >= STACKED_FULL_STOP_TICKS) {
             resetStackedVelocity();
-            resetVelocitySustain();
         }
     }
 

@@ -8,6 +8,7 @@ import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.TaskUtils;
+import me.arrow.utils.custom.MaterialType;
 import me.arrow.utils.customutils.*;
 import me.arrow.utils.customutils.raytrace.*;
 import me.arrow.utils.versionutils.VersionUtils;
@@ -843,6 +844,8 @@ public class BukkitListener implements Listener {
             return precise;
         }
 
+        if (targetBlock.getType().isAir()) return new BedBreakRayResult(true, null, null);
+
         return getFallbackRayResult(player, targetBlock, eye, direction, maxDistance);
     }
 
@@ -952,6 +955,10 @@ public class BukkitListener implements Listener {
             return false;
         }
 
+        if (targetBlock.getType().name().equals(MaterialType.AIR.name())
+                || hitBlock.getType().name().equals(MaterialType.AIR.name())
+        ) return true;
+
         if (hitBlock.equals(targetBlock)) {
             return true;
         }
@@ -963,6 +970,8 @@ public class BukkitListener implements Listener {
         if (!hitBlock.getWorld().equals(targetBlock.getWorld())) {
             return false;
         }
+
+
 
         return hitBlock.getLocation().distanceSquared(targetBlock.getLocation()) <= 2.01D;
     }

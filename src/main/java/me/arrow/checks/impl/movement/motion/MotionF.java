@@ -105,7 +105,7 @@ public class MotionF extends Check {
             boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 15 + profile.getConnectionData().getClientTickTrans();
 
             if (currentlyRiptiding) {
-                double riptideCap = 1.45 + (1.5 * profile.getPredictionData().riptideLevel());
+                double riptideCap = 3.45 + (1.5 * profile.getPredictionData().riptideLevel());
                 expectedSpeed += riptideCap;
             }
 
