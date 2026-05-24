@@ -96,7 +96,7 @@ public final class Arrow {
     private static final GuiManager guiManager = new GuiManager();
 
     @Getter
-    private final String version = "106";
+    private final String version = "107-pre1";
 
     @Getter
     private final JavaPlugin host;     // the “real” plugin, either ArrowPlugin or ArrowLoader

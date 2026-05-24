@@ -146,20 +146,14 @@ public class MotionC extends Check {
             double baseTicksVel = 6;
             double baseVelocity = 0.0005;
 
-            double scale = 10;
+            double scale = 12;
 
-            if (profile.getVelocityData().getStackedVerticalVelocity() > profile.getVelocityData().getTotalVerticalVelocitySustain()) {
-                scale = 5;
-            }
+//            if (profile.getVelocityData().getStackedVerticalVelocity() > profile.getVelocityData().getTotalVerticalVelocitySustain()) {
+//                scale = 8;
+//            }
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
 
-//            double connectionAdj = Math.min(
-//                    0,
-//                    1.0D + (profile.getConnectionData().getTransPing() / 50.0D)
-//            );
-
-            //double velocityTickExempt = extraFromVel;
             airTickLimit += extraFromVel;
 
             if (movementData.isNearFence()) airTickLimit += 4;

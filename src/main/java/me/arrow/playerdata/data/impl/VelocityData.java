@@ -46,15 +46,12 @@ public class VelocityData implements Data {
 
     private double velocityHSustain, velocityVSustain;
 
-    private static final double STACKED_PACKET_EPSILON = 0.001D;
     private static final double STACKED_STOP_EPSILON = 0.003D;
-    private static final int STACKED_VERTICAL_STOP_TICKS = 4;
-    private static final int STACKED_HORIZONTAL_STOP_TICKS = 4;
+    private static final int STACKED_FULL_STOP_TICKS = 10;
 
     private double stackedVerticalVelocity;
     private double stackedHorizontalVelocity;
-    private int stackedVerticalZeroTicks;
-    private int stackedHorizontalZeroTicks;
+    private int stackedFullStopTicks;
     private int velocityTicks;
 
     private final Profile profile;
@@ -95,16 +92,26 @@ public class VelocityData implements Data {
             if (currentTick - lastDecayTick >= 2) {
                 lastDecayTick = currentTick;
 
-                if (!profile.getMovementData().isMoving()
-                        || (profile.getMovementData().getDeltaXZ() < STACKED_STOP_EPSILON && profile.getMovementData().getDeltaY() < STACKED_STOP_EPSILON)) {
+                MovementData movementData = profile.getMovementData();
+
+                boolean verticalStopped =
+                        Math.abs(movementData.getDeltaY()) < STACKED_STOP_EPSILON
+                                && Math.abs(movementData.getLastDeltaY()) < STACKED_STOP_EPSILON;
+
+                boolean horizontalStopped =
+                        movementData.getDeltaXZ() < STACKED_STOP_EPSILON
+                                && movementData.getLastDeltaXZ() < STACKED_STOP_EPSILON;
+
+                if (!movementData.isMoving()
+                        || (horizontalStopped && verticalStopped)) {
                     resetHorizontalVelocitySustain();
                 }
 
                 if (velocityH > 0.0D) {
                     double totalH = velocityH;
 
-                    totalH *= profile.getMovementData().isOnGround()
-                            ? profile.getMovementData().getFrictionFactor()
+                    totalH *= movementData.isOnGround()
+                            ? movementData.getFrictionFactor()
                             : 0.91F;
 
                     velocityH = Math.max(totalH - 0.001D, 0.0D);
@@ -113,8 +120,8 @@ public class VelocityData implements Data {
                 if (velocityV > 0.0D) {
                     double totalV = velocityV;
 
-                    totalV = (totalV * (profile.getMovementData().isOnGround()
-                            ? profile.getMovementData().getFrictionFactor()
+                    totalV = (totalV * (movementData.isOnGround()
+                            ? movementData.getFrictionFactor()
                             : 0.91F)) - 0.04D;
 
                     velocityV = Math.max(totalV, 0.0D);
@@ -280,13 +287,13 @@ public class VelocityData implements Data {
         double vertical = Math.max(vector.getY(), 0.0D);
 
         if (horizontal > 0.0D) {
-            setStackedHorizontalVelocity(getStackedHorizontalVelocity() + horizontal);
-            stackedHorizontalZeroTicks = 0;
+            this.stackedHorizontalVelocity += horizontal;
+            this.stackedFullStopTicks = 0;
         }
 
         if (vertical > 0.0D) {
-            setStackedVerticalVelocity(getStackedVerticalVelocity() + vertical);
-            stackedVerticalZeroTicks = 0;
+            this.stackedVerticalVelocity += vertical;
+            this.stackedFullStopTicks = 0;
         }
     }
 
@@ -307,48 +314,42 @@ public class VelocityData implements Data {
             return;
         }
 
-        boolean verticalStopped =
+        boolean noVerticalMovement =
                 Math.abs(movementData.getDeltaY()) < STACKED_STOP_EPSILON
                         && Math.abs(movementData.getLastDeltaY()) < STACKED_STOP_EPSILON;
 
-        boolean horizontalStopped =
+        boolean noHorizontalMovement =
                 movementData.getDeltaXZ() < STACKED_STOP_EPSILON
                         && movementData.getLastDeltaXZ() < STACKED_STOP_EPSILON;
 
-        if (verticalStopped) {
-            stackedVerticalZeroTicks++;
+        boolean fullyStopped = noVerticalMovement && noHorizontalMovement;
+
+        if (fullyStopped) {
+            stackedFullStopTicks++;
         } else {
-            stackedVerticalZeroTicks = 0;
+            stackedFullStopTicks = 0;
         }
 
-        if (horizontalStopped) {
-            stackedHorizontalZeroTicks++;
-        } else {
-            stackedHorizontalZeroTicks = 0;
-        }
-
-        if (stackedVerticalZeroTicks >= STACKED_VERTICAL_STOP_TICKS) {
-            resetStackedVerticalVelocity();
-        }
-
-        if (stackedHorizontalZeroTicks >= STACKED_HORIZONTAL_STOP_TICKS) {
-            resetStackedHorizontalVelocity();
+        if (stackedFullStopTicks >= STACKED_FULL_STOP_TICKS) {
+            resetStackedVelocity();
+            resetVelocitySustain();
         }
     }
 
     public void resetStackedVelocity() {
-        resetStackedVerticalVelocity();
-        resetStackedHorizontalVelocity();
+        this.stackedVerticalVelocity = 0.0D;
+        this.stackedHorizontalVelocity = 0.0D;
+        this.stackedFullStopTicks = 0;
     }
 
     public void resetStackedVerticalVelocity() {
         this.stackedVerticalVelocity = 0.0D;
-        this.stackedVerticalZeroTicks = 0;
+        this.stackedFullStopTicks = 0;
     }
 
     public void resetStackedHorizontalVelocity() {
         this.stackedHorizontalVelocity = 0.0D;
-        this.stackedHorizontalZeroTicks = 0;
+        this.stackedFullStopTicks = 0;
     }
 
     public void resetVelocitySustain() {
