@@ -18,10 +18,17 @@ import org.bukkit.entity.Player;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static me.arrow.utils.customutils.OtherUtility.translate;
 
 public class PasteLogsCommand extends SubCommand {
+
+    private static final Pattern AMP_HEX_COLOR = Pattern.compile("(?i)&#[0-9a-f]{6}");
+    private static final Pattern AMP_LEGACY_COLOR = Pattern.compile("(?i)&[0-9a-fk-orx]");
+    private static final Pattern SECTION_HEX_COLOR = Pattern.compile("(?i)§x(§[0-9a-f]){6}");
+    private static final Pattern SECTION_LEGACY_COLOR = Pattern.compile("(?i)§[0-9a-fk-orx]");
+    private static final Pattern ANSI_COLOR = Pattern.compile("\\u001B\\[[;\\d]*m");
 
     private final Arrow plugin;
 
@@ -149,12 +156,10 @@ public class PasteLogsCommand extends SubCommand {
     private void sendPasteMessage(CommandSender sender, String targetName, int amount, String pasteUrl) {
         String message = translate("&aPasted &e" + amount + " &alogs for &e" + targetName + "&a: &7" + pasteUrl);
 
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
             sender.sendMessage(message);
             return;
         }
-
-        Player player = (Player) sender;
 
         TextComponent component = new TextComponent(translate("&aPasted &e" + amount + " &alogs for &e" + targetName + "&a: "));
 
@@ -179,13 +184,21 @@ public class PasteLogsCommand extends SubCommand {
             return "";
         }
 
-        String stripped = ChatColor.stripColor(input);
+        String output = input;
 
-        if (stripped == null) {
-            stripped = input;
+        output = ANSI_COLOR.matcher(output).replaceAll("");
+        output = SECTION_HEX_COLOR.matcher(output).replaceAll("");
+        output = SECTION_LEGACY_COLOR.matcher(output).replaceAll("");
+        output = AMP_HEX_COLOR.matcher(output).replaceAll("");
+        output = AMP_LEGACY_COLOR.matcher(output).replaceAll("");
+
+        String stripped = ChatColor.stripColor(output);
+
+        if (stripped != null) {
+            output = stripped;
         }
 
-        return stripped
+        return output
                 .replace("\r", "")
                 .replace("\t", "    ")
                 .trim();
