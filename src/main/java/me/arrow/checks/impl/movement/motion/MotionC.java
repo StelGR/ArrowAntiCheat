@@ -78,13 +78,18 @@ public class MotionC extends Check {
                 return;
             }
 
-            if (profile.getMovementData().getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
+            if (movementData.getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (elytra glide)");
                 return;
             }
 
             if (movementData.isNearShulkerBox()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (ShulkerBox)");
+                return;
+            }
+
+            if (profile.isBouncingOnSlime()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (Bouncing Slime)");
                 return;
             }
 
@@ -124,10 +129,6 @@ public class MotionC extends Check {
 
             if (deltaXZ != 0) airTickLimit += (recentlyPlaced && holdingBlock) ? 4 : 2;
 
-            if (profile.isBouncingOnSlime()) {
-                return;
-            }
-
             double horizontal = Math.max(
                     profile.getVelocityData().getTotalHorizontalVelocitySustain(),
                     profile.getVelocityData().getStackedHorizontalVelocity()
@@ -136,20 +137,14 @@ public class MotionC extends Check {
                     profile.getVelocityData().getTotalVerticalVelocitySustain(),
                     profile.getVelocityData().getStackedVerticalVelocity()
             );
-            double velMag = (horizontal / 2) + vertical;
 
+            double velMag = (horizontal / 2) + vertical;
             double baseTicksVel = 6;
             double baseVelocity = 0.0005;
-
             double scale = 14;
 
-//            if (profile.getVelocityData().getStackedVerticalVelocity() > profile.getVelocityData().getTotalVerticalVelocitySustain()) {
-//                scale = 8;
-//            }
-
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
-
-            airTickLimit += extraFromVel;
+            airTickLimit += Math.ceil(extraFromVel);
 
             if (movementData.isNearFence()) airTickLimit += 4;
 

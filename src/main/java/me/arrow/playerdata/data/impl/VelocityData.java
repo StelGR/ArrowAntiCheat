@@ -95,6 +95,7 @@ public class VelocityData implements Data {
                 MovementData movementData = profile.getMovementData();
 
                 if (!movementData.isMoving()) {
+                    resetVerticalVelocitySustain();
                     resetHorizontalVelocitySustain();
                 }
 
@@ -118,12 +119,12 @@ public class VelocityData implements Data {
                     velocityV = Math.max(totalV, 0.0D);
                 }
 
-                if (velocityV < 0.00001D) {
+                if (velocityV < 0.0001) {
                     velocityV = 0.0D;
                     resetVerticalVelocitySustain();
                 }
 
-                if (velocityH < 0.00001D) {
+                if (velocityH < 0.0001) {
                     velocityH = 0.0D;
                     resetHorizontalVelocitySustain();
                 }

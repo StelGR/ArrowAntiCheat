@@ -282,42 +282,19 @@ public class FlyB extends Check {
                     profile.getVelocityData().getTotalVerticalVelocitySustain(),
                     profile.getVelocityData().getStackedVerticalVelocity()
             );
-            double velMag = (horizontal / 2) + vertical;
 
+            double velMag = (horizontal / 2) + vertical;
             double baseTicksVel = 6;
             double baseVelocity = 0.0005;
-
             double scale = 14;
 
-//            if (profile.getVelocityData().getStackedVerticalVelocity() > profile.getVelocityData().getTotalVerticalVelocitySustain()) {
-//                scale = 8;
-//            }
-
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
-
-//            double connectionAdj = Math.min(
-//                    0,
-//                    1.0D + (profile.getConnectionData().getTransPing() / 50.0D)
-//            );
-
-            //double velocityTickExempt = extraFromVel;
-            airTickLimit += extraFromVel;
+            airTickLimit += Math.ceil(extraFromVel);
 
             if (movementData.isNearFence()) airTickLimit += 4;
 
-//            if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_12_2)
-//                    || PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_12_2)) {
-//                airTickLimit += 2;
-//            }
-
-//            airTickLimit = Math.max(airTickLimit, 10);
-//            clientAirTickLimit = Math.max(clientAirTickLimit, 9);
-
             boolean invalidNormal =
-                    (
-                            (serverAirTicks > airTickLimit)
-                            //|| (clientAirTicks > clientAirTickLimit)
-                    )
+                    serverAirTicks > airTickLimit
                     && deltaY > -0.301
                     && inAir;
 

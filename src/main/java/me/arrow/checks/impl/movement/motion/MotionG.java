@@ -6,6 +6,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
+import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ActionData;
@@ -73,7 +74,11 @@ public class MotionG extends Check {
         if (!exempt) {
             if (deltaY > 0.11760000228882465
                     && md.isClimb()) {
-                fail("Fast Ladder?" ,"deltaY " + deltaY);
+                fail("Fast Ladder?" ,"deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                        + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
+                        + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
+                        + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
+                        + "\nladderTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + md.getLadderTicks());
             }
         }
     }
