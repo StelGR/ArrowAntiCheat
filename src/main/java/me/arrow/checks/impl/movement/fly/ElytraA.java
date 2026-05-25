@@ -10,7 +10,6 @@ import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.custom.SampleList;
@@ -140,7 +139,7 @@ public class ElytraA extends Check {
             }
 
             double maxSpeed = 3.6;
-            if (profile.getRotationData().getPitch() < 45) maxSpeed = 5;
+            if (Math.abs(pitch) <= 45) maxSpeed = 5;
             maxSpeed += profile.getVelocityData().getTotalHorizontalVelocity();
 
             if (inAir && profile.getPlayer().isGliding() && (Math.abs(pitch) <= 85)

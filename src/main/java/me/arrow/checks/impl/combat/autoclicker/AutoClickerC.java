@@ -3,8 +3,6 @@ package me.arrow.checks.impl.combat.autoclicker;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.player.DiggingAction;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -27,13 +25,11 @@ public class AutoClickerC extends Check {
     }
 
     private double cps;
-        private int movements;
+    private int movements;
 
 
     List<Integer> delays = new ArrayList<>();
     double threshold;
-
-
 
     @Override
     public void handle(PacketReceiveEvent event) {
@@ -43,13 +39,11 @@ public class AutoClickerC extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
             if (profile.getPredictionData().isDigging()) {
-                movements = 0;
+                movements = 20;
                 return;
             }
 
-            if (profile.shouldCancel()
-                    || profile.getLastBlockPlaceTimer().hasNotPassed(20)
-                    || profile.getLastBlockPlaceCancelTimer().hasNotPassed(20)) {
+            if (profile.shouldCancel()) {
                 movements = 20;
                 return;
             }
@@ -59,12 +53,6 @@ public class AutoClickerC extends Check {
             movements++;
         }
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
-            if (profile.getPredictionData().isDigging()) {
-                movements = 0;
-                threshold = 0;
-                return;
-            }
-
             cps++;
 
             if (movements < 10) {

@@ -97,9 +97,7 @@ public class AutoClickerD extends Check {
 
     private boolean shouldIgnore() {
         return profile.getPredictionData().isDigging()
-                || profile.shouldCancel()
-                || profile.getLastBlockPlaceTimer().hasNotPassed(20)
-                || profile.getLastBlockPlaceCancelTimer().hasNotPassed(20);
+                || profile.shouldCancel();
     }
 
     private void clearSamples() {
@@ -121,9 +119,5 @@ public class AutoClickerD extends Check {
 
     private static double log2(double n) {
         return Math.log(n) / LN_2;
-    }
-
-    private String format(double value) {
-        return String.format("%.3f", value);
     }
 }

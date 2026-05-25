@@ -233,10 +233,10 @@ public class FlyB extends Check {
             if (hasJumpBoost) {
                 if (recentlyPlaced && holdingBlock) {
                     airTickLimit = (16 + clientTickTrans) + jumpLevel;
-                    clientAirTickLimit = (16 + clientTickTrans) + jumpLevel;
+                    clientAirTickLimit = (18 + clientTickTrans) + jumpLevel;
                 } else {
                     airTickLimit = 10 + jumpLevel;
-                    clientAirTickLimit = 10 + jumpLevel;
+                    clientAirTickLimit = 12 + jumpLevel;
                 }
             } else {
                 airTickLimit = (recentlyPlaced && holdingBlock) ? 16 + clientTickTrans : 10;
@@ -287,7 +287,7 @@ public class FlyB extends Check {
             double baseTicksVel = 6;
             double baseVelocity = 0.0005;
 
-            double scale = 12;
+            double scale = 14;
 
 //            if (profile.getVelocityData().getStackedVerticalVelocity() > profile.getVelocityData().getTotalVerticalVelocitySustain()) {
 //                scale = 8;

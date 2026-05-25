@@ -46,7 +46,7 @@ public class MovementData implements Data {
 
     @Getter
     @Setter
-    double BEDROCK_JUMP_MOTION;
+    float BEDROCK_JUMP_MOTION;
 
     Profile profile;
 
@@ -157,7 +157,7 @@ public class MovementData implements Data {
             this.lastLastLocation = this.lastLocation;
             this.lastLocation = this.location;
 
-            //processLocationData();
+            processLocationData();
         }
         if (event.getPacketType().equals(PLAYER_POSITION)) {
             WrapperPlayClientPlayerPosition move = new WrapperPlayClientPlayerPosition(event);
@@ -329,14 +329,14 @@ public class MovementData implements Data {
                             && profile.getMovementData().getSinceTeleportTicks() > 5;
 
             boolean possibleJump =
-                    deltaY > 0.4198D
-                            && deltaY < 0.422D;
+                    deltaY > 0.4198
+                            && deltaY < 0.422;
 
             if (groundTransition
                     //&& cleanContext
                     && possibleJump
             ) {
-                this.BEDROCK_JUMP_MOTION = deltaY;
+                BEDROCK_JUMP_MOTION = (float) deltaY;
             }
             if (Config.Setting.DEBUG.getBoolean()) {
                 OtherUtility.log("[Bedrock Jump Calibration] "

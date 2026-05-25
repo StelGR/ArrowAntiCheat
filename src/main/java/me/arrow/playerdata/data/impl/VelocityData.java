@@ -132,18 +132,17 @@ public class VelocityData implements Data {
 
                 if (Math.abs(explosionKnockback.getX()) < 0.0001D) {
                     explosionKnockback.setX(0.0D);
+                    explosionKnockbackSustain.setX(0.0D);
                 }
 
                 if (Math.abs(explosionKnockback.getY()) < 0.0001D) {
                     explosionKnockback.setY(0.0D);
+                    explosionKnockbackSustain.setY(0.0D);
                 }
 
                 if (Math.abs(explosionKnockback.getZ()) < 0.0001D) {
                     explosionKnockback.setZ(0.0D);
-                }
-
-                if (isZero(explosionKnockback)) {
-                    explosionKnockbackSustain = new Vector();
+                    explosionKnockbackSustain.setZ(0.0D);
                 }
             }
 
@@ -229,7 +228,7 @@ public class VelocityData implements Data {
             /*
              * Transaction-confirmed sustain velocity.
              */
-            setVelocitySustain(maxVector(getVelocitySustain(), vector));
+            setVelocitySustain(copy(vector));
 
             double horizontal = Math.hypot(vector.getX(), vector.getZ());
             double vertical = vector.getY();
@@ -242,8 +241,8 @@ public class VelocityData implements Data {
             setVelocityHfvc(horizontal);
             setVelocityVfvc(vertical);
 
-            setVelocityHSustain(Math.max(getVelocityHSustain(), horizontal));
-            setVelocityVSustain(Math.max(getVelocityVSustain(), vertical));
+            setVelocityHSustain(horizontal);
+            setVelocityVSustain(vertical);
 
         } else if (wrappedData.getAction() == Actions.EXPLOSION) {
             setVelocityTicks(0);
@@ -262,7 +261,7 @@ public class VelocityData implements Data {
             /*
              * Transaction-confirmed sustain explosion velocity.
              */
-            setExplosionKnockbackSustain(maxVector(getExplosionKnockbackSustain(), vector));
+            setExplosionKnockbackSustain(copy(vector));
 
             addStackedVelocity(copy(vector));
         }
@@ -331,30 +330,11 @@ public class VelocityData implements Data {
         this.stackedFullStopTicks = 0;
     }
 
-    public void resetStackedVerticalVelocity() {
-        this.stackedVerticalVelocity = 0.0D;
-        this.stackedFullStopTicks = 0;
-    }
-
-    public void resetStackedHorizontalVelocity() {
-        this.stackedHorizontalVelocity = 0.0D;
-        this.stackedFullStopTicks = 0;
-    }
-
-    public void resetVelocitySustain() {
-        resetVerticalVelocitySustain();
-        resetHorizontalVelocitySustain();
-    }
-
     public void resetVerticalVelocitySustain() {
         this.velocityVSustain = 0.0D;
 
         if (this.velocitySustain != null) {
             this.velocitySustain.setY(0.0D);
-        }
-
-        if (this.explosionKnockbackSustain != null) {
-            this.explosionKnockbackSustain.setY(0.0D);
         }
     }
 
@@ -364,11 +344,6 @@ public class VelocityData implements Data {
         if (this.velocitySustain != null) {
             this.velocitySustain.setX(0.0D);
             this.velocitySustain.setZ(0.0D);
-        }
-
-        if (this.explosionKnockbackSustain != null) {
-            this.explosionKnockbackSustain.setX(0.0D);
-            this.explosionKnockbackSustain.setZ(0.0D);
         }
     }
 
@@ -485,24 +460,5 @@ public class VelocityData implements Data {
         return vector.getX() == 0.0D
                 && vector.getY() == 0.0D
                 && vector.getZ() == 0.0D;
-    }
-
-    private static Vector maxVector(Vector current, Vector incoming) {
-        if (current == null) {
-            return copy(incoming);
-        }
-
-        if (incoming == null) {
-            return copy(current);
-        }
-
-        double currentHorizontal = Math.hypot(current.getX(), current.getZ());
-        double incomingHorizontal = Math.hypot(incoming.getX(), incoming.getZ());
-
-        double x = incomingHorizontal > currentHorizontal ? incoming.getX() : current.getX();
-        double z = incomingHorizontal > currentHorizontal ? incoming.getZ() : current.getZ();
-        double y = Math.max(current.getY(), incoming.getY());
-
-        return new Vector(x, y, z);
     }
 }

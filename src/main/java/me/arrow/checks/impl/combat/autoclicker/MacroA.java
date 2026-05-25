@@ -5,13 +5,18 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.item.type.ItemTypes;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientClickWindow;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientHeldItemChange;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityStatus;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetSlot;
+import me.arrow.Arrow;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 
 // this is an experimental check, it is meant to detect auto armor, totem pop swap, and in the future
 // instant mace swap from axe
@@ -21,6 +26,15 @@ public class MacroA extends Check {
 
     // Reaction threshold in milliseconds; anything below this is inhuman.
     private static final long REACTION_THRESHOLD_MS = 160L;
+
+    private static final long AXE_TO_MACE_HIT_MAX_DELAY_MS = 50L;
+    private static final long AXE_TO_MACE_EXPIRE_MS = 250L;
+
+    private long lastAxeAttackTime = -1L;
+    private boolean switchedToMaceAfterAxe;
+    private int switchedMaceSlot = -1;
+    private Material lastAxeMaterial;
+    private Material switchedMaceMaterial;
 
     private long armorBreakTime = -1L;
     private long totemPopTime   = -1L;
@@ -93,6 +107,16 @@ public class MacroA extends Check {
     @Override
     public void handle(PacketReceiveEvent event) {
 
+        if (event.getPacketType().equals(PacketType.Play.Client.HELD_ITEM_CHANGE)) {
+            handleHeldItemChange(event);
+            return;
+        }
+
+        if (isAttackPacket(event)) {
+            handleAttack(event);
+            return;
+        }
+
         if (!event.getPacketType().equals(PacketType.Play.Client.CLICK_WINDOW)) return;
 
         long now = event.getTimestamp();
@@ -145,6 +169,172 @@ public class MacroA extends Check {
             }
 
         } catch (Throwable ignored) { }
+    }
+
+    private void handleHeldItemChange(PacketReceiveEvent event) {
+        long now = event.getTimestamp();
+
+        if (lastAxeAttackTime <= 0) {
+            return;
+        }
+
+        if (now - lastAxeAttackTime > AXE_TO_MACE_EXPIRE_MS) {
+            resetAxeMaceSequence();
+            return;
+        }
+
+        try {
+            WrapperPlayClientHeldItemChange wrapper = new WrapperPlayClientHeldItemChange(event);
+            int slot = wrapper.getSlot();
+
+            if (slot < 0 || slot > 8) {
+                return;
+            }
+
+            Material material = getHotbarMaterial(slot);
+
+            if (!isMace(material)) {
+                return;
+            }
+
+            switchedToMaceAfterAxe = true;
+            switchedMaceSlot = slot;
+            switchedMaceMaterial = material;
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void handleAttack(PacketReceiveEvent event) {
+        long now = event.getTimestamp();
+
+        if (lastAxeAttackTime > 0 && now - lastAxeAttackTime > AXE_TO_MACE_EXPIRE_MS) {
+            resetAxeMaceSequence();
+        }
+
+        Material held = getCurrentHeldMaterial();
+
+        if (isAxe(held)) {
+            lastAxeAttackTime = now;
+            switchedToMaceAfterAxe = false;
+            switchedMaceSlot = -1;
+            switchedMaceMaterial = null;
+            lastAxeMaterial = held;
+            return;
+        }
+
+        if (!isMace(held)) {
+            return;
+        }
+
+        if (lastAxeAttackTime <= 0 || !switchedToMaceAfterAxe) {
+            return;
+        }
+
+        long axeToMaceHit = now - lastAxeAttackTime;
+
+        if (axeToMaceHit < 0) {
+            resetAxeMaceSequence();
+            return;
+        }
+
+        if (axeToMaceHit < AXE_TO_MACE_HIT_MAX_DELAY_MS) {
+            fail("Impossible axe to mace macro",
+                    "axeToMaceHit " + MsgType.MAIN_THEME_COLOR.getMessage() + axeToMaceHit + "ms"
+                            + "\naxe " + MsgType.MAIN_THEME_COLOR.getMessage() + materialName(lastAxeMaterial)
+                            + "\nmace " + MsgType.MAIN_THEME_COLOR.getMessage() + materialName(held)
+                            + "\nswitchedMaceSlot " + MsgType.MAIN_THEME_COLOR.getMessage() + switchedMaceSlot);
+        }
+
+        resetAxeMaceSequence();
+    }
+
+    private boolean isAttackPacket(PacketReceiveEvent event) {
+        if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+            return true;
+        }
+
+        if (!event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
+            return false;
+        }
+
+        try {
+            WrapperPlayClientInteractEntity interact = new WrapperPlayClientInteractEntity(event);
+            return interact.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private Material getCurrentHeldMaterial() {
+        try {
+            ItemStack item = Arrow.getInstance()
+                    .getNmsManager()
+                    .getNmsInstance()
+                    .getItemInMainHand(profile.getPlayer());
+
+            if (item != null && item.getType() != null) {
+                return item.getType();
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            ItemStack item = profile.getPlayer().getItemInHand();
+
+            if (item != null && item.getType() != null) {
+                return item.getType();
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return Material.AIR;
+    }
+
+    private Material getHotbarMaterial(int slot) {
+        try {
+            ItemStack item = profile.getPlayer().getInventory().getItem(slot);
+
+            if (item != null && item.getType() != null) {
+                return item.getType();
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return Material.AIR;
+    }
+
+    private boolean isAxe(Material material) {
+        if (material == null || material == Material.AIR) {
+            return false;
+        }
+
+        String name = material.name();
+
+        return name.endsWith("_AXE")
+                || name.equals("WOOD_AXE")
+                || name.equals("GOLD_AXE");
+    }
+
+    private boolean isMace(Material material) {
+        if (material == null || material == Material.AIR) {
+            return false;
+        }
+
+        String name = material.name();
+
+        return name.equals("MACE") || name.endsWith("_MACE");
+    }
+
+    private void resetAxeMaceSequence() {
+        lastAxeAttackTime = -1L;
+        switchedToMaceAfterAxe = false;
+        switchedMaceSlot = -1;
+        lastAxeMaterial = null;
+        switchedMaceMaterial = null;
+    }
+
+    private String materialName(Material material) {
+        return material == null ? "null" : material.name();
     }
 }
 

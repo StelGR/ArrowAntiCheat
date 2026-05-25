@@ -139,9 +139,7 @@ public class GroundC extends Check {
             }
 
 
-            if (profile.getBlockProcessor().isInsideGhostBlock()
-                    || profile.getBlockProcessor().isNearGhostBlock()
-                    || profile.getBlockProcessor().isOnGhostBlock() ) {
+            if (profile.getBlockProcessor().isOnGhostBlock() ) {
                 fail("BlockProcessor: On Ghostblock?", verboseInfo);
 
                 movementData.setCustomAirTicks(0);

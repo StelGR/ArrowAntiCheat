@@ -141,7 +141,7 @@ public class MotionC extends Check {
             double baseTicksVel = 6;
             double baseVelocity = 0.0005;
 
-            double scale = 12;
+            double scale = 14;
 
 //            if (profile.getVelocityData().getStackedVerticalVelocity() > profile.getVelocityData().getTotalVerticalVelocitySustain()) {
 //                scale = 8;

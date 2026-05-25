@@ -116,10 +116,10 @@ public final class MoveUtils {
         float motion = 0.42F;
 
         if (profile != null && profile.isBedrockPlayer() && profile.getMovementData() != null) {
-            double bedrockMotion = profile.getMovementData().getBEDROCK_JUMP_MOTION();
+            float bedrockMotion = profile.getMovementData().getBEDROCK_JUMP_MOTION();
 
             if (bedrockMotion > 0.0D) {
-                motion = (float) bedrockMotion;
+                motion = bedrockMotion;
             }
         }
 

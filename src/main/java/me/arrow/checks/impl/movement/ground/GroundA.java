@@ -117,15 +117,18 @@ public class GroundA extends Check {
                     : (!serverGround && clientGround );
 
             if (invalid) {
-                fail("Mismatched ground status (1)",
-                        "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerYGround()
-                                + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
-                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
-                                + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
-                                + "\nserverAirTicks (2) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks());
+                if (increaseBuffer() > 1) {
+                    fail("Mismatched ground status (1)",
+                            "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                    + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerYGround()
+                                    + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
+                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                    + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
+                                    + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
+                                    + "\nserverAirTicks (2) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks());
+                }
             }
+            else decreaseBufferBy(0.01);
         }
     }
 }
