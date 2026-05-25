@@ -125,7 +125,7 @@ public class ElytraA extends Check {
                     && movementData.getSinceInsideWaterTicks() > 10
                     && movementData.getSinceBubbleTicks() > 15) {
                 if (deltaY != movementData.getLastDeltaY()) {
-                    if ( (Math.abs(pitch) <= 84) && (pitch > 15 || pitch < -15) && movementData.getDeltaXZ() == 0) {
+                    if ( (Math.abs(pitch) <= 84) && (pitch > 15 || pitch < -15) && movementData.getDeltaXZ() == 0 && movementData.getLastDeltaXZ() == 0) {
                         fail("Impossible elytra movement",
                                 "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                         + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround

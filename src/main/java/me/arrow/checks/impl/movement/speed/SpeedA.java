@@ -23,6 +23,9 @@ import org.bukkit.util.Vector;
 // such is ground speed, and some others, the ground speed limit isn't as good as the air one
 // strafe also does the job but needs improvements, Speed B does most of the job for strafes
 
+// update 107-pre1, velocity issues are fixed on bedrock, but now we have a jump height issue.
+// bedrock can't stop giving me brain damage, but i wont give up.
+
 public class SpeedA extends Check {
     public SpeedA(Profile profile) {
         super(profile, CheckType.SPEED, "A", "Checks if the player is following vanilla speed");

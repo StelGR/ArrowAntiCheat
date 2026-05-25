@@ -19,7 +19,7 @@ public class ArrowTheme extends BaseTheme {
         get().addDefault("prefix", "&6&l➢ ");
         get().addDefault("no_perm", "&cYou do not have permission to do that!");
         get().addDefault("console_commands", "&c&lYou cannot run this command through the console :(");
-        get().addDefault("alert_message", "&6%player% &ffailed &6%check%%debug%");
+        get().addDefault("alert_message", "&6%player% &ffailed &6%check%&8[%debug%&8]");
         get().addDefault("punish_broadcast",
                 Arrays.asList(
                         "&7&m                                                ",

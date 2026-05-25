@@ -80,6 +80,7 @@ public class ViolationListener implements Listener {
 
             final String checkType = event.getType() != null ? event.getType() : "";
             final String checkName = event.getCheck() != null ? event.getCheck() : "";
+            final String checkCategory = String.valueOf(event.getCheckCategory());
 
             final String checkPlusCheckType;
 
@@ -91,6 +92,7 @@ public class ViolationListener implements Listener {
 
             final boolean experimental = event.isExperimental();
             final String experimentalCheck = experimental ? MsgType.EXPERIMENTAL_SYMBOL.getMessage() + " " : " ";
+            final String experimentalFormat = experimental ? MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "";
 
             final String description = event.getDescription() != null ? event.getDescription() : "";
 
@@ -146,6 +148,7 @@ public class ViolationListener implements Listener {
 
             final String playerName = punishedPlayer.getName();
             final int vl = event.getVl();
+            final int maxvl = event.getMaxVl();
 
             String composedCheck = checkPlusCheckType + (experimental ? " " + MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "");
 
@@ -172,16 +175,14 @@ public class ViolationListener implements Listener {
             final String alertMessage = MsgType.ALERT_MESSAGE.getMessage();
 
             final String formattedDebugString =
-                    ChatColor.GRAY + "["
-                            + MsgType.SECOND_THEME_COLOR.getMessage() + "x"
+                    MsgType.SECOND_THEME_COLOR.getMessage() + "x"
                             + MsgType.MAIN_THEME_COLOR.getMessage() + "%vl%"
                             + MsgType.SECOND_THEME_COLOR.getMessage() + ", "
                             + MsgType.SECOND_THEME_COLOR.getMessage() + "Ping: "
                             + MsgType.MAIN_THEME_COLOR.getMessage() + "%ping%"
                             + MsgType.SECOND_THEME_COLOR.getMessage() + ", "
                             + MsgType.SECOND_THEME_COLOR.getMessage() + "TPS: "
-                            + MsgType.MAIN_THEME_COLOR.getMessage() + "%tps%"
-                            + ChatColor.GRAY + "]";
+                            + MsgType.MAIN_THEME_COLOR.getMessage() + "%tps%";
 
             for (Player staff : Bukkit.getOnlinePlayers()) {
 
@@ -225,6 +226,12 @@ public class ViolationListener implements Listener {
                             .replace("%check%", displayCheck)
                             .replace("%vl%", String.valueOf(vl))
                             .replace("%tps%", tps)
+                            .replace("%checkname%", checkName)
+                            .replace("%checktype%", checkType)
+                            .replace("%maxvl%", String.valueOf(maxvl))
+                            .replace("%checkcategory%", checkCategory)
+                            .replace("%checknameandtype%", checkPlusCheckType)
+                            .replace("%experimental%", experimentalFormat)
                             .replace("%ping%", String.valueOf(punishedProfile.getConnectionData().getTransPing()));
                 } else {
                     messageToSend = alertMessage
@@ -233,6 +240,12 @@ public class ViolationListener implements Listener {
                             .replace("%check%", displayCheck)
                             .replace("%vl%", String.valueOf(vl))
                             .replace("%tps%", tps)
+                            .replace("%maxvl%", String.valueOf(maxvl))
+                            .replace("%checkname%", checkName)
+                            .replace("%checktype%", checkType)
+                            .replace("%checkcategory%", checkCategory)
+                            .replace("%checknameandtype%", checkPlusCheckType)
+                            .replace("%experimental%", experimentalFormat)
                             .replace("%ping%", String.valueOf(punishedProfile.getConnectionData().getTransPing()));
                 }
 

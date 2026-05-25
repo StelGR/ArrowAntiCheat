@@ -72,6 +72,8 @@ public class MotionE extends Check {
                         +"\n * onW " + profile.getMovementData().isOnTopOfWater()
                         +"\n * deltaY " + deltaY);
 
+            if (profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5) return;
+
             WaterWalking(waterstate, deltaY, deltaXZ, inAir, serverGround, clientGround, clientAirTicks, serverAirTicks);
         }
     }

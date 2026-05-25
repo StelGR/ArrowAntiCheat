@@ -124,8 +124,9 @@ public class GroundB extends Check {
                             + "\n * JumpExpected " + MsgType.MAIN_THEME_COLOR.getMessage() + getExpectedJumpMotion());
         }
 
-        if ( (invalid && increaseBuffer() > 2) || invalid2) {
-            fail("Impossible ground state " + (invalid ? "(1)" : "(2)"),
+        if (invalid || invalid2) {
+            if ( increaseBuffer() > 3 || invalid2) {
+                fail("Impossible ground state " + (invalid ? "(1)" : "(2)"),
                         "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                 + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverYGround
                                 + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
@@ -135,7 +136,7 @@ public class GroundB extends Check {
                                 //+ "\nimpossibleGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + impossibleGroundTicks
                                 + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                                 + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
-
+            }
         }
     }
 

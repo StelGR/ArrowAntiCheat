@@ -52,6 +52,7 @@ public class GroundA extends Check {
                     || movementData.isNearClimbable()
                     || movementData.isNearGhast()
                     || movementData.isNearShulker()
+                    || movementData.getSincePredictUpwardsTicks() < 5
                     || profile.getMovementData().getSincePowderSnowTicks() < 10
                     || profile.getVehicleData().getSinceVehicleTicks() < 5
                     || profile.getVehicleData().getSinceNearVehicleTicks() < 5) {
@@ -102,7 +103,8 @@ public class GroundA extends Check {
                     || movementData.isNearBoat()
                     || movementData.isNearGhast()
                     || movementData.getSincePowderSnowTicks() < 10
-                    || movementData.isPhasing()
+                    || movementData.getSincePredictDownwardsTicks() < 10
+                    || movementData.getSincePredictUpwardsTicks() < 10
                     || profile.isExempt().isTeleports()
             ) return;
 
@@ -111,8 +113,6 @@ public class GroundA extends Check {
 
             boolean invalid = profile.isBedrockPlayer() ?
                     !serverGround && clientGround && !movementData.isMovingDown()
-                            && movementData.getSincePredictDownwardsTicks() < 10
-                            && movementData.getSincePredictUpwardsTicks() < 10
                             && movementData.getCustomAirTicks() > 1
                     : (!serverGround && clientGround );
 

@@ -135,6 +135,7 @@ public abstract class AbstractCheck {
                 p,
                 this.checkName,
                 this.description,
+                getCategory(),
                 this.checkType,
                 verboseTitle,
                 verboseInfo,

@@ -150,6 +150,8 @@ public class AimE extends Check {
                 if (increaseBuffer() > requiredBuffer) {
                     if (profile.getTrustFactor().getTrust() >= 80) {
                         profile.getTrustFactor().decreaseTrustBy(1.25);
+                        heuristics.reset();
+                        rotationHistory.clear();
                     } else {
                         fail("Aim Analysis (Yaw)", "avg " + MsgType.MAIN_THEME_COLOR.getMessage() + avg
                                 + "\nmin " + MsgType.MAIN_THEME_COLOR.getMessage() + min

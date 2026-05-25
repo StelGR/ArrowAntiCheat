@@ -100,7 +100,7 @@ public class ScaffoldC extends Check {
 
         int trans = getClientTickTrans();
 
-        if (!profile.isAirBridging(profile.getPlayer().getLocation())) {
+        if (!profile.isAirBridging(profile.getMovementData().getLocation().toBukkit())) {
             decayState();
             resetBridgeStreakIfExpired(sinceBridgePlaceTicks > BRIDGE_STREAK_TIMEOUT_TICKS + trans);
             return;

@@ -31,7 +31,6 @@ public class KillauraB extends Check {
     public void handle(PacketReceiveEvent event) {
         if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
 
-
             WrapperPlayClientInteractEntity wrapper = new WrapperPlayClientInteractEntity(event);
 
             if (wrapper.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK && PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_9)) {

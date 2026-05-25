@@ -6,6 +6,7 @@ import me.arrow.files.Config;
 import me.arrow.managers.Initializer;
 import me.arrow.managers.themes.impl.ArrowTheme;
 import me.arrow.managers.themes.impl.DefaultTheme;
+import me.arrow.managers.themes.impl.ExampleTheme;
 import me.arrow.managers.themes.impl.SonixTheme;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -40,7 +41,8 @@ public class ThemeManager implements Initializer {
         Arrays.asList(
                 new DefaultTheme(this.plugin, "default"),
                 new ArrowTheme(this.plugin, "arrow"),
-                new SonixTheme(this.plugin, "sonix")
+                new SonixTheme(this.plugin, "sonix"),
+                new ExampleTheme(this.plugin, "example")
                 //
         ).forEach(BaseTheme::create);
 

@@ -110,7 +110,7 @@ public class EntityUtil {
 
     public static boolean isNearGhast(Profile user) {
         try {
-            return getEntitiesWithinRadius(user.getPlayer().getLocation(), 7).stream()
+            return getEntitiesWithinRadius(user.getPlayer().getLocation(), 8).stream()
                     .anyMatch(entity -> isGhast(entity.getType()));
         } catch (Exception exception) {
             exception.printStackTrace();

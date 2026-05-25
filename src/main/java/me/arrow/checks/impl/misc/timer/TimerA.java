@@ -78,14 +78,14 @@ public class TimerA extends Check {
                     if (!this.capped) {
                         fail("Speeding up game clock (1)",
                                 "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + (this.balance / 1_000_000L)
-                                        + "\nmaxBalance" + MsgType.MAIN_THEME_COLOR.getMessage() + (FLYING_OFFSET + 5_000_000L)
+                                        + "\nmaxBalance " + MsgType.MAIN_THEME_COLOR.getMessage() + (FLYING_OFFSET + 5_000_000L)
                                         + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math. min(FLYING_OFFSET / diff, 10L)
                                         + "\nlastPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + now
                                         + "\nuserTick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick());
                     } else {
                         fail("Speeding up game clock (2)",
                                         "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + (this.balance / 1_000_000L)
-                                        + "\nmaxBalance" + MsgType.MAIN_THEME_COLOR.getMessage() + (FLYING_OFFSET + 5_000_000L)
+                                        + "\nmaxBalance " + MsgType.MAIN_THEME_COLOR.getMessage() + (FLYING_OFFSET + 5_000_000L)
                                         + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min(FLYING_OFFSET / diff, 10L)
                                         + "\nlastPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + now
                                         + "\nuserTick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick());

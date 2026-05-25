@@ -19,7 +19,7 @@ public class SonixTheme extends BaseTheme {
         get().addDefault("prefix", "&0[&cSonix&0] &c");
         get().addDefault("no_perm", "&cYou do not have permission to do that!");
         get().addDefault("console_commands", "&c&lYou cannot run this command through the console :(");
-        get().addDefault("alert_message", "&c%player% &ffailed &c%check%%debug%");
+        get().addDefault("alert_message", "&c%player% &ffailed &c%check%&0[%debug%&0]");
         get().addDefault("punish_broadcast",
                 Arrays.asList(
                         "&7&m                                                ",

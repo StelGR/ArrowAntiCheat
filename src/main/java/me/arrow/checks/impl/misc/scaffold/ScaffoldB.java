@@ -230,7 +230,7 @@ public class ScaffoldB extends Check {
             return false;
         }
 
-        return profile.isAirBridging(profile.getPlayer().getLocation());
+        return profile.isAirBridging(profile.getMovementData().getLocation().toBukkit());
     }
 
     private Analysis analyze(List<Double> absolute, List<Double> signed, double sameEpsilon, double snapValue, double sameMin, boolean pitch) {
