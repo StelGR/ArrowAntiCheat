@@ -58,14 +58,13 @@ public class ReachA extends Check {
     double FLICK_YAW_DELTA = 18.0D;
     double FLICK_PITCH_DELTA = 8.0D;
 
-    double CLEAN_MISS_MIN_CENTER_RAY_DISTANCE = 0.25D;
     double CLEAN_MISS_MIN_CENTER_ANGLE = 8.5D;
 
     double HITBOX_BUFFER_REQUIRED = 3.0D;
 
 
 
-    List<RotationSnapshot> rotationHistory = new ArrayList<>(ROTATION_HISTORY_SIZE);
+    final List<RotationSnapshot> rotationHistory = new ArrayList<>(ROTATION_HISTORY_SIZE);
 
     private double hitboxBuffer;
 
@@ -669,7 +668,7 @@ public class ReachA extends Check {
         } catch (Throwable ignored) {
         }
 
-        return Math.max(0, Math.min(40, ticks));
+        return Math.min(40, ticks);
     }
 
     private double getReachTolerance(Profile attacker, Profile target) {
@@ -1121,7 +1120,7 @@ public class ReachA extends Check {
         return String.format("%.4f", value);
     }
 
-    private final class RotationSnapshot {
+    private static final class RotationSnapshot {
 
         private final float yaw;
         private final float pitch;

@@ -295,7 +295,7 @@ public class SpeedUtilities {
 
     public static double getDepthStriderBoost(Profile profile) {
         int depthStriderLevel = getDepthStriderLevel(profile);
-        return depthStriderLevel * (2.5 / 20.0D);
+        return depthStriderLevel * (2.75 / 20.0D);
     }
 
     public static double getAttributeExtra(Profile profile) {

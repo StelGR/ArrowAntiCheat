@@ -3,8 +3,6 @@ package me.arrow.checks.impl.combat.autoclicker;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.player.DiggingAction;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -29,38 +27,25 @@ public class AutoClickerG extends Check {
     double buffer;
 
     private int movements;
-    private boolean digging;
-    private long lastDiggingUpdate;
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
-            WrapperPlayClientPlayerDigging wrapper = new WrapperPlayClientPlayerDigging(event);
-
-            if (wrapper.getAction() == DiggingAction.START_DIGGING) {
-                digging = true;
-                movements = 0;
-                lastDiggingUpdate = System.currentTimeMillis();
-            }
-            else if (wrapper.getAction() == DiggingAction.FINISHED_DIGGING
-                    || wrapper.getAction() == DiggingAction.CANCELLED_DIGGING) {
-                digging = false;
-                lastDiggingUpdate = System.currentTimeMillis();
-            }
-            return;
-        }
         if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
-            if (digging || System.currentTimeMillis() - lastDiggingUpdate < 250L) {
-                movements = 0;
+            if (profile.getPredictionData().isDigging()) {
+                movements = 20;
+                buffer = 0;
                 return;
             }
 
-            if (profile.shouldCancel()
-                    || profile.getLastBlockPlaceTimer().hasNotPassed(20)
-                    || profile.getLastBlockPlaceCancelTimer().hasNotPassed(20)) {
+            if (!profile.getMovementData().isMoving()) {
+                movements = 20;
+                return;
+            }
+
+            if (profile.shouldCancel()) {
                 movements = 20;
                 return;
             }
@@ -68,13 +53,6 @@ public class AutoClickerG extends Check {
             this.movements++;
         }
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
-
-            if (digging || System.currentTimeMillis() - lastDiggingUpdate < 250L) {
-                movements = 0;
-                buffer = 0;
-                return;
-            }
-
             if (movements < 10) {
                 clickData.add(movements);
 

@@ -347,7 +347,14 @@ public class Profile {
                 && isExempt().isRespawned()
                 && !isExempt().isDead()
                 && !isBouncingOnSlime()
-                && movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()) != 0.60000002384186;
+                &&
+                (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()) != 0.60000002384186
+                        ||
+                        (
+                                (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()) == 0)
+                                && movementData.getCustomAirTicks() > 10
+                        )
+                );
 
         //if (CollisionUtils.isNearEdge(movementData.getLocation()) && movementData.getCustomAirTicks() < 3) isGhostBlock = false;
 

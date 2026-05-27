@@ -29,7 +29,14 @@ public class AutoClickerA extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+
+            if (!profile.getMovementData().isMoving()) {
+                cps = 0;
+                return;
+            }
             cps = profile.getCombatData().getCurrentCps();
+
+
         }
 
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {

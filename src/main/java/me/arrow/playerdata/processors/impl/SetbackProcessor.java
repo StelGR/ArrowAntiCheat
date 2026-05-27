@@ -19,6 +19,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static me.arrow.utils.customutils.OtherUtility.*;
 import static org.bukkit.Bukkit.getServer;
@@ -28,6 +33,7 @@ import static org.bukkit.Bukkit.getServer;
 public class SetbackProcessor implements Processor {
 
     private final SampleList<CustomLocation> locations = new SampleList<>(10, true);
+    private static final Map<UUID, List<String>> SETBACK_HISTORY = new ConcurrentHashMap<>();
 
     private final Profile profile;
     private int lastSetbackTicks, lastStoredLocationTicks;
@@ -52,28 +58,88 @@ public class SetbackProcessor implements Processor {
         this.lastStoredLocationTicks = TickTask.getCurrentTick();
     }
 
-    public void causeSetBack(String callingClass) {
-        try {
-            Location loc = profile.getMovementData().getLastGroundLocation();
-            Location groundBelow = MathUtil.getGroundLocation(profile);
+    public void causeSetBack(String reason) {
 
-            profile.isExempt().setSetback(true);
-            if (loc != null) {
-                Bukkit.getScheduler().runTask(Arrow.getInstance().getHost(), () -> profile.getPlayer().teleport(loc, PlayerTeleportEvent.TeleportCause.PLUGIN));
-                setbackDebug(profile, "&c" + callingClass + " &7caused setback at &6" + loc);
-                if (Config.Setting.DEBUG.getBoolean()) log(translate("&c" + callingClass + " &7caused setback at &6" + loc));
-            } else {
-                Bukkit.getScheduler().runTask(Arrow.getInstance().getHost(), () -> profile.getPlayer().teleport(groundBelow, PlayerTeleportEvent.TeleportCause.PLUGIN));
-                setbackDebug(profile, "&c" + callingClass + " &7caused setback at &6" + groundBelow);
-                if (Config.Setting.DEBUG.getBoolean()) log(translate("&c" + callingClass + " &7caused setback at &6" + groundBelow));
+        try {
+
+            Player player = profile.getPlayer();
+
+            if (player == null || !player.isOnline()) {
+                return;
             }
 
+            Location teleportLocation = profile.getMovementData().getLastGroundLocation();
 
-            Bukkit.getScheduler().runTaskLater(Arrow.getInstance().getHost(), () -> profile.isExempt().setSetback(false), 5L);
-           // setback(true, callingClass);
+            if (teleportLocation == null) {
+                teleportLocation = MathUtil.getGroundLocation(profile);
+            }
+
+            if (teleportLocation == null) {
+                return;
+            }
+
+            profile.isExempt().setSetback(true);
+
+            final Location finalLocation = teleportLocation.clone();
+
+            /*
+             * Store setback history
+             */
+            addSetbackHistory(
+                    player.getUniqueId(),
+                    reason,
+                    finalLocation
+            );
+
+            /*
+             * Teleport sync
+             */
+            TaskUtils.task(() -> {
+                player.teleport(finalLocation, PlayerTeleportEvent.TeleportCause.PLUGIN);
+            });
+
+            setbackDebug(
+                    profile,
+                    "&c" + reason + " &7setback -> &6"
+                            + finalLocation.getBlockX() + ", "
+                            + finalLocation.getBlockY() + ", "
+                            + finalLocation.getBlockZ()
+            );
+
+
+
         } catch (Exception e) {
-            setbackDebug(profile, callingClass + ": Setbacks had an error when attempting to setback to previous location, " + e);
-            if (Config.Setting.DEBUG.getBoolean()) log(callingClass + ": Setbacks had an error when attempting to setback to previous location, " + e);
+
+            setbackDebug(
+                    profile,
+                    "&cSetback failed: &7" + e.getMessage()
+            );
+
+            e.printStackTrace();
+        }
+    }
+
+    private void addSetbackHistory(UUID uuid, String reason, Location location) {
+
+        List<String> history = SETBACK_HISTORY.computeIfAbsent(
+                uuid,
+                k -> new CopyOnWriteArrayList<>()
+        );
+
+        history.add(
+                "[" + System.currentTimeMillis() + "] "
+                        + reason
+                        + " -> "
+                        + location.getBlockX() + ", "
+                        + location.getBlockY() + ", "
+                        + location.getBlockZ()
+        );
+
+        /*
+         * Prevent infinite growth
+         */
+        if (history.size() > 50) {
+            history.remove(0);
         }
     }
 

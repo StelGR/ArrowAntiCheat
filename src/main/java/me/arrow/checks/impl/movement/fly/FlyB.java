@@ -207,13 +207,8 @@ public class FlyB extends Check {
                     || movementData.isNearWater()
                     || movementData.getSinceRiptidingTicks() < 30
                     || movementData.getSinceBubbleTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
-                //serverAirTicks = 0;
                 return;
             }
-
-//          double explosionSpeed = user.getPredictionProcessor().getExplosionSpeed();
-
-            // user.getPlayer().sendMessage("airTicks: "+serverAirTicks+", deltaY: "+deltaY+", falldistance: "+fallDistance+", inAir: "+inAir+", serverGround: "+serverGround+", clientGround: "+clientGround);
 
             boolean hasJumpBoost = profile.getPotionData().isHasJump();
             double jumpLevel = hasJumpBoost
@@ -235,11 +230,11 @@ public class FlyB extends Check {
                     airTickLimit = (16 + clientTickTrans) + jumpLevel;
                     clientAirTickLimit = (18 + clientTickTrans) + jumpLevel;
                 } else {
-                    airTickLimit = 10 + jumpLevel;
+                    airTickLimit = 8 + jumpLevel;
                     clientAirTickLimit = 12 + jumpLevel;
                 }
             } else {
-                airTickLimit = (recentlyPlaced && holdingBlock) ? 16 + clientTickTrans : 10;
+                airTickLimit = (recentlyPlaced && holdingBlock) ? 16 + clientTickTrans : 8;
                 clientAirTickLimit = (recentlyPlaced && holdingBlock) ? 20 + clientTickTrans : 12;
             }
 
@@ -257,10 +252,6 @@ public class FlyB extends Check {
             boolean exempt = movementData.isInsideLiquid()
                     || movementData.isNearWebs()
                     || (profile.getMovementData().getSinceGlidingTicks() < 10);
-
-//            if (Double.isNaN(airTickLimit) || Double.isInfinite(airTickLimit)) {
-//                airTickLimit = 10.0;
-//            }
 
             if (profile.getPlayer().getLastDamageCause() != null) {
                 EntityDamageEvent.DamageCause cause = profile.getPlayer().getLastDamageCause().getCause();
@@ -284,18 +275,18 @@ public class FlyB extends Check {
             );
 
             double velMag = (horizontal / 2) + vertical;
-            double baseTicksVel = 6;
+            double baseTicksVel = 10;
             double baseVelocity = 0.0005;
             double scale = 14;
 
-            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
+            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity)) + 6;
             airTickLimit += Math.ceil(extraFromVel);
 
             if (movementData.isNearFence()) airTickLimit += 4;
 
             boolean invalidNormal =
                     serverAirTicks > airTickLimit
-                    && deltaY > -0.301
+                    && deltaY > -0.2
                     && inAir;
 
             verbose(this.getClass().getSimpleName(), serverAirTicks, airTickLimit, MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround

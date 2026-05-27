@@ -77,7 +77,22 @@ public class GroundB extends Check {
         );
 
         //invalid 1 was a terribly made check, i removed it, invalid2 does most of the job. but it can still false, needs improvements
+        double horizontal = Math.max(
+                profile.getVelocityData().getTotalHorizontalVelocitySustain(),
+                profile.getVelocityData().getStackedHorizontalVelocity()
+        );
+        double vertical = Math.max(
+                profile.getVelocityData().getTotalVerticalVelocitySustain(),
+                profile.getVelocityData().getStackedVerticalVelocity()
+        );
 
+        double velMag = (horizontal / 2) + vertical;
+        double baseTicksVel = 10;
+        double baseVelocity = 0.0005;
+        double scale = 14;
+
+        double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
+        airTickLimit += Math.ceil(extraFromVel);
 
 
         boolean invalid = airTicks > (airTickLimit + 12) && clientGround && serverGround && inAir;
@@ -124,19 +139,24 @@ public class GroundB extends Check {
                             + "\n * JumpExpected " + MsgType.MAIN_THEME_COLOR.getMessage() + getExpectedJumpMotion());
         }
 
-        if (invalid || invalid2) {
-            if ( increaseBuffer() > 3 || invalid2) {
-                fail("Impossible ground state " + (invalid ? "(1)" : "(2)"),
-                        "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverYGround
-                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
-                                + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
-                                + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
-                                //+ "\nimpossibleGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + impossibleGroundTicks
-                                + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
+        String verboseInfo = "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverYGround
+                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
+                + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
+                + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
+                + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY;
+        if (invalid) {
+            if ( increaseBuffer() > 3) {
+                fail("Impossible ground state (1)",
+                        verboseInfo);
             }
+        }
+        else decreaseBufferBy(0.125);
+        if (invalid2) {
+            fail("Impossible ground state (2)",
+                    verboseInfo);
         }
     }
 

@@ -117,7 +117,8 @@ public class GroundC extends Check {
 
             if (profile.getMovementData().getSinceOnGhostBlock() <= 1) {
                 boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
-                if (nearEdge && movementData.getLastDeltaY() != 0 && movementData.getDeltaY() == 0 && movementData.getClientAirTicks() == 0) return;
+
+                if (movementData.getFallDistance() > 1.3 || movementData.getLastFallDistance() > 1.3) return;
 
                 fail("On Ghostblock?", verboseInfo);
 
@@ -139,7 +140,7 @@ public class GroundC extends Check {
             }
 
 
-            if (profile.getBlockProcessor().isOnGhostBlock() ) {
+            if (profile.getBlockProcessor().isOnGhostBlock()) {
                 fail("BlockProcessor: On Ghostblock?", verboseInfo);
 
                 movementData.setCustomAirTicks(0);
@@ -147,6 +148,13 @@ public class GroundC extends Check {
                     OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
                 }
             }
+
+            verbose(this.getClass().getSimpleName(), movementData.getCustomAirTicks(), 2 ,"mathFloor " + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()))
+                    + "\ninAir " + movementData.isCustomInAir()
+                    + "\nAirTicks " + movementData.getCustomAirTicks()
+                    + "\nclientGround " + movementData.isOnGround()
+                    + "\nfalldistance " + movementData.getFallDistance());
+
         }
     }
 }

@@ -1,5 +1,6 @@
 package me.arrow.utils.customutils;
 
+import me.arrow.Arrow;
 import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
@@ -81,9 +82,38 @@ public class OtherUtility {
         return "Unknown";
     }
 
-    public static void setbackDebug(Profile user, String data) {
-        if (user.isSetbackDebug() && user.getPlayer().hasPermission(Permissions.SETBACKS.getPermission())) {
-            user.getPlayer().sendMessage(translate(data));
+    public static void setbackDebug(Profile target, String data) {
+
+        String formatted = translate(
+                "&8[&cSetback&8] "
+                        + "&7[&f" + target.getPlayer().getName() + "&7] "
+                        + data
+        );
+
+        for (Profile profile : Arrow.getInstance()
+                .getProfileManager()
+                .getProfileMap()
+                .values()) {
+
+            if (profile == null) {
+                continue;
+            }
+
+            Player player = profile.getPlayer();
+
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+
+            if (!profile.isSetbackDebug()) {
+                continue;
+            }
+
+            if (!player.hasPermission(Permissions.SETBACKS.getPermission())) {
+                continue;
+            }
+
+            player.sendMessage(formatted);
         }
     }
 

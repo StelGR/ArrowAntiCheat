@@ -139,11 +139,11 @@ public class MotionC extends Check {
             );
 
             double velMag = (horizontal / 2) + vertical;
-            double baseTicksVel = 6;
+            double baseTicksVel = 10;
             double baseVelocity = 0.0005;
             double scale = 14;
 
-            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
+            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity)) + 6;
             airTickLimit += Math.ceil(extraFromVel);
 
             if (movementData.isNearFence()) airTickLimit += 4;

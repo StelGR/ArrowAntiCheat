@@ -3,12 +3,10 @@ package me.arrow.checks.impl.misc.timer;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
-import me.arrow.utils.custom.CustomLocation;
 
 public class TimerA extends Check {
 
@@ -17,8 +15,10 @@ public class TimerA extends Check {
 
     private static final long TIMER_A_CAP_LENGTH = 2_000_000_000L;
 
-    private long lastFlyingPacket = System.nanoTime();
+    private long lastFlyingPacket;
+
     private long balance;
+
     private boolean capped;
 
     private double violations;
@@ -29,29 +29,33 @@ public class TimerA extends Check {
 
     @Override
     public void handle(PacketSendEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Server.PLAYER_POSITION_AND_LOOK)) {
+        if (event.getPacketType() == PacketType.Play.Server.PLAYER_POSITION_AND_LOOK) {
             this.balance -= TELEPORT_OFFSET;
         }
     }
 
     @Override
     public void handle(PacketReceiveEvent event) {
-
+        // ping instability kick, to prevent falses with TimerA
         if (profile.getConnectionData().getTransPing() >= 2500 && ready()) {
             if (increaseBuffer() > 500) {
                 profile.kick("Your ping is constantly high, do something about it.");
             }
         } else decreaseBufferBy(1);
 
+        //rest of the code
 
-
-        long now = System.nanoTime();
-
-        if (!isFlyingPacket(event) || profile.getConnectionData().getTransPing() > 1000) {
-            lastFlyingPacket = 0;
-            balance = -1000;
+        if (!isFlyingPacket(event)) {
             return;
         }
+
+        if (profile.getConnectionData().getTransPing() > 1000) {
+            this.balance = 0L;
+            this.lastFlyingPacket = System.nanoTime();
+            return;
+        }
+
+        long now = System.nanoTime();
 
         if (now == 0L && this.lastFlyingPacket == 0L) {
             return;
@@ -63,71 +67,89 @@ public class TimerA extends Check {
 
         long capLength = TIMER_A_CAP_LENGTH;
 
-        long delay = FLYING_OFFSET - (now - this.lastFlyingPacket);
-        long diff = Math.max(FLYING_OFFSET, now - this.lastFlyingPacket);
+        long delta = now - this.lastFlyingPacket;
 
+        long diff = Math.max(FLYING_OFFSET, delta);
 
+        long delay = FLYING_OFFSET - delta;
 
         this.balance = Math.max(-capLength, this.balance + delay);
 
-        if (!profile.getMovementData().isMoving()) balance = -profile.getConnectionData().getTransPing();
+        if (!profile.getMovementData().isMoving()) {
+            balance = -(profile.getConnectionData().getTransPing());
+            now = System.nanoTime();
+            lastFlyingPacket = System.nanoTime();
+        }
 
         if (this.balance > FLYING_OFFSET + 5_000_000L) {
-            if (this.ready()) {
+
+            if (ready()) {
+
                 if (++this.violations > 3.0D) {
+
                     if (!this.capped) {
-                        fail("Speeding up game clock (1)",
+
+                        fail(
+                                "Speeding up game clock (uncapped)",
                                 "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + (this.balance / 1_000_000L)
-                                        + "\nmaxBalance " + MsgType.MAIN_THEME_COLOR.getMessage() + (FLYING_OFFSET + 5_000_000L)
-                                        + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math. min(FLYING_OFFSET / diff, 10L)
-                                        + "\nlastPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + now
-                                        + "\nuserTick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick());
+                                        + "\nmaxBalance " + MsgType.MAIN_THEME_COLOR.getMessage() + ((FLYING_OFFSET + 5_000_000L) / 1_000_000L)
+                                        + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min((double) FLYING_OFFSET / diff, 10.0D)
+                                        + "\ndelay " + MsgType.MAIN_THEME_COLOR.getMessage() + (delay / 1_000_000L)
+                                        + "\ndiff " + MsgType.MAIN_THEME_COLOR.getMessage() + (diff / 1_000_000L)
+                                        + "\ntick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick()
+                        );
+
                     } else {
-                        fail("Speeding up game clock (2)",
-                                        "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + (this.balance / 1_000_000L)
-                                        + "\nmaxBalance " + MsgType.MAIN_THEME_COLOR.getMessage() + (FLYING_OFFSET + 5_000_000L)
-                                        + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min(FLYING_OFFSET / diff, 10L)
-                                        + "\nlastPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + now
-                                        + "\nuserTick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick());
+                        fail(
+                                "Speeding up game clock (capped)",
+                                "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + (this.balance / 1_000_000L)
+                                        + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min((double) FLYING_OFFSET / diff, 10.0D)
+                                        + "\ntick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick()
+                        );
                     }
                 }
+            } else {
+                violations -= Math.min(violations, 0.25f);
             }
 
             this.balance = 0L;
+
         } else {
             this.violations = Math.max(0.0D, this.violations - 0.005D);
         }
+
 
         if (this.balance <= -capLength) {
             this.capped = true;
         }
 
-        verbose(this.getClass().getSimpleName(), this.balance / 1_000_000.0D, 55.0D,
-                "balance " + this.balance / 1_000_000.0D
-                        + "\ndelay " + delay / 1_000_000.0D
-                        + "\ndiff " + diff / 1_000_000.0D
-                        + "\nrate " + Math.min(FLYING_OFFSET / diff, 10L)
+        verbose(
+                this.getClass().getSimpleName(),
+                this.balance / 1_000_000.0D,
+                55.0D,
+                "balance " + (this.balance / 1_000_000.0D)
+                        + "\ndelay " + (delay / 1_000_000.0D)
+                        + "\ndiff " + (diff / 1_000_000.0D)
+                        + "\nrate " + Math.min((double) FLYING_OFFSET / diff, 10.0D)
                         + "\ncapped " + this.capped
                         + "\nviolations " + this.violations
-                        + "\ntick " + profile.getTick());
+                        + "\ntick " + profile.getTick()
+        );
 
         this.lastFlyingPacket = now;
     }
 
     private boolean isFlyingPacket(PacketReceiveEvent event) {
-        return event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
+        return event.getPacketType() == PacketType.Play.Client.PLAYER_FLYING
+                || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION
+                || event.getPacketType() == PacketType.Play.Client.PLAYER_ROTATION
+                || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;
     }
 
     private boolean ready() {
-
-        CustomLocation loc = profile.getMovementData().getLocation();
         return profile.getTick() > 100
                 && !profile.shouldCancel()
                 && !profile.isExempt().isTeleports()
-                && !profile.isExempt().vehicle()
-                && Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(loc.getWorld(), (int) loc.getX(), (int) loc.getZ());
+                && !profile.isExempt().vehicle();
     }
 }

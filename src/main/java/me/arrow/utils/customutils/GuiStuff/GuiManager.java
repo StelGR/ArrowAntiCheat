@@ -8,6 +8,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
+import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.custom.MaterialType;
@@ -168,6 +169,10 @@ public class GuiManager {
                 return;
             }
 
+            List<PlayerLog> logs = Arrow.getInstance().getLogManager()
+                    .getLogExporter()
+                    .getLogsForPlayer(playerForInfo.getName());
+
             updateLore.accept(11, Arrays.asList(
                     translate(guiLine()),
                     translate("&7AVG CPS: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getCombatData().getAverageCps()),
@@ -177,6 +182,15 @@ public class GuiManager {
                     translate("&7Attack Cooldown: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getAttackCooldown()),
                     "",
                     translate("&7Attack Distance: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getReachDistance()),
+                    "",
+                    translate("&7Velocity H: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getVelocityData().getTotalHorizontalVelocity()),
+                    translate("&7Velocity V: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getVelocityData().getTotalVerticalVelocity()),
+                    "",
+                    translate("&7Velocity H Sustain: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getVelocityData().getTotalHorizontalVelocitySustain()),
+                    translate("&7Velocity V Sustain: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getVelocityData().getTotalVerticalVelocitySustain()),
+                    "",
+                    translate("&7Velocity H Stacked: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getVelocityData().getStackedHorizontalVelocity()),
+                    translate("&7Velocity V Stacked: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getVelocityData().getStackedVerticalVelocity()),
                     translate(guiLine())
             ));
 
@@ -184,6 +198,7 @@ public class GuiManager {
                     translate(guiLine()),
                     translate("&7Version: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getVersion().getReleaseName()),
                     translate("&7Client: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getClient()),
+                    translate("&7Total Logs: " + MsgType.MAIN_THEME_COLOR.getMessage() + logs.size()),
                     "",
                     translate("&7Trust Factor: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getTrustFactor().getRank()),
                     "",
@@ -222,6 +237,13 @@ public class GuiManager {
             extraDebugLore.add(translate("&7Air Bridging: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isAirBridging(info.getPlayer().getLocation())));
             extraDebugLore.add(translate("&7Ghost Block: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isOnGhostBlock()));
             extraDebugLore.add(translate("&7Teleporting: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isExempt().isTeleports()));
+            extraDebugLore.add("");
+            extraDebugLore.add(translate("&7Moving: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().isMoving()));
+            extraDebugLore.add(translate("&7DeltaXZ: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getDeltaXZ()));
+            extraDebugLore.add(translate("&7DeltaY: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getDeltaY()));
+            extraDebugLore.add(translate("&7Predict Up Ticks: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getSincePredictUpwardsTicks()));
+            extraDebugLore.add(translate("&7Predict Down Ticks: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getSincePredictDownwardsTicks()));
+            extraDebugLore.add(translate("&7In Air: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().isCustomInAir()));
             extraDebugLore.add("");
 
             try {

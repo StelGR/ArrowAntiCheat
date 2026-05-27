@@ -94,11 +94,6 @@ public class VelocityData implements Data {
 
                 MovementData movementData = profile.getMovementData();
 
-                if (!movementData.isMoving()) {
-                    resetVerticalVelocitySustain();
-                    resetHorizontalVelocitySustain();
-                }
-
                 if (velocityH > 0.0D) {
                     double totalH = velocityH;
 
@@ -144,6 +139,12 @@ public class VelocityData implements Data {
                 if (Math.abs(explosionKnockback.getZ()) < 0.0001D) {
                     explosionKnockback.setZ(0.0D);
                     explosionKnockbackSustain.setZ(0.0D);
+                }
+
+                if (!movementData.isMoving() && movementData.getMovingTicks() == 0) {
+                    resetVerticalVelocitySustain();
+                    resetHorizontalVelocitySustain();
+                    explosionKnockbackSustain = new Vector(0, 0, 0);
                 }
             }
 
@@ -297,7 +298,7 @@ public class VelocityData implements Data {
 
         MovementData movementData = profile.getMovementData();
 
-        boolean grounded = movementData.isOnGround() || movementData.isServerGround();
+        boolean grounded = movementData.getClientGroundTicks() > 10 || movementData.getServerGroundTicks() > 10 || movementData.getServerGroundTicksPlus() > 10;
 
         if (grounded) {
             resetStackedVelocity();
@@ -419,25 +420,11 @@ public class VelocityData implements Data {
     }
 
     public double getTotalHorizontalVelocitySustain() {
-        Vector explosion = copy(explosionKnockbackSustain);
 
         return Math.hypot(
-                explosion.getX(),
-                explosion.getZ()
+                explosionKnockbackSustain.getX(),
+                explosionKnockbackSustain.getZ()
         ) + velocityHSustain;
-    }
-
-    public double getTotalVerticalFVCVelocity() {
-        return getVelocityVfvc() + copy(explosionKnockbackfvc).getY();
-    }
-
-    public double getTotalHorizontalFVCVelocity() {
-        Vector explosion = copy(explosionKnockbackfvc);
-
-        return Math.hypot(
-                explosion.getX(),
-                explosion.getZ()
-        ) + velocityHfvc;
     }
 
     public boolean isTakingVelocity() {
