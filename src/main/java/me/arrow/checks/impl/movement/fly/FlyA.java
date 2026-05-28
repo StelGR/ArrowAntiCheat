@@ -129,6 +129,11 @@ public class FlyA extends Check {
                 }
             }
 
+            if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: Exempt - vehicle");
+                return;
+            }
+
             int ghostLiquidWebTicks = Math.min(
                     profile.getBlockProcessor().getLastGhostLiquidWebTick(),
                     profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
@@ -193,7 +198,6 @@ public class FlyA extends Check {
         if (profile.isExempt().isTeleports()) { debugExempt("teleport"); return; }
         if (!profile.isExempt().isRespawned()) { debugExempt("notRespawned"); return; }
         if (movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) { debugExempt("riptiding"); return; }
-        if (profile.getVehicleData().getSinceVehicleTicks() < 10) { debugExempt("vehicleTicks"); return; }
         if (profile.getPlayer().isInsideVehicle()) { debugExempt("insideVehicle"); return; }
 
         int pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
@@ -306,7 +310,6 @@ public class FlyA extends Check {
                 || movementData.isInsideLiquid()
                 || profile.isExempt().isTeleports()
                 || !profile.isExempt().isRespawned()
-                || profile.getVehicleData().getSinceVehicleTicks() < 5
                 || profile.getLastBlockBreakTimer().hasNotPassed(5 + profile.getConnectionData().getClientTickTrans())) {
             return;
         }
@@ -608,7 +611,7 @@ public class FlyA extends Check {
         }
 
         if (!clientGround) {
-            if (++bufferC > 6.0D) {
+            if (++bufferC > 3.0D) {
                 fail("Not following MCP Gravity (3)",
                         "offset " + MsgType.MAIN_THEME_COLOR.getMessage() + lastOffset
                                 + "\nprediction1 " + MsgType.MAIN_THEME_COLOR.getMessage() + pred1
@@ -828,7 +831,7 @@ public class FlyA extends Check {
                     || (doubleGravityMatch && excess > (slowFalling ? 0.030D : 0.050D) && data.getCustomAirTicks() >= 3)
                     || (excess > (slowFalling ? 0.045D : 0.095D) && severity > 3.0D);
 
-            double required = hardFastFall ? 3D : 6D;
+            double required = hardFastFall ? 2D : 4D;
 
             if (hardFastFall && increaseBuffer() > required || negGravStreak > required) {
                 fail("Negative Gravity Modification " + (hardFastFall ? "(Fast Fall)" : "(Streak : "+ negGravStreak+")"),

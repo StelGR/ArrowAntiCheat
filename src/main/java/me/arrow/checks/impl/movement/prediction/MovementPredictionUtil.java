@@ -132,6 +132,16 @@ public class MovementPredictionUtil {
                     || sector == MovementSector.FORWARD_RIGHT;
         }
 
+        public boolean isForwardStrafe() {
+            return sector == MovementSector.FORWARD_LEFT
+                    || sector == MovementSector.FORWARD_RIGHT;
+        }
+
+        public boolean isBackwardsStrafe() {
+            return sector == MovementSector.BACKWARD_LEFT
+                    || sector == MovementSector.BACKWARD_RIGHT;
+        }
+
         public boolean isSideways() {
             return sector == MovementSector.LEFT
                     || sector == MovementSector.RIGHT;

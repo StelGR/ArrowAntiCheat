@@ -16,7 +16,8 @@ public class SpeedUtilities {
 
     public static final double DEFAULT_WALK_SPEED_ATTRIBUTE = 0.1D;
     public static final double VANILLA_SPRINT_MULTIPLIER = 1.3D;
-    public static final double SPEED_POTION_MULTIPLIER_PER_LEVEL = 0.2D;
+    public static final double SPEED_MULTIPLIER_AIR = 0.2D;
+    public static final double SPEED_MULTIPLIER_GROUND = 0.2125D;
 
     // Vanilla's generic.movement_speed max is extremely high on modern versions.
     // Keep this high enough to support real attribute values, but clamp bad/plugin-corrupt values.
@@ -30,7 +31,7 @@ public class SpeedUtilities {
                                             double sprintBase,
                                             double noSprintBase,
                                             double defaultBaseSpeed) {
-        double groundLimit = defaultBaseSpeed * getEffectiveMovementScale(profile);
+        double groundLimit = defaultBaseSpeed * getEffectiveMovementScaleGround(profile);
 
         groundLimit += iceBoost;
 
@@ -42,7 +43,7 @@ public class SpeedUtilities {
     }
 
     public static double computeAirLimit(Profile profile, double defaultAirBaseSpeed) {
-        return defaultAirBaseSpeed * getEffectiveMovementScale(profile);
+        return defaultAirBaseSpeed * getEffectiveMovementScaleAir(profile);
     }
 
     public static double friction(double blockFriction) {
@@ -129,13 +130,19 @@ public class SpeedUtilities {
         return isSprinting(profile) ? VANILLA_SPRINT_MULTIPLIER : 1.0D;
     }
 
-    public static double getManualEffectiveMovementSpeed(Profile profile) {
+    public static double getManualEffectiveMovementSpeedAir(Profile profile) {
         return clampMovementAttribute(getMovementSpeedAttribute(profile)
                 * getSprintingMultiplier(profile)
-                * getPotionSpeedMultiplier(profile));
+                * getPotionSpeedAirMultiplier(profile));
     }
 
-    public static double getEffectiveMovementSpeed(Profile profile) {
+    public static double getManualEffectiveMovementSpeedGround(Profile profile) {
+        return clampMovementAttribute(getMovementSpeedAttribute(profile)
+                * getSprintingMultiplier(profile)
+                * getPotionSpeedGroundMultiplier(profile));
+    }
+
+    public static double getEffectiveMovementSpeedAir(Profile profile) {
         /*
          * getBaseValue() misses AttributeModifiers, while getValue() can include them.
          * Use the larger of:
@@ -143,38 +150,64 @@ public class SpeedUtilities {
          *   - Bukkit's final attribute value
          * This supports both /attribute base changes and plugins that add modifiers.
          */
-        return Math.max(getManualEffectiveMovementSpeed(profile), getMovementSpeedAttributeValue(profile));
+        return Math.max(getManualEffectiveMovementSpeedAir(profile), getMovementSpeedAttributeValue(profile));
+    }
+
+    public static double getEffectiveMovementSpeedGround(Profile profile) {
+        /*
+         * getBaseValue() misses AttributeModifiers, while getValue() can include them.
+         * Use the larger of:
+         *   - manual base * sprint * Speed potion
+         *   - Bukkit's final attribute value
+         * This supports both /attribute base changes and plugins that add modifiers.
+         */
+        return Math.max(getManualEffectiveMovementSpeedGround(profile), getMovementSpeedAttributeValue(profile));
     }
 
     public static double getVanillaReferenceMovementSpeed(Profile profile) {
         return DEFAULT_WALK_SPEED_ATTRIBUTE * getSprintingMultiplier(profile);
     }
 
-    public static double getEffectiveMovementScale(Profile profile) {
+    public static double getEffectiveMovementScaleAir(Profile profile) {
         double reference = getVanillaReferenceMovementSpeed(profile);
 
         if (reference <= 0.0D) {
             return 1.0D;
         }
 
-        return Math.max(0.0D, getEffectiveMovementSpeed(profile) / reference);
+        return Math.max(0.0D, getEffectiveMovementSpeedAir(profile) / reference);
     }
 
-    public static double getAttributeBonus(Profile profile, double coefficient, double maxBonus) {
-        double extraScale = Math.max(0.0D, getEffectiveMovementScale(profile) - getPotionSpeedMultiplier(profile));
+    public static double getEffectiveMovementScaleGround(Profile profile) {
+        double reference = getVanillaReferenceMovementSpeed(profile);
+
+        if (reference <= 0.0D) {
+            return 1.0D;
+        }
+
+        return Math.max(0.0D, getEffectiveMovementSpeedGround(profile) / reference);
+    }
+
+    public static double getAttributeBonusAir(Profile profile, double coefficient, double maxBonus) {
+        double extraScale = Math.max(0.0D, getEffectiveMovementScaleAir(profile) - getPotionSpeedAirMultiplier(profile));
+        return Math.min(maxBonus, extraScale * coefficient);
+    }
+
+    public static double getAttributeBonusGround(Profile profile, double coefficient, double maxBonus) {
+        double extraScale = Math.max(0.0D, getEffectiveMovementScaleGround(profile) - getPotionSpeedGroundMultiplier(profile));
         return Math.min(maxBonus, extraScale * coefficient);
     }
 
     public static double getGroundAttributeBonus(Profile profile) {
-        return getAttributeBonus(profile, 0.2778085125D, MAX_REASONABLE_MOVEMENT_ATTRIBUTE);
+        return getAttributeBonusGround(profile, 0.2778085125D, MAX_REASONABLE_MOVEMENT_ATTRIBUTE);
     }
 
     public static double getAirAttributeBonus(Profile profile) {
-        return getAttributeBonus(profile, 0.35301212D, MAX_REASONABLE_MOVEMENT_ATTRIBUTE);
+        return getAttributeBonusAir(profile, 0.35301212D, MAX_REASONABLE_MOVEMENT_ATTRIBUTE);
     }
 
     public static double getGroundPotionBonus(Profile profile) {
-        double potionScale = getPotionSpeedMultiplier(profile) - 1.0D;
+        double potionScale = getPotionSpeedGroundMultiplier(profile) - 1.0D;
 
         if (potionScale <= 0.0D) {
             return 0.0D;
@@ -184,7 +217,7 @@ public class SpeedUtilities {
     }
 
     public static double getAirPotionBonus(Profile profile) {
-        double potionScale = getPotionSpeedMultiplier(profile) - 1.0D;
+        double potionScale = getPotionSpeedAirMultiplier(profile) - 1.0D;
 
         if (potionScale <= 0.0D) {
             return 0.0D;
@@ -213,14 +246,24 @@ public class SpeedUtilities {
         return Math.max(0, profile.getPotionData().getPotionEffectLevel(PotionType.SPEED));
     }
 
-    public static double getPotionSpeedMultiplier(Profile profile) {
+    public static double getPotionSpeedAirMultiplier(Profile profile) {
         int level = getSpeedPotionLevel(profile);
 
         if (level <= 0) {
             return 1.0D;
         }
 
-        return 1.0D + (SPEED_POTION_MULTIPLIER_PER_LEVEL * level);
+        return 1.0D + (SPEED_MULTIPLIER_AIR * level);
+    }
+
+    public static double getPotionSpeedGroundMultiplier(Profile profile) {
+        int level = getSpeedPotionLevel(profile);
+
+        if (level <= 0) {
+            return 1.0D;
+        }
+
+        return 1.0D + (SPEED_MULTIPLIER_GROUND * level);
     }
 
     public static double getAttributeScale(Profile profile) {
@@ -237,8 +280,12 @@ public class SpeedUtilities {
         return getMovementSpeedAttribute(profile) * getSprintingMultiplier(profile);
     }
 
-    public static double getAttributeAndPotionScale(Profile profile) {
-        return getEffectiveMovementScale(profile);
+    public static double getAttributeAndPotionScaleAir(Profile profile) {
+        return getEffectiveMovementScaleAir(profile);
+    }
+
+    public static double getAttributeAndPotionScaleGround(Profile profile) {
+        return getEffectiveMovementScaleGround(profile);
     }
 
     public static double getIceSpeedBoost(double increment, double movingIceTicks, double limit) {
@@ -317,6 +364,6 @@ public class SpeedUtilities {
     }
 
     public static double getGroundSpeedLimitBonus(Profile profile) {
-        return Math.max(0.0D, (0.2778085125D * getEffectiveMovementScale(profile)) - 0.2778085125D);
+        return Math.max(0.0D, (0.2778085125D * getEffectiveMovementScaleGround(profile)) - 0.2778085125D);
     }
 }

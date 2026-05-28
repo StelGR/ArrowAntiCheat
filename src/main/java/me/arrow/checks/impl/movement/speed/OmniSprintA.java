@@ -286,6 +286,8 @@ public class OmniSprintA extends Check {
         handleGround(groundInvalid, groundHardImpossible);
         handleAir(airInvalid, airInputHardImpossible);
 
+        if (airInputDirection.isForward()) return;
+
         if (groundBuffer > 8.0D) {
             fail("Sprinting in impossible direction",
                     "type " + MsgType.MAIN_THEME_COLOR.getMessage() + "ground" +
@@ -342,7 +344,7 @@ public class OmniSprintA extends Check {
             }
         } else {
             groundInvalidTicks = Math.max(0, groundInvalidTicks - 1);
-            groundBuffer = Math.max(0.0D, groundBuffer - 0.35D);
+            groundBuffer = Math.max(0.0D, groundBuffer - 0.035D);
         }
     }
 
@@ -357,7 +359,7 @@ public class OmniSprintA extends Check {
             }
         } else {
             airInvalidTicks = Math.max(0, airInvalidTicks - 1);
-            airBuffer = Math.max(0.0D, airBuffer - 0.30D);
+            airBuffer = Math.max(0.0D, airBuffer - 0.030D);
         }
     }
 

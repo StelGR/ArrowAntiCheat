@@ -40,10 +40,12 @@ public class AutoClickerA extends Check {
         }
 
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
-            if (cps >= maxCPS) {
-                fail("CPS Limit",
-                        "CPS " + MsgType.MAIN_THEME_COLOR.getMessage() + cps +
-                                "\nMax CPS " + MsgType.MAIN_THEME_COLOR.getMessage() + maxCPS);
+            if (!profile.getMovementData().isMoving()) {
+                if (cps >= maxCPS) {
+                    fail("CPS Limit",
+                            "CPS " + MsgType.MAIN_THEME_COLOR.getMessage() + cps +
+                                    "\nMax CPS " + MsgType.MAIN_THEME_COLOR.getMessage() + maxCPS);
+                }
             }
         }
     }

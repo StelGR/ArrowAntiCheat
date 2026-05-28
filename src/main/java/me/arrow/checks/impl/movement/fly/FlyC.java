@@ -60,8 +60,8 @@ public class FlyC extends Check {
                     || profile.isBouncingOnSlime()
                     || movementData.isOnBoat()
                     || movementData.isNearBoat()
+                    || movementData.isNearGhast()
                     || movementData.isNearWebs()
-                    || profile.getVehicleData().getSinceVehicleTicks() < 5
                     || profile.getLastBlockPlaceTimer().hasNotPassed(10 + profile.getConnectionData().getClientTickTrans())
                     || movementData.isNearBed()
                     || movementData.isNearLava()
@@ -83,6 +83,11 @@ public class FlyC extends Check {
 
             if (movementData.getSinceGlidingTicks() < 20) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly C: is Exempting (Gliding)");
+                return;
+            }
+
+            if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly C: Exempt - vehicle");
                 return;
             }
 

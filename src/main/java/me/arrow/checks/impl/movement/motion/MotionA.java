@@ -199,7 +199,7 @@ public class MotionA extends Check {
                     && lastGround
                     && deltaY > motion
                     && !movementData.isMovingUp()) {
-                if (++buffer2 > 2) {
+                if (++buffer2 > 1) {
                     fail("Jumping Higher Than Expected",
                             "deltaY "+ MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                     + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight

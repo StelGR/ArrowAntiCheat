@@ -17,6 +17,7 @@ public enum CheckType {
     MOTION("Motion", CheckCategory.MOVEMENT),
     ANALYSIS("Analysis", CheckCategory.MOVEMENT),
     ELYTRA("Elytra", CheckCategory.MOVEMENT),
+    ILLEGALMOVE("IllegalMove", CheckCategory.MOVEMENT),
     TIMER("Timer", CheckCategory.WORLD),
     REACH("Reach", CheckCategory.COMBAT),
     VELOCITY("Velocity", CheckCategory.COMBAT),

@@ -26,6 +26,8 @@ import me.arrow.checks.impl.movement.fly.*;
 import me.arrow.checks.impl.movement.ground.GroundA;
 import me.arrow.checks.impl.movement.ground.GroundB;
 import me.arrow.checks.impl.movement.ground.GroundC;
+import me.arrow.checks.impl.movement.illegalmove.IllegalMoveA;
+import me.arrow.checks.impl.movement.illegalmove.IllegalMoveB;
 import me.arrow.checks.impl.movement.motion.*;
 import me.arrow.checks.impl.movement.speed.*;
 import me.arrow.checks.types.Check;
@@ -136,11 +138,13 @@ public class CheckHolder {
                 new MotionD(this.profile),
                 new MotionE(this.profile),
                 new MotionF(this.profile),
-                new MotionG(this.profile),
 
                 new BadPacketsA(this.profile),
                 new BadPacketsB(this.profile),
                 new BadPacketsC(this.profile),
+
+                new IllegalMoveA(this.profile),
+                new IllegalMoveB(this.profile),
 
                 //new PhaseA(this.profile),
 

@@ -129,13 +129,23 @@ public class MotionC extends Check {
 
             if (deltaXZ != 0) airTickLimit += (recentlyPlaced && holdingBlock) ? 4 : 2;
 
-            double horizontal = Math.max(
+            double horizontalS = Math.max(
                     profile.getVelocityData().getTotalHorizontalVelocitySustain(),
                     profile.getVelocityData().getStackedHorizontalVelocity()
             );
-            double vertical = Math.max(
+            double verticalS = Math.max(
                     profile.getVelocityData().getTotalVerticalVelocitySustain(),
                     profile.getVelocityData().getStackedVerticalVelocity()
+            );
+
+            double horizontal = Math.max(
+                    horizontalS,
+                    profile.getVelocityData().getTotalHorizontalVelocity()
+            );
+
+            double vertical = Math.max(
+                    verticalS,
+                    profile.getVelocityData().getTotalVerticalVelocity()
             );
 
             double velMag = (horizontal / 2) + vertical;

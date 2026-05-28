@@ -3,8 +3,8 @@ package me.arrow.checks.impl.movement.speed;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
+import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -25,6 +25,8 @@ import org.bukkit.util.Vector;
 
 // update 107-pre1, velocity issues are fixed on bedrock, but now we have a jump height issue.
 // bedrock can't stop giving me brain damage, but i wont give up.
+
+// strafe has moved to illegalmoveb
 
 public class SpeedA extends Check {
     public SpeedA(Profile profile) {
@@ -49,10 +51,6 @@ public class SpeedA extends Check {
 
             double deltaXZ = movementData.getDeltaXZ();
             double deltaY = movementData.getDeltaY();
-            double deltaX = movementData.getDeltaX();
-            double deltaZ = movementData.getDeltaZ();
-            double lastDeltaX = movementData.getLastDeltaX();
-            double lastDeltaZ = movementData.getLastDeltaZ();
             double velocityH = velocityData.getTotalHorizontalVelocity();
             double blockFriction = movementData.getFrictionFactor();
 
@@ -72,7 +70,6 @@ public class SpeedA extends Check {
 
             calculateGround(movementData, velocityData, deltaXZ, deltaY, movingIceTicks, serverGround, serverGroundTicks, clientAirTicks, blockFriction);
 
-            calculateStrafe(movementData, deltaXZ, deltaX, deltaZ, lastDeltaX, lastDeltaZ, sprinting, blockFriction, clientAirTicks);
         }
     }
 
@@ -144,11 +141,6 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (profile.getVehicleData().getSinceVehicleTicks() < 5 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - recentlyInVehicle");
-            return;
-        }
-
         if (movementData.isUnderblock()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - underblock");
             return;
@@ -179,6 +171,9 @@ public class SpeedA extends Check {
             return;
         }
 
+        float yaw = profile.getRotationData().getYaw();
+        double deltaX = movementData.getDeltaX();
+        double deltaZ = movementData.getDeltaZ();
 
         //double extraFromBlocks = (profile.getBlockData().slabTicks > 0 || profile.getBlockData().stairTicks > 0) ? 0.475D : 0.0D;
 
@@ -188,12 +183,19 @@ public class SpeedA extends Check {
 
         double groundLimit = SpeedUtilities.computeGroundLimit(profile, velocityData, blockFriction, iceBoost, SPRINT_BASE, NO_SPRINT_BASE, DEFAULT_BASE_PER_TICK);
 
+        MovementPredictionUtil.DirectionalMovement inputDirection =
+                MovementPredictionUtil.predictDirectionalMovement(deltaX, deltaZ, yaw);
+
         double frictionMultiplier = SpeedUtilities.friction(blockFriction);
         double allowedLimit = groundLimit * DIAGONAL_TOLERANCE * frictionMultiplier;
 
         allowedLimit += 0.004;
         double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
         if (movementData.isInsideWater()) allowedLimit += depthStriderBoost; // apply always if in water
+
+//        if (profile.getPotionData().isHasSpeed() && inputDirection.isForwardStrafe()) {
+//            allowedLimit += 0.00065;
+//        }
 
         allowedLimit += movementData.getDolphinGraceBoost();
 
@@ -219,8 +221,8 @@ public class SpeedA extends Check {
                             + "\n * blockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
                             + "\n * frictionMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + frictionMultiplier
                             + "\n * movementSpeedBase " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getMovementSpeedAttribute(profile)
-                            + "\n * movementSpeedEffective " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getEffectiveMovementSpeed(profile)
-                            + "\n * movementSpeedScale " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getEffectiveMovementScale(profile)
+                            + "\n * movementSpeedEffective " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getEffectiveMovementSpeedGround(profile)
+                            + "\n * movementSpeedScale " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getEffectiveMovementScaleGround(profile)
                             + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                             + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
                             + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
@@ -235,6 +237,8 @@ public class SpeedA extends Check {
         double difference = predicted - allowedLimit;
         double bufferAmount = difference > 0.5 ? 0 : 6;
         double serverGroundMaxTicks = 8;
+
+        if (difference > 0.6) serverGroundMaxTicks = 2;
 
         if (serverGroundTicks > serverGroundMaxTicks && predicted > allowedLimit) {
 
@@ -296,10 +300,15 @@ public class SpeedA extends Check {
             return;
         }
 
-//        if (profile.getMovementData().getSinceGlitchedInsideBlockTicks() < 5 + profile.getConnectionData().getClientTickTrans()) {
-//            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - glitchedInsideBlock");
-//            return;
-//        }
+        if (movementData.isNearBoat()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - near boat");
+            return;
+        }
+
+        if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - vehicle");
+            return;
+        }
 
         if (profile.getExempt().isReelingIn()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - reelingIn");
@@ -321,11 +330,6 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (profile.getVehicleData().getSinceVehicleTicks() < 5 + profile.getConnectionData().getClientTickTrans() ) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - recentlyInVehicle");
-            return;
-        }
-
         if (movementData.getSincePredictUpwardsTicks() < 10) {
             airBuffer = 0;
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - movingUp");
@@ -343,8 +347,8 @@ public class SpeedA extends Check {
         double air_honeySpeedBoost = Math.min(AIR_HONEY_INCREMENT_PER_TICK * movingHoneyTicks, AIR_MAX_HONEY_SPEED_BOOST);
 
         double attr = SpeedUtilities.getMovementSpeedAttribute(profile);
-        double effectiveAttr = SpeedUtilities.getEffectiveMovementSpeed(profile);
-        double movementScale = SpeedUtilities.getEffectiveMovementScale(profile);
+        double effectiveAttr = SpeedUtilities.getEffectiveMovementSpeedAir(profile);
+        double movementScale = SpeedUtilities.getEffectiveMovementScaleAir(profile);
 
         double expectedSpeed = SpeedUtilities.computeAirLimit(profile, AIR_BASE_SPEED);
 
@@ -494,201 +498,5 @@ public class SpeedA extends Check {
 
             //verbose(this.getClass().getSimpleName(), airBuffer, 6, format);
         } else airBuffer = Math.max(0, airBuffer - 0.005D);
-    }
-
-    private boolean wasSprinting;
-    private double strafeBuffer = 0;
-    double maxStrafeBuffer = 4;
-
-    double limit = 0.25;
-    double resetRateStrafeBuffer = 0.025;
-
-    public void calculateStrafe(MovementData movementData, double deltaXZ, double deltaX, double deltaZ, double lastDeltaX, double lastDeltaZ, boolean sprinting, double blockFriction, int airTicks) {
-
-        if (profile.shouldCancel()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - shouldCancel()");
-            return;
-        }
-
-        if (profile.isExempt().isTeleports()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - teleport");
-            return;
-        }
-
-        if (!profile.isExempt().isRespawned()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - not respawned");
-            return;
-        }
-
-        if (profile.getPlayer().isDead()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - player dead");
-            return;
-        }
-
-        if (profile.isExempt().vehicle()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - in vehicle");
-            return;
-        }
-
-        if (profile.getVehicleData().getSinceVehicleTicks() < 8 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - just left vehicle");
-            return;
-        }
-
-        if (movementData.getSinceRiptidingTicks() < 15) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - riptiding");
-            strafeBuffer = 0;
-            return;
-        }
-
-        if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - just gliding");
-            return;
-        }
-
-        if (movementData.isOnBoat()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - on boat");
-            return;
-        }
-
-        if (movementData.isNearBoat()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - near boat");
-            return;
-        }
-
-        if (movementData.isNearWall()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - near wall");
-            return;
-        }
-
-//        if (profile.getLastBlockPlaceCancelTimer().hasNotPassed(3 + profile.getConnectionData().getClientTickTrans())) {
-//            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - recent block place");
-//            return;
-//        }
-
-        if (movementData.isNearWater()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - near water");
-            return;
-        }
-
-        if (movementData.isNearLava()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - near lava");
-            return;
-        }
-
-        if (movementData.isNearClimbable() || movementData.isClimb()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - near climbable");
-            return;
-        }
-
-        if (movementData.isNearWebs()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): Exempt - near webs");
-            return;
-        }
-
-
-
-        float movingSlimeTicks = movementData.getMovingOnSlimeTicks();
-        float movingIceTicks = movementData.getMovingOnIceTicks();
-        //temporeraly exempt ice until I fix it
-        if (movingIceTicks > 0 || movingSlimeTicks > 0) return;
-
-        if (profile.getRodData().isRodExempt()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): is Exempting (reelingIn)");
-            return;
-        }
-
-        if (movementData.getSincePowderSnowTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): is Exempting (Powder Snow)");
-            return;
-        }
-
-        //limit += movementData.elytraMomentum();
-
-        //limit += profile.getVelocityData().getTotalHorizontalVelocity() * 1.25;
-
-        double horizontal = Math.max(
-                profile.getVelocityData().getTotalHorizontalVelocitySustain(),
-                profile.getVelocityData().getStackedHorizontalVelocity()
-        );
-        double vertical = Math.max(
-                profile.getVelocityData().getTotalVerticalVelocitySustain(),
-                profile.getVelocityData().getStackedVerticalVelocity()
-        );
-        double velMag = horizontal + vertical;
-
-        int extraTicks = (int) (velMag * 125);
-
-        int clientTickTrans = profile.getConnectionData().getClientTickTrans();
-        int transPing = profile.getConnectionData().getTransPing();
-        boolean blockInHand = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer()).getType().isBlock();
-        boolean blockInOffHand = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInOffHand(profile.getPlayer()).getType().isBlock();
-        boolean holdingBlock = blockInHand || blockInOffHand;
-
-        int blockPlaceLimit = clientTickTrans == 0 ? 3 : Math.min(3 + transPing / clientTickTrans, 20);
-        boolean recentlyPlaced = profile.getLastBlockPlaceTimer().hasNotPassed(blockPlaceLimit);
-
-
-        final double predictedX = lastDeltaX * 0.9100000262260437;
-        final double predictedZ = lastDeltaZ * 0.9100000262260437;
-        final double differenceX = deltaX - predictedX;
-        final double differenceZ = deltaZ - predictedZ;
-        double difference = Math.hypot(differenceX, differenceZ);
-        double predictedXZ = Math.hypot(predictedX, predictedZ);
-        difference /= (this.wasSprinting ? 1.3 : 1.0);
-        difference -= sprinting ? 0.02589 : 0.02;
-
-        double airticklimit = movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2) ? 15 : ((recentlyPlaced && holdingBlock) ? 7 : 3);
-
-        if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 15 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Strafe): is Exempting (ghostblock liquid/web)");
-            airticklimit += 10;
-        }
-
-        if (profile.getVelocityData().isTakingVelocity() ) airticklimit +=  (extraTicks + 4);
-
-//        if (deltaXZ > 0.9D + profile.getVelocityData().getTotalHorizontalVelocity()) {
-//            airticklimit = 1;
-//            maxStrafeBuffer = 0;
-//        }
-
-
-        final boolean invalid = difference > 0.00747 && deltaXZ > limit && airTicks > airticklimit ;
-
-
-
-
-        String data = MsgType.MAIN_THEME_COLOR.getMessage()+"* Verbose (Strafe)\n * deltaXZ "+MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                + "\n * limit "+MsgType.MAIN_THEME_COLOR.getMessage() + limit
-                + "\n * blockFriction "+MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                + "\n * airTicks "+MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
-                + "\n * airTickLimit "+MsgType.MAIN_THEME_COLOR.getMessage() + airticklimit
-                + "\n * predictedX "+MsgType.MAIN_THEME_COLOR.getMessage() + predictedX
-                + "\n * predictedZ "+MsgType.MAIN_THEME_COLOR.getMessage() + predictedZ
-                + "\n * predicted "+MsgType.MAIN_THEME_COLOR.getMessage() + predictedXZ
-                + "\n * difference "+MsgType.MAIN_THEME_COLOR.getMessage() + difference
-                + "\n * sprinting "+MsgType.MAIN_THEME_COLOR.getMessage() + sprinting
-                + "\n * clientGroundTicks "+MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientGroundTicks();
-        if (difference != 0 && deltaXZ != 0) verbose(this.getClass().getSimpleName(),deltaXZ, limit, data);
-
-
-        if (invalid) {
-            if (++strafeBuffer > maxStrafeBuffer) {
-                fail("Speed limit exceeded (Strafe)",
-                        "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
-                                + "\nairTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airticklimit
-                                + "\npredicted " + MsgType.MAIN_THEME_COLOR.getMessage() + predictedXZ
-                                + "\ndifference " + MsgType.MAIN_THEME_COLOR.getMessage() + difference
-                                + "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting);
-
-                strafeBuffer = Math.max(maxStrafeBuffer + 2, strafeBuffer);
-            }
-            //verbose(this.getClass().getSimpleName(), strafeBuffer, maxStrafeBuffer, data);
-        }
-        else {
-            strafeBuffer -= Math.min(strafeBuffer, resetRateStrafeBuffer);
-        }
-        this.wasSprinting = sprinting;
     }
 }

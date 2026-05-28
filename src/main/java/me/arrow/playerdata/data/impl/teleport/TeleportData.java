@@ -18,9 +18,6 @@ import org.bukkit.util.Vector;
 import java.util.Iterator;
 import java.util.LinkedList;
 
-// this is our teleport handler, not very good, falses on very high ping and exempts for a bit too long
-// needs improvements, but it does a decent job.
-
 @Getter
 public class TeleportData implements Data {
 
@@ -34,19 +31,40 @@ public class TeleportData implements Data {
     public int teleportsPending;
     public int trackedTps;
 
-    private static final double TELEPORT_MATCH_DIST = 0.03125D;
+    /**
+     * Match window for the client position to equal the server teleport position.
+     * Keep small: this is strict matching, not an "exempt because maybe".
+     */
+    private static final double TELEPORT_MATCH_DIST = 0.00125D;
     private static final double TELEPORT_EXACT_DIST = 1.0E-4D;
 
-    private static final int MIN_TELEPORT_TIMEOUT_TICKS = 6;
-    private static final int MAX_TELEPORT_TIMEOUT_TICKS = 200;
+    /**
+     * If the client applies a large teleport (e.g. /spawn), sometimes you won't hit the tiny match dist
+     * due to relative flags / rounding / chunk load / interpolation.
+     * This is ONLY used when a pending teleport exists and the player's per-tick displacement is huge.
+     */
+    private static final double FAR_APPLY_MAX_DIST = 12.0D; // blocks to accept closest pending target
+    private static final double FAR_APPLY_MIN_STEP = 2.25D; // must have moved at least this much in one tick
 
-    private static final int MIN_POST_TELEPORT_GRACE_TICKS = 2;
-    private static final int MAX_POST_TELEPORT_GRACE_TICKS = 8;
+    /**
+     * SECURITY: teleport exemption is ALWAYS 1 tick, regardless of ping.
+     * We do NOT extend exemption based on timeout/ping.
+     */
+    private static final int EXEMPT_TICKS_ON_SEND = 1;
+    private static final int EXEMPT_TICKS_ON_MATCH = 1;
 
-    private boolean teleportPhaseActive;
-    private boolean possiblyTeleporting;
+    /**
+     * How long we keep pending teleports around for matching (NOT exemption).
+     * This can be higher without creating the slow-timer exploit, because we don't exempt while waiting.
+     */
+    private static final int MIN_TELEPORT_TIMEOUT_TICKS = 2;
+    private static final int MAX_TELEPORT_TIMEOUT_TICKS = 40;
 
-    private int postTeleportGraceTicks;
+    private boolean teleportPhaseActive;     // "exempt active" (1-tick windows)
+    private boolean possiblyTeleporting;     // same as above, kept for compatibility
+
+    private int exemptTicksRemaining;        // counts down; when > 0 -> exempt
+
     private int ticksSinceTeleportMatch = 1000;
 
     private Location fromLocation;
@@ -66,8 +84,7 @@ public class TeleportData implements Data {
             return;
         }
 
-        WrapperPlayClientPlayerFlying packet = new WrapperPlayClientPlayerFlying(event);
-        handleFlying(packet);
+        handleFlying(new WrapperPlayClientPlayerFlying(event));
     }
 
     @Override
@@ -84,25 +101,25 @@ public class TeleportData implements Data {
         }
 
         locations.add(new Teleport(serverPos));
-
         teleportsPending = locations.size();
         teleportAmount++;
 
         teleportTicks = 0;
         ticksSinceTeleportMatch = 1000;
-        postTeleportGraceTicks = 0;
 
+        // 1 tick exempt immediately on send (regardless of ping)
+        exemptTicksRemaining = Math.max(exemptTicksRemaining, EXEMPT_TICKS_ON_SEND);
         teleportPhaseActive = true;
         possiblyTeleporting = true;
 
-        profile.getExempt().setTeleports(true);
+        updateExemptState();
 
         if (Config.Setting.DEBUG.getBoolean()) {
             OtherUtility.log(profile.getPlayer().getName()
                     + " Teleport queued. pending=" + teleportsPending
                     + " pos=" + serverPos
                     + " timeout=" + getTeleportTimeoutTicks()
-                    + " grace=" + getPostTeleportGraceTicks());
+                    + " exemptTicks=" + exemptTicksRemaining);
         }
     }
 
@@ -119,17 +136,9 @@ public class TeleportData implements Data {
             }
 
             if (current != null) {
-                if (packet.isRelativeFlag(RelativeFlag.X)) {
-                    x += current.getX();
-                }
-
-                if (packet.isRelativeFlag(RelativeFlag.Y)) {
-                    y += current.getY();
-                }
-
-                if (packet.isRelativeFlag(RelativeFlag.Z)) {
-                    z += current.getZ();
-                }
+                if (packet.isRelativeFlag(RelativeFlag.X)) x += current.getX();
+                if (packet.isRelativeFlag(RelativeFlag.Y)) y += current.getY();
+                if (packet.isRelativeFlag(RelativeFlag.Z)) z += current.getZ();
             }
 
             return new Vector(x, y, z);
@@ -154,16 +163,16 @@ public class TeleportData implements Data {
         boolean matched = false;
         boolean exactMatched = false;
 
+        Vector currentPosition = null;
+        Vector previousPosition = null;
+
         if (positionChanged) {
             Location location = packet.getLocation();
-
-            Vector currentPosition = new Vector(
+            currentPosition = new Vector(
                     location.getPosition().getX(),
                     location.getPosition().getY(),
                     location.getPosition().getZ()
             );
-
-            Vector previousPosition = null;
 
             if (fromLocation != null) {
                 previousPosition = new Vector(
@@ -173,9 +182,9 @@ public class TeleportData implements Data {
                 );
             }
 
+            // Normal strict matching
             if (!locations.isEmpty()) {
                 Iterator<Teleport> iterator = locations.iterator();
-
                 while (iterator.hasNext()) {
                     Teleport teleport = iterator.next();
                     teleport.ageTicks++;
@@ -195,7 +204,9 @@ public class TeleportData implements Data {
 
                         teleportTicks = 0;
                         ticksSinceTeleportMatch = 0;
-                        postTeleportGraceTicks = getPostTeleportGraceTicks();
+
+                        // 1 tick exempt on confirmed apply (regardless of ping)
+                        exemptTicksRemaining = Math.max(exemptTicksRemaining, EXEMPT_TICKS_ON_MATCH);
 
                         zeroAmount++;
                         trackedTps++;
@@ -205,7 +216,7 @@ public class TeleportData implements Data {
                                     + " Teleport matched. pending=" + teleportsPending
                                     + " currentDist=" + currentDistance
                                     + " previousDist=" + previousDistance
-                                    + " grace=" + postTeleportGraceTicks);
+                                    + " exemptTicks=" + exemptTicksRemaining);
                         }
 
                         break;
@@ -214,63 +225,89 @@ public class TeleportData implements Data {
                     if (teleport.ageTicks > getTeleportTimeoutTicks()) {
                         iterator.remove();
                         teleportsPending = locations.size();
+                    }
+                }
+            }
+
+            // Fallback for large teleports (/spawn, etc) where strict dist might miss due to relative/rounding
+            if (!matched && currentPosition != null && previousPosition != null && !locations.isEmpty()) {
+                double step = currentPosition.distance(previousPosition);
+
+                if (step >= FAR_APPLY_MIN_STEP) {
+                    Teleport closest = null;
+                    double best = Double.MAX_VALUE;
+
+                    for (Teleport t : locations) {
+                        double d = t.position.distance(currentPosition);
+                        if (d < best) {
+                            best = d;
+                            closest = t;
+                        }
+                    }
+
+                    if (closest != null && best <= FAR_APPLY_MAX_DIST) {
+                        locations.remove(closest);
+                        teleportsPending = locations.size();
+
+                        matched = true;
+                        exactMatched = best <= TELEPORT_MATCH_DIST;
+
+                        teleportTicks = 0;
+                        ticksSinceTeleportMatch = 0;
+
+                        exemptTicksRemaining = Math.max(exemptTicksRemaining, EXEMPT_TICKS_ON_MATCH);
+
+                        zeroAmount++;
+                        trackedTps++;
 
                         if (Config.Setting.DEBUG.getBoolean()) {
                             OtherUtility.log(profile.getPlayer().getName()
-                                    + " Teleport expired. pending=" + teleportsPending
-                                    + " age=" + teleport.ageTicks
-                                    + " timeout=" + getTeleportTimeoutTicks());
+                                    + " Teleport FAR-applied. pending=" + teleportsPending
+                                    + " step=" + step
+                                    + " dist=" + best
+                                    + " exemptTicks=" + exemptTicksRemaining);
                         }
                     }
                 }
             }
 
-            fromLocation = location;
+            fromLocation = packet.getLocation();
+
         } else {
+            // No position change this tick: just age / expire pending teleports (no exemption)
             if (!locations.isEmpty()) {
                 for (Teleport teleport : locations) {
                     teleport.ageTicks++;
                 }
-
-                locations.removeIf(teleport -> teleport.ageTicks > getTeleportTimeoutTicks());
+                locations.removeIf(tp -> tp.ageTicks > getTeleportTimeoutTicks());
                 teleportsPending = locations.size();
             }
         }
 
-        possiblyTeleporting = exactMatched || matched;
-
-        if (matched) {
-            teleportPhaseActive = !locations.isEmpty() || postTeleportGraceTicks > 0;
-        } else if (locations.isEmpty() && postTeleportGraceTicks <= 0) {
-            teleportPhaseActive = false;
-            possiblyTeleporting = false;
-        }
-
+        // Expire very old queue (safety)
         if (teleportTicks > getTeleportTimeoutTicks()) {
             locations.clear();
             teleportsPending = 0;
-            teleportPhaseActive = false;
-            possiblyTeleporting = false;
-            postTeleportGraceTicks = 0;
+        }
+
+        // Exemption state is ONLY controlled by exemptTicksRemaining
+        possiblyTeleporting = matched || exactMatched || exemptTicksRemaining > 0;
+        teleportPhaseActive = exemptTicksRemaining > 0;
+
+        if (exemptTicksRemaining > 0) {
+            exemptTicksRemaining--;
         }
 
         updateExemptState();
-
-        if (postTeleportGraceTicks > 0) {
-            postTeleportGraceTicks--;
-        }
 
         if (Config.Setting.DEBUG.getBoolean()) {
             OtherUtility.log(profile.getPlayer().getName()
                     + " Flying tick: position=" + positionChanged
                     + " matched=" + matched
                     + " teleporting=" + isTeleporting()
-                    + " phase=" + teleportPhaseActive
-                    + " possible=" + possiblyTeleporting
-                    + " teleportTicks=" + teleportTicks
-                    + " postGrace=" + postTeleportGraceTicks
-                    + " sinceMatch=" + ticksSinceTeleportMatch
                     + " pending=" + teleportsPending
+                    + " teleportTicks=" + teleportTicks
+                    + " exemptTicks=" + exemptTicksRemaining
                     + " timeout=" + getTeleportTimeoutTicks());
         }
     }
@@ -279,25 +316,19 @@ public class TeleportData implements Data {
         profile.getExempt().setTeleports(isTeleporting());
     }
 
+    /**
+     * IMPORTANT:
+     * This returns true ONLY for the 1-tick exemption windows (send tick and confirmed-apply tick).
+     * Pending teleports do NOT mean exemption.
+     */
     public boolean isTeleporting() {
-        return teleportPhaseActive
-                || possiblyTeleporting
-                || !locations.isEmpty()
-                || postTeleportGraceTicks > 0
-                || ticksSinceTeleportMatch <= getPostTeleportGraceTicks();
+        return teleportPhaseActive || possiblyTeleporting || exemptTicksRemaining > 0;
     }
 
     public void removeLocation(Teleport teleport) {
         if (locations.remove(teleport)) {
             teleportsPending = locations.size();
         }
-
-        if (locations.isEmpty()) {
-            postTeleportGraceTicks = Math.max(postTeleportGraceTicks, getPostTeleportGraceTicks());
-            teleportPhaseActive = postTeleportGraceTicks > 0;
-        }
-
-        updateExemptState();
     }
 
     public void reset() {
@@ -312,7 +343,7 @@ public class TeleportData implements Data {
         teleportPhaseActive = false;
         possiblyTeleporting = false;
 
-        postTeleportGraceTicks = 0;
+        exemptTicksRemaining = 0;
         ticksSinceTeleportMatch = 1000;
 
         fromLocation = null;
@@ -323,31 +354,17 @@ public class TeleportData implements Data {
     private int getTeleportTimeoutTicks() {
         int pingTicks = getPingTicks();
 
-        return Math.min(
-                MAX_TELEPORT_TIMEOUT_TICKS,
-                Math.max(MIN_TELEPORT_TIMEOUT_TICKS, 10 + pingTicks * 4)
-        );
-    }
-
-    private int getPostTeleportGraceTicks() {
-        int pingTicks = getPingTicks();
-
-        return Math.min(
-                MAX_POST_TELEPORT_GRACE_TICKS,
-                Math.max(MIN_POST_TELEPORT_GRACE_TICKS, 8 + pingTicks)
-        );
+        // Keep queue longer for high ping, but this does NOT grant exemption.
+        // Clamp hard so the queue can't grow unbounded.
+        int calculated = 8 + (pingTicks * 6);
+        return Math.min(MAX_TELEPORT_TIMEOUT_TICKS, Math.max(MIN_TELEPORT_TIMEOUT_TICKS, calculated));
     }
 
     private int getPingTicks() {
-        int pingTicks;
-
-        pingTicks = 1 + (profile.getConnectionData().getClientTickTrans() * 2);
-
-        return pingTicks;
+        return 1 + (profile.getConnectionData().getClientTickTrans() * 2);
     }
 
     public static class Teleport {
-
         public final Vector position;
         public int ageTicks;
 

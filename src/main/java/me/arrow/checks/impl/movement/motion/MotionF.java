@@ -5,23 +5,20 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
-import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.utils.customutils.OtherUtility;
+import me.arrow.playerdata.data.impl.PotionData;
+import me.arrow.playerdata.data.impl.VelocityData;
 
-// impossible speed check and basic step check, i know it can be bypassed, if you can make a list in the material list for ALL minecraft blocks that are
-// 1:1 full sized, not bigger or smaller, then you can make it adapt the limit to > 0.5 when you are next to those blocks
-// but you need to account for the direction, cus you could have the issue where someone moves up, up a slab next to a full size block
-// causing a false? maybe, idk, this check can be improved if you have the skills
+// very basic fast ladder check, falses alot
 
 @Experimental
 public class MotionF extends Check {
+
     public MotionF(Profile profile) {
-        super(profile, CheckType.MOTION, "F", "Checks for fast fall, step, and too high deltaXZ");
+        super(profile, CheckType.MOTION, "G", "Fast Ladder Check (Basic)");
     }
 
     @Override
@@ -31,91 +28,56 @@ public class MotionF extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        if (!(event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
+                        || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
+                        || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
+                        || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
+        )) return;
 
-            MovementData movementData = profile.getMovementData();
+        MovementData md = profile.getMovementData();
+        VelocityData vd = profile.getVelocityData();
+        PotionData pot = profile.getPotionData();
 
 
-            if (profile.shouldCancel()
-                    || !profile.isExempt().isRespawned()
-                    || profile.isExempt().isDead()
-                    || profile.isExempt().isTeleports()
-                    || profile.getVehicleData().getSinceVehicleTicks() < 5
-                    || movementData.isNearBed()
-                    || profile.isBouncingOnSlime()
-                    || movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
-                return;
+
+
+        if (profile.shouldCancel()
+                || profile.getPlayer().isDead()
+                || !profile.isExempt().isRespawned()
+                || profile.isExempt().isTeleports()
+                || profile.isBouncingOnSlime()
+                || md.isNearWater()
+                || vd.getTotalVerticalVelocity() > 0
+        ) return;
+
+        if (profile.getPlayer().isInsideVehicle()) return;
+
+        final double deltaY = md.getDeltaY();
+        final double lastDeltaY = md.getLastDeltaY();
+        int clientAirTicks = md.getClientAirTicks();
+        int serverAirTicks = md.getCustomAirTicks();
+
+
+        boolean exempt = profile.isBouncingOnSlime()
+                || md.isNearShulker()
+                || md.isNearShulkerBox()
+                || md.isNearBubble()
+                || md.getSincePowderSnowTicks() < 5
+                || md.getLadderTicks() < 10
+                || md.isOnGround()
+                || md.isLastOnGround()
+                || pot.isHasLevitation()
+                || clientAirTicks < 6;
+
+        if (!exempt) {
+            if (deltaY > 0.11760000228882465
+                    && md.isClimb()) {
+                fail("Fast Ladder?" ,"deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                        + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
+                        + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
+                        + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
+                        + "\nladderTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + md.getLadderTicks());
             }
-
-            if (profile.getExempt().isReelingIn()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion F: is Exempting (reelingIn)");
-                return;
-            }
-
-            if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion F: is Exempting (ghostblock liquid/web)");
-                return;
-            }
-
-            double deltaY = movementData.getDeltaY();
-            double deltaXZ = movementData.getDeltaXZ();
-
-            String data = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY;
-            if (deltaY < -3.921
-                    && !profile.isExempt().isTeleports()
-                    && profile.getMovementData().getSinceRiptidingTicks() > 30
-                    && !profile.getVelocityData().isTakingVelocity()) {
-                verbose(this.getClass().getSimpleName(), deltaY, -3.92, data);
-                fail("Falling too fast", "deltaY "+ MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
-            }
-
-            // checking for velocity here, is very useless, also i think jump ampliefier math is wrong
-            // i haven't seen a false though
-
-            double stepHeight = 0.5975D;
-
-            if (profile.getPotionData().isHasJump()) stepHeight += (profile.getPotionData().getJumpAmplifier() * 0.1F);
-
-            if (deltaY > stepHeight
-                    && movementData.isNearWall()
-                    && !profile.isBouncingOnSlime()
-                    && !profile.isExempt().isTeleports()
-                    && movementData.getSincePowderSnowTicks() > 20
-                    && !(movementData.isOnBoat()
-                    || movementData.isNearBoat())
-                    && !movementData.isNearLava()
-                    && !movementData.isNearWater()
-                    && !profile.getVelocityData().isTakingVelocity()
-                    && movementData.getSinceRiptidingTicks() > 15
-                    && !profile.isBouncingOnSlime()
-                    && movementData.getSinceGlidingTicks() > 15) {
-                verbose(this.getClass().getSimpleName(),deltaY, 1.0, data);
-                fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
-            }
-
-            double air_speedMultiplier = SpeedUtilities.getPotionSpeedMultiplier(profile);
-
-            double expectedSpeed = 8.9D;
-
-            expectedSpeed *= air_speedMultiplier;
-            expectedSpeed += profile.getVelocityData().getTotalHorizontalVelocity();
-            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 15 + profile.getConnectionData().getClientTickTrans();
-
-            if (currentlyRiptiding) {
-                double riptideCap = 3.45 + (1.5 * profile.getPredictionData().riptideLevel());
-                expectedSpeed += riptideCap;
-            }
-
-            if (deltaXZ > expectedSpeed) {
-                verbose(this.getClass().getSimpleName(),deltaXZ, 9.9, MsgType.MAIN_THEME_COLOR.getMessage() +"* Verbose\n * deltaXZ "+MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ);
-                fail("Impossible deltaXZ movement", "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ);
-            }
-
-            verbose(this.getClass().getSimpleName(), deltaY, 1, data);
         }
     }
 }
-

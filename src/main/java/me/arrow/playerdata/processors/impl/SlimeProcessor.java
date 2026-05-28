@@ -51,13 +51,15 @@ public class SlimeProcessor {
         int remainingTicks;             // predicted ticks until apex (or tolerance)
         double accumulatedRise;         // actual observed upward motion accumulated (sum of positive deltaY)
         boolean startedRising;          // we have observed upward deltaY at least once
+        boolean pistonPush;
 
-        BounceSession(double expectedBounceVel, double predictedMaxRise, int remainingTicks) {
+        BounceSession(double expectedBounceVel, double predictedMaxRise, int remainingTicks, boolean pistonPush) {
             this.expectedBounceVel = expectedBounceVel;
             this.predictedMaxRise = predictedMaxRise;
             this.remainingTicks = remainingTicks;
             this.accumulatedRise = 0.0;
             this.startedRising = false;
+            this.pistonPush = pistonPush;
         }
     }
 
@@ -93,9 +95,11 @@ public class SlimeProcessor {
         BounceSession session = sessions.get(key);
         if (session != null) {
             // Reject if player's actual upward motion ever exceeds expected bounce velocity + allowance
-            if (deltaY - (session.expectedBounceVel + VELOCITY_ALLOWANCE) > 0.0) {
-                sessions.remove(key);
-                return false;
+            if (!session.pistonPush) {
+                if (deltaY - (session.expectedBounceVel + VELOCITY_ALLOWANCE) > 0.0) {
+                    sessions.remove(key);
+                    return false;
+                }
             }
 
             // accumulate positive upward motion to track actual rise since session started
@@ -105,9 +109,11 @@ public class SlimeProcessor {
             }
 
             // If accumulated rise exceeds predicted max rise + allowance => invalid bounce
-            if (session.accumulatedRise - (session.predictedMaxRise + RISE_ALLOWANCE) > 0.0) {
-                sessions.remove(key);
-                return false;
+            if (!session.pistonPush) {
+                if (session.accumulatedRise - (session.predictedMaxRise + RISE_ALLOWANCE) > 0.0) {
+                    sessions.remove(key);
+                    return false;
+                }
             }
 
             // If currently moving up, decrement remaining ticks (we assume per-packet == per-tick)
@@ -150,16 +156,32 @@ public class SlimeProcessor {
 
         // No session: test for initial bounce tick using conservative rules
         // Must be on slime block now
-        if (!md.isOnExtendedHitboxSlime()) return false;
+        if (!md.isOnExtendedHitboxSlime()) {
+            return false;
+        }
 
-        boolean wasFalling = lastDeltaY < -EPS_FALL || lastFallDistance > MIN_FALLDIST_FOR_FALL;
+        boolean wasFalling =
+                lastDeltaY < -EPS_FALL
+                        || lastFallDistance > MIN_FALLDIST_FOR_FALL;
+
+        boolean pistonSlimePush = md.isNearPiston() && deltaY >= 0.75D;
+
         boolean nowMovingUp = deltaY > EPS_UP;
-        if (!wasFalling || !nowMovingUp) return false;
 
-        if (lastFallDistance <= MIN_MEANINGFUL_FALL) return false;
+        if ((!wasFalling && !pistonSlimePush) || !nowMovingUp) {
+            return false;
+        }
+
+        if (!pistonSlimePush && lastFallDistance <= MIN_MEANINGFUL_FALL) {
+            return false;
+        }
 
         // Exclude normal player jump started on ground (including tiny step-ups)
-        if (lastOnGround && lastFallDistance <= MAX_JUMP_FALL_DISTANCE) return false;
+        if (!pistonSlimePush) {
+            if (lastOnGround && lastFallDistance <= MAX_JUMP_FALL_DISTANCE) {
+                return false;
+            }
+        }
 
         // exclude canonical jump initial (jump boost aware)
         int jumpLevel = 0;
@@ -167,7 +189,11 @@ public class SlimeProcessor {
             try { jumpLevel = pd.getPotionEffectLevel(PotionType.JUMP_BOOST); } catch (Exception ignored) {}
         }
         double expectedJumpInit = 0.42 + 0.1 * Math.max(0, jumpLevel);
-        if (lastOnGround && deltaY >= expectedJumpInit * 0.85) return false;
+        if (!pistonSlimePush) {
+            if (lastOnGround && deltaY >= expectedJumpInit * 0.85) {
+                return false;
+            }
+        }
 
         // compute expected bounce velocity from lastDeltaY (preferred) or approximate from lastFallDistance
         double expectedBounceVel;
@@ -196,7 +222,12 @@ public class SlimeProcessor {
         if (ticksToApex < 1) ticksToApex = 1;
         if (ticksToApex > MAX_SIM_TICKS) ticksToApex = MAX_SIM_TICKS;
 
-        BounceSession newSession = new BounceSession(expectedBounceVel, predictedRise, ticksToApex);
+        BounceSession newSession = new BounceSession(
+                expectedBounceVel,
+                predictedRise,
+                ticksToApex,
+                pistonSlimePush
+        );
         // we've observed first rising tick now: start accumulatedRise with this positive deltaY
         newSession.startedRising = true;
         newSession.accumulatedRise = Math.max(0.0, deltaY);

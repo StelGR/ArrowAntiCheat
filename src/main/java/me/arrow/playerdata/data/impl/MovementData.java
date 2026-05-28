@@ -81,7 +81,7 @@ public class MovementData implements Data {
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround, isDigging,
-        nearWater, nearBubble, nearLava, nearContact, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, movingDown, isRiptiding;
+        nearWater, nearBubble, nearLava, nearContact, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, movingDown, isRiptiding, nearPiston;
 
 
     @Getter
@@ -848,23 +848,73 @@ public class MovementData implements Data {
             iceTicks = Math.max(0, iceTicks - 1);
         }
 
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow = CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), true);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow =
+                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), true);
 
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lower = CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), true);
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), true);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lower =
+                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), true);
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lowest =
+                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), true);
 
 
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove = CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), true);
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lower = CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), true);
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), true);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow =
+                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), true);
 
-        boolean slimeBelow0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultBelow, true, MaterialType.SLIME);
-        boolean slimeBelow1 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultBelow_lower, true, MaterialType.SLIME);
-        boolean slimeBelow2 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultBelow_lowest, true, MaterialType.SLIME);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower =
+                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 2, 0), true);
 
-        boolean slimeAbove0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultAbove, true, MaterialType.SLIME);
-        boolean slimeAbove1 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultAbove_lower, true, MaterialType.SLIME);
-        boolean slimeAbove2 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResultAbove_lowest, true, MaterialType.SLIME);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest =
+                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 2, 0), true);
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow1 =
+                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 3, 0), true);
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower1 =
+                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 3, 0), true);
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest1 =
+                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 3, 0), true);
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove =
+                CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), true);
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lower =
+                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().add(0, 1, 0), true);
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lowest =
+                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().add(0, 1, 0), true);
+
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocks =
+                CollisionUtils.getNearbyBlocks(this.location, true);
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow =
+                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), true);
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow2 =
+                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), true);
+
+
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksAbove =
+                CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), true);
+
+
+        boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow, true, MaterialType.SLIME);
+        boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lower, true, MaterialType.SLIME);
+        boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lowest, true, MaterialType.SLIME);
+
+        boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow, true, MaterialType.SLIME);
+        boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower, true, MaterialType.SLIME);
+        boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest, true, MaterialType.SLIME);
+
+        boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow1, true, MaterialType.SLIME);
+        boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower1, true, MaterialType.SLIME);
+        boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest1, true, MaterialType.SLIME);
+
+        boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove, true, MaterialType.SLIME);
+        boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lower, true, MaterialType.SLIME);
+        boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lowest, true, MaterialType.SLIME);
 
         boolean onSlime0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, true, MaterialType.SLIME);
         boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, true, MaterialType.SLIME);
@@ -872,9 +922,24 @@ public class MovementData implements Data {
         onSlime = onSlime0 || onSlime1 || onSlime2;
 
 
+        boolean nearPiston0 = nearbyBlocks.getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.PISTON));
+        boolean nearPiston1 = nearbyBlocksBelow.getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.PISTON));
+        boolean nearPiston2 = nearbyBlocksBelow2.getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.PISTON));
+        boolean nearPiston3 = nearbyBlocksAbove.getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.PISTON));
+
+        nearPiston = nearPiston0 || nearPiston1 || nearPiston2 || nearPiston3;
+
+
+
+
+
         // this is a temporary, test fix, for piston movable slime blocks, it may not work properly in all scenarios, but it will do for now
         // assuming that it even works...
-        onExtendedHitboxSlime = onSlime || slimeBelow0 || slimeBelow1 || slimeBelow2 || slimeAbove0 || slimeAbove1 || slimeAbove2;
+        onExtendedHitboxSlime = onSlime || slimeBelow0 || slimeBelow1 || slimeBelow2 || slimeAbove0 || slimeAbove1 || slimeAbove2 || slimeBelowBelow0 || slimeBelowBelow1 || slimeBelowBelow2 || slimeBelowBelow3 || slimeBelowBelow4 || slimeBelowBelow5
+                || (getMovingOnSlimeTicks() < 11 && getMovingOnSlimeTicks() > 0) || getSinceMovingOnSlimeTicks() < 10;
+
+       // profile.getPlayer().sendMessage("nearPiston: " + nearPiston + ", onSlime " + onExtendedHitboxSlime + ", deltaY " + deltaY + ", slimeTicks " + getMovingOnSlimeTicks() + ", sinceSlimeTicks " + getSinceMovingOnSlimeTicks());
+
 
         if (moving && (onSlime0 || onSlime1 || onSlime2)) {
             movingOnSlimeTicks += (movingOnSlimeTicks < 30 ? 1F : 0F);

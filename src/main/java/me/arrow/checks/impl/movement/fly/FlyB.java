@@ -136,11 +136,6 @@ public class FlyB extends Check {
                 return;
             }
 
-            if (profile.getVehicleData().getSinceVehicleTicks() < 5 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (recent vehicle)");
-                return;
-            }
-
             if (profile.isExempt().vehicle()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (vehicle exempt)");
                 return;
@@ -265,24 +260,36 @@ public class FlyB extends Check {
                 }
             }
 
-            double horizontal = Math.max(
+            double horizontalS = Math.max(
                     profile.getVelocityData().getTotalHorizontalVelocitySustain(),
                     profile.getVelocityData().getStackedHorizontalVelocity()
             );
-            double vertical = Math.max(
+            double verticalS = Math.max(
                     profile.getVelocityData().getTotalVerticalVelocitySustain(),
                     profile.getVelocityData().getStackedVerticalVelocity()
             );
 
+            double horizontal = Math.max(
+                    horizontalS,
+                    profile.getVelocityData().getTotalHorizontalVelocity()
+            );
+
+            double vertical = Math.max(
+                    verticalS,
+                    profile.getVelocityData().getTotalVerticalVelocity()
+            );
+
             double velMag = (horizontal / 2) + vertical;
             double baseTicksVel = 10;
-            double baseVelocity = 0.0005;
+            double baseVelocity = 0.000001;
             double scale = 14;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity)) + 6;
             airTickLimit += Math.ceil(extraFromVel);
 
             if (movementData.isNearFence()) airTickLimit += 4;
+
+            airTickLimit = Math.min(airTickLimit, 12);
 
             boolean invalidNormal =
                     serverAirTicks > airTickLimit

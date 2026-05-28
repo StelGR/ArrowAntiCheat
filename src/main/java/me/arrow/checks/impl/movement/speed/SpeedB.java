@@ -413,7 +413,6 @@ public class SpeedB extends Check {
         if (profile.getMovementData().getSinceOnGhostBlock() <= 15 + profile.getConnectionData().getClientTickTrans()) return false;
         if (!profile.isExempt().isRespawned()) return false;
         if (profile.isExempt().vehicle()) return false;
-        if (profile.getVehicleData().getSinceVehicleTicks() < 5 + profile.getConnectionData().getClientTickTrans()) return false;
         if (movementData.isNearBoat() || movementData.isOnBoat()) return false;
         if (movementData.isNearBuggyBlock()) return false;
         if (movementData.isNearBed()) return false;

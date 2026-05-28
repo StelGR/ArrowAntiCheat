@@ -3,6 +3,7 @@ package me.arrow.checks.impl.misc.timer;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -13,7 +14,7 @@ public class TimerA extends Check {
     private static final long TELEPORT_OFFSET = 50_000_000L;
     private static final long FLYING_OFFSET = 50_000_000L;
 
-    private static final long TIMER_A_CAP_LENGTH = 2_000_000_000L;
+    private static final long TIMER_A_CAP_LENGTH = 3_000_000_000L;
 
     private long lastFlyingPacket;
 
@@ -76,7 +77,7 @@ public class TimerA extends Check {
         this.balance = Math.max(-capLength, this.balance + delay);
 
         if (!profile.getMovementData().isMoving()) {
-            balance = -(profile.getConnectionData().getTransPing());
+            balance = -(profile.getConnectionData().getTransPing() * 2L);
             now = System.nanoTime();
             lastFlyingPacket = System.nanoTime();
         }
@@ -85,7 +86,9 @@ public class TimerA extends Check {
 
             if (ready()) {
 
-                if (++this.violations > 3.0D) {
+                double maxbuffer = profile.getConnectionData().getTransPing() > 200 ? 12 : 5;
+
+                if (++this.violations > maxbuffer) {
 
                     if (!this.capped) {
 
@@ -103,7 +106,10 @@ public class TimerA extends Check {
                         fail(
                                 "Speeding up game clock (capped)",
                                 "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + (this.balance / 1_000_000L)
+                                        + "\nmaxBalance " + MsgType.MAIN_THEME_COLOR.getMessage() + ((FLYING_OFFSET + 5_000_000L) / 1_000_000L)
                                         + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.min((double) FLYING_OFFSET / diff, 10.0D)
+                                        + "\ndelay " + MsgType.MAIN_THEME_COLOR.getMessage() + (delay / 1_000_000L)
+                                        + "\ndiff " + MsgType.MAIN_THEME_COLOR.getMessage() + (diff / 1_000_000L)
                                         + "\ntick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick()
                         );
                     }
@@ -115,7 +121,7 @@ public class TimerA extends Check {
             this.balance = 0L;
 
         } else {
-            this.violations = Math.max(0.0D, this.violations - 0.005D);
+            this.violations = Math.max(0.0D, this.violations - 0.125f);
         }
 
 
@@ -150,6 +156,7 @@ public class TimerA extends Check {
         return profile.getTick() > 100
                 && !profile.shouldCancel()
                 && !profile.isExempt().isTeleports()
-                && !profile.isExempt().vehicle();
+                && !profile.isExempt().vehicle()
+                && Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(profile.getMovementData().getLocation().getWorld(), (int) profile.getMovementData().getLocation().getX(), (int) profile.getMovementData().getLocation().getZ());
     }
 }
