@@ -5,6 +5,7 @@ import me.arrow.commands.SubCommand;
 import me.arrow.enums.Permissions;
 import me.arrow.managers.logs.Hastebin;
 import me.arrow.managers.logs.PlayerLog;
+import me.arrow.utils.TaskUtils;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
@@ -82,7 +83,7 @@ public class PasteLogsCommand extends SubCommand {
 
         sender.sendMessage(translate("&7Preparing logs for &e" + targetName + "&7..."));
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin.getHost(), () -> {
+        TaskUtils.taskAsync(() -> {
             List<PlayerLog> logs = plugin.getLogManager()
                     .getLogExporter()
                     .getLogsForPlayer(targetName);
@@ -100,7 +101,7 @@ public class PasteLogsCommand extends SubCommand {
                 return;
             }
 
-            Bukkit.getScheduler().runTask(plugin.getHost(), () -> sendPasteMessage(sender, targetName, logs.size(), pasteUrl));
+            TaskUtils.task(() -> sendPasteMessage(sender, targetName, logs.size(), pasteUrl));
         });
     }
 
@@ -176,7 +177,7 @@ public class PasteLogsCommand extends SubCommand {
     }
 
     private void sendSync(CommandSender sender, String message) {
-        Bukkit.getScheduler().runTask(plugin.getHost(), () -> sender.sendMessage(message));
+        TaskUtils.task(() -> sender.sendMessage(message));
     }
 
     private String clean(String input) {

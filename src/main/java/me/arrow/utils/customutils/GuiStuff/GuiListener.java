@@ -265,6 +265,9 @@ public class GuiListener implements Listener {
             case 15:
                 getGuiManager().openArrowCheckGUI(player, "Elytra", "Elytra");
                 break;
+            case 16:
+                getGuiManager().openArrowCheckGUI(player, "IllegalMove", "IllegalMove");
+                break;
         }
     }
 
@@ -323,7 +326,8 @@ public class GuiListener implements Listener {
                     || inventoryTitle.contains("Motion")
                     || inventoryTitle.contains("Analysis")
                     || inventoryTitle.contains("Ground")
-                    || inventoryTitle.contains("Elytra")) {
+                    || inventoryTitle.contains("Elytra")
+                    || inventoryTitle.contains("IllegalMove")) {
                 getGuiManager().openMovementChecksGUI(player);
             } else if (inventoryTitle.contains("Aim")
                     || inventoryTitle.contains("BackTrack")

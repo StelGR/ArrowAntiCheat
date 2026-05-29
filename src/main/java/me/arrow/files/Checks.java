@@ -429,7 +429,7 @@ public class Checks implements Initializer {
         BADPACKETS_C_PUNISH("BadPacketsC.punish", "", "Punishment settings"),
         BADPACKETS_C_PUNiSH_ENABLED("BadPacketsC.punish.enabled", true, "Should punishments be enabled for this check?"),
         BADPACKETS_C_PUNiSH_MODE("BadPacketsC.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        BADPACKETS_C_MAX_VL("BadPacketsC.punish.vl", 5, "The maximum violation amount a player needs to reach in order to get punished"),
+        BADPACKETS_C_MAX_VL("BadPacketsC.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
         NOSLOWDOWN_A("NoSlowdownA.enabled", true, "Should we enable this module?"),
         NOSLOWDOWN_A_PUNISH("NoSlowdownA.punish", "", "Punishment settings"),

@@ -10,7 +10,6 @@ import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.CollisionUtils;
-import me.arrow.utils.MoveUtils;
 import me.arrow.utils.custom.MaterialType;
 
 // this is a bit more complicated that Motion D, but i am getting tired, it is also basically like 3 checks in one, i have not seen it false
@@ -53,7 +52,7 @@ public class MotionB extends Check {
                     || movementData.isNearBoat()
                     || movementData.isMovingUp()
                     || profile.getLastBlockPlaceTimer().hasNotPassed(10 + profile.getConnectionData().getClientTickTrans())
-                    || profile.getLastBlockPlaceCancelTimer().hasNotPassed(10 + profile.getConnectionData().getClientTickTrans())
+                    || profile.getLastBlockPlaceCancelTimer().hasNotPassed(5 + profile.getConnectionData().getClientTickTrans())
                     || movementData.isNearClimbable()
                     || movementData.isUnderblock()
                     || (movementData.getNearbyBlocksResult() != null
@@ -62,11 +61,6 @@ public class MotionB extends Check {
                     || movementData.isNearWall()) {
                 return;
             }
-
-//            if (movementData.getSinceOnGhostBlock() < 20) {
-//                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion B: is Exempting (GhostBlock < 20)");
-//                return;
-//            }
 
             double locationY = profile.getPlayer().getLocation().getY();
 

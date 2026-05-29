@@ -88,8 +88,6 @@ public class GroundC extends Check {
                     || profile.isBouncingOnSlime()
                     || movementData.isNearBed()
                     || profile.isExempt().vehicle()
-                    || profile.getLastBlockPlaceTimer().hasNotPassed(15 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    || profile.getLastBlockBreakTimer().hasNotPassed(15 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || movementData.isNearGhast()
                     || profile.getActionData().getLastConfirmedUnderPlaceTicks() < (15 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || movementData.isNearBoat()) {

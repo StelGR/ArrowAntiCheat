@@ -5,6 +5,7 @@ import lombok.Setter;
 import me.arrow.files.Config;
 import me.arrow.managers.Initializer;
 import me.arrow.managers.logs.impl.FileExporter;
+import me.arrow.utils.TaskUtils;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -37,7 +38,7 @@ public class LogManager implements Initializer {
     public void initialize() {
         this.logExporter.initialize();
 
-        this.flushTask = plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+        this.flushTask = TaskUtils.taskTimerAsync(() -> {
             if (!Config.Setting.LOGS_ENABLED.getBoolean()) return;
             flushQueuedLogs(false);
         }, 40L, 40L);

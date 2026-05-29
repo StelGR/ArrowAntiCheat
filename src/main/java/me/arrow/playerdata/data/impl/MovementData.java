@@ -224,6 +224,8 @@ public class MovementData implements Data {
 
             this.lastLastLocation = this.lastLocation;
             this.lastLocation = this.location;
+
+            processLocationData();
         }
         if (event.getPacketType() == PLAYER_DIGGING) {
             WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging(event);
@@ -1320,7 +1322,7 @@ public class MovementData implements Data {
 
             float cap = getDolphinGraceBonusCap(depthStrider);
 
-            if (hasGrace && (isInsideWater || isOnTopOfWater)) {
+            if (hasGrace && (isNearWater())) {
                 if (!dolphinGraceWasActive) {
                     dolphinGraceMomentum = Math.max(dolphinGraceMomentum, start);
                     dolphinGraceWasActive = true;
@@ -1339,7 +1341,7 @@ public class MovementData implements Data {
             }
 
             dolphinGraceWasActive = false;
-            dolphinGraceMomentum = Math.max(0f, dolphinGraceMomentum - ((isInsideWater || isOnTopOfWater) ? stepAfterWater : stepAfterAir));
+            dolphinGraceMomentum = Math.max(0f, dolphinGraceMomentum - (isNearWater() ? stepAfterWater : stepAfterAir));
             return dolphinGraceMomentum;
         } catch (NoSuchMethodError exception) {
             dolphinGraceMomentum = 0f;

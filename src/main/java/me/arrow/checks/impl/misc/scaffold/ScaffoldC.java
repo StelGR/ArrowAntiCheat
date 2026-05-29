@@ -92,7 +92,7 @@ public class ScaffoldC extends Check {
             return;
         }
 
-        if (actionData.isSneaking()) {
+        if (actionData.isSneaking() || profile.isCrawling() || profile.isSneaking()) {
             decayState();
             resetBridgeStreak();
             return;

@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerKe
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
+import me.arrow.utils.TaskUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -15,7 +16,7 @@ public class KeepAliveProcessor implements Runnable {
 
     @Getter @Setter
     private long timeKeepAlive = 0;
-    private BukkitTask bukkitTaskKeepAlive;
+    private TaskUtils.CancellableTask bukkitTaskKeepAlive;
 
     public KeepAliveProcessor() {
         startKeepAlive();
@@ -23,7 +24,7 @@ public class KeepAliveProcessor implements Runnable {
 
     public void startKeepAlive() {
         if (this.bukkitTaskKeepAlive == null) {
-            this.bukkitTaskKeepAlive = Bukkit.getScheduler().runTaskTimer(Arrow.getInstance().getHost(), this, 0L, 20L);
+            this.bukkitTaskKeepAlive = TaskUtils.taskTimer( this, 0L, 20L);
         }
     }
 

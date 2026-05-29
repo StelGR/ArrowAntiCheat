@@ -7,13 +7,13 @@ import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.util.Vector3f;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerParticle;
 import me.arrow.files.Config;
+import me.arrow.utils.TaskUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
@@ -41,7 +41,7 @@ public final class AnimationManager {
         if (type == null || player == null) return false;
 
         if (!Bukkit.isPrimaryThread()) {
-            Bukkit.getScheduler().runTask(plugin, () -> play(type, player, finished));
+            TaskUtils.task(() -> play(type, player, finished));
             return true;
         }
 
@@ -68,7 +68,7 @@ public final class AnimationManager {
 
         animation.start();
 
-        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+        TaskUtils.CancellableTask task = TaskUtils.taskTimer(() -> {
             ActiveAnimation current = activeAnimations.get(uuid);
 
             if (current == null || current != activeAnimation) {
@@ -93,7 +93,7 @@ public final class AnimationManager {
 
     public void finish(UUID uuid, boolean runCallback) {
         if (!Bukkit.isPrimaryThread()) {
-            Bukkit.getScheduler().runTask(plugin, () -> finish(uuid, runCallback));
+            TaskUtils.task(() -> finish(uuid, runCallback));
             return;
         }
 
@@ -149,7 +149,7 @@ public final class AnimationManager {
         if (player == null || !player.isOnline() || location == null) return;
 
         if (!Bukkit.isPrimaryThread()) {
-            Bukkit.getScheduler().runTask(plugin, () -> forceLook(player, location, yaw, pitch));
+            TaskUtils.task(() -> forceLook(player, location, yaw, pitch));
             return;
         }
 
@@ -164,7 +164,7 @@ public final class AnimationManager {
         if (player == null || !player.isOnline()) return;
 
         if (!Bukkit.isPrimaryThread()) {
-            Bukkit.getScheduler().runTask(plugin, () -> sendTitle(player, title, subtitle, fadeIn, stay, fadeOut));
+            TaskUtils.task(() -> sendTitle(player, title, subtitle, fadeIn, stay, fadeOut));
             return;
         }
 
@@ -200,7 +200,7 @@ public final class AnimationManager {
         List<Player> viewers = getNearbyViewers(center);
         if (viewers.isEmpty()) return;
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        TaskUtils.taskAsync(() -> {
             for (ParticlePoint point : points) {
                 WrapperPlayServerParticle packet = new WrapperPlayServerParticle(
                         particle,
@@ -223,7 +223,7 @@ public final class AnimationManager {
         if (location == null || location.getWorld() == null || soundNames == null || soundNames.length == 0) return;
 
         if (!Bukkit.isPrimaryThread()) {
-            Bukkit.getScheduler().runTask(plugin, () -> playSoundNearby(location, volume, pitch, soundNames));
+            TaskUtils.task(() -> playSoundNearby(location, volume, pitch, soundNames));
             return;
         }
 
@@ -236,7 +236,7 @@ public final class AnimationManager {
         if (location == null || location.getWorld() == null) return;
 
         if (!Bukkit.isPrimaryThread()) {
-            Bukkit.getScheduler().runTask(plugin, () -> lightningEffect(location));
+            TaskUtils.task(() -> lightningEffect(location));
             return;
         }
 
@@ -319,14 +319,14 @@ public final class AnimationManager {
 
         private final Animation animation;
         private final Runnable finished;
-        private BukkitTask task;
+        private TaskUtils.CancellableTask task;
 
         private ActiveAnimation(Animation animation, Runnable finished) {
             this.animation = animation;
             this.finished = finished;
         }
 
-        private void setTask(BukkitTask task) {
+        private void setTask(TaskUtils.CancellableTask task) {
             this.task = task;
         }
     }

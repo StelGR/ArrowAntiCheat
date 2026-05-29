@@ -5,6 +5,7 @@ import me.arrow.commands.SubCommand;
 import me.arrow.enums.Permissions;
 import me.arrow.managers.logs.LogExporter;
 import me.arrow.managers.logs.PlayerLog;
+import me.arrow.utils.TaskUtils;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
@@ -59,12 +60,12 @@ public class LogsCommand extends SubCommand {
 
         sender.sendMessage(translate("&7Loading logs for &e" + targetName + "&7..."));
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin.getHost(), () -> {
+        TaskUtils.taskAsync(() -> {
             LogExporter.PagedLogs pagedLogs = plugin.getLogManager()
                     .getLogExporter()
                     .getLogsForPlayer(targetName, page, PER_PAGE);
 
-            Bukkit.getScheduler().runTask(plugin.getHost(), () -> sendLogs(sender, targetName, pagedLogs));
+            TaskUtils.task(() -> sendLogs(sender, targetName, pagedLogs));
         });
     }
 

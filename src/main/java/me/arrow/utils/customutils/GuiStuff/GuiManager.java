@@ -11,6 +11,7 @@ import me.arrow.files.Config;
 import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
 import me.arrow.tasks.TickTask;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.customutils.animationSystem.Animation;
@@ -40,7 +41,7 @@ import static me.arrow.utils.customutils.OtherUtility.translate;
 // these are our GUIs we need to create a player owner on them to prevent pulling a vulcan, as vanilla chests have null owners
 
 public class GuiManager {
-    private final Map<UUID, BukkitTask> infoGuiTasks = new ConcurrentHashMap<>();
+    private final Map<UUID, TaskUtils.CancellableTask> infoGuiTasks = new ConcurrentHashMap<>();
 
 
     public void openArrowGUI(Player player) {
@@ -286,17 +287,17 @@ public class GuiManager {
 
         UUID viewerUuid = player.getUniqueId();
 
-        BukkitTask oldTask = infoGuiTasks.remove(viewerUuid);
+        TaskUtils.CancellableTask oldTask = infoGuiTasks.remove(viewerUuid);
 
         if (oldTask != null) {
             oldTask.cancel();
         }
 
-        BukkitTask task = Bukkit.getScheduler().runTaskTimer(Arrow.getInstance().getHost(), () -> {
+        TaskUtils.CancellableTask task = TaskUtils.taskTimer(() -> {
             Player onlineViewer = Bukkit.getPlayer(viewerUuid);
 
             if (onlineViewer == null || !onlineViewer.isOnline()) {
-                BukkitTask currentTask = infoGuiTasks.remove(viewerUuid);
+                TaskUtils.CancellableTask currentTask = infoGuiTasks.remove(viewerUuid);
 
                 if (currentTask != null) {
                     currentTask.cancel();
@@ -306,7 +307,7 @@ public class GuiManager {
             }
 
             if (!playerForInfo.isOnline()) {
-                BukkitTask currentTask = infoGuiTasks.remove(viewerUuid);
+                TaskUtils.CancellableTask currentTask = infoGuiTasks.remove(viewerUuid);
 
                 if (currentTask != null) {
                     currentTask.cancel();
@@ -318,7 +319,7 @@ public class GuiManager {
             if (onlineViewer.getOpenInventory() == null
                     || onlineViewer.getOpenInventory().getTopInventory() == null
                     || !onlineViewer.getOpenInventory().getTopInventory().equals(gui)) {
-                BukkitTask currentTask = infoGuiTasks.remove(viewerUuid);
+                TaskUtils.CancellableTask currentTask = infoGuiTasks.remove(viewerUuid);
 
                 if (currentTask != null) {
                     currentTask.cancel();
@@ -653,9 +654,15 @@ public class GuiManager {
                         OtherUtility.translate("&7Manage the ground checks"),
                         OtherUtility.translate(OtherUtility.guiLine())
                 )));
-        gui.setItem(15, GuiUtility.generateItem(new ItemStack(serverVersion.isNewerThanOrEquals(ServerVersion.V_1_13) ? Material.ELYTRA : Material.BARRIER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Elytra"),
+        gui.setItem(15, GuiUtility.generateItem(new ItemStack(serverVersion.isNewerThanOrEquals(ServerVersion.V_1_9) ? Material.ELYTRA : Material.BARRIER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Elytra"),
                 Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                         OtherUtility.translate("&7Manage the elytra checks"),
+                        OtherUtility.translate(OtherUtility.guiLine())
+                )));
+
+        gui.setItem(16, GuiUtility.generateItem(new ItemStack(Material.BLAZE_POWDER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "IllegalMove"),
+                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+                        OtherUtility.translate("&7Manage the IllegalMove checks"),
                         OtherUtility.translate(OtherUtility.guiLine())
                 )));
 

@@ -14,7 +14,7 @@ public class SonixTheme extends BaseTheme {
     public void create() {
         get().addDefault("main_theme_color", "&c");
         get().addDefault("second_theme_color", "&f");
-        get().addDefault("experimental_symbol", "&c⚠");
+        get().addDefault("experimental_symbol", "&4⚠");
         get().addDefault("hover_symbol", "*");
         get().addDefault("prefix", "&0[&cSonix&0] &c");
         get().addDefault("no_perm", "&cYou do not have permission to do that!");

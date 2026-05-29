@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import lombok.Getter;
 import me.arrow.Arrow;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.fastmath.FastMath;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -166,7 +167,7 @@ public class CustomLocation {
     }
 
     public void getBlockAsync(Consumer<Block> callback) {
-        Bukkit.getScheduler().runTask(Arrow.getInstance().getHost(), () ->
+        TaskUtils.task(() ->
                 callback.accept(world.getBlockAt(blockX, blockY, blockZ))
         );
     }

@@ -181,9 +181,4 @@ public class SetbackProcessor implements Processor {
 
         setbackDebug(profile, "&c"+callingClass + " &7caused setback at &6"+ setbackLocation);
     }
-
-    public void causeDamageReduction(Profile user){
-        reduce.put(user.getPlayer(), true);
-        getServer().getScheduler().runTaskLater(Arrow.getInstance().getHost(), () -> reduce.put(user.getPlayer(), false), (60));
-    }
 }

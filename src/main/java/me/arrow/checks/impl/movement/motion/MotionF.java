@@ -14,6 +14,8 @@ import me.arrow.playerdata.data.impl.VelocityData;
 
 // very basic fast ladder check, falses alot
 
+// old MotionG
+
 @Experimental
 public class MotionF extends Check {
 

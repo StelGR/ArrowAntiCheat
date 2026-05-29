@@ -5,6 +5,8 @@ package me.arrow.checks.impl.movement.illegalmove;
 // but you need to account for the direction, cus you could have the issue where someone moves up, up a slab next to a full size block
 // causing a false? maybe, idk, this check can be improved if you have the skills
 
+// moved from MotionF
+
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;

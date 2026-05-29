@@ -237,13 +237,6 @@ public class FlyB extends Check {
 
             clientAirTickLimit = 4 + jumpLevel;
 
-            if (profile.getLastBlockBreakTimer().hasNotPassed(
-                    profile.getConnectionData().getClientTickTrans() == 0 ? 3 :
-                            Math.min(3 + ((profile.getConnectionData().getTransPing() / 20) / profile.getConnectionData().getClientTickTrans()), 8))) {
-                airTickLimit += 1;
-                clientAirTickLimit += 1;
-            }
-
             boolean exempt = movementData.isInsideLiquid()
                     || movementData.isNearWebs()
                     || (profile.getMovementData().getSinceGlidingTicks() < 10);
@@ -260,40 +253,24 @@ public class FlyB extends Check {
                 }
             }
 
-            double horizontalS = Math.max(
-                    profile.getVelocityData().getTotalHorizontalVelocitySustain(),
-                    profile.getVelocityData().getStackedHorizontalVelocity()
-            );
-            double verticalS = Math.max(
+            double velMag = Math.max(
                     profile.getVelocityData().getTotalVerticalVelocitySustain(),
                     profile.getVelocityData().getStackedVerticalVelocity()
             );
-
-            double horizontal = Math.max(
-                    horizontalS,
-                    profile.getVelocityData().getTotalHorizontalVelocity()
-            );
-
-            double vertical = Math.max(
-                    verticalS,
-                    profile.getVelocityData().getTotalVerticalVelocity()
-            );
-
-            double velMag = (horizontal / 2) + vertical;
-            double baseTicksVel = 10;
+            double baseTicksVel = 8;
             double baseVelocity = 0.000001;
-            double scale = 14;
+            double scale = 13;
 
-            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity)) + 6;
+            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
             airTickLimit += Math.ceil(extraFromVel);
 
             if (movementData.isNearFence()) airTickLimit += 4;
 
-            airTickLimit = Math.min(airTickLimit, 12);
+            airTickLimit = Math.max(airTickLimit, 12);
 
             boolean invalidNormal =
                     serverAirTicks > airTickLimit
-                    && deltaY > -0.2
+                    && deltaY > -0.3005
                     && inAir;
 
             verbose(this.getClass().getSimpleName(), serverAirTicks, airTickLimit, MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround

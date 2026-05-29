@@ -33,7 +33,6 @@ public class SpeedA extends Check {
         super(profile, CheckType.SPEED, "A", "Checks if the player is following vanilla speed");
     }
 
-
     @Override
     public void handle(PacketSendEvent event) {
 
@@ -146,7 +145,7 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (movementData.getSinceGlidingTicks() < 10) {
+        if (movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - recentlyGliding");
             return;
         }
@@ -325,8 +324,8 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (profile.getMovementData().getSinceGlidingTicks() < 5 + profile.getConnectionData().getClientTickTrans() ) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - recentlyInVehicle");
+        if (profile.getMovementData().getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - recentlyGliding");
             return;
         }
 
@@ -355,7 +354,7 @@ public class SpeedA extends Check {
         int soulSpeedLevel = SpeedUtilities.getSoulSpeedLevel(profile);
 
         if (soulSpeedLevel > 0 && movementData.getMovingOnSoulBlocksTicks() > 0) {
-            expectedSpeed += soulSpeedLevel * 0.05D;
+            expectedSpeed += soulSpeedLevel * 0.075D;
         }
 
         expectedSpeed += expectedSpeed * (air_honeySpeedBoost + air_iceSpeedBoost + air_slimeSpeedBoost + air_underBlockSpeedReduction);

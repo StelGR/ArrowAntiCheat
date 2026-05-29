@@ -10,7 +10,6 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.playerdata.data.impl.VelocityData;
 import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.customutils.OtherUtility;
 
@@ -129,26 +128,10 @@ public class MotionC extends Check {
 
             if (deltaXZ != 0) airTickLimit += (recentlyPlaced && holdingBlock) ? 4 : 2;
 
-            double horizontalS = Math.max(
-                    profile.getVelocityData().getTotalHorizontalVelocitySustain(),
-                    profile.getVelocityData().getStackedHorizontalVelocity()
-            );
-            double verticalS = Math.max(
+            double velMag = Math.max(
                     profile.getVelocityData().getTotalVerticalVelocitySustain(),
                     profile.getVelocityData().getStackedVerticalVelocity()
             );
-
-            double horizontal = Math.max(
-                    horizontalS,
-                    profile.getVelocityData().getTotalHorizontalVelocity()
-            );
-
-            double vertical = Math.max(
-                    verticalS,
-                    profile.getVelocityData().getTotalVerticalVelocity()
-            );
-
-            double velMag = (horizontal / 2) + vertical;
             double baseTicksVel = 10;
             double baseVelocity = 0.0005;
             double scale = 14;
@@ -159,7 +142,7 @@ public class MotionC extends Check {
             if (movementData.isNearFence()) airTickLimit += 4;
 
             boolean invalid = serverAirTicks > airTickLimit
-                    && deltaY > -0.05
+                    && deltaY > -0.12
                     && isNearWall
                     && nearWallTicks > 8
                     && !(movementData.getSinceGlidingTicks() < 10 && movementData.getSinceGlidingTicks() > 1);

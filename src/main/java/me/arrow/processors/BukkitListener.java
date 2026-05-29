@@ -436,7 +436,7 @@ public class BukkitListener implements Listener {
 //                }
 //            }
 
-            getServer().getScheduler().runTaskLater(Arrow.getInstance().getHost(), () -> {
+            TaskUtils.taskLater(() -> {
                 if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
                     event.getPlayer().teleport(parseLocation(Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_SPAWN.getString(), Config.Setting.TEST_SERVER_MODE_WORLD.getString()), PlayerTeleportEvent.TeleportCause.PLUGIN);
                     event.getPlayer().sendMessage(translate("&7Test server mode is &cENABLED&7. You have been warned."));
@@ -713,7 +713,7 @@ public class BukkitListener implements Listener {
         Player player = event.getPlayer();
         int slot = player.getInventory().getHeldItemSlot();
 
-        getServer().getScheduler().runTaskLater(Arrow.getInstance().getHost(), () -> {
+        TaskUtils.taskLater(() -> {
             if (!player.isOnline()) return;
 
             ItemStack inHand = player.getInventory().getItem(slot);
@@ -746,7 +746,7 @@ public class BukkitListener implements Listener {
         Player player = event.getPlayer();
         int slot = player.getInventory().getHeldItemSlot();
 
-        getServer().getScheduler().runTaskLater(Arrow.getInstance().getHost(), () -> {
+        TaskUtils.taskLater(() -> {
             if (!player.isOnline()) return;
 
             ItemStack inHand = player.getInventory().getItem(slot);

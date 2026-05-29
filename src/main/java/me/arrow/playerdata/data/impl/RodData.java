@@ -8,6 +8,7 @@ import me.arrow.Arrow;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
@@ -163,7 +164,7 @@ public class RodData implements Data {
         this.rodExemptUntil = System.currentTimeMillis() + EXEMPT_MS;
 
         // schedule reelingTicks reset on main thread
-        Bukkit.getScheduler().runTask(Arrow.getInstance().getHost(), () -> {
+        TaskUtils.task(() -> {
             try { if (profile != null) profile.getReelingTicks().reset(); }
             catch (Throwable t) { OtherUtility.log("[Arrow] error resetting reeling ticks: " + t); }
         });

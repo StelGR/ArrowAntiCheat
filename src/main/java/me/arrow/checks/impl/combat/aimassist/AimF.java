@@ -22,6 +22,7 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientIn
 import me.arrow.Arrow;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
@@ -517,7 +518,7 @@ public class AimF extends Check {
         lastAttackYawDelta = deltaYaw;
         lastAttackPitchDelta = deltaPitch;
 
-        Bukkit.getScheduler().runTask(Arrow.getInstance().getHost(), () -> {
+        TaskUtils.task(() -> {
             Player target = getPlayerByEntityId(targetId);
 
             if (target == null || !target.isOnline() || target == profile.getPlayer()) {

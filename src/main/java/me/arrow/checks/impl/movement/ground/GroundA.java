@@ -54,8 +54,7 @@ public class GroundA extends Check {
                     || movementData.isNearShulker()
                     || movementData.getSincePredictUpwardsTicks() < 5
                     || profile.getMovementData().getSincePowderSnowTicks() < 10
-                    || profile.getVehicleData().getSinceVehicleTicks() < 5
-                    || profile.getVehicleData().getSinceNearVehicleTicks() < 5) {
+                    || profile.getVehicleData().getSinceVehicleTicks() < 1) {
                 return;
             }
 

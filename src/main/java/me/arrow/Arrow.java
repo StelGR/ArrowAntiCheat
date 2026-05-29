@@ -33,6 +33,7 @@ import me.arrow.tasks.TickTask;
 import me.arrow.tasks.ViolationTask;
 import me.arrow.utils.MiscUtils;
 import me.arrow.utils.ReflectionUtils;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.GeyserConfigEnforcer;
 import me.arrow.utils.customutils.GuiStuff.GuiListener;
 import me.arrow.utils.customutils.GuiStuff.GuiManager;
@@ -160,7 +161,7 @@ public final class Arrow {
                         pm.getPlugin("Geyser-Velocity-Plugin") != null;
         hasLoaded = false;
 
-        Bukkit.getScheduler().runTaskLater(this.host, () -> {
+        TaskUtils.taskLater(() -> {
             log("");
             final String[] HEADER = new String[] {
                     " $$$$$$\\   $$$$$$\\   $$$$$$\\   $$$$$$\\  $$\\  $$\\  $$\\ ",
@@ -275,7 +276,7 @@ public final class Arrow {
 
         }, 10L);
 
-        Bukkit.getScheduler().runTaskLater(this.host, () -> {
+        TaskUtils.taskLater(() -> {
             log("➪ Remember, stay away from the cult of islam.");
             log("➪ The cult that degrades young girls, Quran 65:4");
             log("➪ Calls them braindead. 2:282");

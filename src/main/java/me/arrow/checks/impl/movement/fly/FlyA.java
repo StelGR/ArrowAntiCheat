@@ -12,6 +12,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.MoveUtils;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.apache.commons.math3.util.FastMath;
 import org.bukkit.Bukkit;
@@ -113,8 +114,7 @@ public class FlyA extends Check {
                 EntityDamageEvent.DamageCause cause = profile.getPlayer().getLastDamageCause().getCause();
 
                 if (IGNORED_CAUSES.contains(cause)) {
-                    Bukkit.getScheduler().runTaskLater(
-                            Arrow.getInstance().getHost(),
+                    TaskUtils.taskLater(
                             () -> {
                                 if (profile.getPlayer() != null) {
                                     profile.getPlayer().setLastDamageCause(null);
@@ -202,12 +202,6 @@ public class FlyA extends Check {
 
         int pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
 
-        if (profile.getLastBlockBreakTimer().hasNotPassed(10 + pingTicks)) {
-            debugExempt("recentBlockBreak");
-            return;
-        }
-
-
         if (profile.isBouncingOnSlime()) { debugExempt("slimeBounce"); return; }
         if (movementData.isOnTopOfWater()) { debugExempt("onTopOfWater"); return; }
         if (movementData.isInsideWater()) { debugExempt("insideWater"); return; }
@@ -221,7 +215,6 @@ public class FlyA extends Check {
         if (movementData.isNearBed()) { debugExempt("nearBed"); return; }
         if (movementData.isNearHoney()) { debugExempt("nearHoney"); return; }
         if (movementData.isNearDripLeaf()) { debugExempt("nearDripLeaf"); return; }
-        if (profile.getLastBlockBreakTimer().hasNotPassed(12 + (profile.getConnectionData().getClientTickTrans() * 2))) { debugExempt("breakingBlock"); return; }
         if (movementData.isNearShulkerBox()) { debugExempt("nearShulkerBox"); return; }
         if (movementData.isNearShulker()) { debugExempt("nearShulker"); return; }
         if (movementData.getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) { debugExempt("sinceGhostblock"); return; }
@@ -309,8 +302,7 @@ public class FlyA extends Check {
                 || movementData.isRiptiding()
                 || movementData.isInsideLiquid()
                 || profile.isExempt().isTeleports()
-                || !profile.isExempt().isRespawned()
-                || profile.getLastBlockBreakTimer().hasNotPassed(5 + profile.getConnectionData().getClientTickTrans())) {
+                || !profile.isExempt().isRespawned()) {
             return;
         }
 
@@ -611,7 +603,7 @@ public class FlyA extends Check {
         }
 
         if (!clientGround) {
-            if (++bufferC > 3.0D) {
+            if (++bufferC > 4.0D) {
                 fail("Not following MCP Gravity (3)",
                         "offset " + MsgType.MAIN_THEME_COLOR.getMessage() + lastOffset
                                 + "\nprediction1 " + MsgType.MAIN_THEME_COLOR.getMessage() + pred1
@@ -624,7 +616,7 @@ public class FlyA extends Check {
                                 + "\nground " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                                 + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                 + "\ntook Damage? " + MsgType.MAIN_THEME_COLOR.getMessage() + (profile.getPlayer().getLastDamageCause() == null ? "No" : profile.getPlayer().getLastDamageCause().getCause()));
-                bufferC = Math.max(10, bufferC);
+                bufferC = Math.max(5, bufferC);
             }
         } else {
             bufferC -= Math.min(bufferC, 0.05D);
@@ -694,8 +686,6 @@ public class FlyA extends Check {
         if (profile.getVelocityData().isTakingVelocity()) { resetGravityD("takingVelocity"); return; }
         if (Math.abs(profile.getVelocityData().getTotalVerticalVelocity()) > 1.0E-5D) { resetGravityD("verticalVelocity"); return; }
         if (profile.getVelocityData().getTotalHorizontalVelocity() > 0.0D) { resetGravityD("horizontalVelocity"); return; }
-
-        if (profile.getLastBlockBreakTimer().hasNotPassed(5 + transTicks + pingTicks)) { resetGravityD("blockBreak"); return; }
 
         if (profile.getPotionData().isHasJump()) { resetGravityD("jumpPotion"); return; }
         if (profile.getPotionData().isHasLevitation()) { resetGravityD("levitation"); return; }

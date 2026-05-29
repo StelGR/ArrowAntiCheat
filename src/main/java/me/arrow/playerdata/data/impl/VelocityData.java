@@ -56,9 +56,6 @@ public class VelocityData implements Data {
 
     private final Profile profile;
 
-    private boolean attackedRecently;
-    private long lastAttackTime;
-
     private final Map<Integer, WrappedData> pWrappedDataMap = new ConcurrentHashMap<>();
     private final Map<Short, WrappedData> tWrappedDataMap = new ConcurrentHashMap<>();
 
@@ -116,12 +113,12 @@ public class VelocityData implements Data {
 
                 if (velocityV < 0.0001) {
                     velocityV = 0.0D;
-                    resetVerticalVelocitySustain();
+                    velocityVSustain = 0.0D;
                 }
 
                 if (velocityH < 0.0001) {
                     velocityH = 0.0D;
-                    resetHorizontalVelocitySustain();
+                    velocityHSustain = 0.0D;
                 }
 
                 explosionKnockback.multiply(0.95D);
@@ -142,8 +139,8 @@ public class VelocityData implements Data {
                 }
 
                 if (!movementData.isMoving() && movementData.getMovingTicks() == 0) {
-                    resetVerticalVelocitySustain();
-                    resetHorizontalVelocitySustain();
+                    velocityVSustain = 0.0D;
+                    velocityHSustain = 0.0D;
                     explosionKnockbackSustain = new Vector(0, 0, 0);
                 }
             }
@@ -151,10 +148,6 @@ public class VelocityData implements Data {
             updateStackedVelocityState();
         }
 
-        if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
-            attackedRecently = true;
-            lastAttackTime = System.currentTimeMillis();
-        }
     }
 
     @Override
@@ -330,23 +323,6 @@ public class VelocityData implements Data {
         this.stackedVerticalVelocity = 0.0D;
         this.stackedHorizontalVelocity = 0.0D;
         this.stackedFullStopTicks = 0;
-    }
-
-    public void resetVerticalVelocitySustain() {
-        this.velocityVSustain = 0.0D;
-
-        if (this.velocitySustain != null) {
-            this.velocitySustain.setY(0.0D);
-        }
-    }
-
-    public void resetHorizontalVelocitySustain() {
-        this.velocityHSustain = 0.0D;
-
-        if (this.velocitySustain != null) {
-            this.velocitySustain.setX(0.0D);
-            this.velocitySustain.setZ(0.0D);
-        }
     }
 
     public void add(Actions action, Vector vector) {

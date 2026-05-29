@@ -2,6 +2,7 @@ package me.arrow.playerdata.processors.impl;
 
 import me.arrow.Arrow;
 import me.arrow.playerdata.processors.Processor;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -59,6 +60,8 @@ public class CollisionProcessor implements Processor {
 
         Box self = snapshot.byId.get(player.getUniqueId());
         Integer worldIndex = snapshot.worldIndexes.get(player.getWorld().getUID());
+
+        if (worldIndex == null) return false;
 
         if (snapshotCollides(player.getUniqueId(), playerBox, snapshot, self != null ? self.worldIndex : worldIndex)) {
             return true;
@@ -184,7 +187,7 @@ public class CollisionProcessor implements Processor {
 
         Plugin plugin = Arrow.getInstance().getHost();
 
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+        TaskUtils.taskTimer(() -> {
             Map<UUID, Box> byId = new HashMap<>();
             Map<Long, List<Box>> chunkBuilder = new HashMap<>();
             Map<UUID, Integer> worldIndexes = new HashMap<>();

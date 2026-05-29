@@ -8,7 +8,6 @@ import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.custom.SampleList;
@@ -38,7 +37,6 @@ public class MotionE extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
 
             if (profile.shouldCancel()
-                    || profile.getLastBlockPlaceCancelTimer().hasNotPassed(6)
                     || profile.getMovementData().isUnderblock()
                     || profile.getMovementData().isOnBoat()
                     || profile.getMovementData().isNearBoat()
@@ -99,7 +97,6 @@ public class MotionE extends Check {
                                     + "\nonTopOfWater " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getMovementData().isOnTopOfWater());
                 }
             } else {
-                // non-constant sample sequence -> clear samples and continue. Bounce detection above still active.
                 samples.clear();
             }
         }
