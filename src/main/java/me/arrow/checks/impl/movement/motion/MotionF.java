@@ -20,7 +20,7 @@ import me.arrow.playerdata.data.impl.VelocityData;
 public class MotionF extends Check {
 
     public MotionF(Profile profile) {
-        super(profile, CheckType.MOTION, "G", "Fast Ladder Check (Basic)");
+        super(profile, CheckType.MOTION, "F", "Fast Ladder Check (Basic)");
     }
 
     @Override
@@ -72,7 +72,7 @@ public class MotionF extends Check {
                 || clientAirTicks < 6;
 
         if (!exempt) {
-            if (deltaY > 0.11760000228882465
+            if (deltaY > 0.11760000228885
                     && md.isClimb()) {
                 fail("Fast Ladder?" ,"deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                         + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY

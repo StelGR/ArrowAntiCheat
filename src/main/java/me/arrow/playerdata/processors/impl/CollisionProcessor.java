@@ -259,7 +259,7 @@ public class CollisionProcessor implements Processor {
                     Collections.unmodifiableMap(worldIndexes),
                     LongBoxMap.from(chunkBuilder)
             );
-        }, 0L, 1L);
+        }, 1L, 1L);
     }
 
     private static void addBoxToChunks(Map<Long, List<Box>> chunkBuilder, Box box) {

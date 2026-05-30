@@ -141,37 +141,12 @@ public class IllegalMoveB extends Check {
             return;
         }
 
-
-
         float movingSlimeTicks = movementData.getMovingOnSlimeTicks();
         float movingIceTicks = movementData.getMovingOnIceTicks();
         //temporeraly exempt ice until I fix it
         if (movingIceTicks > 0 || movingSlimeTicks > 0) return;
 
-
-
-        double horizontalS = Math.max(
-                profile.getVelocityData().getTotalHorizontalVelocitySustain(),
-                profile.getVelocityData().getStackedHorizontalVelocity()
-        );
-        double verticalS = Math.max(
-                profile.getVelocityData().getTotalVerticalVelocitySustain(),
-                profile.getVelocityData().getStackedVerticalVelocity()
-        );
-
-        double horizontal = Math.max(
-                horizontalS,
-                profile.getVelocityData().getTotalHorizontalVelocity()
-        );
-
-        double vertical = Math.max(
-                verticalS,
-                profile.getVelocityData().getTotalVerticalVelocity()
-        );
-
-        double velMag = horizontal + vertical;
-
-        int extraTicks = (int) (velMag * 125);
+        int extraTicks = getExtraTicks();
 
         int clientTickTrans = profile.getConnectionData().getClientTickTrans();
         int transPing = profile.getConnectionData().getTransPing();
@@ -234,6 +209,24 @@ public class IllegalMoveB extends Check {
             strafeBuffer -= Math.min(strafeBuffer, resetRateStrafeBuffer);
         }
         this.wasSprinting = sprinting;
+    }
+
+    private int getExtraTicks() {
+        double horizontal =  profile.getVelocityData().getTotalHorizontalVelocity();
+
+        double vertical = Math.max(
+                profile.getVelocityData().getStackedVerticalVelocity(),
+                profile.getVelocityData().getTotalVerticalVelocity()
+        );
+
+        double velMag = horizontal + vertical;
+
+        double baseTicksVel = 8;
+        double baseVelocity = 0.000001;
+        double scale = 13;
+
+        double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
+        return (int) Math.ceil(extraFromVel);
     }
 }
 

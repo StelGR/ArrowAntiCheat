@@ -253,10 +253,16 @@ public class FlyB extends Check {
                 }
             }
 
-            double velMag = Math.max(
+            double vel = Math.max(
                     profile.getVelocityData().getTotalVerticalVelocitySustain(),
                     profile.getVelocityData().getStackedVerticalVelocity()
             );
+
+            double velMag = Math.max(
+                    vel,
+                    profile.getVelocityData().getTotalVerticalVelocity()
+            );
+
             double baseTicksVel = 8;
             double baseVelocity = 0.000001;
             double scale = 13;

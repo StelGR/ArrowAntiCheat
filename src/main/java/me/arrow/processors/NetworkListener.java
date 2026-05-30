@@ -27,17 +27,22 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
 
     @Override
     public void onPacketReceive(PacketReceiveEvent event) {
-        //log("Receive: player: "+event.getPlayer() + ", packet: "+event.getPacketType());
+
         final Player player = event.getPlayer();
 
         if (player == null) return;
+
+        final Profile profile = this.plugin.getProfileManager().getProfile(player);
+
+        if (profile == null) return;
+
 
         final PacketTypeCommon packet = event.getPacketType();
 
 
         /*
-         Check for position crashers which could destroy our multithreading
-         We have to do this on the netty thread in order to cancel the packet
+            Check for position crashers which could destroy our multithreading
+            We have to do this on the netty thread in order to cancel the packet
         */
         final String crashAttempt = checkCrasher(packet, event);
 
@@ -53,40 +58,14 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
             return;
         }
 
-        final Profile profile = this.plugin.getProfileManager().getProfile(player);
 
-        if (profile == null) return;
-
-        //profile.getProfileThread().execute(() ->
-        profile.handleReceive(event);
-        //);
-
-        //log("Receive: player: "+player + ", packet: "+event.getPacketType());
-
-
-
-
-//        if (event.getPacketType().equals(PacketType.Play.Client.KEEP_ALIVE)) {
-//            WrapperPlayClientKeepAlive keepAlive = new WrapperPlayClientKeepAlive(event.getPacketId());
-//            long keepAliveId = keepAlive.getId();
-//
-//            ChatUtils.log("Keep-Alive Received -> ID: " + keepAliveId);
-//        }
-//
-//
-//
-//
-//        if (event.getPacketType().equals(PacketType.Play.Client.PONG)) {
-//            WrapperPlayClientPong transaction = new WrapperPlayClientPong(event);
-//            int windowId = transaction.getId();
-//
-//            ChatUtils.log("Pong Received -> Window ID: " + windowId );
-//        }
+//        profile.getProfileThread().execute(() ->
+                profile.handleReceive(event);
+//        );
     }
 
     @Override
     public void onPacketSend(PacketSendEvent event) {
-        //log("Send: player: "+event.getPlayer() + ", packet: "+event.getPacketType());
         final Player player = event.getPlayer();
 
         if (player == null) return;
@@ -95,14 +74,6 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
 
         if (profile == null) return;
 
-        //final PacketTypeCommon packet = event.getPacketType();
-
-
-        /*
-        ---------------------------------------------------------------------------
-        Validate serverbound packets to make sure they're being sent to the player
-        ---------------------------------------------------------------------------
-         */
         final int playerId = player.getEntityId();
 
         if (event.getPacketType().equals(PacketType.Play.Server.ENTITY_VELOCITY)) {
@@ -110,33 +81,10 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
 
             if (velocity.getEntityId() != playerId) return;
 
-                /*
-                Validate more
-                 */
         }
-        /*
-        ---------------------------------------------------------------------------
-         */
-
-        //profile.getProfileThread().execute(() ->
-        profile.handleSend(event);
-        //);
-//
-
-
-//        if (event.getPacketType().equals(PacketType.Play.Server.KEEP_ALIVE)) {
-//            WrapperPlayServerKeepAlive keepAlive = new WrapperPlayServerKeepAlive(event.getPacketId());
-//            long keepAliveId = keepAlive.getId();
-//
-//            ChatUtils.log("Keep-Alive Sent -> ID: " + keepAliveId);
-//        }
-//
-//        if (event.getPacketType().equals(PacketType.Play.Server.PING)) {
-//            WrapperPlayServerPing transaction = new WrapperPlayServerPing(event);
-//            long transactionId = transaction.getId();
-//
-//            ChatUtils.log("Ping Sent -> ID: " + transactionId);
-//        }
+//        profile.getProfileThread().execute(() ->
+                profile.handleSend(event);
+//        );
     }
 
     private String checkCrasher(PacketTypeCommon packet, PacketReceiveEvent event) {

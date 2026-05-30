@@ -128,15 +128,7 @@ public class MotionC extends Check {
 
             if (deltaXZ != 0) airTickLimit += (recentlyPlaced && holdingBlock) ? 4 : 2;
 
-            double velMag = Math.max(
-                    profile.getVelocityData().getTotalVerticalVelocitySustain(),
-                    profile.getVelocityData().getStackedVerticalVelocity()
-            );
-            double baseTicksVel = 10;
-            double baseVelocity = 0.0005;
-            double scale = 14;
-
-            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity)) + 6;
+            double extraFromVel = getVelocityTicks();
             airTickLimit += Math.ceil(extraFromVel);
 
             if (movementData.isNearFence()) airTickLimit += 4;
@@ -170,5 +162,23 @@ public class MotionC extends Check {
                         + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
             }
         }
+    }
+
+    private double getVelocityTicks() {
+        double vel = Math.max(
+                profile.getVelocityData().getTotalVerticalVelocitySustain(),
+                profile.getVelocityData().getStackedVerticalVelocity()
+        );
+
+        double velMag = Math.max(
+                vel,
+                profile.getVelocityData().getTotalVerticalVelocity()
+        );
+
+        double baseTicksVel = 10;
+        double baseVelocity = 0.0005;
+        double scale = 14;
+
+        return velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity)) + 6;
     }
 }

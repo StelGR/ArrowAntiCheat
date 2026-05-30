@@ -15,7 +15,6 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
-import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
@@ -367,7 +366,7 @@ public class ReachA extends Check {
                     added *= 0.75D;
                 }
 
-                if (bestDistance > 4.5) profile.getTrustFactor().decreaseTrustBy(10);
+                if (bestDistance > 3.7) profile.getTrustFactor().decreaseTrustBy(30);
 
                 if (profile.getTrustScore() > 80) {
                     increaseBufferBy(0.5);
@@ -375,19 +374,12 @@ public class ReachA extends Check {
                     return;
                 }
 
-                if (increaseBufferBy(added) > profile.getTrustFactor().getRequiredBuffer()) {
-                    double finalBestDistance = bestDistance;
-                    double finalBestRawDistance = bestRawDistance;
-                    double finalBestForgivingDistance = bestForgivingDistance;
-                    boolean finalRayHitBox = rayHitBox;
-                    boolean finalOriginInsideBox = originInsideBox;
-                    boolean finalUsedCompensatedRotation = usedCompensatedRotation;
-
+                if (increaseBufferBy(added) > (Math.max( 0, (profile.getTrustFactor().getRequiredBuffer() + 1) / 2))) {
                     fail(
                             "Increased interaction range",
-                            "distance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(finalBestDistance)
-                                    + "\nrawDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(finalBestRawDistance)
-                                    + "\nforgivingDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(finalBestForgivingDistance)
+                            "distance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestDistance)
+                                    + "\nrawDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestRawDistance)
+                                    + "\nforgivingDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestForgivingDistance)
                                     + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + format(allowedReach)
                                     + "\ntolerance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(reachTolerance)
                                     + "\nboxExpandH " + MsgType.MAIN_THEME_COLOR.getMessage() + format(horizontalExpand)
@@ -396,18 +388,18 @@ public class ReachA extends Check {
                                     + "\nforgivingExpandV " + MsgType.MAIN_THEME_COLOR.getMessage() + format(forgivingVerticalExpand)
                                     + "\nsamples " + MsgType.MAIN_THEME_COLOR.getMessage() + compensatedSamples.size()
                                     + "\nhistory " + MsgType.MAIN_THEME_COLOR.getMessage() + historyAmount
-                                    + "\nrayHitBox " + MsgType.MAIN_THEME_COLOR.getMessage() + finalRayHitBox
-                                    + "\ninsideBox " + MsgType.MAIN_THEME_COLOR.getMessage() + finalOriginInsideBox
+                                    + "\nrayHitBox " + MsgType.MAIN_THEME_COLOR.getMessage() + rayHitBox
+                                    + "\ninsideBox " + MsgType.MAIN_THEME_COLOR.getMessage() + originInsideBox
                                     + "\nrecentFlick " + MsgType.MAIN_THEME_COLOR.getMessage() + recentFlick
                                     + "\nlaggy " + MsgType.MAIN_THEME_COLOR.getMessage() + laggy
-                                    + "\nusedRotationHistory " + MsgType.MAIN_THEME_COLOR.getMessage() + finalUsedCompensatedRotation
+                                    + "\nusedRotationHistory " + MsgType.MAIN_THEME_COLOR.getMessage() + usedCompensatedRotation
                                     + "\ntarget " + MsgType.MAIN_THEME_COLOR.getMessage() + target.getName()
                     );
                     profile.getTrustFactor().decreaseTrustBy(2);
                 }
             }
         } else {
-            decreaseBufferBy(validRayHit ? 0.18D : 0.05D);
+            decreaseBufferBy(validRayHit ? 0.018D : 0.005D);
             profile.getTrustFactor().increaseTrustBy(0.0025);
         }
 

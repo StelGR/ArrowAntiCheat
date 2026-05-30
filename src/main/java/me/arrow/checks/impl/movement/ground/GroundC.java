@@ -137,7 +137,6 @@ public class GroundC extends Check {
                 }
             }
 
-
             if (profile.getBlockProcessor().isOnGhostBlock()) {
                 fail("BlockProcessor: On Ghostblock?", verboseInfo);
 
