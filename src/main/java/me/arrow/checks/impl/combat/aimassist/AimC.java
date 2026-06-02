@@ -53,11 +53,11 @@ public class AimC extends Check {
 
                         if (increaseBuffer() > requiredBuffer) {
                             if (profile.getTrustFactor().getTrust() >= 80) {
-                                profile.getTrustFactor().decreaseTrustBy(1.5);
+                                profile.getTrustFactor().decreaseTrustBy(2.75);
                             } else {
                                 fail("Smooth Aim", "deltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
                                 + "\ndeltaPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaPitch);
-                                profile.getTrustFactor().decreaseTrustBy(5);
+                                profile.getTrustFactor().decreaseTrustBy(2);
                             }
                         }
                     }

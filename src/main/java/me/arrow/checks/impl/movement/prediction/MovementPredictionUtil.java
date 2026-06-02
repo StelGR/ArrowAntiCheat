@@ -153,6 +153,10 @@ public class MovementPredictionUtil {
                     || sector == MovementSector.BACKWARD_RIGHT;
         }
 
+        public boolean isBackwardsNoStrafe() {
+            return sector == MovementSector.BACKWARD;
+        }
+
         public boolean isLeft() {
             return cross < 0.0D;
         }

@@ -239,11 +239,6 @@ public class Checks implements Initializer {
         INVENTORY_B_PUNiSH_MODE("InventoryB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         INVENTORY_B_MAX_VL("InventoryB.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        INVENTORY_C("InventoryC.enabled", true, "Should we enable this module?"),
-        INVENTORY_C_PUNISH("InventoryC.punish", "", "Punishment settings"),
-        INVENTORY_C_PUNiSH_ENABLED("InventoryC.punish.enabled", true, "Should punishments be enabled for this check?"),
-        INVENTORY_C_PUNiSH_MODE("InventoryC.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        INVENTORY_C_MAX_VL("InventoryC.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
 
         SCAFFOLD_A("ScaffoldA.enabled", true, "Should we enable this module?"),
         SCAFFOLD_A_PUNISH("ScaffoldA.punish", "", "Punishment settings"),
@@ -437,7 +432,7 @@ public class Checks implements Initializer {
         NOSLOWDOWN_A_PUNiSH_MODE("NoSlowdownA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         NOSLOWDOWN_A_MAX_VL("NoSlowdownA.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        PHASE_A("PhaseA.enabled", true, "Should we enable this module?"),
+        PHASE_A("PhaseA.enabled", false, "Should we enable this module?"),
         PHASE_A_PUNISH("PhaseA.punish", "", "Punishment settings"),
         PHASE_A_PUNiSH_ENABLED("PhaseA.punish.enabled", false, "Should punishments be enabled for this check?"),
         PHASE_A_PUNiSH_MODE("PhaseA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),

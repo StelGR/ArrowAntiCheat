@@ -128,8 +128,7 @@ public class MotionC extends Check {
 
             if (deltaXZ != 0) airTickLimit += (recentlyPlaced && holdingBlock) ? 4 : 2;
 
-            double extraFromVel = getVelocityTicks();
-            airTickLimit += Math.ceil(extraFromVel);
+            airTickLimit += Math.ceil(getVelocityTicks());
 
             if (movementData.isNearFence()) airTickLimit += 4;
 
@@ -175,10 +174,14 @@ public class MotionC extends Check {
                 profile.getVelocityData().getTotalVerticalVelocity()
         );
 
-        double baseTicksVel = 10;
+        double horizo = profile.getVelocityData().getTotalHorizontalVelocity();
+
+        velMag += (horizo / 2);
+
+        double baseTicksVel = 8;
         double baseVelocity = 0.0005;
         double scale = 14;
 
-        return velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity)) + 6;
+        return velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
     }
 }

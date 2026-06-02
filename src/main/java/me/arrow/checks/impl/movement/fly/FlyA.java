@@ -678,8 +678,8 @@ public class FlyA extends Check {
         if (data.isMovingUp()) { resetGravityD("movingUp"); return; }
         if (data.isMovingDown()) { resetGravityD("movingDown"); return; }
         //if (data.getVerticalMove() == MovementPredictionUtil.VerticalMove.DOWN) { resetGravityD("verticalMoveDown"); return; }
-        if (data.getSincePredictUpwardsTicks() < 8 + transTicks) { resetGravityD("predictUpwards"); return; }
-        if (data.getSincePredictDownwardsTicks() < 8 + transTicks) { resetGravityD("predictDownwards"); return; }
+        if (data.getSincePredictUpwardsTicks() < 10 + transTicks) { resetGravityD("predictUpwards"); return; }
+        if (data.getSincePredictDownwardsTicks() < 10 + transTicks) { resetGravityD("predictDownwards"); return; }
 
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return; }
 

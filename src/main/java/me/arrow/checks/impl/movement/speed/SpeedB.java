@@ -217,7 +217,7 @@ public class SpeedB extends Check {
 
             if (movementData.getLastNearEdgeTicks() <= 3) {
                 if (velocity) {
-                    threshold += profile.getVelocityData().getTotalHorizontalVelocitySustain() + 0.5D;
+                    threshold += profile.getVelocityData().getTotalHorizontalVelocity() + 0.5D;
                 } else {
                     threshold += 0.5D;
                 }
@@ -239,7 +239,6 @@ public class SpeedB extends Check {
                     + "\n * velocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
             if (!(deltaXZ > 0.1D)) {
-                // this.decrease(0.01);
                 vlBuffer = Math.max(0.0, vlBuffer - 0.75);
             } else {
                 Vector subtracted = move.clone().subtract(compLastMove);
@@ -353,24 +352,20 @@ public class SpeedB extends Check {
                                 + "\n * velocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
                     } else {
-                        // this.decrease(0.1);
                         vlBuffer = Math.max(0.0, vlBuffer - 0.05);
                     }
                 } else {
-                    // this.decrease(0.1);
                     vlBuffer = Math.max(0.0, vlBuffer - 0.05);
                 }
             }
 
             lastMove = new Vector(deltaX, 0.0, deltaZ);
 
-            // if (tickedVelocity != null) holdVelocity = velocityHorizontal;
             if (velocity) {
-                sustainVelocity = profile.getVelocityData().getTotalHorizontalVelocitySustain();
+                sustainVelocity = profile.getVelocityData().getTotalHorizontalVelocity();
             }
 
         } else {
-            // else { this.lastMove = new Vector(deltaX, 0.0, deltaZ); }
             lastMove = new Vector(deltaX, 0.0, deltaZ);
         }
     }
@@ -401,9 +396,6 @@ public class SpeedB extends Check {
     }
 
 
-
-
-    //functions
     private boolean checkValid(boolean velocity) {
         MovementData movementData = profile.getMovementData();
 

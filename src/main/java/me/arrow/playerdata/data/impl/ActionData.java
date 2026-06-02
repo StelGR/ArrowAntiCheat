@@ -2,7 +2,9 @@ package me.arrow.playerdata.data.impl;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
@@ -58,6 +60,16 @@ public class ActionData implements Data {
     private double lastConfirmedUnderPlaceTopY;
     private Material lastConfirmedUnderPlaceType = Material.AIR;
 
+    // ---- Confirmed under-break tracking ----
+    private final ArrayDeque<PendingUnderBreak> pendingUnderBreaks = new ArrayDeque<>();
+
+    private int lastBreakAttemptTicks = 1000;
+    private int lastConfirmedUnderBreakTicks = 1000;
+    private int lastConfirmedUnderBreakX;
+    private int lastConfirmedUnderBreakY;
+    private int lastConfirmedUnderBreakZ;
+    private Material lastConfirmedUnderBreakOldType = Material.AIR;
+
     public ActionData(Profile profile) {
 
         this.profile = profile;
@@ -95,10 +107,10 @@ public class ActionData implements Data {
                 sneaking = false;
             }
         }
-        else if (event.getPacketType().equals(PLAYER_BLOCK_PLACEMENT)) {
+        if (event.getPacketType().equals(PLAYER_BLOCK_PLACEMENT)) {
             handleBlockPlace(event);
         }
-        else if (event.getPacketType().equals(PLAYER_FLYING)
+        if (event.getPacketType().equals(PLAYER_FLYING)
                 || event.getPacketType().equals(PLAYER_POSITION)
                 || event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PLAYER_ROTATION)) {
@@ -113,9 +125,16 @@ public class ActionData implements Data {
 
             tickBlockPlacePrediction();
             confirmPendingUnderPlaces();
+
+            tickBlockBreakPrediction();
+            confirmPendingUnderBreaks();
         }
-        else if (event.getPacketType().equals(CLOSE_WINDOW)) {
+        if (event.getPacketType().equals(CLOSE_WINDOW)) {
             inInventory = false;
+        }
+
+        if (event.getPacketType().equals(PLAYER_DIGGING)) {
+            handleBlockBreak(event);
         }
     }
 
@@ -565,5 +584,169 @@ public class ActionData implements Data {
             this.z = z;
             this.oldType = oldType;
         }
+    }
+
+    private void handleBlockBreak(PacketReceiveEvent event) {
+        Player player = profile.getPlayer();
+        if (player == null || !player.isOnline()) return;
+
+        WrapperPlayClientPlayerDigging packet;
+        try {
+            packet = new WrapperPlayClientPlayerDigging(event);
+        } catch (Throwable ignored) {
+            return;
+        }
+
+        // Only care about "actual breaking" actions
+        DiggingAction action = packet.getAction();
+        if (action != DiggingAction.START_DIGGING
+                && action != DiggingAction.FINISHED_DIGGING) {
+            return;
+        }
+
+        Object pos = packet.getBlockPosition();
+        if (pos == null) return;
+
+        int x = getCoordinate(pos, "getX");
+        int y = getCoordinate(pos, "getY");
+        int z = getCoordinate(pos, "getZ");
+
+        if (x == -1 && y == -1 && z == -1) return;
+
+        World world = player.getWorld();
+        if (world == null) return;
+
+        Block target = world.getBlockAt(x, y, z);
+
+        lastBreakAttemptTicks = 0;
+
+        // Only track breaks that are plausibly "under the player"
+        if (!isPotentialUnderBreak(target)) return;
+
+        Material oldType = target.getType();
+        if (oldType == null || isReplaceable(oldType)) return; // already air-ish, nothing to "break"
+
+        pendingUnderBreaks.add(new PendingUnderBreak(
+                world.getName(),
+                x, y, z,
+                oldType
+        ));
+
+        while (pendingUnderBreaks.size() > 12) {
+            pendingUnderBreaks.pollFirst();
+        }
+    }
+
+    private void tickBlockBreakPrediction() {
+        lastBreakAttemptTicks = increment(lastBreakAttemptTicks);
+        lastConfirmedUnderBreakTicks = increment(lastConfirmedUnderBreakTicks);
+
+        Iterator<PendingUnderBreak> it = pendingUnderBreaks.iterator();
+        while (it.hasNext()) {
+            PendingUnderBreak br = it.next();
+            br.ageTicks++;
+
+            // break confirmation should be quick but ping tolerant
+            if (br.ageTicks > getBlockBreakPredictionTicks()) {
+                it.remove();
+            }
+        }
+    }
+
+    private int getBlockBreakPredictionTicks() {
+        // Similar to place, but a bit more tolerant (break animation + server update timing)
+        int transTicks = 0;
+        int pingTicks = 0;
+
+        try { transTicks = Math.max(0, profile.getConnectionData().getClientTickTrans()); } catch (Throwable ignored) {}
+        try { pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50); } catch (Throwable ignored) {}
+
+        // tuned: break confirmation tends to arrive slightly later than place
+        return Math.max(4, Math.min(30, 5 + transTicks + pingTicks));
+    }
+
+    private void confirmPendingUnderBreaks() {
+        if (pendingUnderBreaks.isEmpty()) return;
+
+        Player player = profile.getPlayer();
+        if (player == null || !player.isOnline()) {
+            pendingUnderBreaks.clear();
+            return;
+        }
+
+        Iterator<PendingUnderBreak> it = pendingUnderBreaks.iterator();
+        while (it.hasNext()) {
+            PendingUnderBreak br = it.next();
+
+            World world = player.getWorld();
+            if (world == null || !world.getName().equals(br.worldName)) {
+                it.remove();
+                continue;
+            }
+
+            Block block = world.getBlockAt(br.x, br.y, br.z);
+            Material now = block.getType();
+
+            // Confirm break: block changed from old solid-ish type to replaceable/air-like
+            if (now == br.oldType) continue;
+            if (!isReplaceable(now)) continue;
+
+            lastConfirmedUnderBreakTicks = 0;
+            lastConfirmedUnderBreakX = br.x;
+            lastConfirmedUnderBreakY = br.y;
+            lastConfirmedUnderBreakZ = br.z;
+            lastConfirmedUnderBreakOldType = br.oldType;
+
+            it.remove();
+        }
+    }
+
+    private boolean isPotentialUnderBreak(Block block) {
+        if (block == null || profile.getMovementData() == null) return false;
+
+        // We only care about blocks that support the player (below-ish),
+        // not random breaks around them.
+        return isUnderBreakLocation(block, profile.getMovementData().getLocation())
+                || isUnderBreakLocation(block, profile.getMovementData().getLastLocation())
+                || isUnderBreakLocation(block, profile.getMovementData().getLastLastLocation());
+    }
+
+    private boolean isUnderBreakLocation(Block block, CustomLocation location) {
+        if (block == null || location == null) return false;
+
+        double blockCenterX = block.getX() + 0.5D;
+        double blockCenterZ = block.getZ() + 0.5D;
+
+        double dx = Math.abs(blockCenterX - location.getX());
+        double dz = Math.abs(blockCenterZ - location.getZ());
+
+        // For breaks, we want "support blocks" under feet, not above.
+        double blockTopY = block.getY() + getBlockTopHeight(block.getType());
+
+        return dx <= 0.95D
+                && dz <= 0.95D
+                && blockTopY <= location.getY() + 0.15D
+                && blockTopY >= location.getY() - 1.25D; // tighter than place (break should be directly under)
+    }
+
+    private static final class PendingUnderBreak {
+        private final String worldName;
+        private final int x;
+        private final int y;
+        private final int z;
+        private final Material oldType;
+        private int ageTicks;
+
+        private PendingUnderBreak(String worldName, int x, int y, int z, Material oldType) {
+            this.worldName = worldName;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.oldType = oldType;
+        }
+    }
+
+    public boolean hasRecentConfirmedUnderBreak(int ticks) {
+        return lastConfirmedUnderBreakTicks <= ticks;
     }
 }

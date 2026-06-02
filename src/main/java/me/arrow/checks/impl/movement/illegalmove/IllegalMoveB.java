@@ -174,7 +174,7 @@ public class IllegalMoveB extends Check {
             airticklimit += 10;
         }
 
-        if (profile.getVelocityData().isTakingVelocity() ) airticklimit +=  (extraTicks + 4);
+        if (profile.getVelocityData().isTakingVelocity() ) airticklimit += extraTicks;
 
         final boolean invalid = difference > 0.00747 && deltaXZ > limit && airTicks > airticklimit ;
 
@@ -213,15 +213,11 @@ public class IllegalMoveB extends Check {
 
     private int getExtraTicks() {
         double horizontal =  profile.getVelocityData().getTotalHorizontalVelocity();
-
-        double vertical = Math.max(
-                profile.getVelocityData().getStackedVerticalVelocity(),
-                profile.getVelocityData().getTotalVerticalVelocity()
-        );
+        double vertical = profile.getVelocityData().getTotalVerticalVelocity();
 
         double velMag = horizontal + vertical;
 
-        double baseTicksVel = 8;
+        double baseTicksVel = 2;
         double baseVelocity = 0.000001;
         double scale = 13;
 

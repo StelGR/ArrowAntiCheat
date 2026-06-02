@@ -291,7 +291,7 @@ public class VelocityData implements Data {
 
         MovementData movementData = profile.getMovementData();
 
-        boolean grounded = movementData.getClientGroundTicks() > 10 || movementData.getServerGroundTicks() > 10 || movementData.getServerGroundTicksPlus() > 10;
+        boolean grounded = movementData.getClientGroundTicks() > 6 || movementData.getServerGroundTicks() > 6 || movementData.getServerGroundTicksPlus() > 6;
 
         if (grounded) {
             resetStackedVelocity();

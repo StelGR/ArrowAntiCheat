@@ -339,6 +339,9 @@ public class Profile {
 
     public boolean isOnGhostBlock() {
 
+        if ( (movementData.getFallDistance() > 1.3 && (movementData.getCustomAirTicks() > 5 && movementData.getClientAirTicks() == 0))
+                || (movementData.getLastFallDistance() > 1.3 && ( movementData.getCustomAirTicks() > 5 && movementData.getClientAirTicks() == 0))) return false;
+
         boolean isGhostBlock = movementData.isCustomInAir()
                 && movementData.isOnGround()
                 && getTick() > 20

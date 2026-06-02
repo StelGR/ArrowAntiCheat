@@ -190,8 +190,9 @@ public abstract class AbstractCheck {
                 animationType = Animation.Type.DESTROYED;
             }
 
+            profile.setBanned(true);
             boolean started = Arrow.getInstance().getAnimationManager().play(animationType, p, () -> {
-                profile.setBanned(true);
+
 
                 OtherUtility.antiCheatban(p);
 

@@ -122,6 +122,11 @@ public class ScaffoldC extends Check {
         boolean verticalBridgeContext = verticalBridgeTicks > 0;
         boolean legitJumpPlaceContext = recentConfirmedPlace && isLegitJumpPlaceMotion(movementData);
 
+        if (direction.isBackwardsNoStrafe()) {
+            decayState();
+            return;
+        }
+
         if (verticalBridgeContext || legitJumpPlaceContext) {
             decayState();
             lastSector = direction.getSector();

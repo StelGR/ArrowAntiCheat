@@ -41,7 +41,7 @@ public class AimB extends Check {
 
                     if (increaseBuffer() > requiredBuffer) {
                         if (profile.getTrustFactor().getTrust() >= 80) {
-                            profile.getTrustFactor().decreaseTrust();
+                            profile.getTrustFactor().decreaseTrustBy(3);
                         } else {
                             fail("Smooth Aim",
                                     "deltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYawClamped

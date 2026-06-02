@@ -261,6 +261,14 @@ public class BukkitListener implements Listener {
                 }
 
                 if (((EntityDamageEvent) event).getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK) {
+                    user.getLastAttackByEntityTimer().reset();
+                }
+
+                if (((EntityDamageEvent) event).getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
+                    user.getLastShotByArrowTimer().reset();
+                }
+
+                if (((EntityDamageEvent) event).getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK) {
                     int ticks = user.getCombatData().getCancelTicks();
                     if (((EntityDamageEvent) event).isCancelled()) {
                         ticks += (ticks < 20 ? 1 : 0);

@@ -201,7 +201,8 @@ public class FlyB extends Check {
                     || movementData.isNearLava()
                     || movementData.isNearWater()
                     || movementData.getSinceRiptidingTicks() < 30
-                    || movementData.getSinceBubbleTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
+                    || movementData.getSinceBubbleTicks() < 25 + profile.getConnectionData().getClientTickTrans()
+                    || profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 return;
             }
 
@@ -263,16 +264,18 @@ public class FlyB extends Check {
                     profile.getVelocityData().getTotalVerticalVelocity()
             );
 
+            double horizo = profile.getVelocityData().getTotalHorizontalVelocity();
+
+            velMag += (horizo / 2);
+
             double baseTicksVel = 8;
             double baseVelocity = 0.000001;
-            double scale = 13;
+            double scale = 14;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
             airTickLimit += Math.ceil(extraFromVel);
 
             if (movementData.isNearFence()) airTickLimit += 4;
-
-            airTickLimit = Math.max(airTickLimit, 12);
 
             boolean invalidNormal =
                     serverAirTicks > airTickLimit

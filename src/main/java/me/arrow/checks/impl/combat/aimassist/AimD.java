@@ -56,7 +56,7 @@ public class AimD extends Check {
 
                         if (increaseBuffer() > requiredBuffer) {
                             if (profile.getTrustFactor().getTrust() >= 80) {
-                                profile.getTrustFactor().decreaseTrust();
+                                profile.getTrustFactor().decreaseTrustBy(5);
                             } else {
                                 fail("GCD Flaw", "gcd " + MsgType.MAIN_THEME_COLOR.getMessage() + gcd
                                         + "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + yaw
@@ -68,7 +68,7 @@ public class AimD extends Check {
                                         + "\ndeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
                                         + "\ndeltaPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaPitch
                                         + "\ncombined (dY + dP)" + MsgType.MAIN_THEME_COLOR.getMessage() + combined);
-                                profile.getTrustFactor().decreaseTrustBy(5);
+                                profile.getTrustFactor().decreaseTrustBy(2);
                             }
                         }
                     } else {
