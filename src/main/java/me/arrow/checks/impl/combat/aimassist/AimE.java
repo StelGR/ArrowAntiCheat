@@ -47,7 +47,7 @@ public class AimE extends Check {
             RotationData data = profile.getRotationData();
 
             if (!profile.getMovementData().isMoving()
-                    || profile.getCombatData().getAttackedTicks() > 20
+                    || profile.getCombatData().getAttackedTicks() > 5
                     || data.getCinematicProcessor().isCinematic()) {
                 return;
             }

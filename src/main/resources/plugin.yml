@@ -1,6 +1,6 @@
 main: me.arrow.ArrowLoader
 name: Arrow
-version: 107-pre1
+version: 107-pre2
 authors: [Stel]
 prefix: Arrow
 description: Packet based anticheat that bans sad people

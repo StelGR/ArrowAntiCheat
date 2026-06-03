@@ -139,7 +139,7 @@ public class FlyA extends Check {
                     profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
             );
 
-            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 if (Config.Setting.DEBUG.getBoolean()) {
                     OtherUtility.log("Fly A: is Exempting (ghostblock liquid/web)");
                 }
@@ -215,6 +215,7 @@ public class FlyA extends Check {
         if (movementData.isNearBed()) { debugExempt("nearBed"); return; }
         if (movementData.isNearHoney()) { debugExempt("nearHoney"); return; }
         if (movementData.isNearDripLeaf()) { debugExempt("nearDripLeaf"); return; }
+        if (profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) { debugExempt("breaking block under self"); return; }
         if (movementData.isNearShulkerBox()) { debugExempt("nearShulkerBox"); return; }
         if (movementData.isNearShulker()) { debugExempt("nearShulker"); return; }
         if (movementData.getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) { debugExempt("sinceGhostblock"); return; }
@@ -821,9 +822,9 @@ public class FlyA extends Check {
                     || (doubleGravityMatch && excess > (slowFalling ? 0.030D : 0.050D) && data.getCustomAirTicks() >= 3)
                     || (excess > (slowFalling ? 0.045D : 0.095D) && severity > 3.0D);
 
-            double required = hardFastFall ? 2D : 4D;
+            double required = hardFastFall ? 3D : 5D;
 
-            if (hardFastFall && increaseBuffer() > required || negGravStreak > required) {
+            if ((hardFastFall && increaseBuffer() > required) || negGravStreak > required) {
                 fail("Negative Gravity Modification " + (hardFastFall ? "(Fast Fall)" : "(Streak : "+ negGravStreak+")"),
                         "fallDist " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDist
                                 + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getCustomAirTicks()

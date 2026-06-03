@@ -130,9 +130,9 @@ public class PhaseA extends Check {
         if (desync.shouldExempt()) {
             syncDesync(desync);
 
-            if (desync.shouldSetback()) {
-                profile.getMovementData().getSetbackProcessor().causeSetBack(this.getClass().getSimpleName());
-            }
+//            if (desync.shouldSetback()) {
+//                profile.getMovementData().getSetbackProcessor().causeSetBack(this.getClass().getSimpleName());
+//            }
 
             decay();
             return;
@@ -173,7 +173,7 @@ public class PhaseA extends Check {
                             + "\nground " + MsgType.MAIN_THEME_COLOR.getMessage() + ground
                             + "\nstep " + MsgType.MAIN_THEME_COLOR.getMessage() + hit.step);
 
-            profile.getMovementData().getSetbackProcessor().causeSetBack(this.getClass().getSimpleName());
+            //profile.getMovementData().getSetbackProcessor().causeSetBack(this.getClass().getSimpleName());
         }
 
         verbose(this.getClass().getSimpleName(), threshold, 2.0D,

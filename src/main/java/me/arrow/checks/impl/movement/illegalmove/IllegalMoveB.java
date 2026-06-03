@@ -136,7 +136,12 @@ public class IllegalMoveB extends Check {
             return;
         }
 
-        if (movementData.getSincePowderSnowTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
+        if (movementData.isNearGhast()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): is Exempting (Ghast)");
+            return;
+        }
+
+        if (movementData.getSincePowderSnowTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): is Exempting (Powder Snow)");
             return;
         }

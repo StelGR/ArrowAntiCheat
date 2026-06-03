@@ -588,7 +588,7 @@ public class GuiManager {
                 Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                         OtherUtility.translate("&7Manage the hitbox checks"),
                         OtherUtility.translate(OtherUtility.guiLine())
-                )));
+                ), true));
 
 
         gui.setItem(14, GuiUtility.generateItem(new ItemStack(Material.STICK, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Reach"),
@@ -644,9 +644,9 @@ public class GuiManager {
                         OtherUtility.translate("&7Manage the motion checks"),
                         OtherUtility.translate(OtherUtility.guiLine())
                 )));
-        gui.setItem(13, GuiUtility.generateItem(new ItemStack(Material.BEACON, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Analysis"),
+        gui.setItem(13, GuiUtility.generateItem(new ItemStack(Material.BEACON, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Vehicle"),
                 Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the analysis checks"),
+                        OtherUtility.translate("&7Manage the vehicle checks"),
                         OtherUtility.translate(OtherUtility.guiLine())
                 )));
         gui.setItem(14, GuiUtility.generateItem(new ItemStack(Material.ANVIL, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ground"),
@@ -682,45 +682,57 @@ public class GuiManager {
     }
 
     public void openMiscChecksGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(player, 27, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Misc Checks"));
+        Inventory gui = Bukkit.createInventory(player, 45, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Misc Checks"));
 
         gui.setItem(10, GuiUtility.generateItem(new ItemStack(Material.TNT, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Bad Packets"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                 OtherUtility.translate("&7Manage the bad packets checks"),
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
-        gui.setItem(11, GuiUtility.generateItem(new ItemStack(Material.GRASS_BLOCK, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Interact"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+
+        gui.setItem(12, GuiUtility.generateItem(new ItemStack(Material.GRASS_BLOCK, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Interact"),
+            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                 OtherUtility.translate("&7Manage the interact checks"),
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
-        gui.setItem(12, GuiUtility.generateItem(new ItemStack(Material.CHEST, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Inventory"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+
+        gui.setItem(14, GuiUtility.generateItem(new ItemStack(Material.CHEST, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Inventory"),
+            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                 OtherUtility.translate("&7Manage the inventory checks"),
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
-        gui.setItem(13, GuiUtility.generateItem(new ItemStack(Material.SUGAR, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "No Slowdown"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+
+        gui.setItem(16, GuiUtility.generateItem(new ItemStack(Material.SUGAR, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "No Slowdown"),
+            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                 OtherUtility.translate("&7Manage the no slowdown checks"),
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
-        gui.setItem(14, GuiUtility.generateItem(new ItemStack(Material.SANDSTONE_STAIRS, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Scaffold"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+
+        gui.setItem(28, GuiUtility.generateItem(new ItemStack(Material.SANDSTONE_STAIRS, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Scaffold"),
+            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                 OtherUtility.translate("&7Manage the scaffold checks"),
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
-        gui.setItem(15, GuiUtility.generateItem(new ItemStack(Material.REDSTONE, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Timer"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+
+        gui.setItem(30, GuiUtility.generateItem(new ItemStack(Material.REDSTONE, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Timer"),
+            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                 OtherUtility.translate("&7Manage the timer checks"),
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
-        gui.setItem(16, GuiUtility.generateItem(new ItemStack(Material.DIAMOND_AXE, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Macro"),
+
+        gui.setItem(32, GuiUtility.generateItem(new ItemStack(Material.DIAMOND_AXE, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Macro"),
                 Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                         OtherUtility.translate("&7Manage the Macro checks"),
                         OtherUtility.translate(OtherUtility.guiLine())
                 )));
 
-        gui.setItem(22, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
+        gui.setItem(34, GuiUtility.generateItem(new ItemStack(Material.ENDER_PEARL, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Phase"),
+                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
+                        OtherUtility.translate("&7Manage the Phase checks"),
+                        OtherUtility.translate(OtherUtility.guiLine())
+                )));
+
+        gui.setItem(40, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
         Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                 OtherUtility.translate("&7Click to go back."),
                 OtherUtility.translate(OtherUtility.guiLine())
@@ -728,7 +740,7 @@ public class GuiManager {
 
         ItemStack spacer = GuiUtility.createSpacer();
 
-        for (int slots = 0; slots < 27; slots++) {
+        for (int slots = 0; slots < 45; slots++) {
             if (gui.getItem(slots) == null)
                 gui.setItem(slots, spacer);
         }

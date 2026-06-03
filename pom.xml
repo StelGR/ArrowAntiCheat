@@ -112,7 +112,7 @@
       <dependency>
           <groupId>com.github.retrooper</groupId>
           <artifactId>packetevents-spigot</artifactId>
-          <version>2.12.1</version>
+          <version>2.12.2</version>
           <scope>provided</scope>
       </dependency>
 
@@ -138,7 +138,7 @@
           <dependency>
               <groupId>com.viaversion</groupId>
               <artifactId>viaversion-api</artifactId>
-              <version>5.9.0</version>
+              <version>5.9.1</version>
               <scope>provided</scope>
           </dependency>
 

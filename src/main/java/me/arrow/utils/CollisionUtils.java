@@ -35,12 +35,13 @@ public final class CollisionUtils {
     /*
     The exact horizontal expansion we need in order to get all the blocks near the player.
      */
-    private static final double EXPAND_HORIZONTAL = .300001D;
+    private static final double EXPAND_HORIZONTAL = .75D;
 
     /*
     The exact additional expansion we need in order to correctly account for blocks on top and below.
      */
-    private static final double EXPAND_ADDITIONAL = 2.000000000002E-6;
+    //private static final double EXPAND_ADDITIONAL = 2.000000000002E-6;
+    private static final double EXPAND_ADDITIONAL = 0;
 
     /*
     The modulo values for full blocks in order to get if the player is at the edge of a block.
@@ -346,7 +347,6 @@ public final class CollisionUtils {
     /**
      * Core implementation: checks a 3x3 candidate grid below the provided location (keeps your hasBlockUnder semantics).
      * Falls back to nearby.getBlockTypes() check if candidate blocks are null (chunk not loaded).
-     *
      * - loc: the player location to check (tests blocks at y - 1).
      * - nearby: the precomputed NearbyBlocksResult for that location (can be null).
      * - async: pass true if you want getBlock(..., true) behavior (matches your usage).

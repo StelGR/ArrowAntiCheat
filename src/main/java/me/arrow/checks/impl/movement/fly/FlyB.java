@@ -275,7 +275,9 @@ public class FlyB extends Check {
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
             airTickLimit += Math.ceil(extraFromVel);
 
-            if (movementData.isNearFence()) airTickLimit += 4;
+//            if (movementData.isNearFence()) airTickLimit += 4;
+
+            airTickLimit = Math.max(airTickLimit, 12);
 
             boolean invalidNormal =
                     serverAirTicks > airTickLimit
@@ -284,10 +286,10 @@ public class FlyB extends Check {
 
             verbose(this.getClass().getSimpleName(), serverAirTicks, airTickLimit, MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                     + "\n * clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                    + "\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                     + "\n * serverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerYGround()
                     + "\n * serverPositionYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPositionYGround()
-                    + "\n * inAir " + MsgType.MAIN_THEME_COLOR.getMessage() + "true\n * serverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
+                    + "\n * inAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
+                    + "\n * serverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
                     + "\n * clientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                     + "\n * deltaY&b " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                     + "\n * fallDistance&b " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDistance

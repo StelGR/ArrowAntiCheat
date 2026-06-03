@@ -94,6 +94,10 @@ public class GroundC extends Check {
                 return;
             }
 
+            if (profile.getActionData().getLastConfirmedUnderBreakTicks() < (5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
+            }
+
             boolean ground = movementData.isOnGround();
 
             boolean serverPositionGround = movementData.isPositionYGround()
