@@ -177,6 +177,8 @@ public class MotionA extends Check {
 
             if (deltaY != 0) verbose(this.getClass().getSimpleName(), deltaY, maxJumpHeight, data);
 
+            if (movementData.getSinceNearSlimeTicks() <= (10 + (profile.getConnectionData().getClientTickTrans() * 2)) && movementData.isNearPiston()) return;
+
             if (!isGround
                     && lastGround
                     && deltaY > 0.0

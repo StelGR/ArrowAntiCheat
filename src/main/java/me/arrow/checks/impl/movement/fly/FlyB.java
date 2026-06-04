@@ -275,7 +275,10 @@ public class FlyB extends Check {
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
             airTickLimit += Math.ceil(extraFromVel);
 
-//            if (movementData.isNearFence()) airTickLimit += 4;
+            if (movementData.isNearFence()) airTickLimit += 4;
+
+            //temporary piston fix
+            if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) airTickLimit += 8;
 
             airTickLimit = Math.max(airTickLimit, 12);
 
@@ -297,6 +300,7 @@ public class FlyB extends Check {
                     + "\n * sAirTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit
                     + "\n * cAirTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTickLimit
                     + "\n * extraTicksVel " + MsgType.MAIN_THEME_COLOR.getMessage() + extraFromVel
+                    + "\n * sinceNearSlimeTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSinceNearSlimeTicks()
                     + "\n * velMag " + MsgType.MAIN_THEME_COLOR.getMessage() + velMag
                     + "\n * placeTimer " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getLastBlockPlaceTimer().getTick()
                     + "\n * velocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalHorizontalVelocity()

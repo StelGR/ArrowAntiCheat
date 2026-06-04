@@ -132,6 +132,9 @@ public class MotionC extends Check {
 
             if (movementData.isNearFence()) airTickLimit += 4;
 
+            //temporary piston fix
+            if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) airTickLimit += 8;
+
             boolean invalid = serverAirTicks > airTickLimit
                     && deltaY > -0.12
                     && isNearWall

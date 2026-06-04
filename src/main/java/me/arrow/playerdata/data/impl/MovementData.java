@@ -81,7 +81,7 @@ public class MovementData implements Data {
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround, isDigging,
-        nearWater, nearBubble, nearLava, nearContact, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, movingDown, isRiptiding, nearPiston;
+        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, movingDown, isRiptiding, nearPiston;
 
 
     @Getter
@@ -90,7 +90,7 @@ public class MovementData implements Data {
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
             customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
-            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, tick, sinceTeleportTicks;
+            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks;
 
     @Getter
     @Setter
@@ -498,7 +498,7 @@ public class MovementData implements Data {
         boolean flag_water = false, flag_lava = false, flag_web = false, flag_climbable = false,
                 flag_nearBuggyBlock = false, flag_bubble = false, flag_bed = false,
                 flag_honey = false, flag_shulker = false, flag_contact = false,
-                flag_dripleaf = false, flag_fence = false;
+                flag_dripleaf = false, flag_fence = false, flag_slime = false;
 
         World world = location.getWorld();
 
@@ -523,6 +523,7 @@ public class MovementData implements Data {
                         String mName = mat.name();
 
                         flag_water = flag_water || isWaterOrWaterlogged(block);
+                        flag_slime = flag_slime || MaterialType.isMaterial(mName, MaterialType.SLIME);
                         flag_bubble = flag_bubble || MaterialType.isMaterial(mName, MaterialType.BUBBLE);
                         flag_lava = flag_lava || MaterialType.isMaterial(mName, MaterialType.LAVA);
                         flag_web = flag_web || MaterialType.isMaterial(mName, MaterialType.WEB);
@@ -561,6 +562,8 @@ public class MovementData implements Data {
         nearShulkerBox = flag_shulker;
         nearDripLeaf = flag_dripleaf;
         nearFence = flag_fence;
+        nearSlime = flag_slime;
+
 
 
         isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, true, MaterialType.WATER);
@@ -954,6 +957,9 @@ public class MovementData implements Data {
         } else {
             slimeTicks = Math.max(0, slimeTicks - 1);
         }
+
+        if (isNearSlime()) sinceNearSlimeTicks = 0;
+        else sinceNearSlimeTicks++;
 
         boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, true, MaterialType.SOUL_SAND);
         boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, true, MaterialType.SOUL_SAND);
