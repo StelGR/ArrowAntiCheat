@@ -177,6 +177,8 @@ public class MotionA extends Check {
 
             if (deltaY != 0) verbose(this.getClass().getSimpleName(), deltaY, maxJumpHeight, data);
 
+
+            //temporary fix for pistons slime blocks.
             if (movementData.getSinceNearSlimeTicks() <= (10 + (profile.getConnectionData().getClientTickTrans() * 2)) && movementData.isNearPiston()) return;
 
             if (!isGround
