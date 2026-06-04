@@ -462,7 +462,7 @@ public class SpeedA extends Check {
                 + "* comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributePotionBonus(profile) + "\n"
                 + "* velocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* velocityV " + MsgType.MAIN_THEME_COLOR.getMessage() + vd.getVelocityV() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                + "* airticks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                + "* airticks c|s " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks+"|"+movementData.getCustomAirTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* maxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* isTeleporting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.isExempt().isTeleports() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
