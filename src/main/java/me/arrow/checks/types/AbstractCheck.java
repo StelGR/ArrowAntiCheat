@@ -193,7 +193,6 @@ public abstract class AbstractCheck {
             profile.setBanned(true);
             boolean started = Arrow.getInstance().getAnimationManager().play(animationType, p, () -> {
 
-
                 OtherUtility.antiCheatban(p);
 
                 TaskUtils.task(() -> MiscUtils.consoleCommand(

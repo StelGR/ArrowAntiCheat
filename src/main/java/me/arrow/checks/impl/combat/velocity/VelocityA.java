@@ -1,8 +1,11 @@
 package me.arrow.checks.impl.combat.velocity;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -71,12 +74,7 @@ public class VelocityA extends Check {
         MovementData movementData = profile.getMovementData();
         VelocityData velocityData = profile.getVelocityData();
 
-        if (profile == null
-                || profile.getPlayer() == null
-                || !profile.getPlayer().isOnline()
-                || profile.getMovementData() == null
-                || profile.getVelocityData() == null
-                || movementData.isMovingUp()
+        if (movementData.isMovingUp()
                 || movementData.isNearWall()
                 || movementData.isUnderblock()
                 || movementData.getSinceMovingUpTicks() < 5
@@ -146,26 +144,36 @@ public class VelocityA extends Check {
     }
 
     public void invalidVerticalC(MovementData movementData, VelocityData velocityData) {
-        double deltaY = movementData.getDeltaY();
 
-        double velocity = velocityData.getVelocityVfvc();
+        if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8) && profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)) {
 
-        if (profile.getLastAttackByEntityTimer().hasNotPassed(20)
-                || profile.getLastShotByArrowTimer().hasNotPassed(20)) {
+            if (profile.getPlayer() != null && profile.getPlayer().getLastDamageCause() != null) {
+                EntityDamageEvent.DamageCause cause = profile.getPlayer().getLastDamageCause().getCause();
 
-            if (velocityData.getVelocityTicks() == 1
-                    && movementData.isLastOnGround()) {
+                if (IGNORED_CAUSES.contains(cause)) {
+                    return;
+                }
+            }
+            double deltaY = movementData.getDeltaY();
 
-                if ((deltaY / velocity) == 0.0) {
-                    if (thresholdC++ > 2) {
-                        fail("Invalid Vertical Velocity (3)", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocity);
+            double velocity = velocityData.getVelocityVfvc();
+
+            if (profile.getLastAttackByEntityTimer().hasNotPassed(20)
+                    || profile.getLastShotByArrowTimer().hasNotPassed(20)) {
+
+                if (velocityData.getVelocityTicks() == 1
+                        && movementData.isLastOnGround()) {
+
+                    if ((deltaY / velocity) == 0.0) {
+                        if (thresholdC++ > 5 && velocity != -0.0783739241897089) {
+                            fail("Invalid Vertical Velocity (3)", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                    + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocity);
+                        }
+                    } else {
+                        thresholdC -= Math.min(thresholdC, 0.125);
                     }
-                } else {
-                    thresholdC -= Math.min(thresholdC, 0.00002);
                 }
             }
         }
     }
-
 }
