@@ -142,7 +142,7 @@ public class MotionA extends Check {
                 return;
             }
 
-            if (profile.getMovementData().getSinceGlidingTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
+            if (profile.getMovementData().getSinceGlidingTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: Exempt - just gliding");
                 return;
             }

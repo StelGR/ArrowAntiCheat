@@ -46,7 +46,7 @@ public class MovementData implements Data {
 
     @Getter
     @Setter
-    float BEDROCK_JUMP_MOTION;
+    double BEDROCK_JUMP_MOTION;
 
     Profile profile;
 
@@ -242,6 +242,8 @@ public class MovementData implements Data {
 
     }
 
+    float bedrockDeltaY, bedrockLastDeltaY;
+
     private void processLocationData() {
 
         final double lastDeltaX = this.deltaX;
@@ -330,15 +332,13 @@ public class MovementData implements Data {
                             && !profile.isBouncingOnSlime()
                             && profile.getMovementData().getSinceTeleportTicks() > 5;
 
-            boolean possibleJump =
-                    deltaY > 0.4198
-                            && deltaY < 0.422;
+            boolean possibleJump = profile.getPotionData().isHasJump() ? deltaY == (0.42D * (profile.getPotionData().getJumpAmplifier() * 0.1D)) : deltaY == 0.42D;
 
             if (groundTransition
                     //&& cleanContext
                     && possibleJump
             ) {
-                BEDROCK_JUMP_MOTION = (float) deltaY;
+                BEDROCK_JUMP_MOTION = deltaY;
             }
             if (Config.Setting.DEBUG.getBoolean()) {
                 OtherUtility.log("[Bedrock Jump Calibration] "
