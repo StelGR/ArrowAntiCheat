@@ -20,7 +20,7 @@ import java.util.EnumSet;
 import java.util.Set;
 
 // this is a fairly simple jump height check, for jumping lower or higher than normal, it is easy to bypass though so
-// it's only for terrible checks, like high jump
+// it's only for terrible cheats, like high jump
 
 public class MotionA extends Check {
     public MotionA(Profile profile) {
