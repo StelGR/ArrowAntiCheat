@@ -332,7 +332,9 @@ public class MovementData implements Data {
                             && !profile.isBouncingOnSlime()
                             && profile.getMovementData().getSinceTeleportTicks() > 5;
 
-            boolean possibleJump = profile.getPotionData().isHasJump() ? deltaY == (0.42D * (profile.getPotionData().getJumpAmplifier() * 0.1D)) : deltaY == 0.42D;
+            boolean possibleJump =
+                    deltaY > 0.4198
+                            && deltaY < 0.422;
 
             if (groundTransition
                     //&& cleanContext
