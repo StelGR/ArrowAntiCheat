@@ -51,8 +51,8 @@ public class BadPacketsB extends Check {
         else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ABILITIES)) {
             WrapperPlayClientPlayerAbilities abilitiesPacket = new WrapperPlayClientPlayerAbilities(event);
             if (abilitiesPacket.isFlying() && !profile.getPlayer().isFlying() && !profile.getPlayer().getAllowFlight() && profile.getTick() > 60) {
-                if (++buffer > 3.0D) {
-                    profile.getMovementData().getSetbackProcessor().causeSetBack(getFullCheckName());
+                if (++buffer > 5.0D) {
+                    //profile.getMovementData().getSetbackProcessor().causeSetBack(getFullCheckName());
                     fail("Sent ability packet without flying", "(No Debug Provided)");
                 }
             } else {
