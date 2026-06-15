@@ -115,9 +115,9 @@
     </repositories>
     <dependencies>
         <dependency>
-            <groupId>me.arrow</groupId>
-            <artifactId>ArrowAPI</artifactId>
-            <version>1.0.3</version>
+            <groupId>me.stel</groupId>
+            <artifactId>arrow-api</artifactId>
+            <version>1.0.4</version>
         </dependency>
 
       <dependency>
