@@ -1,7 +1,7 @@
 package me.arrow.api.internal;
 
 
-import me.arrow.API.ArrowAPI;
+import me.stel.API.ArrowAPI;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profile.ProfileManager;
 import org.bukkit.entity.Player;

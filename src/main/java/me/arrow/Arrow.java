@@ -12,7 +12,7 @@ import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.Getter;
 import lombok.Setter;
-import me.arrow.API.ArrowAPIProvider;
+import me.stel.API.ArrowAPIProvider;
 import me.arrow.api.internal.ArrowAPIImpl;
 import me.arrow.commands.CommandManager;
 import me.arrow.commands.bukkitCommands.Stuck;

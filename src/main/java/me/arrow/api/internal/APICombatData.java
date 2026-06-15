@@ -1,6 +1,6 @@
 package me.arrow.api.internal;
 
-import me.arrow.data.CombatData;
+import me.stel.data.CombatData;
 import me.arrow.managers.profile.Profile;
 
 public final class APICombatData implements CombatData {

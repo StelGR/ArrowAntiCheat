@@ -2,7 +2,7 @@ package me.arrow.api.internal;
 
 
 import me.arrow.Arrow;
-import me.arrow.data.PlayerData;
+import me.stel.data.PlayerData;
 import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
 
