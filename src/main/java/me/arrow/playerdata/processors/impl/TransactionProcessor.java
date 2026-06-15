@@ -36,7 +36,9 @@ public class TransactionProcessor implements Runnable {
 
     private BukkitTask bukkitTaskTransaction;
 
-    private static final int MAX_ATTEMPTS = 300;
+
+    // i can't seem to find correct number
+    private static final int MAX_ATTEMPTS = 500;
 
     private int nextIntId = 32000;
     private short nextShortId = (short) 32000;

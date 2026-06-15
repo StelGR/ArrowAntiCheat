@@ -28,6 +28,7 @@ public class VelocityB extends Check {
 
     @Override
     public void handle(PacketSendEvent event) {
+
     }
 
     private double thresholdA, thresholdB;
