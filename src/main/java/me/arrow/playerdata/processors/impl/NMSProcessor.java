@@ -42,6 +42,7 @@ public class NMSProcessor implements Data {
             profile.setSwimming(nmsInstance.isSwimming(player));
             profile.setAttackCooldown(nmsInstance.getAttackCooldown(player));
             profile.setSleeping(nmsInstance.isSleeping(player));
+
         }
     }
 

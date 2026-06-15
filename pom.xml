@@ -70,7 +70,12 @@
         </license>
     </licenses>
 
+
     <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/StelGR/ArrowAPI</url>
+        </repository>
         <repository>
             <id>opencollab-main</id>
             <url>https://repo.opencollab.dev/main/</url>
@@ -109,6 +114,12 @@
         </repository>
     </repositories>
     <dependencies>
+        <dependency>
+            <groupId>me.arrow</groupId>
+            <artifactId>ArrowAPI</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
       <dependency>
           <groupId>com.github.retrooper</groupId>
           <artifactId>packetevents-spigot</artifactId>

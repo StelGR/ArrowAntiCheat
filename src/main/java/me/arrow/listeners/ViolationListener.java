@@ -82,6 +82,8 @@ public class ViolationListener implements Listener {
             final String checkName = event.getCheck() != null ? event.getCheck() : "";
             final String checkCategory = String.valueOf(event.getCheckCategory());
 
+            punishedProfile.setLastFlaggedCheck(checkName);
+
             final String checkPlusCheckType;
 
             if (checkType.isEmpty() || checkName.equals(" ")) {

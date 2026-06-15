@@ -85,6 +85,10 @@ public class Profile {
     private ClientVersion version;
     @Setter
     private String client = "Vanilla";
+
+    @Getter
+    @Setter
+    private String lastFlaggedCheck = "";
     //--------------------------------------
 
     @Setter
