@@ -12,6 +12,7 @@ import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.Getter;
 import lombok.Setter;
+import me.arrow.api.internal.ArrowAPIImpl;
 import me.arrow.commands.CommandManager;
 import me.arrow.commands.bukkitCommands.Stuck;
 import me.arrow.files.Checks;
@@ -231,7 +232,12 @@ public final class Arrow {
             Bukkit.getPluginManager().registerEvents(new GuiListener(), host);
 
 
+
             log(translate("&6" + "➪  Bukkit Listeners Initialized"));
+
+            new ArrowAPIImpl(profileManager);
+
+            log(translate("&6" + "➪  API Initialized"));
 
             Objects.requireNonNull(getHost().getCommand("arrow")).setExecutor(new CommandManager(this));
 
