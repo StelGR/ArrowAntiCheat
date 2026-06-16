@@ -45,11 +45,6 @@ import static org.bukkit.Bukkit.getServer;
 
 //only really using it for the test server mode, but it needs alot of clean up, also using it for Interact B cus it's much harder to make that on a packet specific check, but yet again, i may just be retarded
 
-/**
- * A bukkit listener class that we'll use for our bukkit checks and data
- * <p>
- * NOTE: You shouldn't be using bukkit events in the first place, I just added this for the sake of having it.
- */
 public class BukkitListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInteract(PlayerInteractEvent event) {

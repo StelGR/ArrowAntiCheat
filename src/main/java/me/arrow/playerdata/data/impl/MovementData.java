@@ -181,8 +181,6 @@ public class MovementData implements Data {
                     currentTime
             );
 
-
-
             processLocationData();
         }
         if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
