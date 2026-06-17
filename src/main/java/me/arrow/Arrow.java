@@ -292,6 +292,12 @@ public final class Arrow {
             log("➪ Ephesians 5:11 NRSVUE");
             log("➪ Take no part in the unfruitful works of darkness; rather, expose them.");
         }, 20L);
+
+        TaskUtils.taskLater(() -> {
+            if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_13_2)) {
+                log(translate("&e[WARN] This server is running a depricated version, meaning the anticheat will still work, but you will not receive any priority or proper support for updates, if there is an issue, you may still report it but do not expect any fix to be implemented."));
+            }
+        }, 60L);
     }
 
     public void onDisable() {
