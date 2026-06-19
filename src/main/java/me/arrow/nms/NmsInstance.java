@@ -54,6 +54,4 @@ public interface NmsInstance {
     boolean isFlying(Player player);
 
     float getFallDistance(Player player);
-
-    List<BoundingBox> getCollisionBoxes(World world, int x, int y, int z, WrappedBlockState state);
 }

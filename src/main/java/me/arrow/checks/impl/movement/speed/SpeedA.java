@@ -206,9 +206,14 @@ public class SpeedA extends Check {
         allowedLimit += movementData.getDolphinGraceBoost();
         allowedLimit += movementData.isColliding() ? 0.2 : 0;
 
-        if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): is Exempting (ghostblock liquid/web)");
-            allowedLimit += 0.2;
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
+
+        if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A: is Exempting (ghostblock liquid/web/pending physics place)");
+            return;
         }
 
         if (serverGround && deltaXZ != 0) {
@@ -433,9 +438,14 @@ public class SpeedA extends Check {
         expectedSpeed += movementData.elytraMomentum();
         expectedSpeed += movementData.getDolphinGraceBoost();
 
-        if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): is Exempting (ghostblock liquid/web)");
-            expectedSpeed += 0.3;
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
+
+        if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): is Exempting (ghostblock liquid/web/pending physics place)");
+            return;
         }
 
         String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()

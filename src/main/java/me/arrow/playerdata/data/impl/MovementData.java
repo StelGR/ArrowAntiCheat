@@ -1032,7 +1032,6 @@ public class MovementData implements Data {
                 && !isNearWebs()
                 && !EntityUtil.isOnBoat(profile)
                 && !profile.isBouncingOnSlime()
-                && profile.getVelocityData().getTotalVerticalVelocity() < 1
                 && profile.getMovementData().getSinceOnGhostBlock() > (4 + profile.getConnectionData().getClientTickTrans())
                 //&& !CollisionUtils.isNearEdge(getLocation())
         ) {

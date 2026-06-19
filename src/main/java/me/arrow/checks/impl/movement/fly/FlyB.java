@@ -214,15 +214,11 @@ public class FlyB extends Check {
 
             int clientTickTrans = profile.getConnectionData().getClientTickTrans();
             int transPing = profile.getConnectionData().getTransPing();
-            boolean blockInHand = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer()).getType().isBlock();
-            boolean blockInOffHand = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInOffHand(profile.getPlayer()).getType().isBlock();
-            boolean holdingBlock = blockInHand || blockInOffHand;
 
-            int blockPlaceLimit = clientTickTrans == 0 ? 5 : Math.min(5 + transPing / clientTickTrans, 30);
-            boolean recentlyPlaced = profile.getLastBlockPlaceTimer().hasNotPassed(blockPlaceLimit);
+            boolean recentlyPlaced = profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5 + (clientTickTrans * 2);
 
             if (hasJumpBoost) {
-                if (recentlyPlaced && holdingBlock) {
+                if (recentlyPlaced) {
                     airTickLimit = (16 + clientTickTrans) + jumpLevel;
                     clientAirTickLimit = (18 + clientTickTrans) + jumpLevel;
                 } else {
@@ -230,11 +226,11 @@ public class FlyB extends Check {
                     clientAirTickLimit = 12 + jumpLevel;
                 }
             } else {
-                airTickLimit = (recentlyPlaced && holdingBlock) ? 16 + clientTickTrans : 8;
-                clientAirTickLimit = (recentlyPlaced && holdingBlock) ? 20 + clientTickTrans : 12;
+                airTickLimit = recentlyPlaced ? 16 + clientTickTrans : 8;
+                clientAirTickLimit = recentlyPlaced ? 20 + clientTickTrans : 12;
             }
 
-            if (deltaXZ != 0) airTickLimit += (recentlyPlaced && holdingBlock) ? 6 + clientTickTrans : 2;
+            if (deltaXZ != 0) airTickLimit += recentlyPlaced ? 6 + clientTickTrans : 2;
 
             clientAirTickLimit = 4 + jumpLevel;
 
@@ -270,7 +266,7 @@ public class FlyB extends Check {
 
             double baseTicksVel = 8;
             double baseVelocity = 0.000001;
-            double scale = 14;
+            double scale = 16;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
             airTickLimit += Math.ceil(extraFromVel);

@@ -19,7 +19,6 @@ import me.arrow.playerdata.data.impl.worldcomp.BlockProcessor;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.playerdata.processors.impl.KeepAliveProcessor;
 import me.arrow.playerdata.processors.impl.NMSProcessor;
-import me.arrow.playerdata.processors.impl.ReachProcessor;
 import me.arrow.playerdata.processors.impl.TransactionProcessor;
 import me.arrow.utils.ChatUtils;
 import me.arrow.utils.TaskUtils;
@@ -67,7 +66,6 @@ public class Profile {
     private final BlockProcessor blockProcessor;
     private final ClientWorldTracker clientWorldTracker;
     private final NMSProcessor nmsProcessor;
-    private final ReachProcessor reachProcessor;
     //-------------------------------------------
 
     //--------------------------------------
@@ -184,7 +182,6 @@ public class Profile {
         this.nmsProcessor = new NMSProcessor(this);
         this.clientWorldTracker = new ClientWorldTracker(this);
         this.blockProcessor = new BlockProcessor(this);
-        this.reachProcessor = new ReachProcessor(this);
         this.clientBrandListener = new ClientBrandListener(Arrow.getInstance());
 
 
@@ -224,7 +221,6 @@ public class Profile {
         this.blockProcessor.processReceive(event);
         this.clientBrandListener.processReceive(event);
         this.nmsProcessor.processReceive(event);
-        this.reachProcessor.processReceive(event);
 
         this.exempt.handleExempts(event.getTimestamp());
 
@@ -250,7 +246,6 @@ public class Profile {
         this.blockProcessor.processSend(event);
         this.clientBrandListener.processSend(event);
         this.nmsProcessor.processSend(event);
-        this.reachProcessor.processSend(event);
 
         this.exempt.handleExempts(event.getTimestamp());
 

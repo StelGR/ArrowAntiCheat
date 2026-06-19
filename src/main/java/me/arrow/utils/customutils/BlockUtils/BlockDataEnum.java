@@ -11,7 +11,7 @@ import me.arrow.utils.customutils.Math.Reflections;
 import me.arrow.utils.customutils.Math.WrappedShit.WrappedClass;
 import me.arrow.utils.customutils.MiscUtils;
 import me.arrow.utils.customutils.Hitboxes.BlockHitboxes.TrapDoorHandler;
-// removed XMaterial import
+
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;

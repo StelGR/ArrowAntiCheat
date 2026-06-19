@@ -84,8 +84,13 @@ public class SpeedB extends Check {
 
             calculateDeceleration(movementData, deltaXZ, lastDeltaXZ, deltaYaw, accel, mdAccel);
 
-            if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (ghostblock liquid/web)");
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
+
+            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (ghostblock liquid/web/pending physics place)");
                 return;
             }
             if (profile.getBlockProcessor().isNearGhostBlock()) {
@@ -136,8 +141,13 @@ public class SpeedB extends Check {
 
         boolean velocity = profile.getVelocityData().isTakingVelocity();
 
-        if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 15 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (ghostblock liquid/web)");
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
+
+        if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (ghostblock liquid/web/pending physics place)");
             return;
         }
 

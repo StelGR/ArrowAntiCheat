@@ -174,9 +174,14 @@ public class IllegalMoveB extends Check {
 
         double airticklimit = movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2) ? 15 : ((recentlyPlaced && holdingBlock) ? 7 : 3);
 
-        if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 15 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): is Exempting (ghostblock liquid/web)");
-            airticklimit += 10;
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
+
+        if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMoveB: is Exempting (ghostblock liquid/web/pending physics place)");
+            return;
         }
 
         if (profile.getVelocityData().isTakingVelocity() ) airticklimit += extraTicks;

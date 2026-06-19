@@ -47,10 +47,9 @@ public class MotionC extends Check {
                     || profile.getPlayer().isDead()
                     || movementData.isNearBuggyBlock()
                     || movementData.isNearWater()
-                    || profile.isBouncingOnSlime()
                     || movementData.isNearGhast()
                     || movementData.isNearShulker()
-                    || movementData.getSinceNearWaterTicks() < 12 + profile.getConnectionData().getClientTickTrans()
+                    || movementData.getSinceNearWaterTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
                     || profile.isExempt().isTeleports()
                     || profile.getPlayer().isInsideVehicle()
                     || profile.getPotionData().isHasLevitation()) {
@@ -64,11 +63,6 @@ public class MotionC extends Check {
 
             if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (ghostblock liquid/web/pending physics place)");
-                return;
-            }
-
-            if (profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (ghostblock liquid/web)");
                 return;
             }
 
@@ -95,7 +89,7 @@ public class MotionC extends Check {
             boolean hasJumpBoost = profile.getPotionData().isHasJump();
             double jumpLevel = hasJumpBoost
                     ? profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST)
-                    + (1 + profile.getPotionData().getJumpAmplifier() * 0.2F)
+                    + (4 + (profile.getPotionData().getJumpAmplifier()))
                     : 0;
 
             int clientTickTrans = profile.getConnectionData().getClientTickTrans();
@@ -109,24 +103,19 @@ public class MotionC extends Check {
             int nearWallTicks = movementData.getNearWallTicks();
             int serverAirTicks = movementData.getCustomAirTicks();
 
-            boolean blockInHand = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer()).getType().isBlock();
-            boolean blockInOffHand = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInOffHand(profile.getPlayer()).getType().isBlock();
-            boolean holdingBlock = blockInHand || blockInOffHand;
-
-            int blockPlaceLimit = clientTickTrans == 0 ? 3 : Math.min(3 + transPing / clientTickTrans, 10);
-            boolean recentlyPlaced = profile.getLastBlockPlaceTimer().hasNotPassed(blockPlaceLimit);
+            boolean recentlyPlaced = profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5 + (clientTickTrans * 2);
 
             if (hasJumpBoost) {
-                if (recentlyPlaced && holdingBlock) {
-                    airTickLimit = 12 + jumpLevel - (profile.getPotionData().getJumpAmplifier() * 0.1F); // adjust 0.2->0.1 as original ternary
+                if (recentlyPlaced) {
+                    airTickLimit = (12 + clientTickTrans) + jumpLevel; // adjust 0.2->0.1 as original ternary
                 } else {
-                    airTickLimit = 8 + jumpLevel - (profile.getPotionData().getJumpAmplifier() * 0.1F);
+                    airTickLimit = (8 + clientTickTrans) + jumpLevel;
                 }
             } else {
-                airTickLimit = (recentlyPlaced && holdingBlock) ? 12 : 8;
+                airTickLimit = recentlyPlaced ? 12 : 8;
             }
 
-            if (deltaXZ != 0) airTickLimit += (recentlyPlaced && holdingBlock) ? 4 : 2;
+            if (deltaXZ != 0) airTickLimit += recentlyPlaced ? 4 : 2;
 
             airTickLimit += Math.ceil(getVelocityTicks());
 

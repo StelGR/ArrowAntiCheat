@@ -40,19 +40,6 @@ public class Exempt {
         this.flight = profile.getPlayer().isFlying() || profile.getPlayer().getAllowFlight() || profile.getPlayer().getGameMode().equals(GameMode.SPECTATOR) || profile.getPlayer().getGameMode().equals(GameMode.CREATIVE);
 
         this.respawned = profile.getSinceDeathTimer().passed();
-        //this.teleports =  profile.getLastTeleportTimer().hasNotPassed(3 + profile.getConnectionData().getClientTickTrans()) || profile.getLastEnderpearlTimer().hasNotPassed(4 + profile.getConnectionData().getClientTickTrans());
-
-        //this.extendedTeleports = profile.getLastTeleportTimer().hasNotPassed(7 + profile.getConnectionData().getClientTickTrans())
-                //|| profile.getLastEnderpearlTimer().hasNotPassed(9 + profile.getConnectionData().getClientTickTrans());
-//        this.teleports = profile.isTeleporting();
-//        this.teleports = false;
-
-        //this.veryFastTeleports =  profile.getLastTeleportTimer().hasNotPassed(1 + profile.getConnectionData().getClientTickTrans()) || profile.getLastEnderpearlTimer().hasNotPassed(1 + profile.getConnectionData().getClientTickTrans());
-
-//        this.extendedTeleports = teleports;
-//        this.veryFastTeleports = teleports;
-
-//        this.veryFastTeleports = profile.getTeleportData().isTeleport();
 
         this.reelingIn = profile.getReelingTicks().hasNotPassed();
 

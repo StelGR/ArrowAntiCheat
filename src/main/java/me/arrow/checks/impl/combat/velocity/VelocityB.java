@@ -87,7 +87,7 @@ public class VelocityB extends Check {
         }
 
 
-        //invalidHorizontalA(movementData, velocityData);
+        invalidHorizontalA(movementData, velocityData);
         spoofVelocity(movementData, velocityData);
     }
 
@@ -104,7 +104,7 @@ public class VelocityB extends Check {
 
         double velocityH = velocityData.getVelocityHfvc();
 
-        velocityH -= MathUtil.movingFlyingV3(profile, true);
+        velocityH -= MathUtil.movingFlyingV3(profile, false);
 
         double totalVelocity = deltaXZ / velocityH;
 
