@@ -48,7 +48,6 @@ public class GroundA extends Check {
                     || profile.isExempt().isTeleports()
                     || movementData.isNearWebs()
                     || movementData.isNearShulkerBox()
-                    || movementData.isPhasing()
                     || movementData.isNearClimbable()
                     || movementData.isNearGhast()
                     || movementData.isNearShulker()

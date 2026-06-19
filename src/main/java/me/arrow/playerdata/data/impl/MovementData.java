@@ -21,19 +21,14 @@ import me.arrow.playerdata.processors.impl.SlimeProcessor;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.EntityUtil;
 import me.arrow.utils.MoveUtils;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.*;
 import me.arrow.utils.customutils.*;
 import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
-import me.arrow.utils.customutils.raytrace.BlockRayCastResult;
-import me.arrow.utils.customutils.raytrace.RayCastUtility;
 import org.bukkit.*;
 import org.bukkit.block.Block;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
-import org.jetbrains.annotations.NotNull;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
 
@@ -80,7 +75,7 @@ public class MovementData implements Data {
 
 
     @Getter
-    boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround, isDigging,
+    boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround,
         nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, movingDown, isRiptiding, nearPiston;
 
 
@@ -138,7 +133,7 @@ public class MovementData implements Data {
     @Override
     public void processReceive(PacketReceiveEvent event) {
 
-        final World world = profile.getPlayer().getWorld();
+        final World world = this.location != null ? this.location.getWorld() : null;
 
         final long currentTime = event.getTimestamp();
         if (event.getPacketType().equals(PLAYER_FLYING)) {
@@ -158,6 +153,7 @@ public class MovementData implements Data {
             this.lastLocation = this.location;
 
             processLocationData();
+
         }
         if (event.getPacketType().equals(PLAYER_POSITION)) {
             WrapperPlayClientPlayerPosition move = new WrapperPlayClientPlayerPosition(event);
@@ -225,14 +221,6 @@ public class MovementData implements Data {
 
             processLocationData();
         }
-        if (event.getPacketType() == PLAYER_DIGGING) {
-            WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging(event);
-            isDigging = switch (dig.getAction()) {
-                case START_DIGGING -> true;
-                case CANCELLED_DIGGING, FINISHED_DIGGING, DROP_ITEM_STACK, DROP_ITEM, RELEASE_USE_ITEM,
-                     SWAP_ITEM_WITH_OFFHAND, STAB -> false;
-            };
-        }
     }
 
     @Override
@@ -241,6 +229,37 @@ public class MovementData implements Data {
     }
 
     float bedrockDeltaY, bedrockLastDeltaY;
+
+    private volatile boolean locationProcessQueued;
+//    private void processBlockDataSafely() {
+//        Player player = profile.getPlayer();
+//
+//        if (player == null) {
+//            return;
+//        }
+//
+//        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(player)) {
+//            if (locationProcessQueued) {
+//                return;
+//            }
+//
+//            locationProcessQueued = true;
+//
+//            TaskUtils.player(player, () -> {
+//                try {
+//                    if (player.isOnline()) {
+//                        processBlocks();
+//                    }
+//                } finally {
+//                    locationProcessQueued = false;
+//                }
+//            });
+//
+//            return;
+//        }
+//
+//        processBlocks();
+//    }
 
     private void processLocationData() {
 
@@ -292,24 +311,6 @@ public class MovementData implements Data {
             setLastGroundLocation(profile.getPlayer().getLocation());
         }
 
-        //Process data
-        processPlayerData();
-        processBlocks();
-
-        if (profile.getPlayer().getAllowFlight()) {
-            profile.getLastFlightToggleTimer().reset();
-        }
-
-        nearBoat = EntityUtil.isNearBoat(profile);
-        nearShulker = EntityUtil.isNearShulker(profile);
-        nearGhast = EntityUtil.isNearGhast(profile);
-        onBoat = EntityUtil.isOnBoat(profile);
-
-        if (onGround) sinceOnGround = 0;
-        else sinceOnGround++;
-
-        //this.getGhostBlockProcessor().process();
-
         predictPlayerMovement();
 
         // very poor attempt at syncing the randomized jump height to prevent falses on the checks.
@@ -349,17 +350,29 @@ public class MovementData implements Data {
                         + " ground=" + isOnGround());
             }
         }
+
+        //Process data
+        processPlayerData();
+        processBlocks();
+
+        if (profile.getPlayer().getAllowFlight()) {
+            profile.getLastFlightToggleTimer().reset();
+        }
+
+        nearBoat = EntityUtil.isNearBoat(profile);
+        nearShulker = EntityUtil.isNearShulker(profile);
+        nearGhast = EntityUtil.isNearGhast(profile);
+        onBoat = EntityUtil.isOnBoat(profile);
+
+        if (onGround) sinceOnGround = 0;
+        else sinceOnGround++;
+
+        //this.getGhostBlockProcessor().process();
+
+
     }
 
     private void predictPlayerMovement() {
-//        MovementPredictionUtil.BlockSample[] samples =
-//                MovementPredictionUtil.scanAroundFeet(
-//                        profile.getPlayer().getWorld(),
-//                        location.getX(),
-//                        location.getY(),
-//                        location.getZ()
-//                );
-
         this.verticalMove =
                 MovementPredictionUtil.predictVerticalMove(
                         profile.getMovementData()
@@ -384,10 +397,10 @@ public class MovementData implements Data {
         NOTE: You should ALWAYS use NMS if you plan on supporting 1.9+
         For a production server, DO NOT use spigot's api. It's slow. (Especially for Blocks, Chunks, Materials)
          */
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation().clone(), true);
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(getLocation().clone().add(0, 1, 0), true);
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult3 = CollisionUtils.getNearbyBlocks(getLocation().clone().subtract(0, 1, 0), true);
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult4 = CollisionUtils.getNearbyBlocks(getLocation().clone().subtract(0, 2, 0), true);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation().clone(), !TaskUtils.isFoliaServer());
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(getLocation().clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult3 = CollisionUtils.getNearbyBlocks(getLocation().clone().subtract(0, 1, 0), !TaskUtils.isFoliaServer());
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult4 = CollisionUtils.getNearbyBlocks(getLocation().clone().subtract(0, 2, 0), !TaskUtils.isFoliaServer());
 
         this.nearbyBlocksResult = nearbyBlocksResult;
 
@@ -431,62 +444,9 @@ public class MovementData implements Data {
        else isColliding = CollisionProcessor.isColliding(profile.getPlayer(), profile.getBoundingBox());
     }
 
-    public boolean isPhasing() {
-        NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
-        Player player = profile.getPlayer();
-        World world = player.getWorld();
-        Location legLocation = player.getLocation();
-        Vector direction = legLocation.getDirection();
-        double maxDistance = 1;
-
-        Object result;
-
-        if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_13)) {
-            result = RayCastUtility.rayCastBlocks(player, maxDistance, true, RayCastUtility.Precision.PRECISE_ENTITY);
-        } else {
-            result = world.rayTraceBlocks(
-                    legLocation,
-                    direction,
-                    maxDistance,
-                    FluidCollisionMode.NEVER,
-                    true
-            );
-        }
-
-        if (result != null) {
-            Block hitBlock = null;
-
-            if (result instanceof BlockRayCastResult br) {
-                hitBlock = br.getBlock();
-            } else if (result instanceof RayTraceResult rr) {
-                hitBlock = rr.getHitBlock();
-            }
-
-            if (hitBlock != null) {
-
-                if (MaterialType.isMaterial(hitBlock.getType().name(), MaterialType.LIQUID) || MaterialType.isMaterial(hitBlock.getType().name(), MaterialType.AIR))
-                    return false;
-
-                // Reconstruct player bounding box
-                me.arrow.utils.custom.BoundingBox playerBox =
-                        me.arrow.utils.custom.BoundingBox.fromPlayerVector(player.getLocation().toVector());
-
-                // Convert block to custom bounding box
-                me.arrow.utils.custom.BoundingBox blockBox =
-                        me.arrow.utils.custom.BoundingBox.of(hitBlock);
-
-                // Check if player bounding box intersects with block bounding box
-                return playerBox.intersects(blockBox);
-            }
-        }
-
-        return false;
-    }
-
-
     void processBlocks() {
         NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, true);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, !TaskUtils.isFoliaServer());
 
         boolean badVector = Math.abs(getLocation().toVector().length()
                 - getLastLocation().toVector().length()) >= 1;
@@ -566,7 +526,7 @@ public class MovementData implements Data {
 
 
 
-        isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, true, MaterialType.WATER);
+        isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.WATER);
         isInsideWater = true;
         CustomLocation playerLoc = new CustomLocation(
                 profile.getPlayer().getWorld(),
@@ -583,7 +543,7 @@ public class MovementData implements Data {
                 checkLoc.setX(checkLoc.getX() + x);
                 checkLoc.setZ(checkLoc.getZ() + z);
                 checkLoc.setY(playerLoc.getY() + 0.5);
-                Block block = CollisionUtils.getBlock(checkLoc, true);
+                //Block block = CollisionUtils.getBlock(checkLoc, !TaskUtils.isFoliaServer());
                 String mName = nms.getType(checkLoc.getBlock()).name();
                 if (!MaterialType.isMaterial(mName, MaterialType.WATER)) {
                     isInsideWater = false;
@@ -670,51 +630,6 @@ public class MovementData implements Data {
 
     }
 
-    private boolean isCustomHeavyInAir(CustomLocation location) {
-        if (location == null || location.getWorld() == null) {
-            return false;
-        }
-
-        NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
-        int baseX = location.getBlockX();
-        int baseY = location.getBlockY();
-        int baseZ = location.getBlockZ();
-
-        for (int y = -1; y <= 0; y++) {
-            for (int x = -1; x <= 1; x++) {
-                for (int z = -1; z <= 1; z++) {
-                    Material mat = nms.getType(location.getWorld().getBlockAt(baseX + x, baseY + y, baseZ + z));
-                    String name = mat.name();
-
-                    if (!MaterialType.isMaterial(name, MaterialType.TRANSPARENT)
-                            || !MaterialType.isMaterial(name, MaterialType.LIQUID)) {
-                        return false;
-                    }
-                }
-            }
-        }
-
-        return true;
-    }
-
-    private static @NotNull BoundingBox getBoundingBox(Entity entity) {
-        BoundingBox entityBox;
-        if (entity instanceof LivingEntity le) {
-            Location loc = le.getLocation();
-            entityBox = new BoundingBox(
-                    new Vector(loc.getX() - 0.3, loc.getY(), loc.getZ() - 0.3),
-                    new Vector(loc.getX() + 0.3, loc.getY() + 1.8, loc.getZ() + 0.3)
-            );
-        } else {
-            Location loc = entity.getLocation();
-            entityBox = new BoundingBox(
-                    new Vector(loc.getX() - 0.25, loc.getY(), loc.getZ() - 0.25),
-                    new Vector(loc.getX() + 0.25, loc.getY() + 0.25, loc.getZ() + 0.25)
-            );
-        }
-        return entityBox;
-    }
-
     public boolean isTransparent(Material material) {
         if (!material.isBlock()) return false;
         String name = material.name();
@@ -739,20 +654,7 @@ public class MovementData implements Data {
 
         NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
 
-        //Chunk
 
-//        if ((this.lastUnloadedChunkTicks = nms.isChunkLoaded(
-//                this.location.getWorld(), this.location.getBlockX(), this.location.getBlockZ())
-//                ? this.lastUnloadedChunkTicks + 1 : 0) > 10) {
-//
-//            //Nearby Entities
-//
-//            //this.nearbyEntityProcessor.process();
-//
-//            //Nearby Blocks
-//
-//
-//        }
         handleNearbyBlocks();
 
         //Friction Factor
@@ -823,9 +725,9 @@ public class MovementData implements Data {
     void updateTicks() {
         this.tick++;
 
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, true);
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, true);
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation, true);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, !TaskUtils.isFoliaServer());
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, !TaskUtils.isFoliaServer());
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation, !TaskUtils.isFoliaServer());
 
         boolean powdersnow = nearbyBlocksResult.getBlockTypes().stream()
                 .anyMatch(material -> material.name().equals("POWDER_SNOW"));
@@ -836,9 +738,9 @@ public class MovementData implements Data {
             sincePowderSnowTicks++;
         }
 
-        boolean onIce0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, true, MaterialType.ICE);
-        boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, true, MaterialType.ICE);
-        boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, true, MaterialType.ICE);
+        boolean onIce0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.ICE);
+        boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.ICE);
+        boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.ICE);
         onIce = onIce0 || onIce1 || onIce2;
 
         if (moving && (onIce0 || onIce1 || onIce2)) {
@@ -854,76 +756,76 @@ public class MovementData implements Data {
         }
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow =
-                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), true);
+                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lower =
-                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), true);
+                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lowest =
-                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), true);
+                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), !TaskUtils.isFoliaServer());
 
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow =
-                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), true);
+                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower =
-                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 2, 0), true);
+                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 2, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest =
-                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 2, 0), true);
+                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 2, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow1 =
-                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 3, 0), true);
+                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 3, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower1 =
-                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 3, 0), true);
+                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 3, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest1 =
-                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 3, 0), true);
+                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 3, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove =
-                CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), true);
+                CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lower =
-                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().add(0, 1, 0), true);
+                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lowest =
-                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().add(0, 1, 0), true);
+                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
 
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocks =
-                CollisionUtils.getNearbyBlocks(this.location, true);
+                CollisionUtils.getNearbyBlocks(this.location, !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow =
-                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), true);
+                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), !TaskUtils.isFoliaServer());
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow2 =
-                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), true);
+                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), !TaskUtils.isFoliaServer());
 
 
         final CollisionUtils.NearbyBlocksResult nearbyBlocksAbove =
-                CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), true);
+                CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
 
 
-        boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow, true, MaterialType.SLIME);
-        boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lower, true, MaterialType.SLIME);
-        boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lowest, true, MaterialType.SLIME);
+        boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
+        boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lower, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
+        boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lowest, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
 
-        boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow, true, MaterialType.SLIME);
-        boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower, true, MaterialType.SLIME);
-        boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest, true, MaterialType.SLIME);
+        boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
+        boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
+        boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
 
-        boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow1, true, MaterialType.SLIME);
-        boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower1, true, MaterialType.SLIME);
-        boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest1, true, MaterialType.SLIME);
+        boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow1, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
+        boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower1, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
+        boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest1, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
 
-        boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove, true, MaterialType.SLIME);
-        boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lower, true, MaterialType.SLIME);
-        boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lowest, true, MaterialType.SLIME);
+        boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
+        boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lower, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
+        boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lowest, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
 
-        boolean onSlime0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, true, MaterialType.SLIME);
-        boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, true, MaterialType.SLIME);
-        boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, true, MaterialType.SLIME);
+        boolean onSlime0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
+        boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
+        boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
         onSlime = onSlime0 || onSlime1 || onSlime2;
 
 
@@ -961,9 +863,9 @@ public class MovementData implements Data {
         if (isNearSlime()) sinceNearSlimeTicks = 0;
         else sinceNearSlimeTicks++;
 
-        boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, true, MaterialType.SOUL_SAND);
-        boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, true, MaterialType.SOUL_SAND);
-        boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, true, MaterialType.SOUL_SAND);
+        boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.SOUL_SAND);
+        boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.SOUL_SAND);
+        boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.SOUL_SAND);
         onSoulSand = onSoul0 || onSoul1 || onSoul2;
 
         if (moving && (onSoul0 || onSoul1 || onSoul2)) {
@@ -978,9 +880,9 @@ public class MovementData implements Data {
             soulTicks = Math.max(0, soulTicks - 1);
         }
 
-        boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, true, MaterialType.SOUL_BLOCK);
-        boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, true, MaterialType.SOUL_BLOCK);
-        boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, true, MaterialType.SOUL_BLOCK);
+        boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.SOUL_BLOCK);
+        boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.SOUL_BLOCK);
+        boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.SOUL_BLOCK);
 
         if (moving && (onSoulBlock0 || onSoulBlock1 || onSoulBlock2)) {
             movingOnSoulBlocksTicks += (movingOnSoulBlocksTicks < 25 ? 1 : 0);
@@ -988,9 +890,9 @@ public class MovementData implements Data {
             movingOnSoulBlocksTicks = Math.max(0, movingOnSoulBlocksTicks - 1);
         }
 
-        boolean onHoney0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, true, MaterialType.HONEY);
-        boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, true, MaterialType.HONEY);
-        boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, true, MaterialType.HONEY);
+        boolean onHoney0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.HONEY);
+        boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.HONEY);
+        boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.HONEY);
         onHoney = onHoney0 || onHoney1 || onHoney2;
 
 
@@ -1189,46 +1091,6 @@ public class MovementData implements Data {
         else sinceOnGhostBlock++;
 
         dolphinGraceBoost = dolphinGraceMomentum();
-
-
-//        if (profile.getTick() > 120) {
-//            if (profile.getConnectionData().getTransDropTick() > (profile.getConnectionData().getLastTransPing() + (profile.getConnectionData().getClientTickTrans() * 3))) {
-//                profile.kick("Timed out (T. O.)");
-//                for (Player player : Bukkit.getOnlinePlayers()) {
-//                    Profile playerProfile = Arrow.getInstance().getProfileManager().getProfile(player);
-//
-//                    if (playerProfile.isAlerts()) {
-//                        player.sendMessage(OtherUtility.translate(MsgType.PREFIX.getMessage() + MsgType.MAIN_THEME_COLOR.getMessage() +profile.getPlayer().getName()+ " has cancelled transaction order"));
-//                    }
-//                }
-//                profile.getConnectionData().setTransDropTick(0);
-//            }
-//
-//            if (profile.getConnectionData().getTransDropTick() > 0) {
-//                samples.add((long) profile.getConnectionData().getTransDropTick());
-//
-//                if (!this.samples.isCollected()) return;
-//
-//                final double deviation = getDevation(this.samples);
-//
-//                final double average = getAverageLong(this.samples);
-//
-//                //Bukkit.broadcastMessage(profile.getPlayer().getName()+", deviation: "+ deviation+", average: " + average);
-//
-//                if (deviation > 1.3 && deviation < 3 && average > 2) {
-//                    profile.kick("Timed Out (T. O. A.)");
-//                    for (Player player : Bukkit.getOnlinePlayers()) {
-//                        Profile playerProfile = Arrow.getInstance().getProfileManager().getProfile(player);
-//
-//                        if (playerProfile.isAlerts()) {
-//                            player.sendMessage(OtherUtility.translate(MsgType.PREFIX.getMessage() + MsgType.MAIN_THEME_COLOR.getMessage() +profile.getPlayer().getName()+ " was kicked for transaction order abuse"));
-//                        }
-//                    }
-//                    profile.getConnectionData().setTransDropTick(0);
-//                    samples.clear();
-//                }
-//            }
-//        }
     }
 
     public boolean isWaterOrWaterlogged(Block block) {

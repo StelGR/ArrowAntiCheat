@@ -9,6 +9,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.MaterialType;
 import org.bukkit.Location;
@@ -550,6 +551,16 @@ public class PhaseA extends Check {
     }
 
     private Material getServerMaterial(World world, int x, int y, int z) {
+        if (world == null) {
+            return null;
+        }
+
+        Location location = new Location(world, x, y, z);
+
+        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(location)) {
+            return null;
+        }
+
         try {
             return Arrow.getInstance().getNmsManager().getNmsInstance2().getType(world, x, y, z);
         } catch (Throwable ignored) {

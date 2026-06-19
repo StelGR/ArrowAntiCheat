@@ -5,6 +5,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 
 import java.util.*;
 
@@ -15,10 +16,8 @@ public class EntityUtil {
     private static final Set<String> SHULKER = new HashSet<>();
 
     static {
-        // 1.8 boat
         addBoat("BOAT");
 
-        // Modern boats
         addBoat("OAK_BOAT");
         addBoat("OAK_CHEST_BOAT");
         addBoat("BIRCH_BOAT");
@@ -36,15 +35,14 @@ public class EntityUtil {
         addBoat("CHERRY_BOAT");
         addBoat("CHERRY_CHEST_BOAT");
 
-        // Newer experimental boats
         addBoat("BAMBOO_RAFT");
         addBoat("BAMBOO_CHEST_RAFT");
         addBoat("PALE_OAK_BOAT");
         addBoat("PALE_OAK_CHEST_BOAT");
 
-        // Optional non-boat entities (if you need them)
         addGhast("HAPPY_GHAST");
         addGhast("GHAST");
+
         addShulker("SHULKER");
     }
 
@@ -61,61 +59,111 @@ public class EntityUtil {
     }
 
     public static boolean isBoat(EntityType type) {
-        if (type == null) return false;
-        return BOAT_NAMES.contains(type.name());
+        return type != null && BOAT_NAMES.contains(type.name());
     }
 
     public static boolean isShulker(EntityType type) {
-        if (type == null) return false;
-        return SHULKER.contains(type.name());
+        return type != null && SHULKER.contains(type.name());
     }
 
     public static boolean isGhast(EntityType type) {
-        if (type == null) return false;
-        return GHAST.contains(type.name());
+        return type != null && GHAST.contains(type.name());
     }
 
-
-
-
     public static boolean isOnBoat(Profile user) {
-        double offset = user.getMovementData().getLocation().getY() % 0.015625;
-
-        if (user.getMovementData().isOnGround()) {
-            return getEntitiesWithinRadius(user.getPlayer().getLocation(), 2).stream()
-                    .anyMatch(entity -> isBoat(entity.getType()));
+        if (user == null || user.getPlayer() == null || user.getMovementData() == null) {
+            return false;
         }
-        return false;
+
+        if (!user.getMovementData().isOnGround()) {
+            return false;
+        }
+
+        return getEntitiesWithinRadius(user.getPlayer(), 2.0D).stream()
+                .anyMatch(entity -> isBoat(entity.getType()));
     }
 
     public static boolean isNearBoat(Profile user) {
-        try {
-            return getEntitiesWithinRadius(user.getPlayer().getLocation(), 4).stream()
-                    .anyMatch(entity -> isBoat(entity.getType()));
-        } catch (Exception exception) {
-            exception.printStackTrace();
+        if (user == null || user.getPlayer() == null) {
             return false;
         }
+
+        return getEntitiesWithinRadius(user.getPlayer(), 4.0D).stream()
+                .anyMatch(entity -> isBoat(entity.getType()));
     }
 
     public static boolean isNearShulker(Profile user) {
-        try {
-            return getEntitiesWithinRadius(user.getPlayer().getLocation(), 4).stream()
-                    .anyMatch(entity -> isShulker(entity.getType()));
-        } catch (Exception exception) {
-            exception.printStackTrace();
+        if (user == null || user.getPlayer() == null) {
             return false;
         }
+
+        return getEntitiesWithinRadius(user.getPlayer(), 4.0D).stream()
+                .anyMatch(entity -> isShulker(entity.getType()));
     }
 
     public static boolean isNearGhast(Profile user) {
-        try {
-            return getEntitiesWithinRadius(user.getPlayer().getLocation(), 8).stream()
-                    .anyMatch(entity -> isGhast(entity.getType()));
-        } catch (Exception exception) {
-            exception.printStackTrace();
+        if (user == null || user.getPlayer() == null) {
             return false;
         }
+
+        return getEntitiesWithinRadius(user.getPlayer(), 8.0D).stream()
+                .anyMatch(entity -> isGhast(entity.getType()));
+    }
+
+    public static List<Entity> getEntitiesWithinRadius(Player player, double radius) {
+        List<Entity> entities = new ArrayList<>();
+
+        if (player == null || radius <= 0.0D) {
+            return entities;
+        }
+
+        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(player)) {
+            return entities;
+        }
+
+        try {
+            if (!player.isOnline()) {
+                return entities;
+            }
+
+            Location location = player.getLocation();
+
+            if (location == null || location.getWorld() == null) {
+                return entities;
+            }
+
+            double radiusSquared = radius * radius;
+
+            for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
+                if (entity == null) {
+                    continue;
+                }
+
+                try {
+                    if (!entity.isValid()) {
+                        continue;
+                    }
+
+                    Location entityLocation = entity.getLocation();
+
+                    if (entityLocation == null || entityLocation.getWorld() == null) {
+                        continue;
+                    }
+
+                    if (!entityLocation.getWorld().equals(location.getWorld())) {
+                        continue;
+                    }
+
+                    if (entityLocation.distanceSquared(location) <= radiusSquared) {
+                        entities.add(entity);
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return entities;
     }
 
     public static List<Entity> getEntitiesWithinRadius(Location location, double radius) {
@@ -128,6 +176,19 @@ public class EntityUtil {
         World world = location.getWorld();
 
         if (world == null) {
+            return entities;
+        }
+
+        if (TaskUtils.isFoliaServer()) {
+            if (!TaskUtils.isOwnedByCurrentRegion(location)) {
+                return entities;
+            }
+
+            /*
+             * On Folia, do not use world.getChunkAt(...).getEntities().
+             * It can cross region ownership and explode.
+             * This location overload has no player anchor, so safest answer is empty.
+             */
             return entities;
         }
 

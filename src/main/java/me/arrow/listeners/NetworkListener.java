@@ -49,14 +49,7 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
             return;
         }
 
-        if (TaskUtils.isFoliaServer()) {
-            TaskUtils.player(player, () -> {
-                if (!player.isOnline()) return;
-                profile.handleReceive(event);
-            });
-        } else {
-            profile.handleReceive(event);
-        }
+        profile.handleReceive(event);
     }
 
     @Override
@@ -67,14 +60,7 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
         final Profile profile = this.plugin.getProfileManager().getProfile(player);
         if (profile == null) return;
 
-        if (TaskUtils.isFoliaServer()) {
-            TaskUtils.player(player, () -> {
-                if (!player.isOnline()) return;
-                profile.handleSend(event);
-            });
-        } else {
-            profile.handleSend(event);
-        }
+        profile.handleSend(event);
     }
 
     private String checkCrasher(PacketTypeCommon packet, PacketReceiveEvent event) {

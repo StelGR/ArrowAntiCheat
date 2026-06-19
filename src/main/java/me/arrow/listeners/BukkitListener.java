@@ -126,6 +126,9 @@ public class BukkitListener implements Listener {
         process(event);
     }
 
+    private final java.util.Set<UUID> sentJoinVersionAlert = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Map<UUID, TaskUtils.CancellableTask> joinVersionTasks = new java.util.concurrent.ConcurrentHashMap<>();
+
     void process(Event event) {
         if (event instanceof AsyncPlayerPreLoginEvent) {
             if (!Arrow.getInstance().isHasLoaded()) ((AsyncPlayerPreLoginEvent) event).disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
@@ -139,9 +142,16 @@ public class BukkitListener implements Listener {
             final Player joiningPlayer = joinEvent.getPlayer();
             final UUID joiningUuid = joiningPlayer.getUniqueId();
 
+            sentJoinVersionAlert.remove(joiningUuid);
+
+            TaskUtils.CancellableTask oldTask = joinVersionTasks.remove(joiningUuid);
+            if (oldTask != null) {
+                oldTask.cancel();
+            }
+
             final TaskUtils.CancellableTask[] retryTask = new TaskUtils.CancellableTask[1];
 
-            retryTask[0] = TaskUtils.playerTimer(joiningPlayer, 0L, 2L, new Runnable() {
+            retryTask[0] = TaskUtils.playerTimer(joiningPlayer, 1L, 2L, new Runnable() {
                 private int tries = 0;
 
                 @Override
@@ -149,7 +159,7 @@ public class BukkitListener implements Listener {
                     Player p = Bukkit.getPlayer(joiningUuid);
 
                     if (p == null || !p.isOnline()) {
-                        if (retryTask[0] != null) retryTask[0].cancel();
+                        cancelSelf();
                         return;
                     }
 
@@ -158,8 +168,8 @@ public class BukkitListener implements Listener {
                     if (joiningProfile == null) {
                         tries++;
 
-                        if (tries >= 40 && retryTask[0] != null) {
-                            retryTask[0].cancel();
+                        if (tries >= 40) {
+                            cancelSelf();
                         }
 
                         return;
@@ -171,42 +181,58 @@ public class BukkitListener implements Listener {
                         return;
                     }
 
+                    if (!sentJoinVersionAlert.add(joiningUuid)) {
+                        cancelSelf();
+                        return;
+                    }
+
                     joiningProfile.setVersion(VersionUtils.getClientVersion(p));
 
-                    try {
-                        String displayName = p.getDisplayName();
-                        UUID joiningPlayerUuid = p.getUniqueId();
-                        int joiningEntityId = p.getEntityId();
+                    String displayName = p.getDisplayName();
+                    UUID joiningPlayerUuid = p.getUniqueId();
+                    int joiningEntityId = p.getEntityId();
+                    String client = joiningProfile.getClient();
 
-                        for (Player receiver : Bukkit.getOnlinePlayers()) {
-                            if (receiver == null) continue;
+                    String version = joiningProfile.getVersion() == null
+                            ? "Unknown"
+                            : joiningProfile.getVersion().getReleaseName();
 
-                            TaskUtils.playerLater(receiver, 40L, () -> {
-                                if (!receiver.isOnline()) return;
+                    for (Player receiver : Bukkit.getOnlinePlayers()) {
+                        if (receiver == null) continue;
 
-                                if (receiver.hasPermission(Permissions.ALERTS.getPermission())) {
-                                    receiver.sendMessage(translate(Arrow.getInstance().getThemeManager().getTheme().getPrefix()
-                                            + MsgType.MAIN_THEME_COLOR.getMessage() + displayName
-                                            + MsgType.SECOND_THEME_COLOR.getMessage() + " is joining with "
-                                            + MsgType.MAIN_THEME_COLOR.getMessage() + joiningProfile.getClient()
-                                            + MsgType.SECOND_THEME_COLOR.getMessage() + " on "
-                                            + MsgType.MAIN_THEME_COLOR.getMessage() + joiningProfile.getVersion().getReleaseName()));
-                                }
+                        TaskUtils.player(receiver, () -> {
+                            if (!receiver.isOnline()) return;
 
-                                if (receiver.equals(p)) return;
+                            if (receiver.hasPermission(Permissions.ALERTS.getPermission())) {
+                                receiver.sendMessage(translate(Arrow.getInstance().getThemeManager().getTheme().getPrefix()
+                                        + MsgType.MAIN_THEME_COLOR.getMessage() + displayName
+                                        + MsgType.SECOND_THEME_COLOR.getMessage() + " is joining with "
+                                        + MsgType.MAIN_THEME_COLOR.getMessage() + client
+                                        + MsgType.SECOND_THEME_COLOR.getMessage() + " on "
+                                        + MsgType.MAIN_THEME_COLOR.getMessage() + version));
+                            }
 
-                                Profile otherProfile = Arrow.getInstance().getProfileManager().getProfile(receiver);
-                                if (otherProfile == null) return;
+                            if (receiver.equals(p)) return;
 
-                                joiningProfile.getCombatData().getTrackedEntities()
-                                        .put(receiver.getEntityId(), receiver.getUniqueId());
+                            Profile otherProfile = Arrow.getInstance().getProfileManager().getProfile(receiver);
+                            if (otherProfile == null) return;
 
-                                otherProfile.getCombatData().getTrackedEntities()
-                                        .put(joiningEntityId, joiningPlayerUuid);
-                            });
-                        }
-                    } catch (Throwable throwable) {
-                        throwable.printStackTrace();
+                            joiningProfile.getCombatData().getTrackedEntities()
+                                    .put(receiver.getEntityId(), receiver.getUniqueId());
+
+                            otherProfile.getCombatData().getTrackedEntities()
+                                    .put(joiningEntityId, joiningPlayerUuid);
+                        });
+                    }
+
+                    cancelSelf();
+                }
+
+                private void cancelSelf() {
+                    TaskUtils.CancellableTask task = joinVersionTasks.remove(joiningUuid);
+
+                    if (task != null) {
+                        task.cancel();
                     }
 
                     if (retryTask[0] != null) {
@@ -214,15 +240,26 @@ public class BukkitListener implements Listener {
                     }
                 }
             });
+
+            joinVersionTasks.put(joiningUuid, retryTask[0]);
         }
 
         if (event instanceof PlayerQuitEvent) {
             Player quitting = ((PlayerQuitEvent) event).getPlayer();
             Profile quittingProfile = Arrow.getInstance().getProfileManager().getProfile(quitting);
 
+
+
             if (quittingProfile != null) {
                 quittingProfile.getCombatData().getTrackedEntities().clear();
                 VelocityClientVersionBridge.remove(quitting);
+            }
+
+            sentJoinVersionAlert.remove(quitting.getUniqueId());
+
+            TaskUtils.CancellableTask task = joinVersionTasks.remove(quitting.getUniqueId());
+            if (task != null) {
+                task.cancel();
             }
 
             // Remove quitting player from all other players' trackedEntities

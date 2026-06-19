@@ -77,22 +77,8 @@ public final class ClientWorldTracker implements Data {
             tick++;
             lastAutoSyncTick++;
             age();
-            ensurePlayerChunksKnown(1);
 
-            if (activeWorldRepairTicks > 0 || tick % CLIENT_MIRROR_REPAIR_EVERY_TICKS == 0) {
-                repairClientMirrorAroundPlayer(
-                        CLIENT_MIRROR_REPAIR_RADIUS_XZ,
-                        CLIENT_MIRROR_REPAIR_DOWN,
-                        CLIENT_MIRROR_REPAIR_UP,
-                        MAX_REPAIR_UPDATES_PER_TICK
-                );
-
-                if (activeWorldRepairTicks > 0) {
-                    activeWorldRepairTicks--;
-                }
-            }
-
-            preCheckScan();
+            processWorldTickSafely();
         }
     }
 
@@ -300,6 +286,10 @@ public final class ClientWorldTracker implements Data {
     }
 
     public CollisionResult scanPlayerCollision() {
+        if (!canReadWorldNow()) {
+            return new CollisionResult();
+        }
+
         CollisionResult result = new CollisionResult();
 
         if (profile.getMovementData() == null || profile.getMovementData().getLocation() == null) {
@@ -459,10 +449,14 @@ public final class ClientWorldTracker implements Data {
         int baseY = center.getBlockY();
         int baseZ = center.getBlockZ();
 
-        TaskUtils.task(() -> {
+        TaskUtils.player(profile.getPlayer(), () -> {
             Player player = profile.getPlayer();
 
             if (player == null || !player.isOnline() || player.getWorld() == null) {
+                return;
+            }
+
+            if (!canReadWorldNow()) {
                 return;
             }
 
@@ -518,6 +512,10 @@ public final class ClientWorldTracker implements Data {
         }
 
         if (profile.getMovementData() == null || profile.getMovementData().getLocation() == null) {
+            return;
+        }
+
+        if (!canReadWorldNow()) {
             return;
         }
 
@@ -623,6 +621,10 @@ public final class ClientWorldTracker implements Data {
             return;
         }
 
+        if (!canReadWorldNow()) {
+            return;
+        }
+
         CustomLocation loc = profile.getMovementData().getLocation();
         World world = loc.getWorld();
 
@@ -676,9 +678,19 @@ public final class ClientWorldTracker implements Data {
     }
 
     private Material getServerMaterial(int x, int y, int z) {
+        if (!canReadWorldNow()) {
+            return null;
+        }
+
+        Player player = profile.getPlayer();
+
+        if (player == null || !player.isOnline() || player.getWorld() == null) {
+            return null;
+        }
+
         try {
             return Arrow.getInstance().getNmsManager().getNmsInstance2().getType(
-                    profile.getPlayer().getWorld(),
+                    player.getWorld(),
                     x,
                     y,
                     z
@@ -1679,4 +1691,59 @@ public final class ClientWorldTracker implements Data {
             return values[value];
         }
     }
+
+    private volatile boolean worldUpdateQueued;
+
+    private boolean canReadWorldNow() {
+        Player player = profile.getPlayer();
+
+        return !TaskUtils.isFoliaServer()
+                || (player != null && TaskUtils.isOwnedByCurrentRegion(player));
+    }
+
+    private void processWorldTickSafely() {
+        Player player = profile.getPlayer();
+
+        if (TaskUtils.isFoliaServer() && (player == null || !TaskUtils.isOwnedByCurrentRegion(player))) {
+            if (worldUpdateQueued) {
+                return;
+            }
+
+            worldUpdateQueued = true;
+
+            TaskUtils.player(player, () -> {
+                try {
+                    if (player != null && player.isOnline()) {
+                        processWorldTick();
+                    }
+                } finally {
+                    worldUpdateQueued = false;
+                }
+            });
+
+            return;
+        }
+
+        processWorldTick();
+    }
+
+    private void processWorldTick() {
+        ensurePlayerChunksKnown(1);
+
+        if (activeWorldRepairTicks > 0 || tick % CLIENT_MIRROR_REPAIR_EVERY_TICKS == 0) {
+            repairClientMirrorAroundPlayer(
+                    CLIENT_MIRROR_REPAIR_RADIUS_XZ,
+                    CLIENT_MIRROR_REPAIR_DOWN,
+                    CLIENT_MIRROR_REPAIR_UP,
+                    MAX_REPAIR_UPDATES_PER_TICK
+            );
+
+            if (activeWorldRepairTicks > 0) {
+                activeWorldRepairTicks--;
+            }
+        }
+
+        preCheckScan();
+    }
+
 }

@@ -447,6 +447,14 @@ public final class CollisionUtils {
     }
 
     private static Block getBlockAsync(final CustomLocation location) {
+        if (location == null || location.getWorld() == null) {
+            return null;
+        }
+
+        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(location)) {
+            return null;
+        }
+
         return isChunkLoaded(location) ? location.getBlock() : null;
     }
 

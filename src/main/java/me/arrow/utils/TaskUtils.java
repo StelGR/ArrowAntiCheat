@@ -1,8 +1,11 @@
 package me.arrow.utils;
 
 import me.arrow.Arrow;
+import me.arrow.utils.custom.CustomLocation;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
@@ -374,6 +377,84 @@ public final class TaskUtils {
             }
         } catch (Throwable throwable) {
             throwable.printStackTrace();
+        }
+    }
+
+    public static boolean isOwnedByCurrentRegion(Entity entity) {
+        if (entity == null) return false;
+
+        if (!FOLIA) {
+            return Bukkit.isPrimaryThread();
+        }
+
+        try {
+            Method method = Bukkit.class.getMethod("isOwnedByCurrentRegion", Entity.class);
+            Object result = method.invoke(null, entity);
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    public static boolean isOwnedByCurrentRegion(Block block) {
+        if (block == null) {
+            return false;
+        }
+
+        if (!FOLIA) {
+            return Bukkit.isPrimaryThread();
+        }
+
+        try {
+            Method method = Bukkit.class.getMethod(
+                    "isOwnedByCurrentRegion",
+                    World.class,
+                    int.class,
+                    int.class
+            );
+
+            Object result = method.invoke(
+                    null,
+                    block.getWorld(),
+                    block.getX(),
+                    block.getZ()
+            );
+
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    public static boolean isOwnedByCurrentRegion(Location location) {
+        if (location == null) return false;
+
+        if (!FOLIA) {
+            return Bukkit.isPrimaryThread();
+        }
+
+        try {
+            Method method = Bukkit.class.getMethod("isOwnedByCurrentRegion", Location.class);
+            Object result = method.invoke(null, location);
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    public static boolean isOwnedByCurrentRegion(CustomLocation location) {
+        if (location == null) return false;
+
+        if (!FOLIA) {
+            return Bukkit.isPrimaryThread();
+        }
+
+        try {
+            Method method = Bukkit.class.getMethod("isOwnedByCurrentRegion", Location.class);
+            Object result = method.invoke(null, location);
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 }

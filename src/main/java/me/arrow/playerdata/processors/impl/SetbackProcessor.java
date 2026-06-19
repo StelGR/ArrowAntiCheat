@@ -90,9 +90,7 @@ public class SetbackProcessor implements Processor {
             /*
              * Teleport sync
              */
-            TaskUtils.task(() -> {
-                player.teleport(finalLocation, PlayerTeleportEvent.TeleportCause.PLUGIN);
-            });
+            teleportSetback(player, finalLocation);
 
             setbackDebug(
                     profile,
@@ -134,47 +132,49 @@ public class SetbackProcessor implements Processor {
         /*
          * Prevent infinite growth
          */
-        if (history.size() > 50) {
+        if (history.size() > 60) {
             history.remove(0);
         }
     }
 
-    public void setback(boolean exemptTime, String callingClass) {
-        if (exemptTime && MathUtils.elapsedTicks(this.lastSetbackTicks) < 5) return;
-
-        this.lastSetbackTicks = TickTask.getCurrentTick();
-
-        Player p = profile.getPlayer();
-
-        if (p == null) return;
-
-        if (this.locations.isEmpty()) {
-
-            final CustomLocation cloned = profile.getMovementData().getLastLocation().clone();
-
-            int count = 0;
-
-            while (cloned.getBlock().getRelative(BlockFace.DOWN).isEmpty()) {
-
-                cloned.subtract(0D, 1D, 0D);
-
-                //Prevents crashes
-                if (count++ > 5) break;
-            }
-
-            TaskUtils.task(() -> p.teleport(cloned.toBukkit(), PlayerTeleportEvent.TeleportCause.PLUGIN));
-
-            setbackDebug(profile, "&c"+callingClass + " &7caused setback at &6"+ cloned.toBukkit());
-
+    private void teleportSetback(Player player, Location location) {
+        if (player == null || location == null) {
             return;
         }
 
-        final Location setbackLocation = locations.getLast().toBukkit();
+        if (TaskUtils.isFoliaServer()) {
+            tryTeleportAsync(player, location);
+            return;
+        }
 
-        if (setbackLocation.getWorld() != p.getWorld()) return;
+        TaskUtils.task(() -> {
+            if (player.isOnline()) {
+                player.teleport(location, PlayerTeleportEvent.TeleportCause.PLUGIN);
+            }
+        });
+    }
 
-        TaskUtils.task(() -> p.teleport(setbackLocation, PlayerTeleportEvent.TeleportCause.PLUGIN));
+    private void tryTeleportAsync(Player player, Location location) {
+        if (player == null || location == null || !player.isOnline()) {
+            return;
+        }
 
-        setbackDebug(profile, "&c"+callingClass + " &7caused setback at &6"+ setbackLocation);
+        try {
+            // Paper/Folia: Entity#teleportAsync(Location, TeleportCause)
+            player.getClass()
+                    .getMethod("teleportAsync", Location.class, PlayerTeleportEvent.TeleportCause.class)
+                    .invoke(player, location, PlayerTeleportEvent.TeleportCause.PLUGIN);
+            return;
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            // Older Paper style: Entity#teleportAsync(Location)
+            player.getClass()
+                    .getMethod("teleportAsync", Location.class)
+                    .invoke(player, location);
+        } catch (Throwable ignored) {
+            setbackDebug(profile, "&cSetback failed: &7teleportAsync is not available on this server/API");
+        }
     }
 }

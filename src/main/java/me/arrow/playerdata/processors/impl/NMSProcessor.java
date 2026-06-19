@@ -7,11 +7,10 @@ import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
 import me.arrow.nms.NmsInstance;
 import me.arrow.playerdata.data.Data;
-import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.utils.custom.CustomLocation;
+import me.arrow.utils.TaskUtils;
 import org.bukkit.entity.Player;
 
-// just used to update our GUIs
+// just used to update our GUI info
 
 public class NMSProcessor implements Data {
 
@@ -21,9 +20,7 @@ public class NMSProcessor implements Data {
         this.profile = profile;
     }
 
-    /**
-     * @param event
-     */
+
     @Override
     public void processReceive(PacketReceiveEvent event) {
         if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
@@ -31,24 +28,33 @@ public class NMSProcessor implements Data {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
 
-            NmsInstance nmsInstance = Arrow.getInstance().getNmsManager().getNmsInstance();
-            MovementData movementData = profile.getMovementData();
-            CustomLocation customLocation = movementData.getLocation();
             Player player = profile.getPlayer();
+            if (player == null) return;
 
+            Runnable update = () -> {
+                Player current = profile.getPlayer();
 
-            profile.setCrawling(nmsInstance.isCrawling(player));
-            profile.setSneaking(nmsInstance.isSneaking(player));
-            profile.setSwimming(nmsInstance.isSwimming(player));
-            profile.setAttackCooldown(nmsInstance.getAttackCooldown(player));
-            profile.setSleeping(nmsInstance.isSleeping(player));
+                if (current == null || !current.isOnline()) {
+                    return;
+                }
 
+                NmsInstance nmsInstance = Arrow.getInstance().getNmsManager().getNmsInstance();
+
+                profile.setCrawling(nmsInstance.isCrawling(current));
+                profile.setSneaking(nmsInstance.isSneaking(current));
+                profile.setSwimming(nmsInstance.isSwimming(current));
+                profile.setAttackCooldown(nmsInstance.getAttackCooldown(current));
+                profile.setSleeping(nmsInstance.isSleeping(current));
+            };
+
+            if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(player)) {
+                TaskUtils.player(player, update);
+            } else {
+                update.run();
+            }
         }
     }
 
-    /**
-     * @param event
-     */
     @Override
     public void processSend(PacketSendEvent event) {
 

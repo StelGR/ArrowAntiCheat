@@ -2,6 +2,7 @@ package me.arrow.nms;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import me.arrow.utils.TaskUtils;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
@@ -27,7 +28,16 @@ public class InstanceDefault implements NmsInstance {
 
     @Override
     public Material getType(Block block) {
-        return block.getType();
+
+        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(block)) {
+            return null;
+        }
+
+        try {
+            return block.getType();
+        } catch (Throwable ignored) {
+            return Material.AIR;
+        }
     }
 
 

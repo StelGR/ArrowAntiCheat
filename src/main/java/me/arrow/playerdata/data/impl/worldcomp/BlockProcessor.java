@@ -307,7 +307,7 @@ public class BlockProcessor implements Data {
         if (this.currentBlockCords != null && this.blockPlaceMaterial != null) {
             this.pendingPlacementTicks++;
 
-            TaskUtils.task(() -> {
+            TaskUtils.player(data.getPlayer(), () -> {
                 if (this.currentBlockCords == null || this.blockPlaceMaterial == null) {
                     return;
                 }
@@ -1895,10 +1895,33 @@ public class BlockProcessor implements Data {
     }
 
     private Material getServerMaterial(int x, int y, int z) {
-        // Reads the authoritative server material through the NMS abstraction.
+        Player player = data.getPlayer();
+
+        if (player == null || !player.isOnline()) {
+            return null;
+        }
+
+        World world;
+
+        try {
+            world = player.getWorld();
+        } catch (Throwable ignored) {
+            return null;
+        }
+
+        if (world == null) {
+            return null;
+        }
+
+        Location location = new Location(world, x, y, z);
+
+        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(location)) {
+            return null;
+        }
+
         try {
             return Arrow.getInstance().getNmsManager().getNmsInstance2().getType(
-                    data.getPlayer().getWorld(),
+                    world,
                     x,
                     y,
                     z
@@ -2099,18 +2122,24 @@ public class BlockProcessor implements Data {
     }
 
     private void scheduleSyncFlush() {
-        // Schedules one main-thread queue flush instead of one Bukkit task per block.
-        synchronized (syncQueueLock) {
-            if (syncFlushQueued || queuedSyncBlocks.isEmpty()) {
-                return;
-            }
-
-            syncFlushQueued = true;
+        if (syncFlushQueued) {
+            return;
         }
 
-        TaskUtils.task(() -> {
+        syncFlushQueued = true;
+
+        Player player = data.getPlayer();
+
+        if (player == null) {
+            syncFlushQueued = false;
+            return;
+        }
+
+        TaskUtils.player(player, () -> {
             try {
-                flushQueuedSyncBlocks();
+                if (player.isOnline()) {
+                    flushQueuedSyncBlocks();
+                }
             } finally {
                 syncFlushQueued = false;
             }

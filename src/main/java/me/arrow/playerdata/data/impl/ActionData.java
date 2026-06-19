@@ -11,6 +11,7 @@ import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.MiscUtils;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.desync.Desync;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
@@ -26,6 +27,7 @@ import org.bukkit.block.BlockFace;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
 
@@ -69,6 +71,9 @@ public class ActionData implements Data {
     private int lastConfirmedUnderBreakY;
     private int lastConfirmedUnderBreakZ;
     private Material lastConfirmedUnderBreakOldType = Material.AIR;
+
+    private volatile boolean actionTickQueued;
+    private final AtomicInteger queuedActionTicks = new AtomicInteger();
 
     public ActionData(Profile profile) {
 
@@ -123,11 +128,7 @@ public class ActionData implements Data {
             if (!isSneaking()) sinceSneakingTicks++;
             else sinceSneakingTicks = 0;
 
-            tickBlockPlacePrediction();
-            confirmPendingUnderPlaces();
-
-            tickBlockBreakPrediction();
-            confirmPendingUnderBreaks();
+            tickAndConfirmActionPredictionsSafely();
         }
         if (event.getPacketType().equals(CLOSE_WINDOW)) {
             inInventory = false;
@@ -141,6 +142,60 @@ public class ActionData implements Data {
     @Override
     public void processSend(PacketSendEvent event) {
 
+    }
+
+    private void runPlayerWorldTask(Player player, Runnable runnable) {
+        if (player == null || runnable == null) {
+            return;
+        }
+
+        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(player)) {
+            TaskUtils.player(player, runnable);
+            return;
+        }
+
+        runnable.run();
+    }
+
+    private void tickAndConfirmActionPredictionsSafely() {
+        Player player = profile.getPlayer();
+
+        if (player == null) {
+            return;
+        }
+
+        if (!TaskUtils.isFoliaServer() || TaskUtils.isOwnedByCurrentRegion(player)) {
+            tickBlockPlacePrediction();
+            confirmPendingUnderPlaces();
+
+            tickBlockBreakPrediction();
+            confirmPendingUnderBreaks();
+            return;
+        }
+
+        queuedActionTicks.incrementAndGet();
+
+        if (actionTickQueued) {
+            return;
+        }
+
+        actionTickQueued = true;
+
+        TaskUtils.player(player, () -> {
+            try {
+                int ticks = Math.max(1, queuedActionTicks.getAndSet(0));
+
+                for (int i = 0; i < ticks; i++) {
+                    tickBlockPlacePrediction();
+                    tickBlockBreakPrediction();
+                }
+
+                confirmPendingUnderPlaces();
+                confirmPendingUnderBreaks();
+            } finally {
+                actionTickQueued = false;
+            }
+        });
     }
 
     public boolean hasRecentConfirmedUnderPlace(int ticks) {
@@ -167,7 +222,7 @@ public class ActionData implements Data {
     private void handleBlockPlace(PacketReceiveEvent event) {
         Player player = profile.getPlayer();
 
-        if (player == null || !player.isOnline()) {
+        if (player == null) {
             return;
         }
 
@@ -176,12 +231,6 @@ public class ActionData implements Data {
         try {
             packet = new WrapperPlayClientPlayerBlockPlacement(event);
         } catch (Throwable ignored) {
-            return;
-        }
-
-        ItemStack item = getHeldBlockItem();
-
-        if (!isBlockItem(item)) {
             return;
         }
 
@@ -199,6 +248,43 @@ public class ActionData implements Data {
             return;
         }
 
+        BlockFace face = readFace(packet);
+
+        if (face == null) {
+            return;
+        }
+
+        runPlayerWorldTask(player, () -> handleBlockPlaceWorld(player, x, y, z, face));
+    }
+
+    private void tickBlockPlacePrediction() {
+        lastBlockPlaceAttemptTicks = increment(lastBlockPlaceAttemptTicks);
+        lastConfirmedUnderPlaceTicks = increment(lastConfirmedUnderPlaceTicks);
+
+        Iterator<PendingUnderPlace> iterator = pendingUnderPlaces.iterator();
+
+        while (iterator.hasNext()) {
+            PendingUnderPlace place = iterator.next();
+            place.ageTicks++;
+
+            if (place.ageTicks > getBlockPlacePredictionTicks()) {
+                iterator.remove();
+            }
+        }
+    }
+
+
+    private void handleBlockPlaceWorld(Player player, int x, int y, int z, BlockFace face) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        ItemStack item = getHeldBlockItem();
+
+        if (!isBlockItem(item)) {
+            return;
+        }
+
         World world = player.getWorld();
 
         if (world == null) {
@@ -206,12 +292,6 @@ public class ActionData implements Data {
         }
 
         Block clicked = world.getBlockAt(x, y, z);
-        BlockFace face = readFace(packet);
-
-        if (face == null) {
-            return;
-        }
-
         Block placed = clicked.getRelative(face);
 
         lastBlockPlaceAttemptTicks = 0;
@@ -236,23 +316,6 @@ public class ActionData implements Data {
             pendingUnderPlaces.pollFirst();
         }
     }
-
-    private void tickBlockPlacePrediction() {
-        lastBlockPlaceAttemptTicks = increment(lastBlockPlaceAttemptTicks);
-        lastConfirmedUnderPlaceTicks = increment(lastConfirmedUnderPlaceTicks);
-
-        Iterator<PendingUnderPlace> iterator = pendingUnderPlaces.iterator();
-
-        while (iterator.hasNext()) {
-            PendingUnderPlace place = iterator.next();
-            place.ageTicks++;
-
-            if (place.ageTicks > getBlockPlacePredictionTicks()) {
-                iterator.remove();
-            }
-        }
-    }
-
     private int increment(int value) {
         return value >= 1000 ? 1000 : value + 1;
     }
@@ -588,47 +651,73 @@ public class ActionData implements Data {
 
     private void handleBlockBreak(PacketReceiveEvent event) {
         Player player = profile.getPlayer();
-        if (player == null || !player.isOnline()) return;
+
+        if (player == null) {
+            return;
+        }
 
         WrapperPlayClientPlayerDigging packet;
+
         try {
             packet = new WrapperPlayClientPlayerDigging(event);
         } catch (Throwable ignored) {
             return;
         }
 
-        // Only care about "actual breaking" actions
         DiggingAction action = packet.getAction();
+
         if (action != DiggingAction.START_DIGGING
                 && action != DiggingAction.FINISHED_DIGGING) {
             return;
         }
 
         Object pos = packet.getBlockPosition();
-        if (pos == null) return;
+
+        if (pos == null) {
+            return;
+        }
 
         int x = getCoordinate(pos, "getX");
         int y = getCoordinate(pos, "getY");
         int z = getCoordinate(pos, "getZ");
 
-        if (x == -1 && y == -1 && z == -1) return;
+        if (x == -1 && y == -1 && z == -1) {
+            return;
+        }
+
+        runPlayerWorldTask(player, () -> handleBlockBreakWorld(player, x, y, z));
+    }
+
+    private void handleBlockBreakWorld(Player player, int x, int y, int z) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
 
         World world = player.getWorld();
-        if (world == null) return;
+
+        if (world == null) {
+            return;
+        }
 
         Block target = world.getBlockAt(x, y, z);
 
         lastBreakAttemptTicks = 0;
 
-        // Only track breaks that are plausibly "under the player"
-        if (!isPotentialUnderBreak(target)) return;
+        if (!isPotentialUnderBreak(target)) {
+            return;
+        }
 
         Material oldType = target.getType();
-        if (oldType == null || isReplaceable(oldType)) return; // already air-ish, nothing to "break"
+
+        if (oldType == null || isReplaceable(oldType)) {
+            return;
+        }
 
         pendingUnderBreaks.add(new PendingUnderBreak(
                 world.getName(),
-                x, y, z,
+                x,
+                y,
+                z,
                 oldType
         ));
 

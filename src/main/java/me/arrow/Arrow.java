@@ -316,7 +316,9 @@ public final class Arrow {
             VelocityClientVersionBridge.unregister(getInstance().getHost());
             ReflectionUtils.clear();
             HandlerList.unregisterAll(host);
-            Bukkit.getScheduler().cancelTasks(host);
+            if (!TaskUtils.isFoliaServer()) {
+                Bukkit.getScheduler().cancelTasks(host);
+            }
             instance = null;
         } catch (Exception exception) {
             exception.printStackTrace();
