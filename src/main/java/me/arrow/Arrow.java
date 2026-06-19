@@ -4,8 +4,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
@@ -28,8 +26,8 @@ import me.arrow.managers.themes.ThemeManager;
 import me.arrow.managers.threads.ThreadManager;
 import me.arrow.nms.NmsManager;
 import me.arrow.playerdata.data.impl.RodData;
-import me.arrow.processors.BukkitListener;
-import me.arrow.processors.NetworkListener;
+import me.arrow.listeners.BukkitListener;
+import me.arrow.listeners.NetworkListener;
 import me.arrow.tasks.LogsTask;
 import me.arrow.tasks.TickTask;
 import me.arrow.tasks.ViolationTask;
@@ -130,9 +128,6 @@ public final class Arrow {
     private ThemeManager themeManager;
 
     @Getter
-    private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-
-    @Getter
     private AnimationManager animationManager;
 
     @Getter
@@ -215,24 +210,32 @@ public final class Arrow {
 
             VelocityClientVersionBridge.register(getInstance().getHost());
 
-            (new TickTask(this)).runTaskTimerAsynchronously(host, 50L, 0L);
+            TaskUtils.taskTimerAsync(
+                    () -> new TickTask(this).run(),
+                    50L,
+                    1L
+            );
             log(translate("&6" + "➪  TickTask Initialized"));
             if (Config.Setting.LOGS_ENABLED.getBoolean()) {
-                (new LogsTask(this)).runTaskTimerAsynchronously(host, 6000L, 6000L);
+                TaskUtils.taskTimerAsync(
+                        () -> new LogsTask(this).run(),
+                        6000L,
+                        6000L
+                );
                 log(translate("&6" + "➪  LogTask Initialized"));
             }
 
-            (new ViolationTask(this)).runTaskTimerAsynchronously(host,
+            TaskUtils.taskTimerAsync(
+                    () -> new ViolationTask(this).run(),
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L,
-                    Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L);
+                    Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L
+            );
             log(translate("&6" + "➪  ViolationTask Initialized"));
 
             Bukkit.getPluginManager().registerEvents(new ProfileListener(this), host);
             Bukkit.getPluginManager().registerEvents(new ViolationListener(this), host);
             Bukkit.getPluginManager().registerEvents(new BukkitListener(), host);
             Bukkit.getPluginManager().registerEvents(new GuiListener(), host);
-
-
 
             log(translate("&6" + "➪  Bukkit Listeners Initialized"));
 

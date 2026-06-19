@@ -10,25 +10,17 @@ import me.arrow.playerdata.data.Data;
 import me.arrow.utils.ChatUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.ExpiringSet;
-import me.arrow.utils.versionutils.VersionUtils;
 import org.bukkit.entity.Player;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.UUID;
 
-// does not seem to work properly on modern purpur server, idk if its a paper issue, or modern mc issue, but it returns vanilla on almost all clients. works fine on 1.8.
+// Cleaned up version of NikV2's clientbrand listener, with packetevents 2.12.2 support
 
-/**
- * A client listener that we'll use in order to get the profile's client brand.
- */
 public class ClientBrandListener implements Data {
 
     private final Arrow plugin;
-
-    /*
-    We need to do this in order to fix edge cases that mostly occur in bungeecord servers
-    Where the client brand payload would get sent more than once.
-     */
     private final ExpiringSet<UUID> cache = new ExpiringSet<>(5000L);
 
     public ClientBrandListener(Arrow plugin) {
@@ -39,85 +31,164 @@ public class ClientBrandListener implements Data {
     public void processReceive(PacketReceiveEvent event) {
         if (event.getPlayer() == null) return;
 
-        if (!event.getPacketType().equals(PacketType.Play.Client.PLUGIN_MESSAGE)) return;
-
-        Player player = event.getPlayer();
-
-        UUID uuid = player.getUniqueId();
-
-        WrapperPlayClientPluginMessage payload = new WrapperPlayClientPluginMessage(event);
-
-        String channel = payload.getChannelName();
-
-        /*
-        Check if we received a payload from the brand channel
-        Or if the player has set his brand recently.
-         */
-        if (channel == null
-                || !channel.toLowerCase().endsWith("brand")
-                || this.cache.contains(uuid)) return;
-
-        String brand;
-
-        try {
-
-            /*
-            Clear any color codes to make sure they're not exploiting this
-            And translate the bytes.
-             */
-            byte[] data = payload.getData();
-            if (data.length == 0) return;
-
-            brand = ChatUtils.stripColorCodes(new String(data, StandardCharsets.UTF_8));
-
-        } catch (Exception ex) {
-
-            /*
-            Cant parse, should never happen unless a client is doing it intentionally.
-             */
+        // Play plugin message. The toString fallback makes this more tolerant if PacketEvents changes phase naming.
+        if (!event.getPacketType().equals(PacketType.Play.Client.PLUGIN_MESSAGE)
+                && !String.valueOf(event.getPacketType()).toUpperCase(Locale.ROOT).contains("PLUGIN_MESSAGE")) {
             return;
         }
 
-        /*
-        Add the player's uuid to the cache
-         */
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+
+        WrapperPlayClientPluginMessage payload = new WrapperPlayClientPluginMessage(event);
+        String channel = payload.getChannelName();
+
+        if (channel == null || !channel.toLowerCase(Locale.ROOT).endsWith("brand")) {
+            return;
+        }
+
+        if (this.cache.contains(uuid)) {
+            return;
+        }
+
+        String brand = decodeBrand(payload.getData());
+
+        if (brand == null || brand.isEmpty()) {
+            return;
+        }
+
         this.cache.add(uuid);
 
-        /*
-        Schedule it to run two seconds later to make sure the player profile has been initialized
-         */
-        TaskUtils.taskLaterAsync(() -> {
+        TaskUtils.playerLater(player, 20L, () -> {
+            if (!player.isOnline()) return;
 
             Profile profile = this.plugin.getProfileManager().getProfile(player);
 
-            /*
-            Just to make sure.
-             */
-            if (profile == null) return;
-
-            String clientBrand = brand;
-
-            if (clientBrand.equalsIgnoreCase("Cave Client")) {
-                clientBrand = "Cave Client";
-            } else if (clientBrand.contains("lunarclient")) {
-                clientBrand = "Lunar Client";
-            } else if (clientBrand.contains("PLC18")) {
-                clientBrand = "PvPLounge";
-            } else if (clientBrand.contains("forge")) {
-                clientBrand = "Forge";
-            } else if (clientBrand.contains("salwyrr")) {
-                clientBrand = "Salwyrr";
-            } else if (clientBrand.contains("fabric")) {
-                clientBrand = "Fabric";
+            if (profile == null) {
+                this.plugin.getProfileManager().createProfile(player);
+                profile = this.plugin.getProfileManager().getProfile(player);
             }
 
-            profile.setClient(clientBrand);
+            if (profile == null) return;
 
-        }, 20L);
+            profile.setClient(normalizeBrand(brand));
+        });
+    }
+
+    private String decodeBrand(byte[] data) {
+        if (data == null || data.length == 0) {
+            return null;
+        }
+
+        String decoded = tryReadMinecraftString(data);
+
+        if (decoded == null || decoded.isEmpty()) {
+            decoded = new String(data, StandardCharsets.UTF_8);
+        }
+
+        decoded = ChatUtils.stripColorCodes(decoded);
+        decoded = decoded.replace("\u0000", "");
+        decoded = decoded.replace("\r", "");
+        decoded = decoded.replace("\n", "");
+        decoded = decoded.replaceAll("^[\\p{Cntrl}]+", "");
+        decoded = decoded.trim();
+
+        return decoded;
+    }
+
+    private String tryReadMinecraftString(byte[] data) {
+        try {
+            int[] result = readVarInt(data, 0);
+            int length = result[0];
+            int index = result[1];
+
+            if (length < 0 || index < 0 || index + length > data.length) {
+                return null;
+            }
+
+            return new String(data, index, length, StandardCharsets.UTF_8);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private int[] readVarInt(byte[] data, int start) {
+        int value = 0;
+        int position = 0;
+        int index = start;
+
+        while (true) {
+            if (index >= data.length) {
+                throw new IllegalArgumentException("VarInt out of bounds");
+            }
+
+            byte currentByte = data[index++];
+
+            value |= (currentByte & 0x7F) << position;
+
+            if ((currentByte & 0x80) == 0) {
+                break;
+            }
+
+            position += 7;
+
+            if (position >= 32) {
+                throw new IllegalArgumentException("VarInt too big");
+            }
+        }
+
+        return new int[] { value, index };
+    }
+
+    private String normalizeBrand(String brand) {
+        if (brand == null) return "Unknown";
+
+        String lower = brand.toLowerCase(Locale.ROOT);
+
+        if (lower.contains("lunarclient") || lower.contains("lunar client")) {
+            return "Lunar Client";
+        }
+
+        if (lower.contains("badlion")) {
+            return "Badlion Client";
+        }
+
+        if (lower.contains("labymod")) {
+            return "LabyMod";
+        }
+
+        if (lower.contains("feather")) {
+            return "Feather Client";
+        }
+
+        if (lower.contains("forge")) {
+            return "Forge";
+        }
+
+        if (lower.contains("fabric")) {
+            return "Fabric";
+        }
+
+        if (lower.contains("quilt")) {
+            return "Quilt";
+        }
+
+        if (lower.contains("salwyrr")) {
+            return "Salwyrr";
+        }
+
+        if (lower.contains("plc18")) {
+            return "PvPLounge";
+        }
+
+        if (lower.equalsIgnoreCase("cave client")) {
+            return "Cave Client";
+        }
+
+        return brand;
     }
 
     @Override
     public void processSend(PacketSendEvent event) {
-
     }
 }

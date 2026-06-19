@@ -7,7 +7,6 @@ import me.arrow.managers.Initializer;
 import me.arrow.managers.logs.impl.FileExporter;
 import me.arrow.utils.TaskUtils;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,7 +26,7 @@ public class LogManager implements Initializer {
     private boolean logging;
 
     private final JavaPlugin plugin;
-    private BukkitTask flushTask;
+    private TaskUtils.CancellableTask flushTask;
 
     public LogManager(JavaPlugin plugin) {
         this.plugin = plugin;

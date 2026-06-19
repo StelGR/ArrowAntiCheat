@@ -14,10 +14,9 @@ import me.arrow.files.Config;
 import me.arrow.listeners.ClientBrandListener;
 import me.arrow.managers.threads.ProfileThread;
 import me.arrow.playerdata.data.impl.*;
-import me.arrow.playerdata.data.impl.teleport.TeleportData;
+import me.arrow.playerdata.data.impl.TeleportData;
 import me.arrow.playerdata.data.impl.worldcomp.BlockProcessor;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
-import me.arrow.playerdata.processors.impl.KeepAliveProcessor;
 import me.arrow.playerdata.processors.impl.NMSProcessor;
 import me.arrow.playerdata.processors.impl.TransactionProcessor;
 import me.arrow.utils.ChatUtils;
@@ -71,7 +70,6 @@ public class Profile {
     //--------------------------------------
     private final CheckHolder checkHolder;
     TransactionProcessor transactionProcessor;
-    KeepAliveProcessor keepAliveProcessor;
     @Getter
     private final TrustFactor trustFactor;
 

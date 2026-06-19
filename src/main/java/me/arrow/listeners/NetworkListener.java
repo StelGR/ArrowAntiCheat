@@ -1,4 +1,4 @@
-package me.arrow.processors;
+package me.arrow.listeners;
 
 
 import com.github.retrooper.packetevents.event.*;

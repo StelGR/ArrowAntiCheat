@@ -2,136 +2,116 @@ package me.arrow.utils;
 
 import me.arrow.Arrow;
 import org.bukkit.Bukkit;
-import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.Location;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
+
+import java.util.concurrent.*;
 import java.lang.reflect.Method;
 import java.util.function.Consumer;
-
-/**
- * A small utility class that we can use in order to create and run tasks quickly
- */
 
 public final class TaskUtils {
 
     private static final Plugin PLUGIN = Arrow.getInstance().getHost();
     private static final boolean FOLIA = isFolia();
 
-    private TaskUtils() {}
+    private static final ScheduledExecutorService ASYNC_POOL =
+            Executors.newScheduledThreadPool(Math.max(2, Runtime.getRuntime().availableProcessors() / 2), r -> {
+                Thread t = new Thread(r, "Arrow-Async");
+                t.setDaemon(true);
+                return t;
+            });
 
-    // =========================================
-    // NORMAL TASK
-    // Automatically selects Bukkit or Folia
-    // =========================================
+    private TaskUtils() {}
 
     public static void task(Runnable runnable) {
         if (FOLIA) {
-            runFolia(runnable);
+            runFoliaGlobal(runnable);
         } else {
             Bukkit.getScheduler().runTask(PLUGIN, runnable);
         }
     }
 
-// =========================================
-// ASYNC TASK
-// Same on both
-// =========================================
-
-    public static BukkitTask taskAsync(Runnable runnable) {
-        return Bukkit.getScheduler().runTaskAsynchronously(PLUGIN, runnable);
+    public static CancellableTask taskAsync(Runnable runnable) {
+        ScheduledFuture<?> future = ASYNC_POOL.schedule(runnable, 0L, TimeUnit.MILLISECONDS);
+        return () -> future.cancel(false);
     }
 
-    public static BukkitTask taskLaterAsync(Runnable runnable, long delay) {
-        return Bukkit.getScheduler().runTaskLaterAsynchronously(PLUGIN, runnable, delay);
-    }
-
-    public static BukkitTask taskTimerAsync(Runnable runnable, long delay, long period) {
-        return Bukkit.getScheduler().runTaskTimerAsynchronously(
-                PLUGIN,
+    public static CancellableTask taskLaterAsync(Runnable runnable, long delayTicks) {
+        ScheduledFuture<?> future = ASYNC_POOL.schedule(
                 runnable,
-                delay,
-                period
+                delayTicks * 50L,
+                TimeUnit.MILLISECONDS
         );
+        return () -> future.cancel(false);
     }
 
-    // =========================================
-    // DELAYED TASK
-    // =========================================
+    public static CancellableTask taskTimerAsync(Runnable runnable, long delayTicks, long periodTicks) {
+        long safePeriod = Math.max(1L, periodTicks);
+
+        ScheduledFuture<?> future = ASYNC_POOL.scheduleAtFixedRate(
+                () -> {
+                    try {
+                        runnable.run();
+                    } catch (Throwable throwable) {
+                        throwable.printStackTrace();
+                    }
+                },
+                delayTicks * 50L,
+                safePeriod * 50L,
+                TimeUnit.MILLISECONDS
+        );
+
+        return () -> future.cancel(false);
+    }
 
     public static void taskLater(Runnable runnable, long delay) {
         if (FOLIA) {
-            runFoliaLater(runnable, delay);
+            runFoliaGlobalLater(runnable, delay);
         } else {
             Bukkit.getScheduler().runTaskLater(PLUGIN, runnable, delay);
         }
     }
 
-    // =========================================
-    // TIMER TASK
-    // =========================================
-
     public static CancellableTask taskTimer(Runnable runnable, long delay, long period) {
         if (FOLIA) {
-            return runFoliaTimer(runnable, delay, period);
+            return runFoliaGlobalTimer(runnable, delay, period);
         } else {
             BukkitTask task = Bukkit.getScheduler().runTaskTimer(PLUGIN, runnable, delay, period);
             return task::cancel;
         }
     }
 
-    // =========================================
-    // FOLIA METHODS
-    // =========================================
-
-    private static void runFolia(Runnable runnable) {
+    private static void runFoliaGlobal(Runnable runnable) {
         try {
-            Object scheduler = Bukkit.class
-                    .getMethod("getGlobalRegionScheduler")
-                    .invoke(null);
-
-            Method execute = scheduler.getClass().getMethod(
-                    "execute",
-                    Plugin.class,
-                    Runnable.class
-            );
-
+            Object scheduler = Bukkit.class.getMethod("getGlobalRegionScheduler").invoke(null);
+            Method execute = scheduler.getClass().getMethod("execute", Plugin.class, Runnable.class);
             execute.invoke(scheduler, PLUGIN, runnable);
-
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static void runFoliaLater(Runnable runnable, long delay) {
+    private static void runFoliaGlobalLater(Runnable runnable, long delay) {
         try {
-            Object scheduler = Bukkit.class
-                    .getMethod("getGlobalRegionScheduler")
-                    .invoke(null);
-
+            Object scheduler = Bukkit.class.getMethod("getGlobalRegionScheduler").invoke(null);
             Method runDelayed = scheduler.getClass().getMethod(
                     "runDelayed",
                     Plugin.class,
                     Consumer.class,
                     long.class
             );
-
-            runDelayed.invoke(
-                    scheduler,
-                    PLUGIN,
-                    (Consumer<Object>) task -> runnable.run(),
-                    delay
-            );
-
+            runDelayed.invoke(scheduler, PLUGIN, (Consumer<Object>) task -> runnable.run(), delay);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static CancellableTask runFoliaTimer(Runnable runnable, long delay, long period) {
+    private static CancellableTask runFoliaGlobalTimer(Runnable runnable, long delay, long period) {
         try {
-            Object scheduler = Bukkit.class
-                    .getMethod("getGlobalRegionScheduler")
-                    .invoke(null);
-
+            Object scheduler = Bukkit.class.getMethod("getGlobalRegionScheduler").invoke(null);
             Method runAtFixedRate = scheduler.getClass().getMethod(
                     "runAtFixedRate",
                     Plugin.class,
@@ -140,7 +120,6 @@ public final class TaskUtils {
                     long.class
             );
 
-            // Folia returns a ScheduledTask object (not BukkitTask)
             Object scheduledTask = runAtFixedRate.invoke(
                     scheduler,
                     PLUGIN,
@@ -149,33 +128,188 @@ public final class TaskUtils {
                     period
             );
 
-            // ScheduledTask has cancel()
             return () -> {
                 try {
                     scheduledTask.getClass().getMethod("cancel").invoke(scheduledTask);
                 } catch (Exception ignored) {}
             };
-
         } catch (Exception e) {
             e.printStackTrace();
             return () -> {};
         }
     }
 
-    // =========================================
-    // DETECT FOLIA
-    // =========================================
-
     private static boolean isFolia() {
         try {
-            Bukkit.class.getMethod("getGlobalRegionScheduler");
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
             return true;
-        } catch (NoSuchMethodException ignored) {
+        } catch (Throwable ignored) {
             return false;
         }
     }
 
     public interface CancellableTask {
         void cancel();
+    }
+    public static boolean isFoliaServer() {
+        return FOLIA;
+    }
+
+    public static void player(Player player, Runnable runnable) {
+        entity(player, runnable);
+    }
+
+    public static void playerLater(Player player, long delay, Runnable runnable) {
+        entityLater(player, delay, runnable);
+    }
+
+    public static CancellableTask playerTimer(Player player, long delay, long period, Runnable runnable) {
+        return entityTimer(player, delay, period, runnable);
+    }
+
+    public static void entity(Entity entity, Runnable runnable) {
+        if (entity == null) return;
+
+        if (FOLIA) {
+            runFoliaEntity(entity, runnable);
+        } else {
+            Bukkit.getScheduler().runTask(PLUGIN, runnable);
+        }
+    }
+
+    public static void entityLater(Entity entity, long delay, Runnable runnable) {
+        if (entity == null) return;
+
+        if (FOLIA) {
+            runFoliaEntityLater(entity, delay, runnable);
+        } else {
+            Bukkit.getScheduler().runTaskLater(PLUGIN, runnable, delay);
+        }
+    }
+
+    public static CancellableTask entityTimer(Entity entity, long delay, long period, Runnable runnable) {
+        if (entity == null) return () -> {};
+
+        long safePeriod = Math.max(1L, period);
+
+        if (FOLIA) {
+            return runFoliaEntityTimer(entity, delay, safePeriod, runnable);
+        }
+
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(PLUGIN, runnable, delay, safePeriod);
+        return task::cancel;
+    }
+
+    public static void regionLater(Location location, long delay, Runnable runnable) {
+        if (location == null) return;
+
+        if (FOLIA) {
+            runFoliaRegionLater(location, delay, runnable);
+        } else {
+            Bukkit.getScheduler().runTaskLater(PLUGIN, runnable, delay);
+        }
+    }
+
+    private static void runFoliaEntity(Entity entity, Runnable runnable) {
+        try {
+            Object scheduler = entity.getClass().getMethod("getScheduler").invoke(entity);
+
+            Method run = scheduler.getClass().getMethod(
+                    "run",
+                    Plugin.class,
+                    Consumer.class,
+                    Runnable.class
+            );
+
+            run.invoke(
+                    scheduler,
+                    PLUGIN,
+                    (Consumer<Object>) task -> runnable.run(),
+                    null
+            );
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
+    }
+
+    private static void runFoliaEntityLater(Entity entity, long delay, Runnable runnable) {
+        try {
+            Object scheduler = entity.getClass().getMethod("getScheduler").invoke(entity);
+
+            Method runDelayed = scheduler.getClass().getMethod(
+                    "runDelayed",
+                    Plugin.class,
+                    Consumer.class,
+                    Runnable.class,
+                    long.class
+            );
+
+            runDelayed.invoke(
+                    scheduler,
+                    PLUGIN,
+                    (Consumer<Object>) task -> runnable.run(),
+                    null,
+                    delay
+            );
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
+    }
+
+    private static CancellableTask runFoliaEntityTimer(Entity entity, long delay, long period, Runnable runnable) {
+        try {
+            Object scheduler = entity.getClass().getMethod("getScheduler").invoke(entity);
+
+            Method runAtFixedRate = scheduler.getClass().getMethod(
+                    "runAtFixedRate",
+                    Plugin.class,
+                    Consumer.class,
+                    Runnable.class,
+                    long.class,
+                    long.class
+            );
+
+            Object scheduledTask = runAtFixedRate.invoke(
+                    scheduler,
+                    PLUGIN,
+                    (Consumer<Object>) task -> runnable.run(),
+                    null,
+                    delay,
+                    period
+            );
+
+            return () -> {
+                try {
+                    scheduledTask.getClass().getMethod("cancel").invoke(scheduledTask);
+                } catch (Throwable ignored) {}
+            };
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+            return () -> {};
+        }
+    }
+
+    private static void runFoliaRegionLater(Location location, long delay, Runnable runnable) {
+        try {
+            Object scheduler = Bukkit.class.getMethod("getRegionScheduler").invoke(null);
+
+            Method runDelayed = scheduler.getClass().getMethod(
+                    "runDelayed",
+                    Plugin.class,
+                    Location.class,
+                    Consumer.class,
+                    long.class
+            );
+
+            runDelayed.invoke(
+                    scheduler,
+                    PLUGIN,
+                    location,
+                    (Consumer<Object>) task -> runnable.run(),
+                    delay
+            );
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
     }
 }

@@ -1,4 +1,4 @@
-package me.arrow.processors;
+package me.arrow.listeners;
 
 import me.arrow.Arrow;
 import me.arrow.checks.impl.misc.interact.InteractB;
@@ -9,8 +9,6 @@ import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.MaterialType;
-import me.arrow.utils.customutils.*;
-import me.arrow.utils.customutils.raytrace.*;
 import me.arrow.utils.versionutils.VersionUtils;
 import me.arrow.utils.versionutils.impl.VelocityClientVersionBridge;
 import org.bukkit.*;
@@ -33,14 +31,12 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.server.ServerListPingEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
 import java.util.UUID;
 
 import static me.arrow.utils.customutils.OtherUtility.*;
-import static org.bukkit.Bukkit.getServer;
 
 
 //only really using it for the test server mode, but it needs alot of clean up, also using it for Interact B cus it's much harder to make that on a packet specific check, but yet again, i may just be retarded
@@ -127,11 +123,7 @@ public class BukkitListener implements Listener {
     }
 
     void processEvent(Event event) {
-        if (event instanceof InventoryClickEvent || event instanceof InventoryCloseEvent || event instanceof InventoryOpenEvent) {
-            process(event);
-        } else {
-            Arrow.getInstance().getExecutorService().execute(() -> this.process(event));
-        }
+        process(event);
     }
 
     void process(Event event) {
@@ -147,9 +139,9 @@ public class BukkitListener implements Listener {
             final Player joiningPlayer = joinEvent.getPlayer();
             final UUID joiningUuid = joiningPlayer.getUniqueId();
 
+            final TaskUtils.CancellableTask[] retryTask = new TaskUtils.CancellableTask[1];
 
-
-            new BukkitRunnable() {
+            retryTask[0] = TaskUtils.playerTimer(joiningPlayer, 0L, 2L, new Runnable() {
                 private int tries = 0;
 
                 @Override
@@ -157,13 +149,19 @@ public class BukkitListener implements Listener {
                     Player p = Bukkit.getPlayer(joiningUuid);
 
                     if (p == null || !p.isOnline()) {
-                        cancel();
+                        if (retryTask[0] != null) retryTask[0].cancel();
                         return;
                     }
 
                     Profile joiningProfile = Arrow.getInstance().getProfileManager().getProfile(p);
 
                     if (joiningProfile == null) {
+                        tries++;
+
+                        if (tries >= 40 && retryTask[0] != null) {
+                            retryTask[0].cancel();
+                        }
+
                         return;
                     }
 
@@ -176,43 +174,46 @@ public class BukkitListener implements Listener {
                     joiningProfile.setVersion(VersionUtils.getClientVersion(p));
 
                     try {
+                        String displayName = p.getDisplayName();
+                        UUID joiningPlayerUuid = p.getUniqueId();
+                        int joiningEntityId = p.getEntityId();
+
                         for (Player receiver : Bukkit.getOnlinePlayers()) {
                             if (receiver == null) continue;
 
-                            UUID receiverUuid = receiver.getUniqueId();
+                            TaskUtils.playerLater(receiver, 40L, () -> {
+                                if (!receiver.isOnline()) return;
 
-                            TaskUtils.taskLaterAsync(() -> {
-                                Player recv = Bukkit.getPlayer(receiverUuid);
-                                if (recv == null || !recv.isOnline()) return;
-
-                                if (recv.hasPermission(Permissions.ALERTS.getPermission())) {
-                                    recv.sendMessage(translate(Arrow.getInstance().getThemeManager().getTheme().getPrefix()
-                                            + MsgType.MAIN_THEME_COLOR.getMessage() + p.getDisplayName()
+                                if (receiver.hasPermission(Permissions.ALERTS.getPermission())) {
+                                    receiver.sendMessage(translate(Arrow.getInstance().getThemeManager().getTheme().getPrefix()
+                                            + MsgType.MAIN_THEME_COLOR.getMessage() + displayName
                                             + MsgType.SECOND_THEME_COLOR.getMessage() + " is joining with "
                                             + MsgType.MAIN_THEME_COLOR.getMessage() + joiningProfile.getClient()
                                             + MsgType.SECOND_THEME_COLOR.getMessage() + " on "
                                             + MsgType.MAIN_THEME_COLOR.getMessage() + joiningProfile.getVersion().getReleaseName()));
                                 }
-                            }, 40L);
 
-                            if (receiver.equals(p)) continue;
+                                if (receiver.equals(p)) return;
 
-                            Profile otherProfile = Arrow.getInstance().getProfileManager().getProfile(receiver);
-                            if (otherProfile == null) continue;
+                                Profile otherProfile = Arrow.getInstance().getProfileManager().getProfile(receiver);
+                                if (otherProfile == null) return;
 
-                            joiningProfile.getCombatData().getTrackedEntities()
-                                    .put(receiver.getEntityId(), receiver.getUniqueId());
+                                joiningProfile.getCombatData().getTrackedEntities()
+                                        .put(receiver.getEntityId(), receiver.getUniqueId());
 
-                            otherProfile.getCombatData().getTrackedEntities()
-                                    .put(p.getEntityId(), p.getUniqueId());
+                                otherProfile.getCombatData().getTrackedEntities()
+                                        .put(joiningEntityId, joiningPlayerUuid);
+                            });
                         }
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
+                    } catch (Throwable throwable) {
+                        throwable.printStackTrace();
                     }
 
-                    cancel();
+                    if (retryTask[0] != null) {
+                        retryTask[0].cancel();
+                    }
                 }
-            }.runTaskTimer(Arrow.getInstance().getHost(), 0L, 2L); // try immediately, then every 2 ticks until success
+            });
         }
 
         if (event instanceof PlayerQuitEvent) {
@@ -439,7 +440,7 @@ public class BukkitListener implements Listener {
 //                }
 //            }
 
-            TaskUtils.taskLater(() -> {
+            TaskUtils.playerLater(event.getPlayer(), 40L, () -> {
                 if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
                     event.getPlayer().teleport(parseLocation(Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_SPAWN.getString(), Config.Setting.TEST_SERVER_MODE_WORLD.getString()), PlayerTeleportEvent.TeleportCause.PLUGIN);
                     event.getPlayer().sendMessage(translate("&7Test server mode is &cENABLED&7. You have been warned."));
@@ -448,7 +449,7 @@ public class BukkitListener implements Listener {
                        event.getPlayer().setGameMode(GameMode.SURVIVAL);
                    }
                 }
-            }, (40));
+            });
 
         } catch (Exception exception) {
             exception.printStackTrace();
@@ -478,13 +479,16 @@ public class BukkitListener implements Listener {
                 Block placedBlock = event.getBlockPlaced();
 
                 if (placedBlock.getType() == Material.DIAMOND_BLOCK) {
-                    new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            placedBlock.setType(Material.AIR);
+                    Location placedLocation = placedBlock.getLocation();
+
+                    TaskUtils.regionLater(placedLocation, 100L, () -> {
+                        placedBlock.setType(Material.AIR);
+
+                        TaskUtils.player(player, () -> {
+                            if (!player.isOnline()) return;
                             player.getInventory().addItem(new ItemStack(Material.DIAMOND_BLOCK, 1));
-                        }
-                    }.runTaskLater(Arrow.getInstance().getHost(), 100L);
+                        });
+                    });
                 }
             }
         }
@@ -716,7 +720,7 @@ public class BukkitListener implements Listener {
         Player player = event.getPlayer();
         int slot = player.getInventory().getHeldItemSlot();
 
-        TaskUtils.taskLater(() -> {
+        TaskUtils.playerLater(player, 1L, () -> {
             if (!player.isOnline()) return;
 
             ItemStack inHand = player.getInventory().getItem(slot);
@@ -725,7 +729,7 @@ public class BukkitListener implements Listener {
             inHand.setAmount(64);
             player.getInventory().setItem(slot, inHand);
             player.updateInventory();
-        }, 1L);
+        });
     }
 
     @EventHandler

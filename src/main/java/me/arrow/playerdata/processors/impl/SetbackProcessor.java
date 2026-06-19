@@ -2,8 +2,6 @@ package me.arrow.playerdata.processors.impl;
 
 import lombok.Getter;
 import lombok.Setter;
-import me.arrow.Arrow;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.processors.Processor;
 import me.arrow.tasks.TickTask;
@@ -12,7 +10,6 @@ import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.Math.MathUtil;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
@@ -26,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static me.arrow.utils.customutils.OtherUtility.*;
-import static org.bukkit.Bukkit.getServer;
 
 // idk what is going on in here tbh but i have it use my setback logs
 

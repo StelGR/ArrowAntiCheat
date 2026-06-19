@@ -11,11 +11,10 @@ import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.OtherUtility;
-import me.arrow.utils.customutils.RunUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitTask;
 
 // a transaction processor that has brain damage slightly, only slightly though, please fix it for bedrock players, as without this all velocity calculation
 // becomes impossible on bedrock, as we use transactions to verify velocity, no you can't cancel them for ever cus it will kick you
@@ -34,7 +33,7 @@ public class TransactionProcessor implements Runnable {
     @Setter
     private short sTimeTransactionStart = (short) 32000;
 
-    private BukkitTask bukkitTaskTransaction;
+    private TaskUtils.CancellableTask bukkitTaskTransaction;
 
 
     // i can't seem to find correct number
@@ -55,14 +54,12 @@ public class TransactionProcessor implements Runnable {
 
     public TransactionProcessor(Profile profile) {
         this.profile = profile;
-        this.nextIntId = timeTransactionStart;
-        this.nextShortId = sTimeTransactionStart;
         startTransaction();
     }
 
     public void startTransaction() {
         if (this.bukkitTaskTransaction == null) {
-            this.bukkitTaskTransaction = RunUtils.taskTimer(this, 0L, 1L);
+            this.bukkitTaskTransaction = TaskUtils.taskTimer(this, 0L, 1L);
         }
     }
 
@@ -117,12 +114,10 @@ public class TransactionProcessor implements Runnable {
     }
 
     private boolean shouldUseModernTransaction() {
-        boolean modernServer = PacketEvents.getAPI()
+        return PacketEvents.getAPI()
                 .getServerManager()
                 .getVersion()
                 .isNewerThanOrEquals(ServerVersion.V_1_17);
-
-        return modernServer;
     }
 
     private void createNextTransaction(boolean modern) {

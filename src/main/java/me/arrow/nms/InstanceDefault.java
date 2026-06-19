@@ -11,10 +11,6 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Pose;
 import org.bukkit.inventory.ItemStack;
-import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
-import org.bukkit.util.BoundingBox;
-import java.util.ArrayList;
-import java.util.List;
 
 public class InstanceDefault implements NmsInstance {
 

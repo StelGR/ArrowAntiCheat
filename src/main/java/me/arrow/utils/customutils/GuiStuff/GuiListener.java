@@ -4,6 +4,7 @@ import me.arrow.Arrow;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.animationSystem.Animation;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -101,12 +102,12 @@ public class GuiListener implements Listener {
         event.setCancelled(true);
 
         if (rawSlot == 11) {
-            Arrow.getGuiManager().openChecksGUI(player);
+            openFor(player, () -> Arrow.getGuiManager().openChecksGUI(player));
             return;
         }
 
         if (rawSlot == 15 && player.hasPermission(Permissions.ADMIN.getPermission())) {
-            Arrow.getGuiManager().openSettingsGUI(player);
+            openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
         }
     }
 
@@ -116,51 +117,51 @@ public class GuiListener implements Listener {
         switch (rawSlot) {
             case 10:
                 Config.Setting.TOGGLE_ALERTS_ON_JOIN.setValue(!Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean());
-                Arrow.getGuiManager().openSettingsGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
             case 12:
                 Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.setValue(!Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean());
-                Arrow.getGuiManager().openSettingsGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
             case 14:
                 Config.Setting.LOGS_ENABLED.setValue(!Config.Setting.LOGS_ENABLED.getBoolean());
-                Arrow.getGuiManager().openSettingsGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
             case 16:
                 Config.Setting.PUNISH_ENABLED.setValue(!Config.Setting.PUNISH_ENABLED.getBoolean());
-                Arrow.getGuiManager().openSettingsGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
             case 28:
                 Config.Setting.TEST_SERVER_MODE_ENABLED.setValue(!Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean());
-                Arrow.getGuiManager().openSettingsGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
             case 30:
                 Config.Setting.DEBUG.setValue(!Config.Setting.DEBUG.getBoolean());
-                Arrow.getGuiManager().openSettingsGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
             case 32:
                 Config.Setting.IGNORE_BEDROCK.setValue(!Config.Setting.IGNORE_BEDROCK.getBoolean());
-                Arrow.getGuiManager().openSettingsGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
             case 34:
                 if (event.getClick() == ClickType.RIGHT || event.getClick() == ClickType.SHIFT_RIGHT) {
-                    Arrow.getGuiManager().openBanAnimationGUI(player);
+                    openFor(player, () -> Arrow.getGuiManager().openBanAnimationGUI(player));
                     return;
                 }
 
                 Config.Setting.BAN_ANIMATION_ENABLED.setValue(!Config.Setting.BAN_ANIMATION_ENABLED.getBoolean());
-                Arrow.getGuiManager().openSettingsGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
             case 40:
-                Arrow.getGuiManager().openArrowGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openArrowGUI(player));
                 break;
         }
     }
@@ -169,7 +170,7 @@ public class GuiListener implements Listener {
         event.setCancelled(true);
 
         if (rawSlot == 49) {
-            Arrow.getGuiManager().openSettingsGUI(player);
+            openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
             return;
         }
 
@@ -180,7 +181,7 @@ public class GuiListener implements Listener {
         }
 
         Config.Setting.BAN_ANIMATION_CURRENT.setValue(animationType.name());
-        Arrow.getGuiManager().openBanAnimationGUI(player);
+        openFor(player, () -> Arrow.getGuiManager().openBanAnimationGUI(player));
     }
 
     private void handleSelectCategoryMenu(InventoryClickEvent event, Player player, int rawSlot) {
@@ -188,19 +189,19 @@ public class GuiListener implements Listener {
 
         switch (rawSlot) {
             case 22:
-                Arrow.getGuiManager().openArrowGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openArrowGUI(player));
                 break;
 
             case 10:
-                Arrow.getGuiManager().openCombatChecksGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openCombatChecksGUI(player));
                 break;
 
             case 13:
-                Arrow.getGuiManager().openMovementChecksGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openMovementChecksGUI(player));
                 break;
 
             case 16:
-                Arrow.getGuiManager().openMiscChecksGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openMiscChecksGUI(player));
                 break;
         }
     }
@@ -210,39 +211,39 @@ public class GuiListener implements Listener {
 
         switch (rawSlot) {
             case 40:
-                Arrow.getGuiManager().openChecksGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openChecksGUI(player));
                 break;
 
             case 10:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "BadPackets", "Badpackets");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "BadPackets", "Badpackets"));
                 break;
 
             case 12:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Interact", "Interact");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Interact", "Interact"));
                 break;
 
             case 14:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Inventory", "Inventory");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Inventory", "Inventory"));
                 break;
 
             case 16:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "NoSlow", "No Slowdown");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "NoSlow", "No Slowdown"));
                 break;
 
             case 28:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Scaffold", "Scaffold");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Scaffold", "Scaffold"));
                 break;
 
             case 30:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Timer", "Timer");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Timer", "Timer"));
                 break;
 
             case 32:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Macro", "Macro");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Macro", "Macro"));
                 break;
 
             case 34:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Phase", "Phase");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Phase", "Phase"));
                 break;
         }
     }
@@ -252,35 +253,35 @@ public class GuiListener implements Listener {
 
         switch (rawSlot) {
             case 22:
-                Arrow.getGuiManager().openChecksGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openChecksGUI(player));
                 break;
 
             case 10:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Fly", "Fly");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Fly", "Fly"));
                 break;
 
             case 11:
-                Arrow.getGuiManager().openArrowCheckSpeedGUI(player, "Speed", "OmniSprint", "Speed");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckSpeedGUI(player, "Speed", "OmniSprint", "Speed"));
                 break;
 
             case 12:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Motion", "Motion");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Motion", "Motion"));
                 break;
 
             case 13:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Vehicle", "Vehicle");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Vehicle", "Vehicle"));
                 break;
 
             case 14:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Ground", "Ground");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Ground", "Ground"));
                 break;
 
             case 15:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Elytra", "Elytra");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Elytra", "Elytra"));
                 break;
 
             case 16:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "IllegalMove", "IllegalMove");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "IllegalMove", "IllegalMove"));
                 break;
         }
     }
@@ -290,35 +291,35 @@ public class GuiListener implements Listener {
 
         switch (rawSlot) {
             case 22:
-                Arrow.getGuiManager().openChecksGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openChecksGUI(player));
                 break;
 
             case 10:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Aim", "Aim Assist");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Aim", "Aim Assist"));
                 break;
 
             case 11:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "BackTrack", "BackTrack");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "BackTrack", "BackTrack"));
                 break;
 
             case 12:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "AutoClicker", "AutoClicker");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "AutoClicker", "AutoClicker"));
                 break;
 
             case 13:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Hitbox", "Hitbox");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Hitbox", "Hitbox"));
                 break;
 
             case 14:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Reach", "Reach");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Reach", "Reach"));
                 break;
 
             case 15:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Velocity", "Velocity");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Velocity", "Velocity"));
                 break;
 
             case 16:
-                Arrow.getGuiManager().openArrowCheckGUI(player, "Killaura", "Killaura");
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Killaura", "Killaura"));
                 break;
         }
     }
@@ -401,7 +402,7 @@ public class GuiListener implements Listener {
         String checkType = target.getClass().getSimpleName().replaceFirst("[A-Z]$", "");
         String uiName = extractUiName(plainTitle);
 
-        Arrow.getGuiManager().openArrowCheckGUI(player, checkType, uiName);
+        openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, checkType, uiName));
     }
 
     private void handleBackButtons(InventoryClickEvent event, Player player, String inventoryTitle, ItemStack clickedItem, int rawSlot, int topSize) {
@@ -439,7 +440,7 @@ public class GuiListener implements Listener {
                     || inventoryTitle.contains("Scaffold")
                     || inventoryTitle.contains("Macro")
                     || inventoryTitle.contains("Timer")) {
-                Arrow.getGuiManager().openMiscChecksGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openMiscChecksGUI(player));
             }
         }
 
@@ -447,7 +448,7 @@ public class GuiListener implements Listener {
             event.setCancelled(true);
 
             if (inventoryTitle.contains("Checks")) {
-                Arrow.getGuiManager().openArrowGUI(player);
+                openFor(player, () -> Arrow.getGuiManager().openArrowGUI(player));
             }
         }
     }
@@ -658,5 +659,9 @@ public class GuiListener implements Listener {
         }
 
         return null;
+    }
+
+    private void openFor(Player player, Runnable runnable) {
+        TaskUtils.player(player, runnable);
     }
 }

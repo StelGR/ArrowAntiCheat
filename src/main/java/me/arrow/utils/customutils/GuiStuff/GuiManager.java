@@ -25,7 +25,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -160,7 +159,7 @@ public class GuiManager {
         };
 
         Runnable refresh = () -> {
-            if (playerForInfo == null || !playerForInfo.isOnline()) {
+            if (!playerForInfo.isOnline()) {
                 return;
             }
 
@@ -293,43 +292,27 @@ public class GuiManager {
             oldTask.cancel();
         }
 
-        TaskUtils.CancellableTask task = TaskUtils.taskTimer(() -> {
-            Player onlineViewer = Bukkit.getPlayer(viewerUuid);
-
-            if (onlineViewer == null || !onlineViewer.isOnline()) {
+        TaskUtils.CancellableTask task = TaskUtils.playerTimer(player, 1L, 1L, () -> {
+            if (!player.isOnline()) {
                 TaskUtils.CancellableTask currentTask = infoGuiTasks.remove(viewerUuid);
-
-                if (currentTask != null) {
-                    currentTask.cancel();
-                }
-
+                if (currentTask != null) currentTask.cancel();
                 return;
             }
 
             if (!playerForInfo.isOnline()) {
                 TaskUtils.CancellableTask currentTask = infoGuiTasks.remove(viewerUuid);
-
-                if (currentTask != null) {
-                    currentTask.cancel();
-                }
-
+                if (currentTask != null) currentTask.cancel();
                 return;
             }
 
-            if (onlineViewer.getOpenInventory() == null
-                    || onlineViewer.getOpenInventory().getTopInventory() == null
-                    || !onlineViewer.getOpenInventory().getTopInventory().equals(gui)) {
+            if (!player.getOpenInventory().getTopInventory().equals(gui)) {
                 TaskUtils.CancellableTask currentTask = infoGuiTasks.remove(viewerUuid);
-
-                if (currentTask != null) {
-                    currentTask.cancel();
-                }
-
+                if (currentTask != null) currentTask.cancel();
                 return;
             }
 
             refresh.run();
-        }, 1L, 1L);
+        });
 
         infoGuiTasks.put(viewerUuid, task);
     }

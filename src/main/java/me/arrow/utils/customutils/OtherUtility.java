@@ -8,7 +8,6 @@ import org.anjocaido.groupmanager.GroupManager;
 import org.anjocaido.groupmanager.permissions.AnjoPermissionsHandler;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
@@ -124,46 +123,61 @@ public class OtherUtility {
     }
 
     public static ItemStack createUnbreakableItem(Material material) {
-        ItemStack itemStack = new ItemStack(material);
+        ItemStack itemStack = new ItemStack(material, 1);
         ItemMeta itemMeta = itemStack.getItemMeta();
 
-        if (itemMeta != null) {
-            boolean applied = trySetUnbreakableCompat(itemMeta, true);
-
-            // Only hide the flag if unbreakable actually applied (optional, but cleaner)
-            if (applied) {
-                itemMeta.addItemFlags(ItemFlag.HIDE_UNBREAKABLE);
-            }
-
-            itemStack.setItemMeta(itemMeta);
+        if (itemMeta == null) {
+            return itemStack;
         }
 
+        boolean applied = trySetUnbreakableCompat(itemMeta, true);
+
+        if (applied) {
+            addItemFlagCompat(itemMeta, "HIDE_UNBREAKABLE");
+        }
+
+        addItemFlagCompat(itemMeta, "HIDE_ATTRIBUTES");
+        addItemFlagCompat(itemMeta, "HIDE_ENCHANTS");
+
+        itemStack.setItemMeta(itemMeta);
         return itemStack;
     }
 
     private static boolean trySetUnbreakableCompat(ItemMeta meta, boolean unbreakable) {
-        // Modern API (1.11+ commonly): ItemMeta#setUnbreakable(boolean)
         try {
             Method modern = meta.getClass().getMethod("setUnbreakable", boolean.class);
             modern.invoke(meta, unbreakable);
             return true;
         } catch (NoSuchMethodException ignored) {
-            // try legacy
+            // try legacy below
         } catch (Throwable ignored) {
-            // swallow: best-effort
             return false;
         }
 
-        // Legacy Spigot API (1.8): ItemMeta#spigot().setUnbreakable(boolean)
         try {
             Method spigot = meta.getClass().getMethod("spigot");
             Object spigotMeta = spigot.invoke(meta);
+
             Method legacy = spigotMeta.getClass().getMethod("setUnbreakable", boolean.class);
             legacy.invoke(spigotMeta, unbreakable);
+
             return true;
         } catch (Throwable ignored) {
-            // swallow: best-effort
             return false;
+        }
+    }
+
+    private static void addItemFlagCompat(ItemMeta meta, String flagName) {
+        try {
+            Class<?> itemFlagClass = Class.forName("org.bukkit.inventory.ItemFlag");
+            Object flag = Enum.valueOf((Class<Enum>) itemFlagClass.asSubclass(Enum.class), flagName);
+
+            Method addItemFlags = meta.getClass().getMethod("addItemFlags", itemFlagClass.arrayType());
+            Object array = java.lang.reflect.Array.newInstance(itemFlagClass, 1);
+            java.lang.reflect.Array.set(array, 0, flag);
+
+            addItemFlags.invoke(meta, array);
+        } catch (Throwable ignored) {
         }
     }
 

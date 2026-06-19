@@ -1,4 +1,4 @@
-package me.arrow.playerdata.data.impl.teleport;
+package me.arrow.playerdata.data.impl;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
