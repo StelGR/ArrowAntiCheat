@@ -5,14 +5,11 @@ import com.github.retrooper.packetevents.event.*;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.wrapper.play.client.*;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity;
 import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.ChatUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.TaskUtils;
-import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 //niks network listener converted to PacketEvents from ProtocolLib, i prefer packetevents.
@@ -27,64 +24,57 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
 
     @Override
     public void onPacketReceive(PacketReceiveEvent event) {
-
         final Player player = event.getPlayer();
-
         if (player == null) return;
 
         final Profile profile = this.plugin.getProfileManager().getProfile(player);
-
         if (profile == null) return;
-
 
         final PacketTypeCommon packet = event.getPacketType();
 
-
-        /*
-            Check for position crashers which could destroy our multithreading
-            We have to do this on the netty thread in order to cancel the packet
-        */
         final String crashAttempt = checkCrasher(packet, event);
 
         if (crashAttempt != null) {
-
             event.setCancelled(true);
 
-            ChatUtils.log("Kicking " + player.getName() + " for sending an invalid position packet, Information: " + crashAttempt);
-            Bukkit.broadcastMessage(OtherUtility.translate(Arrow.getInstance().getThemeManager().getTheme().getPrefix() + "&ckicking " + player.getDisplayName() + " for attempting to crash the server."));
-            //Kick the player on the main thread
-            TaskUtils.task(() -> player.kickPlayer("Invalid Packet"));
+            ChatUtils.log("Kicking " + player.getName()
+                    + " for sending an invalid position packet, Information: " + crashAttempt);
+
+            TaskUtils.player(player, () -> {
+                if (player.isOnline()) {
+                    player.kickPlayer("Invalid Packet");
+                }
+            });
 
             return;
         }
 
-
-//        profile.getProfileThread().execute(() ->
+        if (TaskUtils.isFoliaServer()) {
+            TaskUtils.player(player, () -> {
+                if (!player.isOnline()) return;
                 profile.handleReceive(event);
-//        );
+            });
+        } else {
+            profile.handleReceive(event);
+        }
     }
 
     @Override
     public void onPacketSend(PacketSendEvent event) {
         final Player player = event.getPlayer();
-
         if (player == null) return;
 
         final Profile profile = this.plugin.getProfileManager().getProfile(player);
-
         if (profile == null) return;
 
-        final int playerId = player.getEntityId();
-
-        if (event.getPacketType().equals(PacketType.Play.Server.ENTITY_VELOCITY)) {
-            final WrapperPlayServerEntityVelocity velocity = new WrapperPlayServerEntityVelocity(event);
-
-            if (velocity.getEntityId() != playerId) return;
-
-        }
-//        profile.getProfileThread().execute(() ->
+        if (TaskUtils.isFoliaServer()) {
+            TaskUtils.player(player, () -> {
+                if (!player.isOnline()) return;
                 profile.handleSend(event);
-//        );
+            });
+        } else {
+            profile.handleSend(event);
+        }
     }
 
     private String checkCrasher(PacketTypeCommon packet, PacketReceiveEvent event) {

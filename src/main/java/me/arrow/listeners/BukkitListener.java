@@ -440,15 +440,31 @@ public class BukkitListener implements Listener {
 //                }
 //            }
 
-            TaskUtils.playerLater(event.getPlayer(), 40L, () -> {
-                if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
-                    event.getPlayer().teleport(parseLocation(Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_SPAWN.getString(), Config.Setting.TEST_SERVER_MODE_WORLD.getString()), PlayerTeleportEvent.TeleportCause.PLUGIN);
-                    event.getPlayer().sendMessage(translate("&7Test server mode is &cENABLED&7. You have been warned."));
-                   if (Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_ENABLE.getBoolean() && Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_ITEMS.getBoolean()) {
-                       giveTestItems(event.getPlayer());
-                       event.getPlayer().setGameMode(GameMode.SURVIVAL);
-                   }
+            Player player = event.getPlayer();
+
+            TaskUtils.playerLater(player, 40L, () -> {
+                if (!player.isOnline()) return;
+
+                if (!Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
+                    return;
                 }
+
+                Location spawn = parseLocation(
+                        Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_SPAWN.getString(),
+                        Config.Setting.TEST_SERVER_MODE_WORLD.getString()
+                );
+
+                TaskUtils.teleport(player, spawn, PlayerTeleportEvent.TeleportCause.PLUGIN, () -> {
+                    if (!player.isOnline()) return;
+
+                    player.sendMessage(translate("&7Test server mode is &cENABLED&7. You have been warned."));
+
+                    if (Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_ENABLE.getBoolean()
+                            && Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_ITEMS.getBoolean()) {
+                        giveTestItems(player);
+                        player.setGameMode(GameMode.SURVIVAL);
+                    }
+                });
             });
 
         } catch (Exception exception) {

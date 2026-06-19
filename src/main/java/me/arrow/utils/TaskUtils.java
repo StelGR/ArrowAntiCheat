@@ -5,6 +5,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -76,12 +77,22 @@ public final class TaskUtils {
     }
 
     public static CancellableTask taskTimer(Runnable runnable, long delay, long period) {
+        long safePeriod = safePeriod(period);
+
         if (FOLIA) {
-            return runFoliaGlobalTimer(runnable, delay, period);
-        } else {
-            BukkitTask task = Bukkit.getScheduler().runTaskTimer(PLUGIN, runnable, delay, period);
-            return task::cancel;
+            return runFoliaGlobalTimer(runnable, safeFoliaDelay(delay), safePeriod);
         }
+
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(PLUGIN, runnable, delay, safePeriod);
+        return task::cancel;
+    }
+
+    private static long safeFoliaDelay(long delay) {
+        return Math.max(1L, delay);
+    }
+
+    private static long safePeriod(long period) {
+        return Math.max(1L, period);
     }
 
     private static void runFoliaGlobal(Runnable runnable) {
@@ -190,10 +201,10 @@ public final class TaskUtils {
     public static CancellableTask entityTimer(Entity entity, long delay, long period, Runnable runnable) {
         if (entity == null) return () -> {};
 
-        long safePeriod = Math.max(1L, period);
+        long safePeriod = safePeriod(period);
 
         if (FOLIA) {
-            return runFoliaEntityTimer(entity, delay, safePeriod, runnable);
+            return runFoliaEntityTimer(entity, safeFoliaDelay(delay), safePeriod, runnable);
         }
 
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(PLUGIN, runnable, delay, safePeriod);
@@ -308,6 +319,59 @@ public final class TaskUtils {
                     (Consumer<Object>) task -> runnable.run(),
                     delay
             );
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
+    }
+
+    public static void teleport(Player player, Location location, PlayerTeleportEvent.TeleportCause cause, Runnable after) {
+        if (player == null || location == null) return;
+
+        if (!FOLIA) {
+            Bukkit.getScheduler().runTask(PLUGIN, () -> {
+                if (!player.isOnline()) return;
+
+                player.teleport(location, cause);
+
+                if (after != null) {
+                    after.run();
+                }
+            });
+            return;
+        }
+
+        try {
+            Method teleportAsync;
+
+            try {
+                teleportAsync = player.getClass().getMethod(
+                        "teleportAsync",
+                        Location.class,
+                        PlayerTeleportEvent.TeleportCause.class
+                );
+
+                Object futureObject = teleportAsync.invoke(player, location, cause);
+
+                if (futureObject instanceof CompletableFuture<?>) {
+                    ((CompletableFuture<?>) futureObject).thenRun(() -> {
+                        if (after != null) {
+                            player(player, after);
+                        }
+                    });
+                }
+            } catch (NoSuchMethodException ignored) {
+                teleportAsync = player.getClass().getMethod("teleportAsync", Location.class);
+
+                Object futureObject = teleportAsync.invoke(player, location);
+
+                if (futureObject instanceof CompletableFuture<?>) {
+                    ((CompletableFuture<?>) futureObject).thenRun(() -> {
+                        if (after != null) {
+                            player(player, after);
+                        }
+                    });
+                }
+            }
         } catch (Throwable throwable) {
             throwable.printStackTrace();
         }

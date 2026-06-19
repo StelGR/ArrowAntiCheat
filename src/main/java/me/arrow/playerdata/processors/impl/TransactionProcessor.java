@@ -59,7 +59,7 @@ public class TransactionProcessor implements Runnable {
 
     public void startTransaction() {
         if (this.bukkitTaskTransaction == null) {
-            this.bukkitTaskTransaction = TaskUtils.taskTimer(this, 0L, 1L);
+            this.bukkitTaskTransaction = TaskUtils.playerTimer(profile.getPlayer(), 1L, 1L, this);
         }
     }
 
