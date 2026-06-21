@@ -10,6 +10,7 @@ import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.Getter;
 import lombok.Setter;
+import me.arrow.playerdata.processors.impl.CollisionProcessor;
 import me.stel.API.ArrowAPIProvider;
 import me.arrow.api.internal.ArrowAPIImpl;
 import me.arrow.commands.CommandManager;
@@ -271,6 +272,7 @@ public final class Arrow {
             log(translate("&6" + "➪  Animation Manager initialized"));
 
             RodData.init(getHost());
+            CollisionProcessor.start();
 
             long endTime = System.currentTimeMillis();
 

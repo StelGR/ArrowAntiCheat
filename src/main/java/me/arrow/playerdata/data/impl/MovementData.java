@@ -231,35 +231,7 @@ public class MovementData implements Data {
     float bedrockDeltaY, bedrockLastDeltaY;
 
     private volatile boolean locationProcessQueued;
-//    private void processBlockDataSafely() {
-//        Player player = profile.getPlayer();
-//
-//        if (player == null) {
-//            return;
-//        }
-//
-//        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(player)) {
-//            if (locationProcessQueued) {
-//                return;
-//            }
-//
-//            locationProcessQueued = true;
-//
-//            TaskUtils.player(player, () -> {
-//                try {
-//                    if (player.isOnline()) {
-//                        processBlocks();
-//                    }
-//                } finally {
-//                    locationProcessQueued = false;
-//                }
-//            });
-//
-//            return;
-//        }
-//
-//        processBlocks();
-//    }
+
 
     private void processLocationData() {
 
@@ -353,6 +325,7 @@ public class MovementData implements Data {
 
         //Process data
         processPlayerData();
+        updatePlayerBoundingBox();
         processBlocks();
 
         if (profile.getPlayer().getAllowFlight()) {
@@ -440,20 +413,17 @@ public class MovementData implements Data {
 
 
 //        isCollidingNearbyEntitiesAsync(profile.getPlayer(), playerBox).thenAccept(colliding -> isColliding = colliding);
-       if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8) && profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)) isColliding = false;
-       else isColliding = CollisionProcessor.isColliding(profile.getPlayer(), profile.getBoundingBox());
+        if (!supportsEntityCollisionCheck()) {
+            isColliding = false;
+        } else {
+            isColliding = CollisionProcessor.isColliding(profile.getPlayer(), profile.getBoundingBox());
+        }
     }
 
     void processBlocks() {
         NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, !TaskUtils.isFoliaServer());
-
-        boolean badVector = Math.abs(getLocation().toVector().length()
-                - getLastLocation().toVector().length()) >= 1;
-
-        profile.setBoundingBox(new BoundingBox((badVector ? getLocation().toVector()
-                : getLastLocation().toVector()), getLocation().toVector())
-                .grow(0.3f, 0, 0.3f).add(0, 0, 0, 0, 1.84f, 0));
+        updatePlayerBoundingBox();
 
         boolean flag_water = false, flag_lava = false, flag_web = false, flag_climbable = false,
                 flag_nearBuggyBlock = false, flag_bubble = false, flag_bed = false,
@@ -645,6 +615,25 @@ public class MovementData implements Data {
                  "STONE_BUTTON", "OAK_BUTTON", "ACTIVATOR_RAIL", "TALL_GRASS", "LARGE_FERN", "LEAF_LITTER", "LIGHT", "LONG_GRASS" -> true;
             default -> false;
         };
+    }
+
+    private void updatePlayerBoundingBox() {
+        boolean badVector = Math.abs(getLocation().toVector().length()
+                - getLastLocation().toVector().length()) >= 1;
+
+        profile.setBoundingBox(new BoundingBox((badVector ? getLocation().toVector()
+                : getLastLocation().toVector()), getLocation().toVector())
+                .grow(0.3f, 0, 0.3f)
+                .add(0, 0, 0, 0, 1.84f, 0));
+    }
+
+    private boolean supportsEntityCollisionCheck() {
+        try {
+            return !PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8)
+                    && !profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8);
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
 

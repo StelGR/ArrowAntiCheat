@@ -204,7 +204,7 @@ public class SpeedA extends Check {
 
         allowedLimit += movementData.elytraMomentum();
         allowedLimit += movementData.getDolphinGraceBoost();
-        allowedLimit += movementData.isColliding() ? 0.2 : 0;
+        allowedLimit += movementData.isColliding() ? 0.05 : 0;
 
         int ghostLiquidWebTicks = Math.min(
                 profile.getBlockProcessor().getLastGhostLiquidWebTick(),
