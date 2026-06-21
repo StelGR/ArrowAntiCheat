@@ -28,9 +28,8 @@ public class InstanceDefault implements NmsInstance {
 
     @Override
     public Material getType(Block block) {
-
         if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(block)) {
-            return null;
+            return Material.AIR;
         }
 
         try {

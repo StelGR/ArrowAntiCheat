@@ -305,27 +305,61 @@ public final class Arrow {
 
     public void onDisable() {
         long startTime = System.currentTimeMillis();
+
         try {
-            this.configuration.shutdown();
-            this.checks.shutdown();
-            this.profileManager.shutdown();
-            this.alertManager.shutdown();
-            this.threadManager.shutdown();
-            this.themeManager.shutdown();
+            hasLoaded = false;
+
+            if (this.logManager != null) {
+                this.logManager.shutdown();
+            }
+
+            if (this.threadManager != null) {
+                this.threadManager.shutdown();
+            }
+
+            if (this.profileManager != null) {
+                this.profileManager.shutdown();
+            }
+
+            if (this.alertManager != null) {
+                this.alertManager.shutdown();
+            }
+
+            if (this.themeManager != null) {
+                this.themeManager.shutdown();
+            }
+
             ArrowAPIProvider.clear();
-            VelocityClientVersionBridge.unregister(getInstance().getHost());
+
+            try {
+                VelocityClientVersionBridge.unregister(getHost());
+            } catch (Throwable ignored) {
+            }
+
             ReflectionUtils.clear();
             HandlerList.unregisterAll(host);
+
             if (!TaskUtils.isFoliaServer()) {
                 Bukkit.getScheduler().cancelTasks(host);
             }
+
+            if (this.checks != null) {
+                this.checks.shutdown();
+            }
+
+            if (this.configuration != null) {
+                this.configuration.shutdown();
+            }
+
             instance = null;
         } catch (Exception exception) {
             exception.printStackTrace();
             log(translate("&cArrow &chad an error while shutting down."));
             return;
         }
+
         long endTime = System.currentTimeMillis();
+
         log("");
         log(translate("&6" + "=================================================================="));
         log(translate("&6" + "➪  Arrow &chas been successfully disabled."));

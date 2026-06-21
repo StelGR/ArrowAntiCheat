@@ -37,8 +37,21 @@ public class LogManager implements Initializer {
     public void initialize() {
         this.logExporter.initialize();
 
+        this.logging = true;
+
         this.flushTask = TaskUtils.taskTimerAsync(() -> {
-            if (!Config.Setting.LOGS_ENABLED.getBoolean()) return;
+            if (!logging) {
+                return;
+            }
+
+            if (me.arrow.Arrow.getInstance() == null) {
+                return;
+            }
+
+            if (!Config.Setting.LOGS_ENABLED.getBoolean()) {
+                return;
+            }
+
             flushQueuedLogs(false);
         }, 40L, 40L);
     }
@@ -75,8 +88,11 @@ public class LogManager implements Initializer {
 
     @Override
     public void shutdown() {
+        this.logging = false;
+
         if (flushTask != null) {
             flushTask.cancel();
+            flushTask = null;
         }
 
         if (!this.logsQueue.isEmpty()) {

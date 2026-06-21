@@ -286,6 +286,8 @@ public class BukkitListener implements Listener {
 
 
         if (event instanceof EntityDamageEvent) {
+            if (!(((EntityDamageEvent) event).getEntity() instanceof Player)) return;
+
             Profile user = Arrow.getInstance().getProfileManager().getProfile((Player) ((EntityDamageEvent) event).getEntity());
 
             if (user != null) {

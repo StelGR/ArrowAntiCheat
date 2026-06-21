@@ -6,25 +6,28 @@ import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.entity.Ageable;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CollisionProcessor implements Processor {
 
-    private static volatile Snapshot SNAPSHOT = Snapshot.EMPTY;
-    private static final AtomicBoolean STARTED = new AtomicBoolean(false);
+    private static final double SCAN_RADIUS = 2.0D;
+
+    /*
+     * Slight epsilon because Minecraft can push entities away before their boxes
+     * are perfectly inside each other.
+     */
+    private static final float INTERSECTION_EPSILON = 0.035F;
 
     private static final Method ENTITY_GET_BOUNDING_BOX = findMethod(Entity.class, "getBoundingBox");
-
-    private static final float INTERSECTION_EPSILON = 0.045F;
-
-    private static final Map<UUID, VirtualBox> VIRTUAL_NPCS = new ConcurrentHashMap<>();
 
     private static volatile Class<?> BUKKIT_BOX_CLASS;
     private static volatile Method BUKKIT_BOX_MIN_X;
@@ -34,38 +37,19 @@ public class CollisionProcessor implements Processor {
     private static volatile Method BUKKIT_BOX_MAX_Y;
     private static volatile Method BUKKIT_BOX_MAX_Z;
 
+    private static final Map<UUID, VirtualBox> VIRTUAL_NPCS = new ConcurrentHashMap<>();
+
     public static boolean isColliding(Player player, BoundingBox playerBox) {
         if (player == null || playerBox == null) {
             return false;
         }
 
-        if (!STARTED.get()) {
-            startUpdater();
+        if (!canReadEntities(player)) {
+            return false;
         }
 
-        if (TaskUtils.isFoliaServer()) {
-            if (!TaskUtils.isOwnedByCurrentRegion(player)) {
-                return false;
-            }
-
-            return liveNearbyCollision(player, playerBox)
-                    || virtualCollision(player, playerBox);
-        }
-
-        Snapshot snapshot = SNAPSHOT;
-
-        Box self = snapshot.byId.get(player.getUniqueId());
-        Integer worldIndex = snapshot.worldIndexes.get(player.getWorld().getUID());
-
-        if (worldIndex != null && snapshotCollides(player.getUniqueId(), playerBox, snapshot, self != null ? self.worldIndex : worldIndex)) {
-            return true;
-        }
-
-        if (Bukkit.isPrimaryThread() && liveNearbyCollision(player, playerBox)) {
-            return true;
-        }
-
-        return virtualCollision(player, playerBox);
+        return liveNearbyCollision(player, playerBox)
+                || virtualCollision(player, playerBox);
     }
 
     public static boolean isColliding(UUID playerId, BoundingBox playerBox) {
@@ -73,115 +57,13 @@ public class CollisionProcessor implements Processor {
             return false;
         }
 
-        if (!STARTED.get()) {
-            startUpdater();
-        }
+        Player player = Bukkit.getPlayer(playerId);
 
-        if (TaskUtils.isFoliaServer()) {
-            /*
-             * Folia needs a Player anchor because entity access is region-owned.
-             * UUID-only collision cannot safely scan live entities.
-             */
+        if (player == null) {
             return false;
         }
 
-        Snapshot snapshot = SNAPSHOT;
-        Box self = snapshot.byId.get(playerId);
-
-        if (self == null) {
-            return false;
-        }
-
-        return snapshotCollides(playerId, playerBox, snapshot, self.worldIndex);
-    }
-
-    public static void startUpdater() {
-        if (!STARTED.compareAndSet(false, true)) {
-            return;
-        }
-
-        if (TaskUtils.isFoliaServer()) {
-            SNAPSHOT = Snapshot.EMPTY;
-            return;
-        }
-
-        TaskUtils.taskTimer(() -> {
-            Map<UUID, Box> byId = new HashMap<>();
-            Map<Long, List<Box>> chunkBuilder = new HashMap<>();
-            Map<UUID, Integer> worldIndexes = new HashMap<>();
-
-            int worldIndexCounter = 0;
-
-            for (World world : Bukkit.getWorlds()) {
-                if (world == null) {
-                    continue;
-                }
-
-                Integer existing = worldIndexes.get(world.getUID());
-
-                int worldIndex;
-
-                if (existing == null) {
-                    worldIndex = worldIndexCounter++;
-                    worldIndexes.put(world.getUID(), worldIndex);
-                } else {
-                    worldIndex = existing;
-                }
-
-                for (Entity entity : world.getEntities()) {
-                    if (entity == null) {
-                        continue;
-                    }
-
-                    if (!shouldTrack(entity)) {
-                        continue;
-                    }
-
-                    Location location;
-
-                    try {
-                        location = entity.getLocation();
-                    } catch (Throwable ignored) {
-                        continue;
-                    }
-
-                    if (location == null || location.getWorld() == null) {
-                        continue;
-                    }
-
-                    Box box = getBoxForEntity(worldIndex, entity, location);
-
-                    if (box == null) {
-                        continue;
-                    }
-
-                    byId.put(entity.getUniqueId(), box);
-                    addBoxToChunks(chunkBuilder, box);
-                }
-            }
-
-            for (VirtualBox virtual : VIRTUAL_NPCS.values()) {
-                if (virtual == null) {
-                    continue;
-                }
-
-                Integer worldIndex = worldIndexes.get(virtual.worldId);
-
-                if (worldIndex == null) {
-                    continue;
-                }
-
-                Box box = virtual.toBox(worldIndex);
-                byId.put(box.uuid, box);
-                addBoxToChunks(chunkBuilder, box);
-            }
-
-            SNAPSHOT = new Snapshot(
-                    Collections.unmodifiableMap(byId),
-                    Collections.unmodifiableMap(worldIndexes),
-                    LongBoxMap.from(chunkBuilder)
-            );
-        }, 1L, 1L);
+        return isColliding(player, playerBox);
     }
 
     private static boolean liveNearbyCollision(Player player, BoundingBox playerBox) {
@@ -189,29 +71,49 @@ public class CollisionProcessor implements Processor {
             return false;
         }
 
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(player)) {
+        if (!canReadEntities(player)) {
+            return false;
+        }
+
+        UUID playerId;
+
+        try {
+            playerId = player.getUniqueId();
+        } catch (Throwable ignored) {
+            return false;
+        }
+
+        World playerWorld;
+
+        try {
+            playerWorld = player.getWorld();
+        } catch (Throwable ignored) {
+            return false;
+        }
+
+        if (playerWorld == null) {
             return false;
         }
 
         try {
-            for (Entity entity : player.getNearbyEntities(3.0D, 3.0D, 3.0D)) {
+            for (Entity entity : player.getNearbyEntities(SCAN_RADIUS, SCAN_RADIUS, SCAN_RADIUS)) {
                 if (entity == null) {
                     continue;
                 }
 
-                if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(entity)) {
+                if (!canReadEntity(entity)) {
                     continue;
                 }
 
-                UUID entityUuid;
+                UUID entityId;
 
                 try {
-                    entityUuid = entity.getUniqueId();
+                    entityId = entity.getUniqueId();
                 } catch (Throwable ignored) {
                     continue;
                 }
 
-                if (entityUuid.equals(player.getUniqueId())) {
+                if (playerId.equals(entityId)) {
                     continue;
                 }
 
@@ -231,13 +133,17 @@ public class CollisionProcessor implements Processor {
                     continue;
                 }
 
-                if (!location.getWorld().equals(player.getWorld())) {
+                if (!location.getWorld().equals(playerWorld)) {
                     continue;
                 }
 
-                Box box = getBoxForEntity(-1, entity, location);
+                Box entityBox = getBoxForEntity(entity, location);
 
-                if (box != null && intersects(playerBox, box)) {
+                if (entityBox == null) {
+                    continue;
+                }
+
+                if (intersects(playerBox, entityBox)) {
                     return true;
                 }
             }
@@ -252,79 +158,35 @@ public class CollisionProcessor implements Processor {
             return false;
         }
 
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(player)) {
+        if (!canReadEntities(player)) {
             return false;
         }
+
+        World world;
 
         try {
-            UUID worldId = player.getWorld().getUID();
-
-            for (VirtualBox virtual : VIRTUAL_NPCS.values()) {
-                if (virtual == null || !virtual.worldId.equals(worldId)) {
-                    continue;
-                }
-
-                Box box = virtual.toBox(-1);
-
-                if (intersects(playerBox, box)) {
-                    return true;
-                }
-            }
+            world = player.getWorld();
         } catch (Throwable ignored) {
-        }
-
-        return false;
-    }
-
-    private static boolean snapshotCollides(UUID playerId, BoundingBox playerBox, Snapshot snapshot, Integer worldIndex) {
-        if (playerId == null || playerBox == null || snapshot == null || worldIndex == null) {
             return false;
         }
 
-        int minChunkX = Math.floorDiv(floor(playerBox.minX), 16);
-        int maxChunkX = Math.floorDiv(floor(playerBox.maxX), 16);
-        int minChunkZ = Math.floorDiv(floor(playerBox.minZ), 16);
-        int maxChunkZ = Math.floorDiv(floor(playerBox.maxZ), 16);
+        if (world == null) {
+            return false;
+        }
 
-        for (int chunkX = minChunkX - 1; chunkX <= maxChunkX + 1; chunkX++) {
-            for (int chunkZ = minChunkZ - 1; chunkZ <= maxChunkZ + 1; chunkZ++) {
-                Box[] boxes = snapshot.chunks.get(chunkKey(worldIndex, chunkX, chunkZ));
+        UUID worldId = world.getUID();
 
-                if (boxes == null) {
-                    continue;
-                }
+        for (VirtualBox virtual : VIRTUAL_NPCS.values()) {
+            if (virtual == null || !virtual.worldId.equals(worldId)) {
+                continue;
+            }
 
-                for (Box box : boxes) {
-                    if (box == null || box.uuid.equals(playerId)) {
-                        continue;
-                    }
-
-                    if (intersects(playerBox, box)) {
-                        return true;
-                    }
-                }
+            if (intersects(playerBox, virtual.toBox())) {
+                return true;
             }
         }
 
         return false;
-    }
-
-    private static void addBoxToChunks(Map<Long, List<Box>> chunkBuilder, Box box) {
-        if (box == null) {
-            return;
-        }
-
-        int minChunkX = Math.floorDiv(floor(box.minX), 16);
-        int maxChunkX = Math.floorDiv(floor(box.maxX), 16);
-        int minChunkZ = Math.floorDiv(floor(box.minZ), 16);
-        int maxChunkZ = Math.floorDiv(floor(box.maxZ), 16);
-
-        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                long key = chunkKey(box.worldIndex, chunkX, chunkZ);
-                chunkBuilder.computeIfAbsent(key, ignored -> new ArrayList<>()).add(box);
-            }
-        }
     }
 
     private static boolean shouldTrack(Entity entity) {
@@ -332,7 +194,7 @@ public class CollisionProcessor implements Processor {
             return false;
         }
 
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(entity)) {
+        if (!canReadEntity(entity)) {
             return false;
         }
 
@@ -344,10 +206,6 @@ public class CollisionProcessor implements Processor {
             return false;
         }
 
-        if (isNpcLike(entity)) {
-            return true;
-        }
-
         try {
             if (!entity.isValid()) {
                 return false;
@@ -356,107 +214,56 @@ public class CollisionProcessor implements Processor {
             return false;
         }
 
+        /*
+         * Players and mobs.
+         * ArmorStand is also LivingEntity, so it is included.
+         */
         if (entity instanceof LivingEntity) {
             return true;
         }
 
         String type = getTypeName(entity);
 
+        /*
+         * Optional physical entities that can collide/push.
+         */
         return type.contains("BOAT")
+                || type.contains("RAFT")
                 || type.contains("MINECART")
-                || type.contains("NPC")
                 || type.equals("INTERACTION");
     }
 
-    private static boolean isNpcLike(Entity entity) {
-        if (entity == null) {
-            return false;
-        }
-
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(entity)) {
-            return false;
-        }
-
-        String type = getTypeName(entity);
-
-        if (type.contains("NPC")) {
-            return true;
-        }
-
-        try {
-            if (entity.hasMetadata("NPC")
-                    || entity.hasMetadata("npc")
-                    || entity.hasMetadata("CitizensNPC")
-                    || entity.hasMetadata("citizensnpc")
-                    || entity.hasMetadata("SHOPKEEPER")
-                    || entity.hasMetadata("shopkeeper")
-                    || entity.hasMetadata("SHOPKEEPERS_NPC")
-                    || entity.hasMetadata("arrow_npc")) {
-                return true;
-            }
-        } catch (Throwable ignored) {
-        }
-
-        try {
-            Collection<String> tags = entity.getScoreboardTags();
-
-            for (String tag : tags) {
-                if (tag == null) {
-                    continue;
-                }
-
-                String lower = tag.toLowerCase(Locale.ROOT);
-
-                if (lower.contains("npc")
-                        || lower.contains("citizens")
-                        || lower.contains("shopkeeper")
-                        || lower.contains("shop_keeper")) {
-                    return true;
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-
-        try {
-            String name = entity.getCustomName();
-
-            if (name != null) {
-                String lower = name.toLowerCase(Locale.ROOT);
-
-                if (lower.contains("npc")) {
-                    return true;
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-
-        return false;
-    }
-
-    private static Box getBoxForEntity(int worldIndex, Entity entity, Location location) {
+    private static Box getBoxForEntity(Entity entity, Location location) {
         if (entity == null || location == null) {
             return null;
         }
 
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(entity)) {
+        if (!canReadEntity(entity)) {
             return null;
         }
 
-        Box exact = getBukkitBox(worldIndex, entity);
+        /*
+         * Paper/modern Bukkit: exact live bounding box.
+         * This is the accurate path.
+         */
+        Box exact = getBukkitBox(entity);
 
-        if (exact != null && (!isNpcLike(entity) || !isSuspiciouslyTiny(exact))) {
+        if (exact != null && !isSuspiciouslyTiny(exact)) {
             return exact;
         }
 
-        return fallbackBoxForEntity(worldIndex, entity, location);
+        /*
+         * Old Bukkit/Spigot fallback.
+         */
+        return fallbackBoxForEntity(entity, location);
     }
 
-    private static Box getBukkitBox(int worldIndex, Entity entity) {
+    private static Box getBukkitBox(Entity entity) {
         if (ENTITY_GET_BOUNDING_BOX == null || entity == null) {
             return null;
         }
 
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(entity)) {
+        if (!canReadEntity(entity)) {
             return null;
         }
 
@@ -479,8 +286,6 @@ public class CollisionProcessor implements Processor {
             }
 
             return new Box(
-                    entity.getUniqueId(),
-                    worldIndex,
                     (float) getDouble(BUKKIT_BOX_MIN_X, bukkitBox),
                     (float) getDouble(BUKKIT_BOX_MIN_Y, bukkitBox),
                     (float) getDouble(BUKKIT_BOX_MIN_Z, bukkitBox),
@@ -511,16 +316,13 @@ public class CollisionProcessor implements Processor {
             BUKKIT_BOX_MAX_X = findMethod(boxClass, "getMaxX");
             BUKKIT_BOX_MAX_Y = findMethod(boxClass, "getMaxY");
             BUKKIT_BOX_MAX_Z = findMethod(boxClass, "getMaxZ");
+
             BUKKIT_BOX_CLASS = boxClass;
         }
     }
 
-    private static Box fallbackBoxForEntity(int worldIndex, Entity entity, Location location) {
+    private static Box fallbackBoxForEntity(Entity entity, Location location) {
         if (entity == null || location == null) {
-            return null;
-        }
-
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(entity)) {
             return null;
         }
 
@@ -533,8 +335,12 @@ public class CollisionProcessor implements Processor {
             width = 0.6D;
             height = 1.8D;
         } else if (type.equals("ARMOR_STAND")) {
-            width = isMarkerArmorStand(entity) ? 0.0D : 0.5D;
-            height = isMarkerArmorStand(entity) ? 0.0D : 1.975D;
+            if (isMarkerArmorStand(entity)) {
+                return null;
+            }
+
+            width = 0.5D;
+            height = 1.975D;
         } else if (type.equals("BAT")) {
             width = 0.5D;
             height = 0.9D;
@@ -722,30 +528,7 @@ public class CollisionProcessor implements Processor {
         float maxY = (float) (location.getY() + height);
         float maxZ = (float) (location.getZ() + width * 0.5D);
 
-        return new Box(entity.getUniqueId(), worldIndex, minX, minY, minZ, maxX, maxY, maxZ);
-    }
-
-    private static boolean isMarkerArmorStand(Entity entity) {
-        try {
-            Method method = entity.getClass().getMethod("isMarker");
-            Object result = method.invoke(entity);
-
-            return result instanceof Boolean && (Boolean) result;
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    private static boolean isSuspiciouslyTiny(Box box) {
-        if (box == null) {
-            return true;
-        }
-
-        float widthX = box.maxX - box.minX;
-        float widthZ = box.maxZ - box.minZ;
-        float height = box.maxY - box.minY;
-
-        return widthX < 0.05F || widthZ < 0.05F || height < 0.05F;
+        return new Box(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
     private static boolean intersects(BoundingBox a, Box b) {
@@ -761,13 +544,40 @@ public class CollisionProcessor implements Processor {
                 && b.minZ < a.maxZ + INTERSECTION_EPSILON;
     }
 
-    private static boolean isBaby(Entity entity) {
+    private static boolean canReadEntities(Player player) {
+        if (player == null) {
+            return false;
+        }
+
+        if (TaskUtils.isFoliaServer()) {
+            return TaskUtils.isOwnedByCurrentRegion(player);
+        }
+
+        return Bukkit.isPrimaryThread();
+    }
+
+    private static boolean canReadEntity(Entity entity) {
         if (entity == null) {
             return false;
         }
 
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(entity)) {
+        if (TaskUtils.isFoliaServer()) {
+            return TaskUtils.isOwnedByCurrentRegion(entity);
+        }
+
+        return Bukkit.isPrimaryThread();
+    }
+
+    private static boolean isBaby(Entity entity) {
+        if (entity == null || !canReadEntity(entity)) {
             return false;
+        }
+
+        try {
+            if (entity instanceof Ageable) {
+                return !((Ageable) entity).isAdult();
+            }
+        } catch (Throwable ignored) {
         }
 
         try {
@@ -793,12 +603,23 @@ public class CollisionProcessor implements Processor {
         return false;
     }
 
-    private static int getSlimeSize(Entity entity) {
-        if (entity == null) {
-            return 1;
+    private static boolean isMarkerArmorStand(Entity entity) {
+        if (entity == null || !canReadEntity(entity)) {
+            return false;
         }
 
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(entity)) {
+        try {
+            Method method = entity.getClass().getMethod("isMarker");
+            Object result = method.invoke(entity);
+
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static int getSlimeSize(Entity entity) {
+        if (entity == null || !canReadEntity(entity)) {
             return 1;
         }
 
@@ -815,17 +636,25 @@ public class CollisionProcessor implements Processor {
         return 1;
     }
 
-    private static String getTypeName(Entity entity) {
-        if (entity == null) {
-            return "";
+    private static boolean isSuspiciouslyTiny(Box box) {
+        if (box == null) {
+            return true;
         }
 
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(entity)) {
+        float widthX = box.maxX - box.minX;
+        float widthZ = box.maxZ - box.minZ;
+        float height = box.maxY - box.minY;
+
+        return widthX < 0.05F || widthZ < 0.05F || height < 0.05F;
+    }
+
+    private static String getTypeName(Entity entity) {
+        if (entity == null || !canReadEntity(entity)) {
             return "";
         }
 
         try {
-            return entity.getType().name();
+            return entity.getType().name().toUpperCase(Locale.ROOT);
         } catch (Throwable ignored) {
             return "";
         }
@@ -849,17 +678,6 @@ public class CollisionProcessor implements Processor {
         }
 
         return 0.0D;
-    }
-
-    private static int floor(float value) {
-        int i = (int) value;
-        return value < i ? i - 1 : i;
-    }
-
-    private static long chunkKey(int worldIndex, int chunkX, int chunkZ) {
-        return (((long) worldIndex & 0xFFFFL) << 48)
-                | (((long) chunkX & 0xFFFFFFL) << 24)
-                | ((long) chunkZ & 0xFFFFFFL);
     }
 
     public static void registerVirtualNpc(UUID uuid, World world, double x, double y, double z, double width, double height) {
@@ -891,20 +709,23 @@ public class CollisionProcessor implements Processor {
 
     @Override
     public void process() {
-        startUpdater();
     }
 
-    private static final class Snapshot {
-        private static final Snapshot EMPTY = new Snapshot(Collections.emptyMap(), Collections.emptyMap(), LongBoxMap.EMPTY);
+    private static final class Box {
+        private final float minX;
+        private final float minY;
+        private final float minZ;
+        private final float maxX;
+        private final float maxY;
+        private final float maxZ;
 
-        private final Map<UUID, Box> byId;
-        private final Map<UUID, Integer> worldIndexes;
-        private final LongBoxMap chunks;
-
-        private Snapshot(Map<UUID, Box> byId, Map<UUID, Integer> worldIndexes, LongBoxMap chunks) {
-            this.byId = byId;
-            this.worldIndexes = worldIndexes;
-            this.chunks = chunks;
+        private Box(float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
+            this.minX = minX;
+            this.minY = minY;
+            this.minZ = minZ;
+            this.maxX = maxX;
+            this.maxY = maxY;
+            this.maxZ = maxZ;
         }
     }
 
@@ -929,121 +750,8 @@ public class CollisionProcessor implements Processor {
             this.maxZ = maxZ;
         }
 
-        private Box toBox(int worldIndex) {
-            return new Box(uuid, worldIndex, minX, minY, minZ, maxX, maxY, maxZ);
-        }
-    }
-
-    private static final class Box {
-        private final UUID uuid;
-        private final int worldIndex;
-        private final float minX;
-        private final float minY;
-        private final float minZ;
-        private final float maxX;
-        private final float maxY;
-        private final float maxZ;
-
-        private Box(UUID uuid, int worldIndex, float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
-            this.uuid = uuid;
-            this.worldIndex = worldIndex;
-            this.minX = minX;
-            this.minY = minY;
-            this.minZ = minZ;
-            this.maxX = maxX;
-            this.maxY = maxY;
-            this.maxZ = maxZ;
-        }
-    }
-
-    private static final class LongBoxMap {
-        private static final LongBoxMap EMPTY = new LongBoxMap(new long[0], new Box[0][], new boolean[0], 0);
-
-        private final long[] keys;
-        private final Box[][] values;
-        private final boolean[] used;
-        private final int mask;
-
-        private LongBoxMap(long[] keys, Box[][] values, boolean[] used, int mask) {
-            this.keys = keys;
-            this.values = values;
-            this.used = used;
-            this.mask = mask;
-        }
-
-        private static LongBoxMap from(Map<Long, List<Box>> source) {
-            if (source.isEmpty()) {
-                return EMPTY;
-            }
-
-            int capacity = 1;
-
-            while (capacity < source.size() * 2) {
-                capacity <<= 1;
-            }
-
-            long[] keys = new long[capacity];
-            Box[][] values = new Box[capacity][];
-            boolean[] used = new boolean[capacity];
-            int mask = capacity - 1;
-
-            LongBoxMap map = new LongBoxMap(keys, values, used, mask);
-
-            for (Map.Entry<Long, List<Box>> entry : source.entrySet()) {
-                List<Box> list = entry.getValue();
-
-                if (list == null || list.isEmpty()) {
-                    continue;
-                }
-
-                map.put(entry.getKey(), list.toArray(new Box[0]));
-            }
-
-            return map;
-        }
-
-        private void put(long key, Box[] value) {
-            int index = mix(key) & mask;
-
-            while (used[index]) {
-                if (keys[index] == key) {
-                    values[index] = value;
-                    return;
-                }
-
-                index = (index + 1) & mask;
-            }
-
-            used[index] = true;
-            keys[index] = key;
-            values[index] = value;
-        }
-
-        private Box[] get(long key) {
-            if (used.length == 0) {
-                return null;
-            }
-
-            int index = mix(key) & mask;
-
-            while (used[index]) {
-                if (keys[index] == key) {
-                    return values[index];
-                }
-
-                index = (index + 1) & mask;
-            }
-
-            return null;
-        }
-
-        private static int mix(long value) {
-            value ^= value >>> 33;
-            value *= 0xff51afd7ed558ccdL;
-            value ^= value >>> 33;
-            value *= 0xc4ceb9fe1a85ec53L;
-            value ^= value >>> 33;
-            return (int) value;
+        private Box toBox() {
+            return new Box(minX, minY, minZ, maxX, maxY, maxZ);
         }
     }
 }
