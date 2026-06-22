@@ -21,6 +21,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+// Collision processor, to detect if the player is colliding with another entity
+// can be used to calculate the momentum you get from the push effect on 1.9+
+
 public class CollisionProcessor implements Processor {
 
     private static final double SCAN_RADIUS = 2.0D;
@@ -45,10 +48,6 @@ public class CollisionProcessor implements Processor {
     private static volatile Method BUKKIT_BOX_MAX_Y;
     private static volatile Method BUKKIT_BOX_MAX_Z;
 
-    /*
-     * Call this once in onEnable.
-     * It is also safe if called more than once.
-     */
     public static void start() {
         if (STARTED.get()) {
             return;
