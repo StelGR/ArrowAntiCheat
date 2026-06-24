@@ -156,7 +156,7 @@
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
-            <version>26.1.2-R0.1-SNAPSHOT</version>
+            <version>26.2-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
 
@@ -165,7 +165,7 @@
       <dependency>
           <groupId>org.geysermc.geyser</groupId>
           <artifactId>api</artifactId>
-          <version>2.9.5-SNAPSHOT</version>
+          <version>2.10.1-SNAPSHOT</version>
           <scope>provided</scope>
       </dependency>
 

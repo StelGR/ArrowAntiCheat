@@ -133,8 +133,6 @@ public class MovementData implements Data {
     @Override
     public void processReceive(PacketReceiveEvent event) {
 
-        final World world = this.location != null ? this.location.getWorld() : null;
-
         final long currentTime = event.getTimestamp();
         if (event.getPacketType().equals(PLAYER_FLYING)) {
             WrapperPlayClientPlayerFlying move = new WrapperPlayClientPlayerFlying(event);
@@ -171,7 +169,7 @@ public class MovementData implements Data {
             this.lastLastLocation = this.lastLocation;
             this.lastLocation = this.location;
             this.location = new CustomLocation(
-                    world,
+                    profile.getPlayer().getWorld(),
                     move.getLocation().getX(), move.getLocation().getY(), move.getLocation().getZ(),
                     move.getLocation().getYaw(), move.getLocation().getPitch(),
                     currentTime
@@ -196,7 +194,7 @@ public class MovementData implements Data {
             this.lastLastLocation = this.lastLocation;
             this.lastLocation = this.location;
             this.location = new CustomLocation(
-                    world,
+                    profile.getPlayer().getWorld(),
                     posLook.getLocation().getX(), posLook.getLocation().getY(), posLook.getLocation().getZ(),
                     posLook.getYaw(), posLook.getPitch(),
                     currentTime
