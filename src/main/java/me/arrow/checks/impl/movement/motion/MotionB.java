@@ -50,15 +50,30 @@ public class MotionB extends Check {
                     || profile.getPlayer().isInsideVehicle()
                     || movementData.isOnBoat()
                     || movementData.isNearBoat()
-                    || movementData.isMovingUp()
-                    || profile.getLastBlockPlaceTimer().hasNotPassed(10 + profile.getConnectionData().getClientTickTrans())
-                    || profile.getLastBlockPlaceCancelTimer().hasNotPassed(5 + profile.getConnectionData().getClientTickTrans())
+                    || movementData.getSincePredictUpwardsTicks() < 5
                     || movementData.isNearClimbable()
                     || movementData.isUnderblock()
                     || (movementData.getNearbyBlocksResult() != null
                     && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
                     || movementData.isNearBed()
                     || movementData.isNearWall()) {
+                return;
+            }
+
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
+
+            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+                return;
+            }
+
+            if (profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                return;
+            }
+
+            if (profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 return;
             }
 

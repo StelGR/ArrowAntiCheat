@@ -1008,7 +1008,7 @@ public class MovementData implements Data {
         }
         else sincePredictUpwardsTicks++;
 
-        if (isMovingUp()) {
+        if (isMovingDown()) {
             sincePredictDownwardsTicks = 0;
         }
         else sincePredictDownwardsTicks++;

@@ -75,10 +75,10 @@ public class SpeedA extends Check {
 
     double groundBuffer;
 
-    private static final double DEFAULT_BASE_PER_TICK = 0.2778085125D;
+    private static final double DEFAULT_BASE_PER_TICK = 0.2777285125D;
 
-    private static final double SPRINT_BASE = 0.1478085125D;
-    private static final double NO_SPRINT_BASE = 0.1778085125D;
+    private static final double SPRINT_BASE = 0.1477285125D;
+    private static final double NO_SPRINT_BASE = 0.1777285125D;
     private static final double GROUND_ICE_INCREMENT_PER_TICK = 0.01;
     private static final double GROUND_MAX_ICE_SPEED_BOOST = 4.5;
     private static final double DIAGONAL_TOLERANCE = 1.01125;
@@ -212,8 +212,7 @@ public class SpeedA extends Check {
         );
 
         if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A: is Exempting (ghostblock liquid/web/pending physics place)");
-            return;
+            allowedLimit += 0.2;
         }
 
         if (serverGround && deltaXZ != 0) {
@@ -444,8 +443,7 @@ public class SpeedA extends Check {
         );
 
         if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): is Exempting (ghostblock liquid/web/pending physics place)");
-            return;
+            expectedSpeed += 0.2;
         }
 
         String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()

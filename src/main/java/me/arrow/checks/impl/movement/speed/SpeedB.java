@@ -84,15 +84,7 @@ public class SpeedB extends Check {
 
             calculateDeceleration(movementData, deltaXZ, lastDeltaXZ, deltaYaw, accel, mdAccel);
 
-            int ghostLiquidWebTicks = Math.min(
-                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-            );
 
-            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (ghostblock liquid/web/pending physics place)");
-                return;
-            }
             if (profile.getBlockProcessor().isNearGhostBlock()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (near Ghostblock)");
                 return;
@@ -141,15 +133,7 @@ public class SpeedB extends Check {
 
         boolean velocity = profile.getVelocityData().isTakingVelocity();
 
-        int ghostLiquidWebTicks = Math.min(
-                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-        );
 
-        if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (ghostblock liquid/web/pending physics place)");
-            return;
-        }
 
         if (checkValid(velocity) && movementData.getMovingUnderblockTicks() <= 0) {
 
@@ -223,6 +207,15 @@ public class SpeedB extends Check {
 
             if (profile.isExempt().isTeleports()) {
                 threshold += 0.3D;
+            }
+
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
+
+            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+                threshold += 1.5D;
             }
 
             if (movementData.getLastNearEdgeTicks() <= 3) {
@@ -324,7 +317,7 @@ public class SpeedB extends Check {
 
                         if (invalid) {
                             double excess = closest - limit;
-                            bufferAddition = Math.min(5.0D, Math.max(5D, excess * 15.0D));
+                            bufferAddition = Math.min(5.0D, Math.max(5D, excess * 17.25D));
 
                             if ((vlBuffer += bufferAddition) >= required) {
                                 fail("Invalid acceleration",
