@@ -28,30 +28,28 @@ import java.util.List;
 @Experimental
 public class BackTrackB extends Check {
 
-    private static final int BASELINE_SIZE = 180;
-    private static final int MIN_BASELINE = 60;
+    int BASELINE_SIZE = 180;
+    int MIN_BASELINE = 60;
 
-    private static final long COMBAT_MS = 1250L;
-    private static final long BASELINE_GRACE_MS = 2250L;
+    long BASELINE_GRACE_MS = 2250L;
 
-    private static final double MIN_SPIKE_MS = 100.0D;
-    private static final double LARGE_SPIKE_MS = 200.0D;
-    private static final double EXTREME_SPIKE_MS = 300.0D;
+    double MIN_SPIKE_MS = 100.0D;
+    double LARGE_SPIKE_MS = 200.0D;
+    double EXTREME_SPIKE_MS = 300.0D;
+    double MAX_BUFFER = 10.0D;
+    double FAIL_BUFFER = 7.0D;
 
-    private static final double MAX_BUFFER = 10.0D;
-    private static final double FAIL_BUFFER = 7.0D;
+    Deque<Integer> baselineTransactions = new ArrayDeque<>(BASELINE_SIZE);
 
-    private final Deque<Integer> baselineTransactions = new ArrayDeque<>(BASELINE_SIZE);
+    long lastAttackTime = -1L;
+    int lastTransactionSequence = -1;
 
-    private long lastAttackTime = -1L;
-    private int lastTransactionSequence = -1;
+    int consecutiveSpikes;
+    int cleanTransactions;
+    int trustCooldownTicks;
 
-    private int consecutiveSpikes;
-    private int cleanTransactions;
-    private int trustCooldownTicks;
-
-    private double buffer;
-    private double highestSpike;
+    double buffer;
+    double highestSpike;
 
     public BackTrackB(Profile profile) {
         super(profile, CheckType.BACKTRACK, "B", "Combat-only transaction delay analysis");
@@ -120,7 +118,7 @@ public class BackTrackB extends Check {
         lastTransactionSequence = transactionSequence;
 
         long now = System.currentTimeMillis();
-        boolean inCombat = isInCombat(now);
+        boolean inCombat = profile.getCombatData().getAttackedTicks() <= 10;
 
         if (!inCombat) {
             if (now - lastAttackTime > BASELINE_GRACE_MS) {
@@ -217,10 +215,6 @@ public class BackTrackB extends Check {
             buffer = Math.min(buffer, FAIL_BUFFER * 0.45D);
             consecutiveSpikes = Math.max(0, consecutiveSpikes / 2);
         }
-    }
-
-    private boolean isInCombat(long now) {
-        return profile.getCombatData().getAttackedTicks() <= 10;
     }
 
     private boolean isExempt() {
@@ -415,11 +409,11 @@ public class BackTrackB extends Check {
         return new DecimalFormat("###.###").format(input);
     }
 
-    private static final class Stats {
+    private static class Stats {
 
-        private final double median;
-        private final double p95;
-        private final double mad;
+        double median;
+        double p95;
+        double mad;
 
         private Stats(double median, double p95, double mad) {
             this.median = median;

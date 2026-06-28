@@ -236,10 +236,6 @@ public class ActionData implements Data {
 
         Object position = packet.getBlockPosition();
 
-        if (position == null) {
-            return;
-        }
-
         int x = getCoordinate(position, "getX");
         int y = getCoordinate(position, "getY");
         int z = getCoordinate(position, "getZ");
@@ -286,10 +282,6 @@ public class ActionData implements Data {
         }
 
         World world = player.getWorld();
-
-        if (world == null) {
-            return;
-        }
 
         Block clicked = world.getBlockAt(x, y, z);
         Block placed = clicked.getRelative(face);
@@ -339,7 +331,7 @@ public class ActionData implements Data {
 
             World world = player.getWorld();
 
-            if (world == null || !world.getName().equals(place.worldName)) {
+            if (!world.getName().equals(place.worldName)) {
                 iterator.remove();
                 continue;
             }
@@ -362,8 +354,10 @@ public class ActionData implements Data {
     }
 
     private boolean isConfirmedPlacedBlock(Block block, Material oldType) {
-        if (block == null || block.getType() == null) {
+        if (block == null) {
             return false;
+        } else {
+            block.getType();
         }
 
         Material now = block.getType();
@@ -526,7 +520,7 @@ public class ActionData implements Data {
     }
 
     private boolean isBlockItem(ItemStack item) {
-        if (item == null || item.getType() == null) {
+        if (item == null) {
             return false;
         }
 
@@ -673,10 +667,6 @@ public class ActionData implements Data {
 
         Object pos = packet.getBlockPosition();
 
-        if (pos == null) {
-            return;
-        }
-
         int x = getCoordinate(pos, "getX");
         int y = getCoordinate(pos, "getY");
         int z = getCoordinate(pos, "getZ");
@@ -695,10 +685,6 @@ public class ActionData implements Data {
 
         World world = player.getWorld();
 
-        if (world == null) {
-            return;
-        }
-
         Block target = world.getBlockAt(x, y, z);
 
         lastBreakAttemptTicks = 0;
@@ -709,7 +695,7 @@ public class ActionData implements Data {
 
         Material oldType = target.getType();
 
-        if (oldType == null || isReplaceable(oldType)) {
+        if (isReplaceable(oldType)) {
             return;
         }
 
@@ -768,7 +754,7 @@ public class ActionData implements Data {
             PendingUnderBreak br = it.next();
 
             World world = player.getWorld();
-            if (world == null || !world.getName().equals(br.worldName)) {
+            if (!world.getName().equals(br.worldName)) {
                 it.remove();
                 continue;
             }

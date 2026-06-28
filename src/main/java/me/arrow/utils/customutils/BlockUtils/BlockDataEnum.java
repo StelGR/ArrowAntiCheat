@@ -2,7 +2,7 @@ package me.arrow.utils.customutils.BlockUtils;
 
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import lombok.val;
-import me.arrow.utils.custom.MaterialType;
+import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.CollisionFactory;
 import me.arrow.utils.customutils.Hitboxes.*;
 import me.arrow.utils.customutils.Hitboxes.BlockHitboxes.*;

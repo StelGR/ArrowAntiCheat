@@ -22,7 +22,7 @@ import static me.arrow.utils.customutils.OtherUtility.translate;
 
 public class LogsCommand extends SubCommand {
 
-    private final Arrow plugin;
+    Arrow plugin;
     private static final int PER_PAGE = 10;
 
     public LogsCommand(Arrow plugin) {
@@ -56,7 +56,7 @@ public class LogsCommand extends SubCommand {
         final int page = requestedPage;
 
         OfflinePlayer offline = Bukkit.getOfflinePlayer(inputName);
-        String targetName = offline != null && offline.getName() != null ? offline.getName() : inputName;
+        String targetName = offline.getName() != null ? offline.getName() : inputName;
 
         sender.sendMessage(translate("&7Loading logs for &e" + targetName + "&7..."));
 
@@ -116,8 +116,7 @@ public class LogsCommand extends SubCommand {
             }
         }
 
-        if (sender instanceof Player) {
-            Player player = (Player) sender;
+        if (sender instanceof Player player) {
 
             TextComponent nav = new TextComponent("");
 

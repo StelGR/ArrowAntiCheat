@@ -14,7 +14,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 public class ProfileListener implements Listener {
 
-    private final Arrow plugin;
+    Arrow plugin;
 
     public ProfileListener(Arrow plugin) {
         this.plugin = plugin;

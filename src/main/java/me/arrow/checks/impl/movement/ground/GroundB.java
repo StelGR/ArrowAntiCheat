@@ -20,9 +20,6 @@ import me.arrow.utils.customutils.OtherUtility;
 
 public class GroundB extends Check {
 
-    private int impossibleGroundTicks;
-    private int spoofGroundTicks;
-
     public GroundB(Profile profile) {
         super(profile, CheckType.GROUND, "B", "Verifies the players ground state by using world material");
     }
@@ -94,11 +91,7 @@ public class GroundB extends Check {
         double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
         airTickLimit += Math.ceil(extraFromVel);
 
-
         boolean invalid = airTicks > (airTickLimit + 12) && clientGround && serverGround && inAir;
-//                (inAir && (airTicks >= 6 || clientAirTicks >= 8) && serverYGround && !serverGround && !clientGround)
-//                && movementData.getDeltaXZ() >= (0.9 + profile.getVelocityData().getTotalHorizontalVelocity())
-//                && movementData.getSinceRiptidingTicks() > 15;
 
         boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
         if (nearEdge && movementData.getLastDeltaY() != 0 && deltaY == 0 && movementData.getClientAirTicks() == 0) invalid = false;
@@ -106,7 +99,6 @@ public class GroundB extends Check {
         boolean invalid2 = (
                 (clientGround && serverGround && inAir)
                 || (inAir && airTicks > 3 && clientAirTicks == 0)
-                || (inAir && impossibleGroundTicks >= 3)
                 || (inAir && clientAirTicks > 6 && serverYGround)
                 || (!clientGround && serverGround && inAir)
         )
@@ -127,8 +119,6 @@ public class GroundB extends Check {
                             + "\n * AirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
                             + "\n * ClientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                             + "\n * AirTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit
-                            + "\n * ImpossibleTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + impossibleGroundTicks
-                            + "\n * SpoofTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + spoofGroundTicks
                             + "\n * DeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                             + "\n * DeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                             + "\n * LagTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + getLagTicks()
@@ -265,14 +255,4 @@ public class GroundB extends Check {
                 || packetType.equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
-    private boolean isPositionPacket(PacketTypeCommon packetType) {
-        return packetType.equals(PacketType.Play.Client.PLAYER_POSITION)
-                || packetType.equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
-    }
-
-    private void decay() {
-        impossibleGroundTicks = Math.max(0, impossibleGroundTicks - 1);
-        spoofGroundTicks = Math.max(0, spoofGroundTicks - 1);
-        decreaseBufferBy(0.05);
-    }
 }

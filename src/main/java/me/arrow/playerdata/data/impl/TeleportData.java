@@ -163,7 +163,7 @@ public class TeleportData implements Data {
         boolean matched = false;
         boolean exactMatched = false;
 
-        Vector currentPosition = null;
+        Vector currentPosition;
         Vector previousPosition = null;
 
         if (positionChanged) {
@@ -230,7 +230,7 @@ public class TeleportData implements Data {
             }
 
             // Fallback for large teleports (/spawn, etc) where strict dist might miss due to relative/rounding
-            if (!matched && currentPosition != null && previousPosition != null && !locations.isEmpty()) {
+            if (!matched && previousPosition != null && !locations.isEmpty()) {
                 double step = currentPosition.distance(previousPosition);
 
                 if (step >= FAR_APPLY_MIN_STEP) {

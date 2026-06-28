@@ -3,7 +3,6 @@ package me.arrow.checks.impl.movement.fly;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -126,7 +125,7 @@ public class FlyB extends Check {
                 return;
             }
 
-            if (movementData.getSinceNearWaterTicks() < 12 + profile.getConnectionData().getClientTickTrans()) {
+            if (movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (inside water)");
                 return;
             }
@@ -213,7 +212,6 @@ public class FlyB extends Check {
                     : 0;
 
             int clientTickTrans = profile.getConnectionData().getClientTickTrans();
-            int transPing = profile.getConnectionData().getTransPing();
 
             boolean recentlyPlaced = profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5 + (clientTickTrans * 2);
 

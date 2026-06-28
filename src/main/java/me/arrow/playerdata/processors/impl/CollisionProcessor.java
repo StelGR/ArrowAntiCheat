@@ -36,7 +36,7 @@ public class CollisionProcessor implements Processor {
     private static final AtomicBoolean STARTED = new AtomicBoolean(false);
     private static final Map<UUID, CacheEntry> CACHE = new ConcurrentHashMap<>();
 
-    private static volatile int tick;
+    private static int tick;
 
     private static final Method ENTITY_GET_BOUNDING_BOX = findMethod(Entity.class, "getBoundingBox");
 
@@ -180,10 +180,6 @@ public class CollisionProcessor implements Processor {
             return Collections.emptyList();
         }
 
-        if (world == null || location == null) {
-            return Collections.emptyList();
-        }
-
         Collection<Entity> nearby;
 
         try {
@@ -197,7 +193,7 @@ public class CollisionProcessor implements Processor {
             return Collections.emptyList();
         }
 
-        if (nearby == null || nearby.isEmpty()) {
+        if (nearby.isEmpty()) {
             return Collections.emptyList();
         }
 
@@ -219,9 +215,7 @@ public class CollisionProcessor implements Processor {
 
                 Location entityLocation = entity.getLocation();
 
-                if (entityLocation == null
-                        || entityLocation.getWorld() == null
-                        || !entityLocation.getWorld().equals(world)) {
+                if (entityLocation.getWorld() == null || !entityLocation.getWorld().equals(world)) {
                     continue;
                 }
 
@@ -258,10 +252,6 @@ public class CollisionProcessor implements Processor {
          */
         try {
             Location location = entity.getLocation();
-
-            if (location == null) {
-                return null;
-            }
 
             double width = 0.6D;
             double height = 1.8D;
@@ -386,9 +376,9 @@ public class CollisionProcessor implements Processor {
     public void process() {
     }
 
-    private static final class CacheEntry {
-        private final int tick;
-        private final List<Box> boxes;
+    private static class CacheEntry {
+        int tick;
+        List<Box> boxes;
 
         private CacheEntry(int tick, List<Box> boxes) {
             this.tick = tick;
@@ -396,13 +386,13 @@ public class CollisionProcessor implements Processor {
         }
     }
 
-    private static final class Box {
-        private final float minX;
-        private final float minY;
-        private final float minZ;
-        private final float maxX;
-        private final float maxY;
-        private final float maxZ;
+    private static class Box {
+        float minX;
+        float minY;
+        float minZ;
+        float maxX;
+        float maxY;
+        float maxZ;
 
         private Box(float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
             this.minX = minX;

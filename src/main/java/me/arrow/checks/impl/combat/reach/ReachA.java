@@ -882,7 +882,7 @@ public class ReachA extends Check {
         double y = location.getY();
         double z = location.getZ();
 
-        double width = getTargetWidth(target);
+        double width = 0.6;
         double height = getTargetHeight(target);
 
         double halfWidth = width * 0.5D;
@@ -896,11 +896,6 @@ public class ReachA extends Check {
                 (float) (z + halfWidth + horizontalExpand)
         );
     }
-
-    private double getTargetWidth(Player target) {
-        return 0.6D;
-    }
-
     private double getTargetHeight(Player target) {
         if (target == null) {
             return 1.8D;
@@ -1059,10 +1054,10 @@ public class ReachA extends Check {
         return new AxisResult(true, nextMin, nextMax);
     }
 
-    private static final class AxisResult {
-        private final boolean valid;
-        private final double tMin;
-        private final double tMax;
+    private static class AxisResult {
+        boolean valid;
+        double tMin;
+        double tMax;
 
         private AxisResult(boolean valid, double tMin, double tMax) {
             this.valid = valid;
@@ -1075,10 +1070,10 @@ public class ReachA extends Check {
         }
     }
 
-    private static final class RayBoxHit {
-        private final boolean hit;
-        private final double distance;
-        private final Vector hitPosition;
+    private static class RayBoxHit {
+        boolean hit;
+        double distance;
+        Vector hitPosition;
 
         private RayBoxHit(boolean hit, double distance, Vector hitPosition) {
             this.hit = hit;
@@ -1099,13 +1094,13 @@ public class ReachA extends Check {
         return String.format("%.4f", value);
     }
 
-    private static final class RotationSnapshot {
+    private static class RotationSnapshot {
 
-        private final float yaw;
-        private final float pitch;
-        private final double deltaYaw;
-        private final double deltaPitch;
-        private final long timestamp;
+        float yaw;
+        float pitch;
+        double deltaYaw;
+        double deltaPitch;
+        long timestamp;
 
         private RotationSnapshot(float yaw, float pitch, double deltaYaw, double deltaPitch, long timestamp) {
             this.yaw = yaw;

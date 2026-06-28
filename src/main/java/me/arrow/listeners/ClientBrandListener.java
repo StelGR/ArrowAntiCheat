@@ -43,7 +43,7 @@ public class ClientBrandListener implements Data {
         WrapperPlayClientPluginMessage payload = new WrapperPlayClientPluginMessage(event);
         String channel = payload.getChannelName();
 
-        if (channel == null || !channel.toLowerCase(Locale.ROOT).endsWith("brand")) {
+        if (!channel.toLowerCase(Locale.ROOT).endsWith("brand")) {
             return;
         }
 
@@ -90,7 +90,7 @@ public class ClientBrandListener implements Data {
         decoded = decoded.replace("\u0000", "");
         decoded = decoded.replace("\r", "");
         decoded = decoded.replace("\n", "");
-        decoded = decoded.replaceAll("^[\\p{Cntrl}]+", "");
+        decoded = decoded.replaceAll("^\\p{Cntrl}+", "");
         decoded = decoded.trim();
 
         return decoded;

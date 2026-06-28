@@ -76,7 +76,7 @@ public class RodData implements Data {
         public void onPlayerFish(PlayerFishEvent event) {
             // Accept both CAUGHT_ENTITY and REEL_IN to be robust
             Player owner = event.getPlayer();
-            Entity hooked = event.getHook() == null ? null : event.getHook().getHookedEntity();
+            Entity hooked = event.getHook().getHookedEntity();
 
             if (hooked instanceof Player target && (event.getState() == PlayerFishEvent.State.CAUGHT_ENTITY || event.getState() == PlayerFishEvent.State.REEL_IN)) {
                 int id = target.getEntityId();
@@ -192,9 +192,9 @@ public class RodData implements Data {
         return String.format("(%.3f, %.3f, %.3f)", v.getX(), v.getY(), v.getZ());
     }
 
-    private static final class Pending {
-        final UUID uuid;
-        final long timestamp;
+    private static class Pending {
+        UUID uuid;
+        long timestamp;
         Pending(UUID u, long t) { this.uuid = u; this.timestamp = t; }
     }
 }

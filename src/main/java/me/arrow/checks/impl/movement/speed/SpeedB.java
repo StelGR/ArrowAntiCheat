@@ -8,7 +8,6 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.Arrow;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
-import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -74,7 +73,6 @@ public class SpeedB extends Check {
             boolean serverGround = movementData.isServerGround();
             boolean clientGround = movementData.isOnGround();
             float movingTicks = movementData.getMovingTicks();
-            int clientAirTicks = movementData.getClientAirTicks();
             boolean sprinting = actionData.isSprinting();
 
             double velocityH = profile.getVelocityData().getTotalHorizontalVelocity();
@@ -90,7 +88,7 @@ public class SpeedB extends Check {
                 return;
             }
 
-            calculateAcceleration(movementData, actionData, deltaX, deltaY, deltaZ, deltaXZ, clientGround, serverGround, clientAirTicks, movingTicks, velocityH, sprinting);
+            calculateAcceleration(movementData, actionData, deltaX, deltaY, deltaZ, deltaXZ, clientGround, serverGround, movingTicks, velocityH, sprinting);
 
             this.lastDeltaYaw = deltaYaw;
         }
@@ -126,7 +124,6 @@ public class SpeedB extends Check {
                                       double deltaXZ,
                                       boolean clientGround,
                                       boolean serverGround,
-                                      int clientAirTicks,
                                       float movingTicks,
                                       double velocityH,
                                       boolean sprinting) {
@@ -135,7 +132,7 @@ public class SpeedB extends Check {
 
 
 
-        if (checkValid(velocity) && movementData.getMovingUnderblockTicks() <= 0) {
+        if (checkValid() && movementData.getMovingUnderblockTicks() <= 0) {
 
             double attribute = SpeedUtilities.getMovementSpeedAttribute(profile);
             float attr = (float) attribute;
@@ -193,10 +190,6 @@ public class SpeedB extends Check {
                 threshold += 0.2D;
             }
 
-            if (movementData.getSinceCollideTicks() <= 10 + profile.getConnectionData().getClientTickTrans()) {
-                threshold += 0.1D;
-            }
-
             if (movementData.isNearWebs()) {
                 threshold += 0.1D;
             }
@@ -215,7 +208,7 @@ public class SpeedB extends Check {
             );
 
             if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-                threshold += 1.5D;
+                threshold += 0.2D;
             }
 
             if (movementData.getLastNearEdgeTicks() <= 3) {
@@ -317,7 +310,7 @@ public class SpeedB extends Check {
 
                         if (invalid) {
                             double excess = closest - limit;
-                            bufferAddition = Math.min(5.0D, Math.max(5D, excess * 17.25D));
+                            bufferAddition = Math.min(5.0D, Math.max(5D, excess * 20D));
 
                             if ((vlBuffer += bufferAddition) >= required) {
                                 fail("Invalid acceleration",
@@ -399,10 +392,9 @@ public class SpeedB extends Check {
     }
 
 
-    private boolean checkValid(boolean velocity) {
+    private boolean checkValid() {
         MovementData movementData = profile.getMovementData();
 
-        if (velocity) return false;
         if (profile.isExempt().isTeleports()) return false;
         if (profile.shouldCancel()) return false;
         if (profile.getMovementData().getSinceOnGhostBlock() <= 15 + profile.getConnectionData().getClientTickTrans()) return false;
@@ -411,7 +403,6 @@ public class SpeedB extends Check {
         if (movementData.isNearBoat() || movementData.isOnBoat()) return false;
         if (movementData.isNearBuggyBlock()) return false;
         if (movementData.isNearBed()) return false;
-        if (movementData.isIntersecting()) return false;
         if (movementData.isNearWater() || movementData.isNearLava()) return false;
         if (movementData.isNearClimbable()) return false;
         if (movementData.isNearWebs()) return false;
@@ -472,10 +463,9 @@ public class SpeedB extends Check {
     }
 
 
-    private static final float[] SIN_TABLE_FAST = new float[4096];
-    private static final float[] SIN_TABLE_FAST_NEW = new float[4096];
+    static final float[] SIN_TABLE_FAST = new float[4096];
     public static boolean fastMath = false;
-    private static final float[] SIN_TABLE = new float[65536];
+    static final float[] SIN_TABLE = new float[65536];
 
     public static float sin(float value) {
         return fastMath ? SIN_TABLE_FAST[(int)(value * 651.8986F) & 4095] : SIN_TABLE[(int)(value * 10430.378F) & 65535];

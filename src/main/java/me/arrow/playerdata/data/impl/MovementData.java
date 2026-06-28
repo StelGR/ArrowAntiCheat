@@ -23,6 +23,8 @@ import me.arrow.utils.EntityUtil;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.*;
+import me.arrow.utils.custom.materials.MaterialType;
+import me.arrow.utils.custom.materials.PEMaterials;
 import me.arrow.utils.customutils.*;
 import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
 import org.bukkit.*;
@@ -76,7 +78,7 @@ public class MovementData implements Data {
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround,
-        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, movingDown, isRiptiding, nearPiston;
+        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston;
 
 
     @Getter
@@ -289,18 +291,6 @@ public class MovementData implements Data {
         if (profile.isBedrockPlayer()) {
             boolean groundTransition = !isOnGround() && isLastOnGround();
 
-            boolean cleanContext =
-                    !profile.shouldCancel()
-                            && !profile.getExempt().vehicle()
-                            && !profile.getVelocityData().isTakingVelocity()
-                            && profile.getMovementData().getSinceCollideTicks() > 5
-                            && !profile.getMovementData().isNearClimbable()
-                            && profile.getMovementData().getSinceNearWaterTicks() > 5
-                            && !profile.getMovementData().isNearWebs()
-                            && profile.getMovementData().getSinceSlimeTicks() > 5
-                            && !profile.isBouncingOnSlime()
-                            && profile.getMovementData().getSinceTeleportTicks() > 5;
-
             boolean possibleJump =
                     deltaY > 0.4198
                             && deltaY < 0.422;
@@ -360,9 +350,6 @@ public class MovementData implements Data {
     }
 
     private void handleNearbyBlocks() {
-        NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
-        BoundingBox playerBox = profile.getBoundingBox();
-
         /*
         Handle collisions
         NOTE: You should ALWAYS use NMS if you plan on supporting 1.9+
@@ -370,8 +357,6 @@ public class MovementData implements Data {
          */
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation().clone(), !TaskUtils.isFoliaServer());
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(getLocation().clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult3 = CollisionUtils.getNearbyBlocks(getLocation().clone().subtract(0, 1, 0), !TaskUtils.isFoliaServer());
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult4 = CollisionUtils.getNearbyBlocks(getLocation().clone().subtract(0, 2, 0), !TaskUtils.isFoliaServer());
 
         this.nearbyBlocksResult = nearbyBlocksResult;
 
@@ -392,21 +377,18 @@ public class MovementData implements Data {
         profile.setBouncingOnSlime(getSlimeProcessor().isBouncing(profile.getMovementData(), profile.getPotionData()));
         if (Config.Setting.DEBUG.getBoolean()) profile.getPlayer().sendMessage(OtherUtility.translate( "Bouncing on Slime: &c" + profile.isBouncingOnSlime()));
 
-        movingUp = moving && (getDeltaY() > 0 || getLastDeltaY() > 0)
-                && (nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.FENCE))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.WALL))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.STAIRS))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SLAB))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW)));
+        nearStepMaterial = nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFence)
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(PEMaterials::isNonFullShape)
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isStair)
+                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall);
 
-        movingDown = moving && (getDeltaY() < 0 || getLastDeltaY() < 0)
-                && (nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.FENCE))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.WALL))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.STAIRS))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SLAB))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW)));
+        movingUp = moving && (getDeltaY() > 0 || getLastDeltaY() > 0) && nearStepMaterial;
+
+        movingDown = moving && (getDeltaY() < 0 || getLastDeltaY() < 0) && nearStepMaterial;
        // OtherUtility.log("Player: " + profile.getPlayer().getName() + " | isPhasing: " + isPhasing(profile));
 
 
@@ -495,7 +477,7 @@ public class MovementData implements Data {
 
 
         isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.WATER);
-        isInsideWater = true;
+
         CustomLocation playerLoc = new CustomLocation(
                 profile.getPlayer().getWorld(),
                 profile.getPlayer().getLocation().getX(),
@@ -504,7 +486,7 @@ public class MovementData implements Data {
         );
 
 
-
+        isInsideWater = false;
         for (int x = -1; x <= 1; x++) {
             for (int z = -1; z <= 1; z++) {
                 CustomLocation checkLoc = playerLoc.clone();
@@ -513,49 +495,15 @@ public class MovementData implements Data {
                 checkLoc.setY(playerLoc.getY() + 0.5);
                 //Block block = CollisionUtils.getBlock(checkLoc, !TaskUtils.isFoliaServer());
                 String mName = nms.getType(checkLoc.getBlock()).name();
-                if (!MaterialType.isMaterial(mName, MaterialType.WATER)) {
-                    isInsideWater = false;
+                if (MaterialType.isMaterial(mName, MaterialType.WATER)) {
+                    isInsideWater = true;
                     break;
                 }
             }
-            if (!isInsideWater) break;
+            if (isInsideWater) break;
         }
 
         isBottomOfWater = isInsideWater && isServerGround();
-
-
-        final int[][] locs = {{-1, 0, 1, -1, 0, 1, -1, 0, 1}, {-1, -1, -1, 0, 0, 0, 1, 1, 1}};
-        boolean flag = false;
-
-        for (int i = 0; i < 9; i++) {
-
-            Material t1 = nms.getType(location.clone().add(locs[0][i], 0, locs[1][i]).getBlock());
-            Material t2 = nms.getType(location.clone().add(locs[0][i], 1, locs[1][i]).getBlock());
-
-            boolean tmp1 = !isTransparent(t1);
-            boolean tmp2 = !isTransparent(t2);
-
-            flag = flag || (tmp1 && tmp2);
-            if (flag) break;
-        }
-
-        for (int i = 0; i < 9; i++) {
-            Material t2 = nms.getType(location.clone().add(locs[0][i], 1, locs[1][i]).getBlock());
-            boolean tmp2 = !isTransparent(t2);
-
-            flag = flag || tmp2;
-            if (flag) break;
-        }
-
-        for (int i = 0; i < 9; i++) {
-            Material t1 = nms.getType(location.clone().add(locs[0][i], 0, locs[1][i]).getBlock());
-
-            boolean tmp1 = !isTransparent(t1);
-
-            flag = flag || tmp1;
-            if (flag) break;
-        }
-
         nearWall = CollisionUtils.isNearWall(getLocation());
 
         boolean flag_underblock = false;
@@ -998,12 +946,12 @@ public class MovementData implements Data {
             }
         }
 
-        if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN) {
+        if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN && nearStepMaterial) {
             sincePredictDownwardsTicks = 0;
         }
         else sincePredictDownwardsTicks++;
 
-        if (verticalMove == MovementPredictionUtil.VerticalMove.UP) {
+        if (verticalMove == MovementPredictionUtil.VerticalMove.UP && nearStepMaterial) {
             sincePredictUpwardsTicks = 0;
         }
         else sincePredictUpwardsTicks++;
@@ -1081,8 +1029,10 @@ public class MovementData implements Data {
     }
 
     public boolean isWaterOrWaterlogged(Block block) {
-        if (block == null || block.getType() == null) {
+        if (block == null) {
             return false;
+        } else {
+            block.getType();
         }
 
         Material material = block.getType();
@@ -1171,7 +1121,6 @@ public class MovementData implements Data {
 
             int graceLevel = profile.getPotionData().getPotionEffectLevel(PotionType.DOLPHINS_GRACE);
             boolean hasGrace = graceLevel > 0;
-            boolean swimming = Arrow.getInstance().getNmsManager().getNmsInstance().isSwimming(profile.getPlayer());
             int depthStrider = SpeedUtilities.getDepthStriderLevel(profile);
 
             float cap = getDolphinGraceBonusCap(depthStrider);

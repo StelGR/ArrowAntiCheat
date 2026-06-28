@@ -1,7 +1,6 @@
 package me.arrow.managers.threads;
 
 import me.arrow.Arrow;
-import me.arrow.ArrowLoader;
 import me.arrow.managers.Initializer;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.MiscUtils;

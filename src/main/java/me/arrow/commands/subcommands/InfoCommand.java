@@ -12,7 +12,7 @@ import static me.arrow.utils.customutils.OtherUtility.translate;
 public class InfoCommand extends SubCommand {
 
 
-    private final Arrow plugin;
+    Arrow plugin;
 
     public InfoCommand(Arrow plugin) {
         this.plugin = plugin;

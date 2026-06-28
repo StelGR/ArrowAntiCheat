@@ -150,8 +150,8 @@ public class RotationHeuristics {
     @Getter
     public static class HeuristicsResult {
 
-        private final float average, min, max;
-        private final int duplicates, highCount, lowCount, roundedCount;
+        float average, min, max;
+        int duplicates, highCount, lowCount, roundedCount;
 
         public HeuristicsResult(float average, float min, float max, int duplicates, int highCount, int lowCount, int roundedCount) {
             this.average = average;

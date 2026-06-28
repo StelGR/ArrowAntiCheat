@@ -14,7 +14,6 @@ import me.arrow.playerdata.processors.impl.SensitivityProcessor;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.ChatUtils;
 import me.arrow.utils.MathUtils;
-import me.arrow.utils.custom.aim.RotationHeuristics;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;

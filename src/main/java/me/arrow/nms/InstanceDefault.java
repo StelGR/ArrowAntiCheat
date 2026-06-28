@@ -13,6 +13,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Pose;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.Objects;
+
 public class InstanceDefault implements NmsInstance {
 
     @Override
@@ -74,11 +76,6 @@ public class InstanceDefault implements NmsInstance {
         return PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13) && player.isSwimming();
     }
 
-//    @Override
-//    public boolean isGliding(Player player) {
-//        return false;
-//    }
-
     @Override
     public boolean isGliding(Player player) {
         return PacketEvents.getAPI().getServerManager().getVersion().isNewerThan(ServerVersion.V_1_8_8) && player.isGliding();
@@ -139,7 +136,7 @@ public class InstanceDefault implements NmsInstance {
 
     @Override
     public float getAttributeSpeed(Player player) {
-        return PacketEvents.getAPI().getServerManager().getVersion().isNewerThan(ServerVersion.V_1_8_8)  ? (float) player.getAttribute(Attribute.MOVEMENT_SPEED).getValue() : 0.1F;
+        return PacketEvents.getAPI().getServerManager().getVersion().isNewerThan(ServerVersion.V_1_8_8)  ? (float) Objects.requireNonNull(player.getAttribute(Attribute.MOVEMENT_SPEED)).getValue() : 0.1F;
     }
 
     @Override

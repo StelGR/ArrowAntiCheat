@@ -11,31 +11,28 @@ import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.Math.MathUtil;
 import org.bukkit.Location;
-import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import static me.arrow.utils.customutils.OtherUtility.*;
+import static me.arrow.utils.customutils.OtherUtility.setbackDebug;
 
 // idk what is going on in here tbh but i have it use my setback logs
 
 public class SetbackProcessor implements Processor {
 
-    private final SampleList<CustomLocation> locations = new SampleList<>(10, true);
+    SampleList<CustomLocation> locations = new SampleList<>(10, true);
     private static final Map<UUID, List<String>> SETBACK_HISTORY = new ConcurrentHashMap<>();
 
     private final Profile profile;
     private int lastSetbackTicks, lastStoredLocationTicks;
 
 
-    public HashMap<Player, Boolean> reduce = new HashMap<>();
     @Getter
     @Setter
     public int flags = 0;

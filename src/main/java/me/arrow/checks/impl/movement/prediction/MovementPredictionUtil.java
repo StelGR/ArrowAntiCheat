@@ -3,17 +3,16 @@ package me.arrow.checks.impl.movement.prediction;
 import lombok.Getter;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
-import me.arrow.utils.custom.MaterialType;
+import me.arrow.utils.custom.materials.MaterialType;
+import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Material;
 import org.bukkit.World;
 
 public class MovementPredictionUtil {
 
-    private static final int RADIUS = 2;
     private static final int DEPTH = 2;
     private static final double STEP_THRESHOLD = 0.35D;
     private static final double MOVE_EPS = 1.0E-4D;
-    private static final double SIDE_EPS = 0.35D;
 
     private MovementPredictionUtil() {
     }
@@ -182,46 +181,6 @@ public class MovementPredictionUtil {
         }
     }
 
-    @Getter
-    public static final class BlockSample {
-
-        private final int x;
-        private final int y;
-        private final int z;
-        private final Material material;
-
-        public BlockSample(int x, int y, int z, Material material) {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.material = material;
-        }
-    }
-
-    public static BlockSample[] scanAroundFeet(World world, double x, double y, double z) {
-        int baseX = floor(x);
-        int baseY = floor(y);
-        int baseZ = floor(z);
-
-        BlockSample[] samples = new BlockSample[(RADIUS * 2 + 1) * (RADIUS * 2 + 1) * (DEPTH + 1)];
-        int index = 0;
-
-        for (int dy = 0; dy >= -DEPTH; dy--) {
-            int py = baseY + dy;
-
-            for (int dx = -RADIUS; dx <= RADIUS; dx++) {
-                int px = baseX + dx;
-
-                for (int dz = -RADIUS; dz <= RADIUS; dz++) {
-                    int pz = baseZ + dz;
-                    Material material = world.getBlockAt(px, py, pz).getType();
-                    samples[index++] = new BlockSample(px, py, pz, material);
-                }
-            }
-        }
-
-        return samples;
-    }
 
     public static VerticalMove predictVerticalMove(World world, double x, double y, double z, double deltaX, double deltaZ) {
         if (Math.abs(deltaX) < MOVE_EPS && Math.abs(deltaZ) < MOVE_EPS) {
@@ -413,7 +372,9 @@ public class MovementPredictionUtil {
     }
 
     private static boolean isBlocking(World world, int x, int y, int z) {
-        String type = world.getBlockAt(x, y, z).getType().name();
+        Material meterialtype = world.getBlockAt(x, y, z).getType();
+        String type = meterialtype.name();
+
 
         if (MaterialType.isMaterial(type, MaterialType.AIR)) return false;
         if (MaterialType.isMaterial(type, MaterialType.LIQUID)) return false;
@@ -425,6 +386,14 @@ public class MovementPredictionUtil {
         if (MaterialType.isMaterial(type, MaterialType.WALL)) return true;
         if (MaterialType.isMaterial(type, MaterialType.DOOR)) return true;
         if (MaterialType.isMaterial(type, MaterialType.TRAPDOOR)) return true;
+        if (MaterialType.isStair(type)) return true;
+        if (MaterialType.isFence(type)) return true;
+        if (MaterialType.isSlab(meterialtype)) return true;
+        if (MaterialType.isWall(meterialtype)) return true;
+        if (MaterialType.isFenceGate(meterialtype)) return true;
+        if (MaterialType.isPane(meterialtype)) return true;
+        if (MaterialType.isTrapdoor(meterialtype)) return true;
+        if (PEMaterials.isNonFullShape(meterialtype)) return true;
 
         return true;
     }

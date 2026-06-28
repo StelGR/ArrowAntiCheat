@@ -8,7 +8,7 @@ import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.TaskUtils;
-import me.arrow.utils.custom.MaterialType;
+import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.versionutils.VersionUtils;
 import me.arrow.utils.versionutils.impl.VelocityClientVersionBridge;
 import org.bukkit.*;
@@ -385,13 +385,16 @@ public class BukkitListener implements Listener {
                                 if (!rayResult.allowed()) {
                                     blockBreakEvent.setCancelled(true);
 
-                                    check.fail("Breaking bed through block",
-                                            "eyeLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + player.getEyeLocation().toVector()
-                                                    + "\ntargetLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + new Vector(targetBlock.getX() + 0.5D, targetBlock.getY() + 0.5D, targetBlock.getZ() + 0.5D)
-                                                    + "\nhitBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + (rayResult.hitBlock() == null ? "none" : rayResult.hitBlock().getType().name())
-                                                    + "\nhitLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + rayResult.hitLocation()
-                                                    + "\ntargetBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + targetBlock.getType().name()
-                                                    + "\ndistance " + MsgType.MAIN_THEME_COLOR.getMessage() + player.getEyeLocation().distance(targetBlock.getLocation().add(0.5D, 0.5D, 0.5D)));
+                                    TaskUtils.taskAsync(() -> {
+                                        check.fail("Breaking bed through block",
+                                                "eyeLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + player.getEyeLocation().toVector()
+                                                        + "\ntargetLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + new Vector(targetBlock.getX() + 0.5D, targetBlock.getY() + 0.5D, targetBlock.getZ() + 0.5D)
+                                                        + "\nhitBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + (rayResult.hitBlock() == null ? "none" : rayResult.hitBlock().getType().name())
+                                                        + "\nhitLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + rayResult.hitLocation()
+                                                        + "\ntargetBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + targetBlock.getType().name()
+                                                        + "\ndistance " + MsgType.MAIN_THEME_COLOR.getMessage() + player.getEyeLocation().distance(targetBlock.getLocation().add(0.5D, 0.5D, 0.5D)));
+                                    });
+
                                 }
                             }
                         }
@@ -1063,7 +1066,7 @@ public class BukkitListener implements Listener {
             return true;
         }
 
-        if (name.contains("TALL_GRASS")
+        return name.contains("TALL_GRASS")
                 || name.equals("GRASS")
                 || name.contains("FLOWER")
                 || name.contains("SAPLING")
@@ -1073,11 +1076,7 @@ public class BukkitListener implements Listener {
                 || name.contains("BUTTON")
                 || name.contains("PRESSURE_PLATE")
                 || name.contains("SIGN")
-                || name.contains("BANNER")) {
-            return true;
-        }
-
-        return false;
+                || name.contains("BANNER");
     }
 
     private int floor(double value) {
@@ -1085,10 +1084,10 @@ public class BukkitListener implements Listener {
         return value < i ? i - 1 : i;
     }
 
-    private static final class BedBreakRayResult {
-        private final boolean allowed;
-        private final Block hitBlock;
-        private final Vector hitLocation;
+    private static class BedBreakRayResult {
+        boolean allowed;
+        Block hitBlock;
+        Vector hitLocation;
 
         private BedBreakRayResult(boolean allowed, Block hitBlock, Vector hitLocation) {
             this.allowed = allowed;

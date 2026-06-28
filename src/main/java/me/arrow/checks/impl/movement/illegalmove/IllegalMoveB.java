@@ -180,8 +180,7 @@ public class IllegalMoveB extends Check {
         );
 
         if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMoveB: is Exempting (ghostblock liquid/web/pending physics place)");
-            return;
+            limit += 0.2;
         }
 
         if (profile.getVelocityData().isTakingVelocity() ) airticklimit += extraTicks;

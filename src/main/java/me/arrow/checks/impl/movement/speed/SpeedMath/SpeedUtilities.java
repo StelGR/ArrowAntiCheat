@@ -294,7 +294,7 @@ public class SpeedUtilities {
 
     public static double getAfterJumpSpeed(Profile profile) {
         int speedLevel = getSpeedPotionLevel(profile);
-        return 0.9175D + (0.008D * speedLevel);
+        return 0.915D + (0.008D * speedLevel);
     }
 
     public static int getPotionEffectLevel(Profile user, PotionEffectType potionEffectType) {

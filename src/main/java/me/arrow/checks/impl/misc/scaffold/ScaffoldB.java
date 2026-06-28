@@ -431,7 +431,7 @@ public class ScaffoldB extends Check {
 
     private static final class Analysis {
         private double average;
-        private double minimum;
+        double minimum;
         private double maximum;
         private double standardDeviation;
         private double entropy;

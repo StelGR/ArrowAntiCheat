@@ -25,21 +25,21 @@ import org.bukkit.inventory.ItemStack;
 public class MacroA extends Check {
 
     // Reaction threshold in milliseconds; anything below this is inhuman.
-    private static final long REACTION_THRESHOLD_MS = 160L;
+    long REACTION_THRESHOLD_MS = 160L;
 
-    private static final long AXE_TO_MACE_HIT_MAX_DELAY_MS = 50L;
-    private static final long AXE_TO_MACE_EXPIRE_MS = 250L;
+    long AXE_TO_MACE_HIT_MAX_DELAY_MS = 50L;
+    long AXE_TO_MACE_EXPIRE_MS = 250L;
 
-    private long lastAxeAttackTime = -1L;
-    private boolean switchedToMaceAfterAxe;
-    private int switchedMaceSlot = -1;
-    private Material lastAxeMaterial;
-    private Material switchedMaceMaterial;
+    long lastAxeAttackTime = -1L;
+    boolean switchedToMaceAfterAxe;
+    int switchedMaceSlot = -1;
+    Material lastAxeMaterial;
+    Material switchedMaceMaterial;
 
-    private long armorBreakTime = -1L;
-    private long totemPopTime   = -1L;
+    long armorBreakTime = -1L;
+    long totemPopTime   = -1L;
 
-    private String triggerReason = "";
+    String triggerReason = "";
 
     public MacroA(Profile profile) {
         super(profile, CheckType.MACRO, "A",
@@ -82,7 +82,7 @@ public class MacroA extends Check {
                 if (!isArmorSlot && !isOffhandSlot) return;
 
                 com.github.retrooper.packetevents.protocol.item.ItemStack peItem = setSlot.getItem();
-                boolean isEmpty = peItem == null || peItem.getType() == ItemTypes.AIR;
+                boolean isEmpty = peItem.getType() == ItemTypes.AIR;
 
                 if (isEmpty) {
                     if (isArmorSlot) {
@@ -272,7 +272,7 @@ public class MacroA extends Check {
                     .getNmsInstance()
                     .getItemInMainHand(profile.getPlayer());
 
-            if (item != null && item.getType() != null) {
+            if (item != null) {
                 return item.getType();
             }
         } catch (Throwable ignored) {
@@ -281,9 +281,7 @@ public class MacroA extends Check {
         try {
             ItemStack item = profile.getPlayer().getItemInHand();
 
-            if (item != null && item.getType() != null) {
-                return item.getType();
-            }
+            return item.getType();
         } catch (Throwable ignored) {
         }
 
@@ -294,7 +292,7 @@ public class MacroA extends Check {
         try {
             ItemStack item = profile.getPlayer().getInventory().getItem(slot);
 
-            if (item != null && item.getType() != null) {
+            if (item != null) {
                 return item.getType();
             }
         } catch (Throwable ignored) {

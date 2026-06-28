@@ -42,98 +42,98 @@ import java.util.concurrent.ConcurrentHashMap;
 @Getter
 public class BlockProcessor implements Data {
 
-    private static volatile Method cachedGetBlockDataMethod;
-    private static volatile Method cachedModernSendBlockChangeMethod;
-    private static volatile Method cachedLegacySendBlockChangeMethod;
-    private static volatile Method cachedLegacyGetDataMethod;
-    private static volatile Method cachedLegacyGetStateMethod;
-    private static volatile Method cachedLegacyGetRawDataMethod;
+    static volatile Method cachedGetBlockDataMethod;
+    static volatile Method cachedModernSendBlockChangeMethod;
+    static volatile Method cachedLegacySendBlockChangeMethod;
+    static volatile Method cachedLegacyGetDataMethod;
+    static volatile Method cachedLegacyGetStateMethod;
+    static volatile Method cachedLegacyGetRawDataMethod;
 
-    private static volatile boolean modernGetBlockDataLookupDone;
-    private static volatile boolean modernSendBlockChangeLookupDone;
-    private static volatile boolean legacySendBlockChangeLookupDone;
-    private static volatile boolean legacyGetDataLookupDone;
-    private static volatile boolean legacyGetStateLookupDone;
-    private static volatile boolean legacyGetRawDataLookupDone;
+    static volatile boolean modernGetBlockDataLookupDone;
+    static volatile boolean modernSendBlockChangeLookupDone;
+    static volatile boolean legacySendBlockChangeLookupDone;
+    static volatile boolean legacyGetDataLookupDone;
+    static volatile boolean legacyGetStateLookupDone;
+    static volatile boolean legacyGetRawDataLookupDone;
 
-    private static final int CLEARED_GHOST_CONTEXT_TICK = 100;
-    private static final int PLACE_CONFIRMATION_GRACE_TICKS = 4;
-    private static final int PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS = 10;
-    private static final int RECENT_PLACE_BLOCK_CHANGE_GRACE_TICKS = 8;
-    private static final double CANCELLED_PHYSICS_GHOST_RANGE_XZ = 3.0D;
-    private static final double CANCELLED_PHYSICS_GHOST_RANGE_Y = 3.0D;
+    static final int CLEARED_GHOST_CONTEXT_TICK = 100;
+    static final int PLACE_CONFIRMATION_GRACE_TICKS = 4;
+    static final int PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS = 10;
+    int RECENT_PLACE_BLOCK_CHANGE_GRACE_TICKS = 8;
+    static final double CANCELLED_PHYSICS_GHOST_RANGE_XZ = 3.0D;
+    static final double CANCELLED_PHYSICS_GHOST_RANGE_Y = 3.0D;
 
-    private static final int MAX_GHOST_BLOCK_TICKS = 20 * 8;
-    private static final int MAX_CANCELLED_PLACE_GHOST_TICKS = 20;
-    private static final int MAX_CLICK_INTERACTION_GHOST_TICKS = 10;
+    static final int MAX_GHOST_BLOCK_TICKS = 20 * 8;
+    static final int MAX_CANCELLED_PLACE_GHOST_TICKS = 20;
+    static final int MAX_CLICK_INTERACTION_GHOST_TICKS = 10;
 
-    private static final int GHOST_SYNC_COOLDOWN_TICKS = 8;
-    private static final int GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS = 4;
-    private static final int AREA_SYNC_COOLDOWN_TICKS = 1;
-    private static final int MAX_AREA_SYNC_BLOCKS = 32;
-    private static final int MAX_SYNC_BLOCKS_PER_FLUSH = 4;
-    private static final int SELF_SYNC_IGNORE_TICKS = 3;
-    private static final int CANCELLED_PHYSICS_CONTEXT_TICKS = 40;
+    static final int GHOST_SYNC_COOLDOWN_TICKS = 8;
+    static final int GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS = 4;
+    static final int AREA_SYNC_COOLDOWN_TICKS = 1;
+    static final int MAX_AREA_SYNC_BLOCKS = 32;
+    static final int MAX_SYNC_BLOCKS_PER_FLUSH = 4;
+    static final int SELF_SYNC_IGNORE_TICKS = 3;
+    static final int CANCELLED_PHYSICS_CONTEXT_TICKS = 40;
 
 
-    private int lastGhostInteractionAreaSyncTick = 100;
-    private int lastAreaSyncTick = 100;
+    int lastGhostInteractionAreaSyncTick = 100;
+    int lastAreaSyncTick = 100;
 
-    private final Profile data;
-    private final EventTimer lastConfirmedBlockPlaceTimer;
-    private final EventTimer lastConfirmedCancelPlaceTimer;
-    private final EventTimer lastPlacementPacket;
+    final Profile data;
+    final EventTimer lastConfirmedBlockPlaceTimer;
+    final EventTimer lastConfirmedCancelPlaceTimer;
+    final EventTimer lastPlacementPacket;
 
-    private final Deque<GhostBlock> ghostBlocks = new EvictingList<>(200);
+    final Deque<GhostBlock> ghostBlocks = new EvictingList<>(200);
 
-    private final Object ghostBlockLock = new Object();
-    private final Map<Long, Integer> selfSyncedBlocks = new ConcurrentHashMap<>();
-    private final Object syncQueueLock = new Object();
-    private final Map<Long, SyncBlock> queuedSyncBlocks = new LinkedHashMap<>();
-    private volatile boolean syncFlushQueued;
+    final Object ghostBlockLock = new Object();
+    final Map<Long, Integer> selfSyncedBlocks = new ConcurrentHashMap<>();
+    final Object syncQueueLock = new Object();
+    final Map<Long, SyncBlock> queuedSyncBlocks = new LinkedHashMap<>();
+    volatile boolean syncFlushQueued;
 
-    private Material materialPlaced;
-    private int blockUpdateTicks;
-    private boolean hasPlacedBlock = false, recentC2SPacket = false;
-    private Vector currentBlockCords;
-    private Material blockPlaceMaterial;
-    private Material main;
-    //    private Material lastBlockChangeMaterial, lastBlockChangeMultiMaterial;
-    private int placeTicks;
-    private int lastWebUpdateTick;
-    private int face;
-    private int lastGhostBlockTick = 100;
-    private int lastGhostLiquidWebTick = 100;
-    private int lastPendingPhysicsPlaceTick = 100;
-    private int recentPlacePacketTicks = 100;
-    private Vector recentPlaceVector;
-    private Material recentPlaceMaterial;
-    private Vector lastClickedBlockVector;
-    private Material lastClickedBlockMaterial;
-    private int lastPlacementFace = -1;
+    Material materialPlaced;
+    int blockUpdateTicks;
+    boolean hasPlacedBlock = false, recentC2SPacket = false;
+    Vector currentBlockCords;
+    Material blockPlaceMaterial;
+    Material main;
+    //    Material lastBlockChangeMaterial, lastBlockChangeMultiMaterial;
+    int placeTicks;
+    int lastWebUpdateTick;
+    int face;
+    int lastGhostBlockTick = 100;
+    int lastGhostLiquidWebTick = 100;
+    int lastPendingPhysicsPlaceTick = 100;
+    int recentPlacePacketTicks = 100;
+    Vector recentPlaceVector;
+    Material recentPlaceMaterial;
+    Vector lastClickedBlockVector;
+    Material lastClickedBlockMaterial;
+    int lastPlacementFace = -1;
 
-    private boolean pendingVineLadderWallPlace;
-    private int pendingVineLadderWallTick;
-    private Vector pendingVineLadderWallVector;
-    private Material pendingVineLadderWallMaterial;
+    boolean pendingVineLadderWallPlace;
+    int pendingVineLadderWallTick;
+    Vector pendingVineLadderWallVector;
+    Material pendingVineLadderWallMaterial;
 
-    private int cancelledPhysicsContextTicks;
-    private Vector cancelledPhysicsContextVector;
-    private Material cancelledPhysicsContextMaterial;
+    int cancelledPhysicsContextTicks;
+    Vector cancelledPhysicsContextVector;
+    Material cancelledPhysicsContextMaterial;
 
-    private boolean nearGhostBlock;
-    private boolean onGhostBlock;
-    private boolean insideGhostBlock;
-    private boolean underGhostBlock;
-    private boolean interactingGhostBlock;
+    boolean nearGhostBlock;
+    boolean onGhostBlock;
+    boolean insideGhostBlock;
+    boolean underGhostBlock;
+    boolean interactingGhostBlock;
 
     @Setter
-    private boolean autoCorrectGhostBlocks = true;
+    boolean autoCorrectGhostBlocks = true;
 
-    private double distanceFromUpdate, distanceFromUpdateMulti;
+    double distanceFromUpdate, distanceFromUpdateMulti;
 
-    private Material lastAttemptedPlaceMaterial;
-    private int pendingPlacementTicks;
+    Material lastAttemptedPlaceMaterial;
+    int pendingPlacementTicks;
 
     public BlockProcessor(Profile user) {
         // Creates the per-player block processor and initializes placement confirmation timers.
@@ -167,13 +167,9 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private void handleBlockPlacePacket(PacketReceiveEvent event) {
+    void handleBlockPlacePacket(PacketReceiveEvent event) {
         // Stores a possible client-side placement attempt while ignoring pure right-click interactions.
         WrapperPlayClientPlayerBlockPlacement wrapped = new WrapperPlayClientPlayerBlockPlacement(event);
-
-        if (wrapped.getBlockPosition() == null || wrapped.getFace() == null) {
-            return;
-        }
 
         int x = wrapped.getBlockPosition().getX();
         int y = wrapped.getBlockPosition().getY();
@@ -272,7 +268,7 @@ public class BlockProcessor implements Data {
     }
 
 
-    private void handleMovementPacket(PacketReceiveEvent event) {
+    void handleMovementPacket(PacketReceiveEvent event) {
         // Advances timers, refreshes ghost contact state, confirms pending placements, and drains queued sync packets.
         WrapperPlayClientPlayerFlying flying = new WrapperPlayClientPlayerFlying(event);
 
@@ -431,7 +427,7 @@ public class BlockProcessor implements Data {
     }
 
 
-    private void keepPendingPlacementPhysicsExemption() {
+    void keepPendingPlacementPhysicsExemption() {
         // Keeps Fly/Gravity checks exempt while a nearby physics placement is waiting for server confirmation.
         if (this.currentBlockCords == null || this.blockPlaceMaterial == null) {
             return;
@@ -450,7 +446,7 @@ public class BlockProcessor implements Data {
         markPendingPhysicsPlacementContext(this.currentBlockCords, attempted);
     }
 
-    private void markPendingPhysicsPlacementContext(Vector vector, Material material) {
+    void markPendingPhysicsPlacementContext(Vector vector, Material material) {
         // Physics placements are client-predicted immediately, so movement checks must exempt while confirmation is pending.
         this.lastPendingPhysicsPlaceTick = 0;
         this.lastGhostLiquidWebTick = 0;
@@ -462,7 +458,7 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private void beginCancelledPhysicsPlacementContext(Vector vector, Material material) {
+    void beginCancelledPhysicsPlacementContext(Vector vector, Material material) {
         // A nearby physics placement was not accepted by the server, so keep liquid/web-style exemptions alive for a short fixed grace.
         this.cancelledPhysicsContextTicks = CANCELLED_PHYSICS_CONTEXT_TICKS;
         this.cancelledPhysicsContextVector = vector != null ? vector.clone() : null;
@@ -474,7 +470,7 @@ public class BlockProcessor implements Data {
         this.interactingGhostBlock = true;
     }
 
-    private void refreshCancelledPhysicsPlacementContext() {
+    void refreshCancelledPhysicsPlacementContext() {
         // Keeps cancelled water/lava/web/vine/etc. placements exempt even if the player is only affected by client-side fluid physics.
         if (this.cancelledPhysicsContextTicks <= 0) {
             return;
@@ -494,13 +490,13 @@ public class BlockProcessor implements Data {
         this.interactingGhostBlock = true;
     }
 
-    private boolean isPhysicsPlacementNearPlayer(Vector clickedVector, Vector placedVector) {
+    boolean isPhysicsPlacementNearPlayer(Vector clickedVector, Vector placedVector) {
         // Uses both clicked and predicted placed coordinates, because buckets/vines can affect the client from either point.
         return isPlayerNearPlacement(placedVector, CANCELLED_PHYSICS_GHOST_RANGE_XZ, CANCELLED_PHYSICS_GHOST_RANGE_Y)
                 || isPlayerNearPlacement(clickedVector, CANCELLED_PHYSICS_GHOST_RANGE_XZ, CANCELLED_PHYSICS_GHOST_RANGE_Y);
     }
 
-    private void clearConfirmedPlacementGhostContext(Vector vector, Material attemptedMaterial, Material serverMaterial) {
+    void clearConfirmedPlacementGhostContext(Vector vector, Material attemptedMaterial, Material serverMaterial) {
         // Clears ghost state when the server really accepted the placement.
         if (vector != null) {
             removeGhostBlock(vector);
@@ -533,7 +529,7 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private boolean isPhysicsPlacementMaterial(Material material) {
+    boolean isPhysicsPlacementMaterial(Material material) {
         // Returns true for materials/items that can alter movement physics when client-predicted.
         if (material == null || material == Material.AIR) {
             return false;
@@ -570,7 +566,7 @@ public class BlockProcessor implements Data {
                 || name.contains("TADPOLE_BUCKET");
     }
 
-    private boolean hasActiveGhostContact() {
+    boolean hasActiveGhostContact() {
         // Checks whether any stored ghostblock is still touching the player hitbox.
         synchronized (ghostBlockLock) {
             if (ghostBlocks.isEmpty()) {
@@ -592,7 +588,7 @@ public class BlockProcessor implements Data {
 
         return false;
     }
-    private Material findConfirmedPlacedMaterial(Vector placeVector, Vector clickedVector, Material attempted) {
+    Material findConfirmedPlacedMaterial(Vector placeVector, Vector clickedVector, Material attempted) {
         // Looks at the exact predicted placement targets to see whether the server accepted it.
         if (attempted == null) {
             return null;
@@ -615,20 +611,18 @@ public class BlockProcessor implements Data {
          * attempts. WorldGuard/protection cancels leave the target as air, and a nearby
          * existing water/vine/honey block must not be mistaken as confirmation.
          */
-        if (isCancelledPhysicsContextMaterial(attempted)) {
-            return null;
-        }
+        isCancelledPhysicsContextMaterial(attempted);
 
         return null;
     }
 
-    private void handleMultiBlockChange(PacketSendEvent event) {
+    void handleMultiBlockChange(PacketSendEvent event) {
         // Processes multi-block server updates and queues tiny repairs for relevant nearby changes.
         WrapperPlayServerMultiBlockChange multiBlockChange = new WrapperPlayServerMultiBlockChange(event);
 
         CustomLocation current = data.getMovementData().getLocation();
 
-        if (current == null || multiBlockChange.getBlocks() == null) {
+        if (current == null) {
             return;
         }
 
@@ -659,7 +653,7 @@ public class BlockProcessor implements Data {
 
             try {
                 StateType type = blockData.getBlockState(data.getVersion()).getType();
-                packetMaterial = materialFromStateName(type != null ? type.getName() : null);
+                packetMaterial = materialFromStateName(type.getName());
             } catch (Throwable ignored) {
             }
 
@@ -676,7 +670,7 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private void handleBlockChange(PacketSendEvent event) {
+    void handleBlockChange(PacketSendEvent event) {
         // Processes single server block updates and queues a tiny repair only when it matters.
         WrapperPlayServerBlockChange blockChange = new WrapperPlayServerBlockChange(event);
 
@@ -706,7 +700,7 @@ public class BlockProcessor implements Data {
 
         try {
             StateType type = blockChange.getBlockState().getType();
-            packetMaterial = materialFromStateName(type != null ? type.getName() : null);
+            packetMaterial = materialFromStateName(type.getName());
         } catch (Throwable ignored) {
         }
 
@@ -721,7 +715,7 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private boolean shouldRepairServerBlockUpdate(Material packetMaterial, double distanceXZ, double deltaY) {
+    boolean shouldRepairServerBlockUpdate(Material packetMaterial, double distanceXZ, double deltaY) {
         // Filters server block updates so harmless interactions do not trigger repairs.
         if (distanceXZ > 36.0D || Math.abs(deltaY) > 4.0D) {
             return false;
@@ -740,7 +734,7 @@ public class BlockProcessor implements Data {
                 || isPistonRelated(packetMaterial);
     }
 
-    private void syncBlockUpdatePatch(int x, int y, int z, Material packetMaterial) {
+    void syncBlockUpdatePatch(int x, int y, int z, Material packetMaterial) {
         // Queues the smallest useful repair patch around a server-side block update.
         if (!autoCorrectGhostBlocks) {
             return;
@@ -759,7 +753,7 @@ public class BlockProcessor implements Data {
         syncRealBlocksInBoxAsync(x, y, z, x, y, z, 1, true);
     }
 
-    private boolean tryModernSendBlockChange(Player player, Block block, Location location) {
+    boolean tryModernSendBlockChange(Player player, Block block, Location location) {
         // Uses cached reflection to call the modern Location + BlockData sendBlockChange method.
         try {
             Method getBlockData = cachedGetBlockDataMethod;
@@ -826,7 +820,7 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private void tryLegacySendBlockChange(Player player, Block block, Location location) {
+    void tryLegacySendBlockChange(Player player, Block block, Location location) {
         // Uses cached reflection to call the old Location + Material + data sendBlockChange method.
         try {
             Method sendBlockChange = cachedLegacySendBlockChangeMethod;
@@ -873,7 +867,7 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private byte getLegacyBlockData(Block block) {
+    byte getLegacyBlockData(Block block) {
         // Reads legacy block metadata for 1.8-style sendBlockChange support.
         try {
             Method getData = cachedLegacyGetDataMethod;
@@ -948,7 +942,7 @@ public class BlockProcessor implements Data {
         return 0;
     }
 
-    private void updateGhostBlockContact() {
+    void updateGhostBlockContact() {
         // Updates near/on/inside/under ghostblock flags and queues small repairs on contact.
         this.nearGhostBlock = false;
         this.onGhostBlock = false;
@@ -1025,12 +1019,12 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private void addGhostBlock(Vector position, Material material, String reason) {
+    void addGhostBlock(Vector position, Material material, String reason) {
         // Stores a client-only/cancelled-placement block that may affect movement.
         addGhostBlock(position, material, reason, resolveGhostMaxTicks(reason));
     }
 
-    private void addGhostBlock(Vector position, Material material, String reason, int maxTicks) {
+    void addGhostBlock(Vector position, Material material, String reason, int maxTicks) {
         // Stores a client-only/cancelled-placement block that may affect movement.
         if (position == null) {
             return;
@@ -1056,7 +1050,7 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private int resolveGhostMaxTicks(String reason) {
+    int resolveGhostMaxTicks(String reason) {
         // Chooses how long a stored ghostblock should remain tracked.
         if (reason == null) {
             return MAX_GHOST_BLOCK_TICKS;
@@ -1073,7 +1067,7 @@ public class BlockProcessor implements Data {
         return MAX_GHOST_BLOCK_TICKS;
     }
 
-    private void removeGhostBlock(Vector position) {
+    void removeGhostBlock(Vector position) {
         // Removes stored ghostblocks at the supplied block coordinates.
         if (position == null) {
             return;
@@ -1095,7 +1089,7 @@ public class BlockProcessor implements Data {
             }
         }
     }
-    private Material materialFromStateName(String stateName) {
+    Material materialFromStateName(String stateName) {
         // Converts a PacketEvents state name into a Bukkit Material when possible.
         if (stateName == null || stateName.isEmpty()) {
             return null;
@@ -1104,7 +1098,7 @@ public class BlockProcessor implements Data {
         return matchMaterialCompat(stateName);
     }
 
-    private boolean isWebMaterial(Material material) {
+    boolean isWebMaterial(Material material) {
         // Detects web/cobweb-style materials for web update timers.
         if (material == null) {
             return false;
@@ -1112,12 +1106,11 @@ public class BlockProcessor implements Data {
 
         String name = material.name();
 
-        return name.equals("WEB")
-                || name.equals("COBWEB")
+        return name.equals("COBWEB")
                 || name.contains("WEB");
     }
 
-    private void ageGhostBlocks() {
+    void ageGhostBlocks() {
         // Ages stored ghostblocks and removes stale or server-confirmed entries.
         synchronized (ghostBlockLock) {
             if (ghostBlocks.isEmpty()) {
@@ -1178,7 +1171,7 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private boolean isPlayerStandingOnGhost(Vector block) {
+    boolean isPlayerStandingOnGhost(Vector block) {
         // Checks whether the player feet are standing on a stored ghost block.
         CustomLocation loc = data.getMovementData().getLocation();
 
@@ -1213,7 +1206,7 @@ public class BlockProcessor implements Data {
                 && feetY <= blockTop + 0.075D;
     }
 
-    private boolean isPlayerInsideGhost(Vector block) {
+    boolean isPlayerInsideGhost(Vector block) {
         // Checks whether the player body intersects a stored ghost block.
         CustomLocation loc = data.getMovementData().getLocation();
 
@@ -1243,7 +1236,7 @@ public class BlockProcessor implements Data {
                 && playerMinZ < blockMaxZ - 0.001D;
     }
 
-    private boolean isPlayerUnderGhost(Vector block) {
+    boolean isPlayerUnderGhost(Vector block) {
         // Checks whether the player head is touching the underside of a stored ghost block.
         CustomLocation loc = data.getMovementData().getLocation();
 
@@ -1278,7 +1271,7 @@ public class BlockProcessor implements Data {
                 && headY <= blockBottom + 0.125D;
     }
 
-    private boolean isPlayerCloseTo(Vector block, double horizontal, double vertical) {
+    boolean isPlayerCloseTo(Vector block, double horizontal, double vertical) {
         // Performs cheap block-distance proximity checks around the player.
         CustomLocation loc = data.getMovementData().getLocation();
 
@@ -1299,7 +1292,7 @@ public class BlockProcessor implements Data {
                 && Math.abs(py - by) <= vertical;
     }
 
-    private boolean isSamePlacedMaterial(Material serverMaterial, Material attemptedMaterial) {
+    boolean isSamePlacedMaterial(Material serverMaterial, Material attemptedMaterial) {
         // Compares attempted placement material/item against the real server material family.
         if (serverMaterial == null || attemptedMaterial == null) {
             return false;
@@ -1351,7 +1344,7 @@ public class BlockProcessor implements Data {
         return server.equals(attempted);
     }
 
-    private boolean isPhysicsGhostMaterial(Material material) {
+    boolean isPhysicsGhostMaterial(Material material) {
         // Detects blocks that can affect movement physics when desynced.
         if (material == null || material == Material.AIR) {
             return false;
@@ -1372,7 +1365,7 @@ public class BlockProcessor implements Data {
                 || isClimbableGhostMaterial(material);
     }
 
-    private Material resolveAttemptedMaterial(WrapperPlayClientPlayerBlockPlacement wrapped) {
+    Material resolveAttemptedMaterial(WrapperPlayClientPlayerBlockPlacement wrapped) {
         // Resolves the attempted placement material from packet, main hand, or offhand.
         Material packetMaterial = resolvePacketMaterial(wrapped);
 
@@ -1395,31 +1388,29 @@ public class BlockProcessor implements Data {
         return null;
     }
 
-    private Material resolvePacketMaterial(WrapperPlayClientPlayerBlockPlacement wrapped) {
+    Material resolvePacketMaterial(WrapperPlayClientPlayerBlockPlacement wrapped) {
         // Attempts to read the item material directly from the placement packet.
         try {
             if (wrapped.getItemStack().isPresent()) {
                 Object type = wrapped.getItemStack().get().getType();
 
-                if (type != null) {
-                    Material material = matchMaterialCompat(type.toString());
+                Material material = matchMaterialCompat(type.toString());
 
-                    if (material != null) {
-                        return material;
-                    }
+                if (material != null) {
+                    return material;
+                }
 
-                    try {
-                        Object name = type.getClass().getMethod("getName").invoke(type);
+                try {
+                    Object name = type.getClass().getMethod("getName").invoke(type);
 
-                        if (name != null) {
-                            material = matchMaterialCompat(name.toString());
+                    if (name != null) {
+                        material = matchMaterialCompat(name.toString());
 
-                            if (material != null) {
-                                return material;
-                            }
+                        if (material != null) {
+                            return material;
                         }
-                    } catch (Throwable ignored) {
                     }
+                } catch (Throwable ignored) {
                 }
             }
         } catch (Throwable ignored) {
@@ -1428,7 +1419,7 @@ public class BlockProcessor implements Data {
         return null;
     }
 
-    private Material getMainHandMaterial() {
+    Material getMainHandMaterial() {
         // Reads the player main-hand item across modern and legacy APIs.
         try {
             ItemStack stack = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(data.getPlayer());
@@ -1452,7 +1443,7 @@ public class BlockProcessor implements Data {
         try {
             ItemStack stack = data.getPlayer().getItemInHand();
 
-            if (stack != null && stack.getType() != Material.AIR) {
+            if (stack.getType() != Material.AIR) {
                 return stack.getType();
             }
         } catch (Throwable ignored) {
@@ -1461,7 +1452,7 @@ public class BlockProcessor implements Data {
         return null;
     }
 
-    private Material getOffHandMaterial() {
+    Material getOffHandMaterial() {
         // Reads the player offhand item where that API exists.
         try {
             ItemStack stack = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInOffHand(data.getPlayer());
@@ -1485,7 +1476,7 @@ public class BlockProcessor implements Data {
         return null;
     }
 
-    private Material matchMaterialCompat(String raw) {
+    Material matchMaterialCompat(String raw) {
         // Normalizes modern/legacy names into a Bukkit Material.
         if (raw == null || raw.isEmpty()) {
             return null;
@@ -1521,7 +1512,7 @@ public class BlockProcessor implements Data {
             }
         }
 
-        if (name.equals("WATER")) {
+        if (name.contains("WATER")) {
             Material bucket = Material.matchMaterial("WATER_BUCKET");
 
             if (bucket != null) {
@@ -1529,23 +1520,19 @@ public class BlockProcessor implements Data {
             }
         }
 
-        if (name.equals("LAVA")) {
-            Material bucket = Material.matchMaterial("LAVA_BUCKET");
-
-            if (bucket != null) {
-                return bucket;
-            }
+        if (name.contains("LAVA")) {
+            return Material.matchMaterial("LAVA_BUCKET");
         }
 
         return null;
     }
 
-    private boolean isValidGhostAttemptMaterial(Material material) {
+    boolean isValidGhostAttemptMaterial(Material material) {
         // Filters attempted items to only track real movement-relevant placement attempts.
         return isTrackableGhostMaterial(material) || isCancelledPhysicsContextMaterial(material);
     }
 
-    private Material resolveRawAttemptedMaterial(WrapperPlayClientPlayerBlockPlacement wrapped) {
+    Material resolveRawAttemptedMaterial(WrapperPlayClientPlayerBlockPlacement wrapped) {
         // Reads the raw held/packet item before collision/no-hitbox filtering.
         Material packetMaterial = resolvePacketMaterial(wrapped);
 
@@ -1568,7 +1555,7 @@ public class BlockProcessor implements Data {
         return null;
     }
 
-    private boolean isTrackableGhostMaterial(Material material) {
+    boolean isTrackableGhostMaterial(Material material) {
         // Returns true for block placements that can create collision-relevant ghosts.
         if (material == null || material == Material.AIR) {
             return false;
@@ -1595,7 +1582,7 @@ public class BlockProcessor implements Data {
         return hasUsefulCollisionShape(material);
     }
 
-    private boolean isCancelledPhysicsContextMaterial(Material material) {
+    boolean isCancelledPhysicsContextMaterial(Material material) {
         // Returns true for cancelled placements that should reset liquid/web/physics timers.
         if (material == null || material == Material.AIR) {
             return false;
@@ -1609,7 +1596,7 @@ public class BlockProcessor implements Data {
                 || isClimbableGhostMaterial(material);
     }
 
-    private boolean isWaterPlacementMaterial(Material material) {
+    boolean isWaterPlacementMaterial(Material material) {
         // Detects water and water-style bucket placement items.
         if (material == null) {
             return false;
@@ -1621,7 +1608,7 @@ public class BlockProcessor implements Data {
                 || isAquaticBucket(material);
     }
 
-    private boolean isLavaPlacementMaterial(Material material) {
+    boolean isLavaPlacementMaterial(Material material) {
         // Detects lava placement items.
         if (material == null) {
             return false;
@@ -1631,7 +1618,7 @@ public class BlockProcessor implements Data {
         return name.contains("LAVA");
     }
 
-    private boolean isPowderSnowPlacementMaterial(Material material) {
+    boolean isPowderSnowPlacementMaterial(Material material) {
         // Detects powder snow placement items.
         if (material == null) {
             return false;
@@ -1641,7 +1628,7 @@ public class BlockProcessor implements Data {
         return name.contains("POWDER_SNOW");
     }
 
-    private boolean isAquaticBucket(Material material) {
+    boolean isAquaticBucket(Material material) {
         // Detects fish/axolotl/tadpole buckets as water-style physics placements.
         if (material == null) {
             return false;
@@ -1658,7 +1645,7 @@ public class BlockProcessor implements Data {
                 || name.contains("FISH_BUCKET");
     }
 
-    private boolean isClimbableGhostMaterial(Material material) {
+    boolean isClimbableGhostMaterial(Material material) {
         // Detects ladders, vines, and scaffolding movement contexts.
         if (material == null || material == Material.AIR) {
             return false;
@@ -1675,7 +1662,7 @@ public class BlockProcessor implements Data {
                 || name.contains("GLOW_BERRIES")
                 || name.contains("SCAFFOLDING");
     }
-    private void handlePendingVineLadderWallPlace() {
+    void handlePendingVineLadderWallPlace() {
         // Keeps a short pending physics exemption for vine/ladder top-face placements whose final attached block is yaw-dependent.
         if (!this.pendingVineLadderWallPlace) {
             return;
@@ -1695,7 +1682,7 @@ public class BlockProcessor implements Data {
         this.lastPendingPhysicsPlaceTick = CLEARED_GHOST_CONTEXT_TICK;
     }
 
-    private void confirmPendingVineLadderWallPlace(Material packetMaterial, Vector vector, double distanceXZ, double deltaY) {
+    void confirmPendingVineLadderWallPlace(Material packetMaterial, Vector vector, double distanceXZ, double deltaY) {
         // Clears the special vine/ladder pending state when a nearby server block update confirms it.
         if (!this.pendingVineLadderWallPlace) {
             return;
@@ -1718,7 +1705,7 @@ public class BlockProcessor implements Data {
         this.lastPendingPhysicsPlaceTick = CLEARED_GHOST_CONTEXT_TICK;
     }
 
-    private boolean isVineOrLadderPlacement(Material material) {
+    boolean isVineOrLadderPlacement(Material material) {
         // Detects vine/ladder-style placements that may attach to a different block than the clicked face predicts.
         if (material == null || material == Material.AIR) {
             return false;
@@ -1735,7 +1722,7 @@ public class BlockProcessor implements Data {
                 || name.contains("GLOW_BERRIES");
     }
 
-    private boolean isPlayerNearPlacement(Vector block, double horizontal, double vertical) {
+    boolean isPlayerNearPlacement(Vector block, double horizontal, double vertical) {
         // Limits cancelled-placement exemptions to blocks close to the player.
         CustomLocation loc = data.getMovementData().getLocation();
 
@@ -1751,7 +1738,7 @@ public class BlockProcessor implements Data {
                 && Math.abs(loc.getZ() - bz) <= horizontal
                 && Math.abs(loc.getY() - by) <= vertical;
     }
-    private boolean hasUsefulCollisionShape(Material material) {
+    boolean hasUsefulCollisionShape(Material material) {
         // Cheaply filters materials that have useful collision for ghost tracking.
         if (material == null || material == Material.AIR) {
             return false;
@@ -1792,7 +1779,7 @@ public class BlockProcessor implements Data {
                 || name.contains("SHULKER");
     }
 
-    private boolean isIgnoredNoHitboxGhostMaterial(Material material) {
+    boolean isIgnoredNoHitboxGhostMaterial(Material material) {
         // Filters decorative/no-hitbox materials that should not cause ghostblock state.
         if (material == null || material == Material.AIR) {
             return false;
@@ -1839,7 +1826,7 @@ public class BlockProcessor implements Data {
                 || name.contains("STRING");
     }
 
-    private void clearPendingPlacement() {
+    void clearPendingPlacement() {
         // Clears all pending placement fields after success, cancel, or ignored interaction.
         this.currentBlockCords = null;
         this.blockPlaceMaterial = null;
@@ -1856,7 +1843,7 @@ public class BlockProcessor implements Data {
         this.cancelledPhysicsContextMaterial = null;
     }
 
-    private Vector getPlacedVector(int x, int y, int z, int faceValue) {
+    Vector getPlacedVector(int x, int y, int z, int faceValue) {
         // Converts clicked block + face into the predicted placed-block coordinate.
         if (faceValue == 1) {
             return new Vector(x, y + 1, z);
@@ -1885,7 +1872,7 @@ public class BlockProcessor implements Data {
         return new Vector(x, y, z);
     }
 
-    private Material getServerMaterial(Vector vector) {
+    Material getServerMaterial(Vector vector) {
         // Reads the authoritative server material through the NMS abstraction.
         if (vector == null) {
             return null;
@@ -1894,7 +1881,7 @@ public class BlockProcessor implements Data {
         return getServerMaterial(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ());
     }
 
-    private Material getServerMaterial(int x, int y, int z) {
+    Material getServerMaterial(int x, int y, int z) {
         Player player = data.getPlayer();
 
         if (player == null || !player.isOnline()) {
@@ -1906,10 +1893,6 @@ public class BlockProcessor implements Data {
         try {
             world = player.getWorld();
         } catch (Throwable ignored) {
-            return null;
-        }
-
-        if (world == null) {
             return null;
         }
 
@@ -1932,7 +1915,7 @@ public class BlockProcessor implements Data {
     }
 
 
-    private Vector resolvePlacedVector(Vector clickedVector, Material clickedMaterial, Material attemptedMaterial, int faceValue) {
+    Vector resolvePlacedVector(Vector clickedVector, Material clickedMaterial, Material attemptedMaterial, int faceValue) {
         // Uses replaceable blocks when the client would place into the clicked block itself.
         if (clickedVector == null) {
             return null;
@@ -1945,7 +1928,7 @@ public class BlockProcessor implements Data {
         return getPlacedVector(clickedVector.getBlockX(), clickedVector.getBlockY(), clickedVector.getBlockZ(), faceValue);
     }
 
-    private boolean isInteractionOnlyClick(Material clickedMaterial, Material heldMaterial, int faceValue) {
+    boolean isInteractionOnlyClick(Material clickedMaterial, Material heldMaterial, int faceValue) {
         // Treats normal right-clicks on interactive blocks as interactions, not placement attempts.
         // This must run before physics placement context is started, otherwise clicking a lever/button
         // while holding water/cobweb/vines/etc. becomes a fake cancelled placement and poisons GroundC/Fly.
@@ -1960,7 +1943,7 @@ public class BlockProcessor implements Data {
         return isInteractiveBlock(clickedMaterial);
     }
 
-    private boolean isInteractiveBlock(Material material) {
+    boolean isInteractiveBlock(Material material) {
         // Detects blocks whose right click usually opens/toggles/interacts instead of placing.
         if (material == null || material == Material.AIR) {
             return false;
@@ -2003,7 +1986,7 @@ public class BlockProcessor implements Data {
                 || name.contains("RESPAWN_ANCHOR");
     }
 
-    private boolean isReplaceablePlacementTarget(Material clickedMaterial, Material attemptedMaterial) {
+    boolean isReplaceablePlacementTarget(Material clickedMaterial, Material attemptedMaterial) {
         // Detects replaceable targets where the placement occurs inside the clicked block.
         if (clickedMaterial == null || clickedMaterial == Material.AIR) {
             return false;
@@ -2019,7 +2002,7 @@ public class BlockProcessor implements Data {
             return false;
         }
 
-        if (name.contains("TALL_GRASS")
+        return name.contains("TALL_GRASS")
                 || name.contains("LONG_GRASS")
                 || name.contains("FERN")
                 || name.contains("SEAGRASS")
@@ -2040,14 +2023,10 @@ public class BlockProcessor implements Data {
                 || name.contains("ROOTS")
                 || name.contains("SPROUTS")
                 || name.contains("NETHER_WART")
-                || name.contains("SNOW")) {
-            return true;
-        }
-
-        return false;
+                || name.contains("SNOW");
     }
 
-    private void syncSmallInteractionArea(Vector clickedVector, Vector placedVector) {
+    void syncSmallInteractionArea(Vector clickedVector, Vector placedVector) {
         // Queues one or two block corrections around ignored interactions.
         if (!autoCorrectGhostBlocks) {
             return;
@@ -2062,7 +2041,7 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private boolean shouldSyncServerUpdate(Material material) {
+    boolean shouldSyncServerUpdate(Material material) {
         // Decides whether a server update is physics/piston-relevant enough to repair.
         if (material == null || material == Material.AIR) {
             return false;
@@ -2075,7 +2054,7 @@ public class BlockProcessor implements Data {
         return isPhysicsGhostMaterial(material) || isPistonRelated(material);
     }
 
-    private boolean isPistonRelated(Material material) {
+    boolean isPistonRelated(Material material) {
         // Detects piston blocks and moving piston state names.
         if (material == null || material == Material.AIR) {
             return false;
@@ -2088,12 +2067,12 @@ public class BlockProcessor implements Data {
                 || name.contains("PISTON_HEAD")
                 || name.contains("PISTON_EXTENSION");
     }
-    private void syncRealBlockToClient(Vector vector) {
+    void syncRealBlockToClient(Vector vector) {
         // Queues a real server block to be resent to this player.
         enqueueRealBlockSync(vector, true);
     }
 
-    private void enqueueRealBlockSync(Vector vector, boolean removeStoredGhost) {
+    void enqueueRealBlockSync(Vector vector, boolean removeStoredGhost) {
         // Adds a block coordinate to the deduplicated paced sync queue.
         if (vector == null) {
             return;
@@ -2102,7 +2081,7 @@ public class BlockProcessor implements Data {
         enqueueRealBlockSync(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ(), removeStoredGhost);
     }
 
-    private void enqueueRealBlockSync(int x, int y, int z, boolean removeStoredGhost) {
+    void enqueueRealBlockSync(int x, int y, int z, boolean removeStoredGhost) {
         // Adds a block coordinate to the deduplicated paced sync queue.
         if (!autoCorrectGhostBlocks || data.getPlayer() == null || !data.getPlayer().isOnline()) {
             return;
@@ -2121,7 +2100,7 @@ public class BlockProcessor implements Data {
         scheduleSyncFlush();
     }
 
-    private void scheduleSyncFlush() {
+    void scheduleSyncFlush() {
         if (syncFlushQueued) {
             return;
         }
@@ -2146,7 +2125,7 @@ public class BlockProcessor implements Data {
         });
     }
 
-    private void flushQueuedSyncBlocks() {
+    void flushQueuedSyncBlocks() {
         // Sends only a small number of queued block changes per flush to avoid transaction timeouts.
         Player player = data.getPlayer();
 
@@ -2156,11 +2135,6 @@ public class BlockProcessor implements Data {
         }
 
         World world = player.getWorld();
-
-        if (world == null) {
-            clearSyncQueue();
-            return;
-        }
 
         int sent = 0;
 
@@ -2182,7 +2156,7 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private SyncBlock pollQueuedSyncBlock() {
+    SyncBlock pollQueuedSyncBlock() {
         // Polls the oldest queued sync block while preserving deduplication.
         synchronized (syncQueueLock) {
             Iterator<Map.Entry<Long, SyncBlock>> iterator = queuedSyncBlocks.entrySet().iterator();
@@ -2198,19 +2172,19 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private void clearSyncQueue() {
+    void clearSyncQueue() {
         // Clears queued repairs when the player/world is unavailable.
         synchronized (syncQueueLock) {
             queuedSyncBlocks.clear();
         }
     }
 
-    private void markSelfSyncedBlock(int x, int y, int z) {
+    void markSelfSyncedBlock(int x, int y, int z) {
         // Marks a block resend so our packet listener can ignore its echo.
         selfSyncedBlocks.put(blockKey(x, y, z), blockUpdateTicks);
     }
 
-    private boolean consumeSelfSyncedBlock(int x, int y, int z) {
+    boolean consumeSelfSyncedBlock(int x, int y, int z) {
         // Consumes self-sent block update echoes to prevent repair recursion.
         Long key = blockKey(x, y, z);
         Integer storedTick = selfSyncedBlocks.remove(key);
@@ -2218,12 +2192,12 @@ public class BlockProcessor implements Data {
         return storedTick != null && blockUpdateTicks - storedTick <= SELF_SYNC_IGNORE_TICKS;
     }
 
-    private void ageSelfSyncedBlocks() {
+    void ageSelfSyncedBlocks() {
         // Expires self-sent markers after a few movement ticks.
         selfSyncedBlocks.entrySet().removeIf(entry -> blockUpdateTicks - entry.getValue() > SELF_SYNC_IGNORE_TICKS);
     }
 
-    private long blockKey(int x, int y, int z) {
+    long blockKey(int x, int y, int z) {
         // Builds a stable packed key for block coordinates.
         long key = 1469598103934665603L;
         key = (key ^ x) * 1099511628211L;
@@ -2232,7 +2206,7 @@ public class BlockProcessor implements Data {
         return key;
     }
 
-    private void sendBlockChangeCompat(Player player, Block block) {
+    void sendBlockChangeCompat(Player player, Block block) {
         // Sends the authoritative block state using modern or legacy Bukkit APIs.
         if (player == null || block == null || !player.isOnline()) {
             return;
@@ -2240,8 +2214,10 @@ public class BlockProcessor implements Data {
 
         Location location = block.getLocation();
 
-        if (location.getWorld() == null || player.getWorld() == null) {
+        if (location.getWorld() == null) {
             return;
+        } else {
+            player.getWorld();
         }
 
         if (!location.getWorld().getName().equals(player.getWorld().getName())) {
@@ -2255,7 +2231,7 @@ public class BlockProcessor implements Data {
         tryLegacySendBlockChange(player, block, location);
     }
 
-    private boolean sameBlock(Vector vector, int x, int y, int z) {
+    boolean sameBlock(Vector vector, int x, int y, int z) {
         // Compares a vector against integer block coordinates.
         return vector != null
                 && vector.getBlockX() == x
@@ -2263,7 +2239,7 @@ public class BlockProcessor implements Data {
                 && vector.getBlockZ() == z;
     }
 
-    private boolean isMovement(PacketReceiveEvent event) {
+    boolean isMovement(PacketReceiveEvent event) {
         // Checks whether a packet is a movement/flying packet.
         return event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
@@ -2271,7 +2247,7 @@ public class BlockProcessor implements Data {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
-    private boolean isAirLike(Material material) {
+    boolean isAirLike(Material material) {
         // Treats all modern air variants as air.
         if (material == null) {
             return true;
@@ -2285,7 +2261,7 @@ public class BlockProcessor implements Data {
         return name.equals("CAVE_AIR") || name.equals("VOID_AIR");
     }
 
-    private boolean isKnownGhostNear(Vector vector, double range) {
+    boolean isKnownGhostNear(Vector vector, double range) {
         // Checks whether a point is close to any stored ghostblock.
         if (vector == null) {
             return false;
@@ -2316,7 +2292,7 @@ public class BlockProcessor implements Data {
         return false;
     }
 
-    private boolean isPlayerNearAnyGhost() {
+    boolean isPlayerNearAnyGhost() {
         // Checks whether the player is close to or touching any stored ghostblock.
         synchronized (ghostBlockLock) {
             if (ghostBlocks.isEmpty()) {
@@ -2336,7 +2312,7 @@ public class BlockProcessor implements Data {
         return false;
     }
 
-    private void syncGhostInteractionArea(Vector clickedVector, Vector placedVector) {
+    void syncGhostInteractionArea(Vector clickedVector, Vector placedVector) {
         // Queues corrections around an existing ghostblock interaction.
         if (!autoCorrectGhostBlocks) {
             return;
@@ -2377,7 +2353,7 @@ public class BlockProcessor implements Data {
         this.lastGhostInteractionAreaSyncTick = 0;
     }
 
-    private boolean isVectorNear(Vector a, Vector b, double range) {
+    boolean isVectorNear(Vector a, Vector b, double range) {
         // Cheap squared-distance comparison between block vectors.
         if (a == null || b == null) {
             return false;
@@ -2390,7 +2366,7 @@ public class BlockProcessor implements Data {
         return (dx * dx) + (dy * dy) + (dz * dz) <= range * range;
     }
 
-    private void syncRealBlocksAroundPlayer(int radiusXZ, int down, int up) {
+    void syncRealBlocksAroundPlayer(int radiusXZ, int down, int up) {
         // Queues a tiny repair area around the player.
         if (!autoCorrectGhostBlocks || data.getPlayer() == null || !data.getPlayer().isOnline()) {
             return;
@@ -2416,7 +2392,7 @@ public class BlockProcessor implements Data {
                 128
         );
     }
-    private boolean isLiquidMaterial(Material material) {
+    boolean isLiquidMaterial(Material material) {
         // Detects water/lava materials.
         if (material == null) {
             return false;
@@ -2427,7 +2403,7 @@ public class BlockProcessor implements Data {
         return name.contains("WATER")
                 || name.contains("LAVA");
     }
-    private void syncCancelledPlacementArea(Vector vector) {
+    void syncCancelledPlacementArea(Vector vector) {
         // Queues a compact correction area for confirmed cancelled placements.
         if (!autoCorrectGhostBlocks) {
             return;
@@ -2479,12 +2455,12 @@ public class BlockProcessor implements Data {
 
         syncRealBlocksInBoxAsync(minX, minY, minZ, maxX, maxY, maxZ, MAX_AREA_SYNC_BLOCKS, true);
     }
-    private void syncRealBlocksInBoxAsync(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int maxBlocks) {
+    void syncRealBlocksInBoxAsync(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int maxBlocks) {
         // Queues a bounded box of real server blocks instead of sending them all immediately.
         syncRealBlocksInBoxAsync(minX, minY, minZ, maxX, maxY, maxZ, maxBlocks, false);
     }
 
-    private void syncRealBlocksInBoxAsync(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int maxBlocks, boolean force) {
+    void syncRealBlocksInBoxAsync(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int maxBlocks, boolean force) {
         // Queues a bounded box of real server blocks instead of sending them all immediately.
         if (!autoCorrectGhostBlocks || data.getPlayer() == null || !data.getPlayer().isOnline()) {
             return;
@@ -2538,19 +2514,19 @@ public class BlockProcessor implements Data {
         scheduleSyncFlush();
     }
 
-    private void syncRealBlockToClient(int x, int y, int z) {
+    void syncRealBlockToClient(int x, int y, int z) {
         // Queues a real server block to be resent to this player.
         syncRealBlockToClient(new Vector(x, y, z));
     }
 
-    private static final class SyncBlock {
+    static class SyncBlock {
 
-        private final int x;
-        private final int y;
-        private final int z;
-        private final boolean removeStoredGhost;
+        int x;
+        int y;
+        int z;
+        boolean removeStoredGhost;
 
-        private SyncBlock(int x, int y, int z, boolean removeStoredGhost) {
+        SyncBlock(int x, int y, int z, boolean removeStoredGhost) {
             // Stores one queued block correction.
             this.x = x;
             this.y = y;
@@ -2559,18 +2535,18 @@ public class BlockProcessor implements Data {
         }
     }
 
-    private static final class GhostBlock {
+    static class GhostBlock {
 
-        private final Vector position;
-        private final Material material;
-        private final String reason;
-        private final int maxTicks;
+        Vector position;
+        Material material;
+        String reason;
+        int maxTicks;
 
-        private int ticks;
-        private int interactionTicks;
-        private int syncCooldownTicks;
+        int ticks;
+        int interactionTicks;
+        int syncCooldownTicks;
 
-        private GhostBlock(Vector position, Material material, String reason, int maxTicks) {
+        GhostBlock(Vector position, Material material, String reason, int maxTicks) {
             // Stores one tracked ghostblock candidate.
             this.position = position;
             this.material = material;

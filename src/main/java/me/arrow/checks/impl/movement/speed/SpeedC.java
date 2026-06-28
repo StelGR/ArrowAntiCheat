@@ -24,13 +24,13 @@ public class SpeedC extends Check {
         super(profile, CheckType.SPEED, "C", "Checks for correct non sprint motion");
     }
 
-    private double buffer1;
+    double buffer1;
 
-    private double airLimit;
-    private double groundLimit;
+    double airLimit;
+    double groundLimit;
 
-    private final double maxBuffer1 = 13;
-    private final double resetRate1 = 0.4;
+    final double maxBuffer1 = 13;
+    final double resetRate1 = 0.4;
 
     @Override
     public void handle(PacketSendEvent event) {

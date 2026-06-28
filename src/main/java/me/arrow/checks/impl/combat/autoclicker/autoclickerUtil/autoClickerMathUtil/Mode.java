@@ -13,12 +13,7 @@ public class Mode extends AbstractStatisticFunction {
         int n = data.length;
         double[] sortedData = (data).clone();
         Arrays.sort(sortedData);
-        double[] counts = IntStream.range(0, n).mapToDouble((i) -> {
-            return (double)IntStream.range(0, n).filter((j) -> {
-                return sortedData[j] == sortedData[i];
-            }).count();
-        }).toArray();
-        double mode = Arrays.stream(counts).max().orElse(Double.NaN);
-        return mode;
+        double[] counts = IntStream.range(0, n).mapToDouble((i) -> (double)IntStream.range(0, n).filter((j) -> sortedData[j] == sortedData[i]).count()).toArray();
+        return Arrays.stream(counts).max().orElse(Double.NaN);
     }
 }

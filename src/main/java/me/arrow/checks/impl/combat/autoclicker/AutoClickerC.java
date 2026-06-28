@@ -27,7 +27,6 @@ public class AutoClickerC extends Check {
     private double cps;
     private int movements;
 
-
     List<Integer> delays = new ArrayList<>();
     double threshold;
 

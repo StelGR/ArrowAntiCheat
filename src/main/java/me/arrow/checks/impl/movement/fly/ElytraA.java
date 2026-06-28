@@ -13,8 +13,6 @@ import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.custom.SampleList;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
 
@@ -34,23 +32,23 @@ public class ElytraA extends Check {
 
     SampleList<Double> fallingSamples = new SampleList<>(30);
 
-    private int elytraTicks;
-    private int rocketBoostTicks;
-    private int rocketBoostGraceTicks;
-    private int lastRocketPower = 1;
+    int elytraTicks;
+    int rocketBoostTicks;
+    int rocketBoostGraceTicks;
+    int lastRocketPower = 1;
 
-    private int pitchUpSpeedGainTicks;
-    private int upwardNoRocketTicks;
-    private int sustainedBoostTicks;
+    int pitchUpSpeedGainTicks;
+    int upwardNoRocketTicks;
+    int sustainedBoostTicks;
 
-    private double lastElytraDeltaXZ;
-    private double lastElytraDeltaY;
+    double lastElytraDeltaXZ;
+    double lastElytraDeltaY;
 
-    private double terminalBuffer;
-    private double planeBuffer;
+    double terminalBuffer;
+    double planeBuffer;
 
-    private int possibleRocketUseTicks;
-    private int rocketInferenceCooldownTicks;
+    int possibleRocketUseTicks;
+    int rocketInferenceCooldownTicks;
 
     @Override
     public void handle(PacketSendEvent event) {
@@ -217,19 +215,14 @@ public class ElytraA extends Check {
          * negative = looking upward
          * positive = looking downward
          */
-        double absPitch = Math.abs(pitch);
         boolean lookingUp = pitch < -12.5D;
         boolean lookingDown = pitch > 12.5D;
-        boolean roughlyLevel = absPitch <= 12.5D;
 
         double allowedHorizontal = getAllowedElytraHorizontalSpeed(pitch, deltaY);
         double allowedUpward = getAllowedElytraUpwardSpeed(pitch);
 
         if (hasRocketBoost()) {
             switch (lastRocketPower) {
-                case 1:
-                    allowedHorizontal += 2.45D;
-                    break;
                 case 2:
                     allowedHorizontal += 2.85D;
                     break;
@@ -484,16 +477,11 @@ public class ElytraA extends Check {
     }
 
     private int getRocketBoostDuration(int power) {
-        switch (Math.max(1, Math.min(3, power))) {
-            case 1:
-                return 34;
-            case 2:
-                return 46;
-            case 3:
-                return 58;
-            default:
-                return 34;
-        }
+        return switch (Math.max(1, Math.min(3, power))) {
+            case 2 -> 46;
+            case 3 -> 58;
+            default -> 34;
+        };
     }
 
     private double getRocketUpwardAllowance(double pitch) {
@@ -521,7 +509,7 @@ public class ElytraA extends Check {
     }
 
     private boolean isFirework(ItemStack item) {
-        if (item == null || item.getType() == null) {
+        if (item == null) {
             return false;
         }
 
@@ -545,6 +533,7 @@ public class ElytraA extends Check {
 
         try {
             Object meta = item.getItemMeta();
+            assert meta != null;
             Object power = meta.getClass().getMethod("getPower").invoke(meta);
 
             if (power instanceof Number number) {

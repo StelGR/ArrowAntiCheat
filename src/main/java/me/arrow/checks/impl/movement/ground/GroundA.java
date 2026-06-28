@@ -71,7 +71,6 @@ public class GroundA extends Check {
                     && !movementData.isMovingUp()
                     && movementData.getSincePredictDownwardsTicks() < 10
                     && movementData.getSincePredictUpwardsTicks() < 10
-                    && movementData.getCustomAirTicks() >= 2
                     && !profile.isBedrockPlayer();
 
             if (invalid1 || invalid2

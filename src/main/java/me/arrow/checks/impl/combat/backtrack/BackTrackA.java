@@ -31,19 +31,18 @@ public class BackTrackA extends Check {
 
     }
 
-    private static final int SAFE_SAMPLES = 50;
-    private static final int SAMPLES_NEEDED = 100;
+    int SAFE_SAMPLES = 50;
+    int SAMPLES_NEEDED = 100;
 
-    private static final boolean SAFE_MODE = true;
-    private static final double MAX_BUFFER = 4.0D;
+    boolean SAFE_MODE = true;
+    double MAX_BUFFER = 4.0D;
 
-    private static final double DIFF_REQ_CHECK_2 = 75.0D;
+    double DIFF_REQ_CHECK_2 = 75.0D;
 
-    private final Deque<Long> transPingCombat = new ArrayDeque<>(SAMPLES_NEEDED);
-    private final Deque<Long> transPingNoCombat = new ArrayDeque<>(SAMPLES_NEEDED);
+    Deque<Long> transPingCombat = new ArrayDeque<>(SAMPLES_NEEDED);
+    Deque<Long> transPingNoCombat = new ArrayDeque<>(SAMPLES_NEEDED);
 
-
-    private double buffer2;
+    double buffer2;
 
     @Override
     public void handle(PacketReceiveEvent event) {

@@ -10,9 +10,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 public class Variance extends AbstractStatisticFunction {
-    private final StatisticFunction m1 = new Mean();
-    private final DoubleObjFunction<double[]> meanEvaluatorFunc;
-    private final DoubleBiFunction<double[], Optional<Double>> innerVarianceFunc;
+    StatisticFunction m1 = new Mean();
+    DoubleObjFunction<double[]> meanEvaluatorFunc;
+    DoubleBiFunction<double[], Optional<Double>> innerVarianceFunc;
 
     public Variance() {
         StatisticFunction var10001 = this.m1;
@@ -20,7 +20,7 @@ public class Variance extends AbstractStatisticFunction {
         this.meanEvaluatorFunc = var10001::evaluate;
         this.innerVarianceFunc = (data, meanOpt) -> {
             int n = data.length;
-            double mean = (Double)meanOpt.orElse(this.meanEvaluatorFunc.apply(data));
+            double mean = meanOpt.orElse(this.meanEvaluatorFunc.apply(data));
             double variance = Arrays.stream(data).map((value) -> this.square(value - mean)).sum();
             variance /= this.biasCorrection ? (double)(n - 1) : (double)n;
             return variance;

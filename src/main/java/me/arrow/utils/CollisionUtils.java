@@ -4,7 +4,7 @@ import lombok.Getter;
 import me.arrow.Arrow;
 import me.arrow.nms.NmsInstance;
 import me.arrow.utils.custom.CustomLocation;
-import me.arrow.utils.custom.MaterialType;
+import me.arrow.utils.custom.materials.MaterialType;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 

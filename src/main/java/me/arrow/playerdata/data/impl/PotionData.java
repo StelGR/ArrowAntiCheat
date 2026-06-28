@@ -8,7 +8,6 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.custom.PotionType;
 import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
 
@@ -82,7 +81,7 @@ public class PotionData implements Data {
 
         try {
             for (PotionEffect effect : profile.getPlayer().getActivePotionEffects()) {
-                if (effect == null || effect.getType() == null) {
+                if (effect == null) {
                     continue;
                 }
 

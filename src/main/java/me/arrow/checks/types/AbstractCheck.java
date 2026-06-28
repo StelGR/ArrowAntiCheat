@@ -10,7 +10,6 @@ import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckCategory;
 import me.arrow.checks.enums.CheckMode;
 import me.arrow.checks.enums.CheckType;
-import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.files.commentedfiles.CommentedFileConfiguration;
 import me.arrow.managers.profile.Profile;
@@ -210,7 +209,7 @@ public abstract class AbstractCheck {
             });
 
             if (!started) {
-                return;
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ban Animation finished");
             }
         }
         else if (this.vl > this.maxVl

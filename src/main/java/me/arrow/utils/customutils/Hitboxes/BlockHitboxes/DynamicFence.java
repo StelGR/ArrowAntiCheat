@@ -1,7 +1,7 @@
 package me.arrow.utils.customutils.Hitboxes.BlockHitboxes;
 
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
-import me.arrow.utils.custom.MaterialType;
+import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.CollisionFactory;
 import me.arrow.utils.customutils.Hitboxes.CollisionBox;
 import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.ComplexCollisionBox;

@@ -12,9 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class CommentedConfigurationSection implements ConfigurationSection {
 
@@ -53,8 +51,7 @@ public class CommentedConfigurationSection implements ConfigurationSection {
         Object value = this.get(path);
         if (value instanceof Boolean) {
             return (Boolean) value;
-        } else if (value instanceof String) {
-            String stringValue = (String) value;
+        } else if (value instanceof String stringValue) {
             if (stringValue.equalsIgnoreCase("default"))
                 return null;
         }
@@ -84,18 +81,9 @@ public class CommentedConfigurationSection implements ConfigurationSection {
      */
     @Override
     public boolean contains(@NotNull String s, boolean b) {
-        return false;
+        return this.config.contains(s, b);
     }
 
-//    @Override
-//    public boolean contains(@NotNull String s, boolean b) {
-//        return false;
-//    }
-//
-//    @Override
-//    public boolean contains(String s, boolean b) {
-//        return this.config.contains(s, b);
-//    }
 
     @Override
     public boolean isSet(@NotNull String s) {
@@ -291,74 +279,28 @@ public class CommentedConfigurationSection implements ConfigurationSection {
      */
     @Override
     public @Nullable <T> T getObject(@NotNull String s, @NotNull Class<T> aClass) {
-        return null;
+        return this.config.getObject(s, aClass);
     }
 
     /**
      */
     @Override
     public @Nullable <T> T getObject(@NotNull String s, @NotNull Class<T> aClass, @Nullable T t) {
-        return null;
+        return this.config.getObject(s, aClass, t);
     }
 
     /**
      */
     @Override
     public @Nullable <T extends ConfigurationSerializable> T getSerializable(@NotNull String s, @NotNull Class<T> aClass) {
-        return null;
+        return this.config.getSerializable(s, aClass);
     }
 
-    /**
-     * @return
-     */
     @Override
     public @Nullable <T extends ConfigurationSerializable> T getSerializable(@NotNull String s, @NotNull Class<T> aClass, @Nullable T t) {
-        return null;
+        return this.config.getSerializable(s, aClass, t);
     }
 
-//    @Nullable
-//    @Override
-//    public <T> T getObject(@NotNull String s, @NotNull Class<T> aClass) {
-//        return null;
-//    }
-//
-//    @Nullable
-//    @Override
-//    public <T> T getObject(@NotNull String s, @NotNull Class<T> aClass, @Nullable T t) {
-//        return null;
-//    }
-//
-//    @Nullable
-//    @Override
-//    public <T extends ConfigurationSerializable> T getSerializable(@NotNull String s, @NotNull Class<T> aClass) {
-//        return null;
-//    }
-//
-//    @Nullable
-//    @Override
-//    public <T extends ConfigurationSerializable> T getSerializable(@NotNull String s, @NotNull Class<T> aClass, @Nullable T t) {
-//        return null;
-//    }
-//
-//    @Override
-//    public <T> T getObject(String s, Class<T> aClass) {
-//        return this.config.getObject(s, aClass);
-//    }
-//
-//    @Override
-//    public <T> T getObject(String s, Class<T> aClass, T t) {
-//        return this.config.getObject(s, aClass, t);
-//    }
-//
-//    @Override
-//    public <T extends ConfigurationSerializable> T getSerializable(String s, Class<T> aClass) {
-//        return this.config.getSerializable(s, aClass);
-//    }
-//
-//    @Override
-//    public <T extends ConfigurationSerializable> T getSerializable(String s, Class<T> aClass, T t) {
-//        return this.config.getSerializable(s, aClass, t);
-//    }
 
     @Override
     public Vector getVector(@NotNull String s) {
@@ -386,102 +328,57 @@ public class CommentedConfigurationSection implements ConfigurationSection {
     }
 
     @Override
-    public boolean isOfflinePlayer(String s) {
+    public boolean isOfflinePlayer(@NotNull String s) {
         return this.config.isOfflinePlayer(s);
     }
 
     @Override
-    public ItemStack getItemStack(String s) {
+    public ItemStack getItemStack(@NotNull String s) {
         return this.config.getItemStack(s);
     }
 
     @Override
-    public ItemStack getItemStack(String s, ItemStack itemStack) {
+    public ItemStack getItemStack(@NotNull String s, ItemStack itemStack) {
         return this.config.getItemStack(s, itemStack);
     }
 
     @Override
-    public boolean isItemStack(String s) {
+    public boolean isItemStack(@NotNull String s) {
         return this.config.isItemStack(s);
     }
 
     @Override
-    public Color getColor(String s) {
+    public Color getColor(@NotNull String s) {
         return this.config.getColor(s);
     }
 
     @Override
-    public Color getColor(String s, Color color) {
+    public Color getColor(@NotNull String s, Color color) {
         return this.config.getColor(s, color);
     }
 
     @Override
-    public boolean isColor(String s) {
+    public boolean isColor(@NotNull String s) {
         return this.config.isColor(s);
     }
 
-    /**
-     * @param s
-     * @return
-     */
     @Override
     public @Nullable Location getLocation(@NotNull String s) {
-        return null;
+        return this.config.getLocation(s);
     }
 
-    /**
-     * @param s
-     * @param location
-     * @return
-     */
     @Override
     public @Nullable Location getLocation(@NotNull String s, @Nullable Location location) {
-        return null;
+        return this.config.getLocation(s, location);
     }
 
-    /**
-     * @param s
-     * @return
-     */
     @Override
     public boolean isLocation(@NotNull String s) {
-        return false;
+        return this.config.isLocation(s);
     }
 
-//    @Nullable
-//    @Override
-//    public Location getLocation(@NotNull String s) {
-//        return null;
-//    }
-//
-//    @Nullable
-//    @Override
-//    public Location getLocation(@NotNull String s, @Nullable Location location) {
-//        return null;
-//    }
-//
-//    @Override
-//    public boolean isLocation(@NotNull String s) {
-//        return false;
-//    }
-//
-//    @Override
-//    public Location getLocation(String path) {
-//        return this.getSerializable(path, Location.class);
-//    }
-//
-//    @Override
-//    public Location getLocation(String path, Location def) {
-//        return this.getSerializable(path, Location.class, def);
-//    }
-//
-//    @Override
-//    public boolean isLocation(String path) {
-//        return this.getSerializable(path, Location.class) != null;
-//    }
-
     @Override
-    public CommentedConfigurationSection getConfigurationSection(String s) {
+    public CommentedConfigurationSection getConfigurationSection(@NotNull String s) {
         ConfigurationSection section = this.config.getConfigurationSection(s);
         if (section == null)
             return this.createSection(s);
@@ -490,7 +387,7 @@ public class CommentedConfigurationSection implements ConfigurationSection {
     }
 
     @Override
-    public boolean isConfigurationSection(String s) {
+    public boolean isConfigurationSection(@NotNull String s) {
         return this.config.isConfigurationSection(s);
     }
 
@@ -500,84 +397,31 @@ public class CommentedConfigurationSection implements ConfigurationSection {
     }
 
     @Override
-    public void addDefault(String s, Object o) {
+    public void addDefault(@NotNull String s, Object o) {
         this.config.addDefault(s, o);
     }
 
-    /**
-     * @param s
-     * @return
-     */
+
     @Override
     public @NotNull List<String> getComments(@NotNull String s) {
-        return null;
+        return this.config.getComments(s);
     }
 
-    /**
-     * @param s
-     * @return
-     */
+
     @Override
     public @NotNull List<String> getInlineComments(@NotNull String s) {
-        return null;
+        return this.config.getInlineComments(s);
     }
 
-    /**
-     * @param s
-     * @param list
-     */
+
     @Override
     public void setComments(@NotNull String s, @Nullable List<String> list) {
-
+        this.config.setComments(s, list);
     }
 
-    /**
-     * @param s
-     * @param list
-     */
+
     @Override
     public void setInlineComments(@NotNull String s, @Nullable List<String> list) {
-
+        this.config.setInlineComments(s, list);
     }
-
-//    @NotNull
-//    @Override
-//    public List<String> getComments(@NotNull String s) {
-//        return null;
-//    }
-//
-//    @NotNull
-//    @Override
-//    public List<String> getInlineComments(@NotNull String s) {
-//        return null;
-//    }
-//
-//    @Override
-//    public void setComments(@NotNull String s, @Nullable List<String> list) {
-//
-//    }
-//
-//    @Override
-//    public void setInlineComments(@NotNull String s, @Nullable List<String> list) {
-//
-//    }
-
-//    @Override
-//    public List<String> getComments(String path) {
-//        return null;
-//    }
-//
-//    @Override
-//    public List<String> getInlineComments(String path) {
-//        return null;
-//    }
-//
-//    @Override
-//    public void setComments(String path, List<String> comments) {
-//    }
-//
-//    @Override
-//    public void setInlineComments(String path, List<String> comments) {
-//    }
-
 }

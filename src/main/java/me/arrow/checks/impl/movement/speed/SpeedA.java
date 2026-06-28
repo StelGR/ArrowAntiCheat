@@ -4,13 +4,11 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.enums.CheckType;
-import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
-import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.VelocityData;
 import me.arrow.utils.MoveUtils;
@@ -46,7 +44,6 @@ public class SpeedA extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
             MovementData movementData = profile.getMovementData();
             VelocityData velocityData = profile.getVelocityData();
-            ActionData actionData = profile.getActionData();
 
             double deltaXZ = movementData.getDeltaXZ();
             double deltaY = movementData.getDeltaY();
@@ -55,10 +52,8 @@ public class SpeedA extends Check {
 
             boolean serverGround = movementData.isServerGround();
             boolean clientGround = movementData.isOnGround();
-            boolean sprinting = actionData.isSprinting();
             int clientAirTicks = movementData.getClientAirTicks();
             int serverGroundTicks = movementData.getServerGroundTicks();
-            int serverAirTicks = movementData.getCustomAirTicks();
             double movingSlimeTicks = movementData.getMovingOnSlimeTicks();
             int movingHoneyTicks = movementData.getMovingOnHoneyTicks();
             float movingIceTicks = movementData.getMovingOnIceTicks();
@@ -155,11 +150,6 @@ public class SpeedA extends Check {
             return;
         }
 
-//        if (profile.getBlockData().isSoulsand()) {
-//            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - soulsand");
-//            return;
-//        }
-
         if (movementData.getMovingOnSlimeTicks() > 0) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - collideSlime");
             return;
@@ -170,20 +160,12 @@ public class SpeedA extends Check {
             return;
         }
 
-        float yaw = profile.getRotationData().getYaw();
-        double deltaX = movementData.getDeltaX();
-        double deltaZ = movementData.getDeltaZ();
-
-        //double extraFromBlocks = (profile.getBlockData().slabTicks > 0 || profile.getBlockData().stairTicks > 0) ? 0.475D : 0.0D;
 
         double predicted = deltaXZ * blockFriction;
 
         double iceBoost = SpeedUtilities.getIceSpeedBoost(GROUND_ICE_INCREMENT_PER_TICK, movingIceTicks, GROUND_MAX_ICE_SPEED_BOOST);
 
         double groundLimit = SpeedUtilities.computeGroundLimit(profile, velocityData, blockFriction, iceBoost, SPRINT_BASE, NO_SPRINT_BASE, DEFAULT_BASE_PER_TICK);
-
-        MovementPredictionUtil.DirectionalMovement inputDirection =
-                MovementPredictionUtil.predictDirectionalMovement(deltaX, deltaZ, yaw);
 
         double frictionMultiplier = SpeedUtilities.friction(blockFriction);
         double allowedLimit = groundLimit * DIAGONAL_TOLERANCE * frictionMultiplier;
@@ -192,14 +174,10 @@ public class SpeedA extends Check {
         double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
         if (movementData.isInsideWater()) allowedLimit += depthStriderBoost; // apply always if in water
 
-//        if (profile.getPotionData().isHasSpeed() && inputDirection.isForwardStrafe()) {
-//            allowedLimit += 0.00065;
-//        }
-
         allowedLimit += movementData.getDolphinGraceBoost();
 
         if (movementData.getSinceCollideTicks() < 12 + profile.getConnectionData().getClientTickTrans() ) {
-            allowedLimit += 0.12;
+            allowedLimit += 0.0275;
         }
 
         allowedLimit += movementData.elytraMomentum();
@@ -410,15 +388,15 @@ public class SpeedA extends Check {
         double expected2 = 0.33319999363422426D;
 
         if (clientAirTicks == 2 && Math.abs(deltaY - expected2) < 1E-6) {
-            expectedSpeed += speedLevel > 0 ? (0.0096 + (0.008D * speedLevel)) : 0.0096;
-            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.01225 : 0;
+            expectedSpeed += speedLevel > 0 ? (0.009525 + (0.008D * speedLevel)) : 0.009525;
+            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.012225 : 0;
         }
 
         double expected3 = 0.24813599859094637D;
 
         if (clientAirTicks == 3 && Math.abs(deltaY - expected3) < 1E-6) {
-            expectedSpeed += speedLevel > 0 ? (0.0075 + (0.008D * speedLevel)) : 0.0075;
-            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.0095 : 0;
+            expectedSpeed += speedLevel > 0 ? (0.00725 + (0.008D * speedLevel)) : 0.00725;
+            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.00925 : 0;
         }
 
 
@@ -427,7 +405,7 @@ public class SpeedA extends Check {
         }
 
         if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2) ) {
-            expectedSpeed += 0.20;
+            expectedSpeed += 0.125;
         }
 
         if (movementData.getSinceMovingOnIceTicks() > 0 && movementData.getSinceMovingOnIceTicks() < 120) {
@@ -488,7 +466,7 @@ public class SpeedA extends Check {
                 && !serverGround) {
 
             double difference = deltaXZ - expectedSpeed;
-            double bufferAmount = 4;
+            double bufferAmount = 3;
 
             if (difference > 0.7) bufferAmount = 0;
             if (++airBuffer > bufferAmount) {

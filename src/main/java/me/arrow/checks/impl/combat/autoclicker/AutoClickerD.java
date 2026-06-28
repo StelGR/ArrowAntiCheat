@@ -17,15 +17,13 @@ import static me.arrow.utils.customutils.Math.MathUtil.getStandardDeviation;
 @Experimental
 public class AutoClickerD extends Check {
 
-    private final Deque<Double> samples = new ArrayDeque<>();
+    final Deque<Double> samples = new ArrayDeque<>();
 
-
-    private double threshold;
-
-    private static final int SAMPLE_SIZE = 75;
-    private static final double MIN_CPS = 9.0D;
-    private static final double MIN_ENTROPY = 0.635D;
-    private static final double MIN_DEVIATION = 0.5D;
+    double threshold;
+    int SAMPLE_SIZE = 75;
+    double MIN_CPS = 9.0D;
+    double MIN_ENTROPY = 0.635D;
+    double MIN_DEVIATION = 0.5D;
 
     public AutoClickerD(Profile profile) {
         super(profile, CheckType.AUTOCLICKER, "D", "Checks for low click randomization");

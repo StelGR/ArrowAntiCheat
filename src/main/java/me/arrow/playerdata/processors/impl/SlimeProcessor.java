@@ -26,21 +26,21 @@ public class SlimeProcessor {
     }
 
     // ---- Tunables (adjust to taste) ----
-    private final double BOUNCE_HEIGHT_RATIO = 0.60;      // vanilla-ish small-fall ratio
-    private final double BOUNCE_VELOCITY_FACTOR = Math.sqrt(BOUNCE_HEIGHT_RATIO);
-    private final double EPS_FALL = 0.03;                 // lastDeltaY < -EPS_FALL considered falling
-    private final double EPS_UP = 0.01;                   // deltaY > EPS_UP considered moving up
-    private final float MIN_MEANINGFUL_FALL = 0.01f;      // ignore tiny falls
-    private final float MIN_FALLDIST_FOR_FALL = 0.2f;     // lastFallDistance > this => considered falling
-    private final float MAX_JUMP_FALL_DISTANCE = 0.15f;   // small fall => probably normal jump
-    private final double VELOCITY_ALLOWANCE = 0.02;       // tolerance for numeric noise in velocities
-    private final double RISE_ALLOWANCE = 0.05;           // tolerance (meters/blocks) for predicted rise
+    double BOUNCE_HEIGHT_RATIO = 0.60;      // vanilla-ish small-fall ratio
+    double BOUNCE_VELOCITY_FACTOR = Math.sqrt(BOUNCE_HEIGHT_RATIO);
+    double EPS_FALL = 0.03;                 // lastDeltaY < -EPS_FALL considered falling
+    double EPS_UP = 0.01;                   // deltaY > EPS_UP considered moving up
+    float MIN_MEANINGFUL_FALL = 0.01f;      // ignore tiny falls
+    float MIN_FALLDIST_FOR_FALL = 0.2f;     // lastFallDistance > this => considered falling
+    float MAX_JUMP_FALL_DISTANCE = 0.15f;   // small fall => probably normal jump
+    double VELOCITY_ALLOWANCE = 0.02;       // tolerance for numeric noise in velocities
+    double RISE_ALLOWANCE = 0.05;           // tolerance (meters/blocks) for predicted rise
     private final int MAX_SIM_TICKS = 200;                // safety cap for apex simulation
 
     // Vanilla-ish per-tick constants used for short simulation to predict apex / rise.
     // These are approximations (minecraft motionY changes per tick roughly by gravity and drag).
     private final double VANILLA_GRAVITY = 0.08;
-    private final double VANILLA_DRAG = 0.98;
+    double VANILLA_DRAG = 0.98;
 
     // Per-instance sessions map (not static).
     private final Map<UUID, BounceSession> sessions = new ConcurrentHashMap<>();
@@ -67,7 +67,6 @@ public class SlimeProcessor {
      * Call this every packet / movement update.
      * Returns true while the player is considered to be in a proper slime bounce (from the initial
      * rising tick until apex/stop-climbing), subject to the checks described above.
-     *
      * This method does not mutate MovementData or PotionData.
      */
     public boolean isBouncing(MovementData md, PotionData pd) {
@@ -120,27 +119,15 @@ public class SlimeProcessor {
             if (deltaY > EPS_UP) {
                 session.remainingTicks = Math.max(0, session.remainingTicks - 1);
                 // still rising -> still bouncing (even if remainingTicks reaches 0 we keep one final tick tolerance)
-                if (session.remainingTicks <= 0) {
-                    // if the player still has positive deltaY, keep one last tick; otherwise finish
-                    if (deltaY > EPS_UP) {
-                        // let it remain true this tick, but expire next call if no upward motion
-                        sessions.put(key, session);
-                        return true;
-                    } else {
-                        sessions.remove(key);
-                        return false;
-                    }
-                } else {
-                    sessions.put(key, session);
-                    return true;
-                }
+                sessions.put(key, session);
+                return true;
             }
 
             // Not currently moving up:
             // - if we had started rising earlier, allow the session to linger for remainingTicks (tolerance)
             if (session.startedRising && session.remainingTicks > 0) {
                 session.remainingTicks = Math.max(0, session.remainingTicks - 1);
-                if (session.remainingTicks <= 0) {
+                if (session.remainingTicks == 0) {
                     sessions.remove(key);
                     return false;
                 } else {
@@ -250,9 +237,9 @@ public class SlimeProcessor {
     // ---- Helpers ----
 
     // Small result object for simulation
-    private static final class SimulationResult {
-        final int ticksToApex;
-        final double predictedRise;
+    private static class SimulationResult {
+        int ticksToApex;
+        double predictedRise;
         SimulationResult(int ticksToApex, double predictedRise) {
             this.ticksToApex = ticksToApex;
             this.predictedRise = predictedRise;

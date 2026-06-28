@@ -11,7 +11,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
-import me.arrow.utils.custom.MaterialType;
+import me.arrow.utils.custom.materials.MaterialType;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -130,11 +130,6 @@ public class PhaseA extends Check {
 
         if (desync.shouldExempt()) {
             syncDesync(desync);
-
-//            if (desync.shouldSetback()) {
-//                profile.getMovementData().getSetbackProcessor().causeSetBack(this.getClass().getSimpleName());
-//            }
-
             decay();
             return;
         }
@@ -771,7 +766,7 @@ public class PhaseA extends Check {
 
         private boolean clientOnlyBlock;
         private boolean serverOnlyBlock;
-        private boolean insideServerOnlyBlock;
+        boolean insideServerOnlyBlock;
         private boolean physicsMismatch;
         private boolean pendingLagCompensated;
         private boolean unknownClientChunk;
@@ -790,10 +785,6 @@ public class PhaseA extends Check {
                     || physicsMismatch
                     || pendingLagCompensated
                     || unknownClientChunk;
-        }
-
-        private boolean shouldSetback() {
-            return onGhostBlock || insideServerOnlyBlock;
         }
     }
 

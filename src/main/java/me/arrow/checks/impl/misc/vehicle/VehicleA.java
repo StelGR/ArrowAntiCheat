@@ -121,7 +121,6 @@ public class VehicleA extends Check {
 
         final boolean onIce = movementData.isOnIce() || movementData.getSinceMovingOnIceTicks() < 6;
         final boolean onSlime = movementData.isOnSlime() || movementData.isOnExtendedHitboxSlime() || movementData.getSinceMovingOnSlimeTicks() < 6;
-        final boolean nearBubble = movementData.isNearBubble();
 
         final boolean teleportRecent = movementData.getSinceTeleportTicks() <= 5;
         final boolean riptide = movementData.isRiptiding() || movementData.getSinceRiptidingTicks() <= 5;
@@ -309,8 +308,10 @@ public class VehicleA extends Check {
     }
 
     private boolean isWaterLike(Block block) {
-        if (block == null || block.getType() == null) {
+        if (block == null) {
             return false;
+        } else {
+            block.getType();
         }
 
         final String name = block.getType().name();

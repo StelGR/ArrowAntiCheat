@@ -1,5 +1,6 @@
 package me.arrow.managers.logs;
 
+import lombok.Getter;
 import me.arrow.files.Config;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -31,11 +32,12 @@ public abstract class LogExporter {
 
     public abstract PagedLogs getLogsForPlayer(String player, int page, int perPage);
 
+    @Getter
     public static class PagedLogs {
-        private final List<PlayerLog> logs;
-        private final int totalLogs;
-        private final int page;
-        private final int maxPages;
+        List<PlayerLog> logs;
+        int totalLogs;
+        int page;
+        int maxPages;
 
         public PagedLogs(List<PlayerLog> logs, int totalLogs, int page, int maxPages) {
             this.logs = logs;
@@ -44,20 +46,5 @@ public abstract class LogExporter {
             this.maxPages = maxPages;
         }
 
-        public List<PlayerLog> getLogs() {
-            return logs;
-        }
-
-        public int getTotalLogs() {
-            return totalLogs;
-        }
-
-        public int getPage() {
-            return page;
-        }
-
-        public int getMaxPages() {
-            return maxPages;
-        }
     }
 }

@@ -1,7 +1,6 @@
 package me.arrow.managers.themes;
 
 import lombok.Getter;
-import me.arrow.Arrow;
 import me.arrow.files.Config;
 import me.arrow.managers.Initializer;
 import me.arrow.managers.themes.impl.ArrowTheme;

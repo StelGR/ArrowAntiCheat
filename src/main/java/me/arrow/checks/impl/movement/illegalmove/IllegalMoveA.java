@@ -57,15 +57,7 @@ public class IllegalMoveA extends Check {
                 return;
             }
 
-            int ghostLiquidWebTicks = Math.min(
-                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-            );
 
-            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion F: is Exempting (ghostblock liquid/web/pending physics place)");
-                return;
-            }
 
             double deltaY = movementData.getDeltaY();
             double deltaXZ = movementData.getDeltaXZ();
@@ -82,26 +74,7 @@ public class IllegalMoveA extends Check {
             // checking for velocity here, is very useless, also i think jump ampliefier math is wrong
             // i haven't seen a false though
 
-            double stepHeight = 0.5975D;
 
-            if (profile.getPotionData().isHasJump()) stepHeight += (profile.getPotionData().getJumpAmplifier() * 0.1F);
-
-            if (deltaY > stepHeight
-                    && movementData.isNearWall()
-                    && !profile.isBouncingOnSlime()
-                    && !profile.isExempt().isTeleports()
-                    && movementData.getSincePowderSnowTicks() > 20
-                    && !(movementData.isOnBoat()
-                    || movementData.isNearBoat())
-                    && !movementData.isNearLava()
-                    && !movementData.isNearWater()
-                    && !profile.getVelocityData().isTakingVelocity()
-                    && movementData.getSinceRiptidingTicks() > 15
-                    && !profile.isBouncingOnSlime()
-                    && movementData.getSinceGlidingTicks() > 15) {
-                verbose(this.getClass().getSimpleName(),deltaY, 1.0, data);
-                fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
-            }
 
             double air_speedMultiplier = SpeedUtilities.getPotionSpeedAirMultiplier(profile);
 
@@ -122,6 +95,41 @@ public class IllegalMoveA extends Check {
             }
 
             verbose(this.getClass().getSimpleName(), deltaY, 1, data);
+
+
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
+
+            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion F: is Exempting (ghostblock liquid/web/pending physics place)");
+                return;
+            }
+
+            double stepHeight;
+
+            if (movementData.isNearStepMaterial()) stepHeight = 0.5975D;
+            else stepHeight = 0.49;
+
+            if (profile.getPotionData().isHasJump()) stepHeight += (profile.getPotionData().getJumpAmplifier() * 0.1F);
+
+            if (deltaY > stepHeight
+                    && (movementData.isNearWall())
+                    && !profile.isBouncingOnSlime()
+                    && !profile.isExempt().isTeleports()
+                    && movementData.getSincePowderSnowTicks() > 20
+                    && !(movementData.isOnBoat()
+                    || movementData.isNearBoat())
+                    && !movementData.isNearLava()
+                    && !movementData.isNearWater()
+                    && !profile.getVelocityData().isTakingVelocity()
+                    && movementData.getSinceRiptidingTicks() > 15
+                    && !profile.isBouncingOnSlime()
+                    && movementData.getSinceGlidingTicks() > 15) {
+                verbose(this.getClass().getSimpleName(),deltaY, 1.0, data);
+                fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
+            }
         }
     }
 }

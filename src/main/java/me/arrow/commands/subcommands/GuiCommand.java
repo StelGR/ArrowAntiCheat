@@ -9,7 +9,7 @@ import org.bukkit.entity.Player;
 public class GuiCommand extends SubCommand {
 
 
-    private final Arrow plugin;
+    Arrow plugin;
 
     public GuiCommand(Arrow plugin) {
         this.plugin = plugin;

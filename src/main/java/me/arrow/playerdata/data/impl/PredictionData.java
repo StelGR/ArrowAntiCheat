@@ -11,7 +11,7 @@ import lombok.Setter;
 import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
-import me.arrow.utils.custom.MaterialType;
+import me.arrow.utils.custom.materials.MaterialType;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;

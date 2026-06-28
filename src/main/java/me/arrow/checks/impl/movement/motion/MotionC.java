@@ -3,7 +3,6 @@ package me.arrow.checks.impl.movement.motion;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -93,7 +92,6 @@ public class MotionC extends Check {
                     : 0;
 
             int clientTickTrans = profile.getConnectionData().getClientTickTrans();
-            int transPing = profile.getConnectionData().getTransPing();
             int clientAirTicks = movementData.getClientAirTicks();
             double deltaY = movementData.getDeltaY();
             double deltaXZ = movementData.getDeltaXZ();

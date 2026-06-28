@@ -1,6 +1,14 @@
-package me.arrow.utils.custom;
+package me.arrow.utils.custom.materials;
 
 import lombok.Getter;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 //This is my material class, that adds the material names for all mc versions, please save me
 
@@ -333,6 +341,292 @@ public enum MaterialType {
 
     MaterialType(String... values) {
         this.values = values;
+    }
+
+    private static final Object NO_TAG = new Object();
+
+    private static final Map<String, Object> TAG_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Boolean> TAG_RESULT_CACHE = new ConcurrentHashMap<>();
+
+    public static boolean isStair(Block block) {
+        return block != null && isStair(block.getType());
+    }
+
+    public static boolean isStair(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "STAIRS")) return true;
+
+        String name = material.name();
+
+        // Future-proof:
+        // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
+        return name.endsWith("_STAIRS")
+                || isMaterial(name, MaterialType.STAIRS);
+    }
+
+    public static boolean isFence(Block block) {
+        return block != null && isFence(block.getType());
+    }
+
+    public static boolean isFence(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "FENCES", "WOODEN_FENCES")) return true;
+
+        String name = material.name();
+
+        // Future-proof:
+        // OAK_FENCE, CHERRY_FENCE, WHITE_WOOL_FENCE, etc.
+        // Does NOT match OAK_FENCE_GATE because that ends with _FENCE_GATE.
+        return name.endsWith("_FENCE")
+                || name.equals("FENCE")
+                || name.equals("NETHER_FENCE")
+                || name.equals("IRON_FENCE")
+                || isMaterial(name, MaterialType.FENCE);
+    }
+
+    public static boolean isFenceGate(Block block) {
+        return block != null && isFenceGate(block.getType());
+    }
+
+    public static boolean isFenceGate(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "FENCE_GATES")) return true;
+
+        String name = material.name();
+
+        return name.endsWith("_FENCE_GATE")
+                || name.equals("FENCE_GATE");
+    }
+
+    public static boolean isWall(Block block) {
+        return block != null && isWall(block.getType());
+    }
+
+    public static boolean isWall(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "WALLS")) return true;
+
+        String name = material.name();
+
+        // Future-proof:
+        // COBBLESTONE_WALL, TUFF_WALL, WHITE_WOOL_WALL, etc.
+        return name.endsWith("_WALL")
+                || name.equals("COBBLE_WALL")
+                || isMaterial(name, MaterialType.WALL);
+    }
+
+    public static boolean isSlab(Block block) {
+        return block != null && isSlab(block.getType());
+    }
+
+    public static boolean isSlab(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "SLABS", "WOODEN_SLABS")) return true;
+
+        String name = material.name();
+
+        return name.endsWith("_SLAB")
+                || name.equals("STEP")
+                || name.equals("WOODEN_SLAB")
+                || name.equals("STONE_SLAB2")
+                || isMaterial(name, MaterialType.SLAB);
+    }
+
+    public static boolean isDoor(Block block) {
+        return block != null && isDoor(block.getType());
+    }
+
+    public static boolean isDoor(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "DOORS", "WOODEN_DOORS")) return true;
+
+        String name = material.name();
+
+        return name.endsWith("_DOOR")
+                || name.equals("WOODEN_DOOR")
+                || name.equals("IRON_DOOR_BLOCK")
+                || isMaterial(name, MaterialType.DOOR);
+    }
+
+    public static boolean isTrapdoor(Block block) {
+        return block != null && isTrapdoor(block.getType());
+    }
+
+    public static boolean isTrapdoor(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "TRAPDOORS", "WOODEN_TRAPDOORS")) return true;
+
+        String name = material.name();
+
+        return name.endsWith("_TRAPDOOR")
+                || name.equals("TRAP_DOOR")
+                || isMaterial(name, MaterialType.TRAPDOOR);
+    }
+
+    public static boolean isPane(Block block) {
+        return block != null && isPane(block.getType());
+    }
+
+    public static boolean isPane(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "GLASS_PANES")) return true;
+
+        String name = material.name();
+
+        return name.endsWith("_PANE")
+                || name.equals("GLASS_PANE")
+                || name.equals("STAINED_GLASS_PANE")
+                || name.equals("IRON_BARS")
+                || name.equals("IRON_FENCE")
+                || isMaterial(name, MaterialType.PANE);
+    }
+
+    public static boolean isButton(Block block) {
+        return block != null && isButton(block.getType());
+    }
+
+    public static boolean isButton(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "BUTTONS", "WOODEN_BUTTONS")) return true;
+
+        return material.name().endsWith("_BUTTON")
+                || material.name().equals("STONE_BUTTON")
+                || material.name().equals("WOOD_BUTTON");
+    }
+
+    public static boolean isPressurePlate(Block block) {
+        return block != null && isPressurePlate(block.getType());
+    }
+
+    public static boolean isPressurePlate(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "PRESSURE_PLATES", "WOODEN_PRESSURE_PLATES", "STONE_PRESSURE_PLATES")) return true;
+
+        String name = material.name();
+
+        return name.endsWith("_PRESSURE_PLATE")
+                || name.equals("STONE_PLATE")
+                || name.equals("WOOD_PLATE")
+                || name.equals("GOLD_PLATE")
+                || name.equals("IRON_PLATE");
+    }
+
+    public static boolean isStair(String materialName) {
+        String name = normalizeMaterialName(materialName);
+        return name != null && (name.endsWith("_STAIRS") || isMaterial(name, MaterialType.STAIRS));
+    }
+
+    public static boolean isFence(String materialName) {
+        String name = normalizeMaterialName(materialName);
+        return name != null && (
+                name.endsWith("_FENCE")
+                        || name.equals("FENCE")
+                        || name.equals("NETHER_FENCE")
+                        || name.equals("IRON_FENCE")
+                        || isMaterial(name, MaterialType.FENCE)
+        );
+    }
+
+    public static boolean isFenceGate(String materialName) {
+        String name = normalizeMaterialName(materialName);
+        return name != null && (name.endsWith("_FENCE_GATE") || name.equals("FENCE_GATE"));
+    }
+
+    public static boolean isWall(String materialName) {
+        String name = normalizeMaterialName(materialName);
+        return name != null && (
+                name.endsWith("_WALL")
+                        || name.equals("COBBLE_WALL")
+                        || isMaterial(name, MaterialType.WALL)
+        );
+    }
+
+    private static String normalizeMaterialName(String materialName) {
+        if (materialName == null) return null;
+
+        String name = materialName.trim();
+
+        if (name.isEmpty()) return null;
+
+        int namespaceIndex = name.indexOf(':');
+        if (namespaceIndex != -1) {
+            name = name.substring(namespaceIndex + 1);
+        }
+
+        return name.toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean hasAnyBukkitTag(Material material, String... tagNames) {
+        if (material == null || tagNames == null) return false;
+
+        for (String tagName : tagNames) {
+            if (hasBukkitTag(material, tagName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean hasBukkitTag(Material material, String tagName) {
+        if (material == null || tagName == null) return false;
+
+        String resultKey = tagName + ":" + material.name();
+        Boolean cachedResult = TAG_RESULT_CACHE.get(resultKey);
+
+        if (cachedResult != null) {
+            return cachedResult;
+        }
+
+        Object tag = getBukkitTag(tagName);
+
+        if (tag == NO_TAG) {
+            TAG_RESULT_CACHE.put(resultKey, false);
+            return false;
+        }
+
+        try {
+            Class<?> tagClass = Class.forName("org.bukkit.Tag");
+            Method isTagged = tagClass.getMethod("isTagged", Object.class);
+
+            boolean result = Boolean.TRUE.equals(isTagged.invoke(tag, material));
+
+            TAG_RESULT_CACHE.put(resultKey, result);
+            return result;
+        } catch (Throwable ignored) {
+            TAG_RESULT_CACHE.put(resultKey, false);
+            return false;
+        }
+    }
+
+    private static Object getBukkitTag(String tagName) {
+        Object cached = TAG_CACHE.get(tagName);
+
+        if (cached != null) {
+            return cached;
+        }
+
+        try {
+            Class<?> tagClass = Class.forName("org.bukkit.Tag");
+            Field field = tagClass.getField(tagName);
+            Object tag = field.get(null);
+
+            TAG_CACHE.put(tagName, tag);
+            return tag;
+        } catch (Throwable ignored) {
+            TAG_CACHE.put(tagName, NO_TAG);
+            return NO_TAG;
+        }
     }
 
     public static boolean isMaterial(String value, MaterialType type) {

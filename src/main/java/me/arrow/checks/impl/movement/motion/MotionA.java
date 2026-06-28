@@ -12,7 +12,7 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
-import me.arrow.utils.custom.MaterialType;
+import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
 
@@ -116,6 +116,8 @@ public class MotionA extends Check {
                     || movementData.isUnderblock()
                     || movementData.getMovingUnderblockTicks() > 0
                     || movementData.isOnSlime()
+                    || (movementData.getNearbyBlocksResult() != null
+                    && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
                     || profile.getMovementData().getSinceRiptidingTicks() < 20
                     || profile.getVelocityData().isTakingVelocity()) {
                 return;

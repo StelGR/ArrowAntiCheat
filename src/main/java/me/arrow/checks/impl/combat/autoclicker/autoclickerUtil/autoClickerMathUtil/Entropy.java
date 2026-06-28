@@ -12,26 +12,17 @@ public class Entropy extends AbstractStatisticFunction {
     }
 
     public double evaluate(double[] data) {
-        double n = (double) data.length;
+        double n = data.length;
         if (n < 3.0) {
             return Double.NaN;
         } else {
-            Map<Double, Integer> valueCounts = new HashMap();
-            double[] var5 = data;
-            int var6 = data.length;
+            Map<Double, Integer> valueCounts = new HashMap<>();
 
-            for (int var7 = 0; var7 < var6; ++var7) {
-                double value = var5[var7];
-                valueCounts.put(value, (Integer) valueCounts.computeIfAbsent(value, (k) -> {
-                    return 0;
-                }) + 1);
+            for (double value : data) {
+                valueCounts.put(value, valueCounts.computeIfAbsent(value, (k) -> 0) + 1);
             }
 
-            double entropy = valueCounts.values().stream().mapToDouble((freq) -> {
-                return (double) freq / n;
-            }).map((probability) -> {
-                return probability * (Math.log(probability) / LN_2);
-            }).sum();
+            double entropy = valueCounts.values().stream().mapToDouble((freq) -> (double) freq / n).map((probability) -> probability * (Math.log(probability) / LN_2)).sum();
             entropy = -entropy;
             return entropy;
         }

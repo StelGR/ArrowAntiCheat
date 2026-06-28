@@ -1,6 +1,6 @@
 package me.arrow.utils.customutils.raytrace;
 
-import me.arrow.utils.custom.MaterialType;
+import me.arrow.utils.custom.materials.MaterialType;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;

@@ -3,7 +3,6 @@ package me.arrow.managers.profile;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.wrapper.play.server.*;
 import lombok.Getter;
@@ -328,19 +327,6 @@ public class Profile {
         }
     }
 
-    public void sendPacket(PacketTypeCommon packet) {
-        PacketEvents.getAPI().getPlayerManager().sendPacket(getPlayer(), packet);
-    }
-
-    public void sendPacket(WrapperPlayServerChatMessage wrapperPlayServerChatMessage) {
-        PacketEvents.getAPI().getPlayerManager().sendPacket(getPlayer(), wrapperPlayServerChatMessage);
-    }
-
-    public void sendPacket(WrapperPlayServerKeepAlive wrapperPlayServerKeepAlive) {
-        PacketEvents.getAPI().getPlayerManager().sendPacket(getPlayer(), wrapperPlayServerKeepAlive);
-        //Bukkit.broadcastMessage(getPlayer().getName()+", received keepalive. id: "+wrapperPlayServerKeepAlive.getId());
-    }
-
     public void sendPacket(WrapperPlayServerWindowConfirmation wrapperPlayServerPing) {
         PacketEvents.getAPI().getPlayerManager().sendPacket(getPlayer(), wrapperPlayServerPing);
         //Bukkit.broadcastMessage(getPlayer().getName()+", sent transaction. ActionID: "+wrapperPlayServerPing.getActionId() + " Window ID: " + wrapperPlayServerPing.getWindowId() + " clientVer " + wrapperPlayServerPing.getClientVersion());
@@ -359,7 +345,9 @@ public class Profile {
         if ( (movementData.getFallDistance() > 1.3 && (movementData.getCustomAirTicks() > 5 && movementData.getClientAirTicks() == 0))
                 || (movementData.getLastFallDistance() > 1.3 && ( movementData.getCustomAirTicks() > 5 && movementData.getClientAirTicks() == 0))) return false;
 
-        boolean isGhostBlock = movementData.isCustomInAir()
+        //if (CollisionUtils.isNearEdge(movementData.getLocation()) && movementData.getCustomAirTicks() < 3) isGhostBlock = false;
+
+        return movementData.isCustomInAir()
                 && movementData.isOnGround()
                 && getTick() > 20
                 && movementData.getCustomAirTicks() >= 2
@@ -367,19 +355,14 @@ public class Profile {
                 && isExempt().isRespawned()
                 && !isExempt().isDead()
                 && !isBouncingOnSlime()
-                &&
-                (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()) != 0.60000002384186
+
+                && (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()) != 0.60000002384186
                         ||
                         (
                                 (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()) == 0)
                                 && movementData.getCustomAirTicks() > 10
                         )
                 );
-
-        //if (CollisionUtils.isNearEdge(movementData.getLocation()) && movementData.getCustomAirTicks() < 3) isGhostBlock = false;
-
-        return isGhostBlock;
-//        return false;
     }
 
 

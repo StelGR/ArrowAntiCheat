@@ -72,10 +72,8 @@ public class CommentedFileConfiguration extends CommentedConfigurationSection {
     }
 
     private String getConfigAsString() {
-        if (!(this.config instanceof YamlConfiguration))
+        if (!(this.config instanceof YamlConfiguration yamlConfiguration))
             throw new UnsupportedOperationException("Cannot get config string of non-YamlConfiguration");
-
-        YamlConfiguration yamlConfiguration = (YamlConfiguration) this.config;
 
         // Edit the configuration to how we want it
         try {

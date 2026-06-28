@@ -13,7 +13,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
-import me.arrow.utils.custom.MaterialType;
+import me.arrow.utils.custom.materials.MaterialType;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -27,38 +27,38 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class ClientWorldTracker implements Data {
 
-    private static final int DEFAULT_MIN_Y = 0;
-    private static final int DEFAULT_MAX_Y_OLD = 255;
-    private static final int DEFAULT_MAX_Y_NEW = 319;
+    int DEFAULT_MIN_Y = 0;
+    int DEFAULT_MAX_Y_OLD = 255;
+    int DEFAULT_MAX_Y_NEW = 319;
 
-    private static final int MAX_PENDING_AREA_TICKS = 20;
-    private static final int MAX_RECENT_DESYNC_TICKS = 20 * 5;
-    private static final int MAX_UNKNOWN_CHUNK_GRACE_TICKS = 20 * 5;
-    private static final int MAX_RECENT_PHYSICS_UPDATE_TICKS = 20 * 4;
+    int MAX_PENDING_AREA_TICKS = 20;
+    int MAX_RECENT_DESYNC_TICKS = 20 * 5;
+    int MAX_UNKNOWN_CHUNK_GRACE_TICKS = 20 * 5;
+    int MAX_RECENT_PHYSICS_UPDATE_TICKS = 20 * 4;
 
-    private static final int AUTO_SYNC_COOLDOWN_TICKS = 10;
-    private static final int CLIENT_MIRROR_REPAIR_EVERY_TICKS = 2;
-    private static final int CLIENT_MIRROR_REPAIR_RADIUS_XZ = 3;
-    private static final int CLIENT_MIRROR_REPAIR_DOWN = 2;
-    private static final int CLIENT_MIRROR_REPAIR_UP = 3;
-    private static final int ACTIVE_WORLD_REPAIR_TICKS = 20;
-    private static final int MAX_REPAIR_UPDATES_PER_TICK = 96;
+    int AUTO_SYNC_COOLDOWN_TICKS = 10;
+    int CLIENT_MIRROR_REPAIR_EVERY_TICKS = 2;
+    int CLIENT_MIRROR_REPAIR_RADIUS_XZ = 3;
+    int CLIENT_MIRROR_REPAIR_DOWN = 2;
+    int CLIENT_MIRROR_REPAIR_UP = 3;
+    int ACTIVE_WORLD_REPAIR_TICKS = 20;
+    int MAX_REPAIR_UPDATES_PER_TICK = 96;
 
-    private static volatile Method cachedGetBlockDataMethod;
-    private static volatile Method cachedModernSendBlockChangeMethod;
-    private static volatile Method cachedLegacySendBlockChangeMethod;
-    private static volatile Method cachedLegacyGetDataMethod;
-    private static volatile Method cachedLegacyGetStateMethod;
-    private static volatile boolean modernLookupDone;
-    private static volatile boolean legacyLookupDone;
+    volatile Method cachedGetBlockDataMethod;
+    volatile Method cachedModernSendBlockChangeMethod;
+    volatile Method cachedLegacySendBlockChangeMethod;
+    volatile Method cachedLegacyGetDataMethod;
+    volatile Method cachedLegacyGetStateMethod;
+    volatile boolean modernLookupDone;
+    volatile boolean legacyLookupDone;
 
-    private final Profile profile;
+    Profile profile;
 
-    private final Map<Long, ClientChunk> chunks = new ConcurrentHashMap<>();
-    private final Map<Long, PendingArea> pendingAreas = new ConcurrentHashMap<>();
-    private final Map<Long, RecentDesync> recentDesyncs = new ConcurrentHashMap<>();
-    private final Map<Long, Integer> unknownChunkTicks = new ConcurrentHashMap<>();
-    private final Map<Long, RecentPhysicsUpdate> recentPhysicsUpdates = new ConcurrentHashMap<>();
+    Map<Long, ClientChunk> chunks = new ConcurrentHashMap<>();
+    Map<Long, PendingArea> pendingAreas = new ConcurrentHashMap<>();
+    Map<Long, RecentDesync> recentDesyncs = new ConcurrentHashMap<>();
+    Map<Long, Integer> unknownChunkTicks = new ConcurrentHashMap<>();
+    Map<Long, RecentPhysicsUpdate> recentPhysicsUpdates = new ConcurrentHashMap<>();
 
     private volatile CollisionResult lastCollisionResult = new CollisionResult();
 
@@ -150,7 +150,7 @@ public final class ClientWorldTracker implements Data {
     private void handleMultiBlockChange(PacketSendEvent event) {
         WrapperPlayServerMultiBlockChange wrapper = new WrapperPlayServerMultiBlockChange(event);
 
-        if (wrapper.getBlocks() == null || wrapper.getBlocks().length == 0) {
+        if (wrapper.getBlocks().length == 0) {
             return;
         }
 
@@ -267,22 +267,6 @@ public final class ClientWorldTracker implements Data {
 
     public CollisionResult getCollisionResult() {
         return preCheckScan();
-    }
-
-    public boolean shouldExemptWorldSensitiveChecks() {
-        return getCollisionResult().shouldExemptMovementChecks();
-    }
-
-    public boolean shouldExemptPhysicsChecks() {
-        CollisionResult result = getCollisionResult();
-
-        return result.shouldExemptMovementChecks()
-                || result.nextToGhostWall
-                || result.physicsMismatch
-                || result.touchingPhysicsGhost
-                || result.onGhostBlock
-                || result.insideGhostBlock
-                || result.underGhostBlock;
     }
 
     public CollisionResult scanPlayerCollision() {
@@ -452,8 +436,10 @@ public final class ClientWorldTracker implements Data {
         TaskUtils.player(profile.getPlayer(), () -> {
             Player player = profile.getPlayer();
 
-            if (player == null || !player.isOnline() || player.getWorld() == null) {
+            if (player == null || !player.isOnline()) {
                 return;
+            } else {
+                player.getWorld();
             }
 
             if (!canReadWorldNow()) {
@@ -475,35 +461,8 @@ public final class ClientWorldTracker implements Data {
         });
     }
 
-    public boolean hasRecentDesyncNear(Location location, double horizontal, double vertical) {
-        if (location == null) {
-            return false;
-        }
-
-        for (RecentDesync desync : recentDesyncs.values()) {
-            if (tick - desync.tick > MAX_RECENT_DESYNC_TICKS) {
-                continue;
-            }
-
-            double dx = (desync.x + 0.5D) - location.getX();
-            double dy = (desync.y + 0.5D) - location.getY();
-            double dz = (desync.z + 0.5D) - location.getZ();
-
-            if (Math.abs(dx) <= horizontal && Math.abs(dy) <= vertical && Math.abs(dz) <= horizontal) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     public void requestActiveWorldRepair() {
         this.activeWorldRepairTicks = Math.max(this.activeWorldRepairTicks, ACTIVE_WORLD_REPAIR_TICKS);
-    }
-
-    public void forceRepairAroundPlayer() {
-        repairClientMirrorAroundPlayer(4, 2, 4, 160);
-        requestActiveWorldRepair();
     }
 
     private void repairClientMirrorAroundPlayer(int radiusXZ, int down, int up, int maxUpdates) {
@@ -521,10 +480,6 @@ public final class ClientWorldTracker implements Data {
 
         CustomLocation loc = profile.getMovementData().getLocation();
         World world = profile.getPlayer().getWorld();
-
-        if (world == null) {
-            return;
-        }
 
         int baseX = floor(loc.getX());
         int baseY = floor(loc.getY());
@@ -592,14 +547,6 @@ public final class ClientWorldTracker implements Data {
         }
 
         pendingAreas.put(area.key(), new PendingArea(tick, area));
-    }
-
-    public boolean hasPendingNear(Vector vector, int margin) {
-        if (vector == null) {
-            return false;
-        }
-
-        return hasPendingNear(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ(), margin);
     }
 
     public boolean hasPendingNear(int x, int y, int z, int margin) {
@@ -684,8 +631,10 @@ public final class ClientWorldTracker implements Data {
 
         Player player = profile.getPlayer();
 
-        if (player == null || !player.isOnline() || player.getWorld() == null) {
+        if (player == null || !player.isOnline()) {
             return null;
+        } else {
+            player.getWorld();
         }
 
         try {
@@ -1112,8 +1061,10 @@ public final class ClientWorldTracker implements Data {
     }
 
     private Material materialFromState(StateType type) {
-        if (type == null || type.getName() == null) {
+        if (type == null) {
             return null;
+        } else {
+            type.getName();
         }
 
         return matchMaterialCompat(type.getName());
@@ -1147,11 +1098,7 @@ public final class ClientWorldTracker implements Data {
         }
 
         if (name.equals("WEB")) {
-            Material modern = Material.matchMaterial("COBWEB");
-
-            if (modern != null) {
-                return modern;
-            }
+            return Material.matchMaterial("COBWEB");
         }
 
         return null;
@@ -1515,9 +1462,9 @@ public final class ClientWorldTracker implements Data {
         }
     }
 
-    private static final class PendingArea {
-        private final int tick;
-        private final AffectedArea area;
+    static class PendingArea {
+        int tick;
+        AffectedArea area;
 
         private PendingArea(int tick, AffectedArea area) {
             this.tick = tick;
@@ -1529,13 +1476,13 @@ public final class ClientWorldTracker implements Data {
         }
     }
 
-    private static final class AffectedArea {
-        private final int minX;
-        private final int minY;
-        private final int minZ;
-        private final int maxX;
-        private final int maxY;
-        private final int maxZ;
+    static class AffectedArea {
+        int minX;
+        int minY;
+        int minZ;
+        int maxX;
+        int maxY;
+        int maxZ;
 
         private AffectedArea(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
             this.minX = Math.min(minX, maxX);
@@ -1582,14 +1529,14 @@ public final class ClientWorldTracker implements Data {
         }
     }
 
-    private static final class RecentDesync {
-        private final int x;
-        private final int y;
-        private final int z;
-        private final Material clientMaterial;
-        private final Material serverMaterial;
-        private final String reason;
-        private final int tick;
+    static class RecentDesync {
+        int x;
+        int y;
+        int z;
+        Material clientMaterial;
+        Material serverMaterial;
+        String reason;
+        int tick;
 
         private RecentDesync(int x, int y, int z, Material clientMaterial, Material serverMaterial, String reason, int tick) {
             this.x = x;
@@ -1602,15 +1549,15 @@ public final class ClientWorldTracker implements Data {
         }
     }
 
-    private static final class RecentPhysicsUpdate {
-        private final int x;
-        private final int y;
-        private final int z;
-        private final Material physicsMaterial;
-        private final Material oldMaterial;
-        private final Material newMaterial;
-        private final String reason;
-        private final int tick;
+    static class RecentPhysicsUpdate {
+        int x;
+        int y;
+        int z;
+        Material physicsMaterial;
+        Material oldMaterial;
+        Material newMaterial;
+        String reason;
+        int tick;
 
         private RecentPhysicsUpdate(int x, int y, int z, Material physicsMaterial, Material oldMaterial, Material newMaterial, String reason, int tick) {
             this.x = x;
@@ -1624,12 +1571,12 @@ public final class ClientWorldTracker implements Data {
         }
     }
 
-    private static final class ClientChunk {
-        private final int chunkX;
-        private final int chunkZ;
-        private final int minY;
-        private final int maxY;
-        private final Map<Integer, Character> overrides = new ConcurrentHashMap<>();
+    static class ClientChunk {
+        int chunkX;
+        int chunkZ;
+        int minY;
+        int maxY;
+        Map<Integer, Character> overrides = new ConcurrentHashMap<>();
 
         private ClientChunk(int chunkX, int chunkZ, int minY, int maxY) {
             this.chunkX = chunkX;
@@ -1698,13 +1645,13 @@ public final class ClientWorldTracker implements Data {
         Player player = profile.getPlayer();
 
         return !TaskUtils.isFoliaServer()
-                || (player != null && TaskUtils.isOwnedByCurrentRegion(player));
+                || (TaskUtils.isOwnedByCurrentRegion(player));
     }
 
     private void processWorldTickSafely() {
         Player player = profile.getPlayer();
 
-        if (TaskUtils.isFoliaServer() && (player == null || !TaskUtils.isOwnedByCurrentRegion(player))) {
+        if (TaskUtils.isFoliaServer() && (!TaskUtils.isOwnedByCurrentRegion(player))) {
             if (worldUpdateQueued) {
                 return;
             }

@@ -19,6 +19,8 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.Objects;
+
 // never seen this flag, probably cus i can't code
 
 public class KillauraA extends Check {
@@ -101,7 +103,7 @@ public class KillauraA extends Check {
                 Profile attackedProfile;
                 try {
                     attackedProfile = Arrow.getInstance().getProfileManager().getProfile(
-                            Bukkit.getPlayer(combatData.getTrackedEntities().get(entityId))
+                            Objects.requireNonNull(Bukkit.getPlayer(combatData.getTrackedEntities().get(entityId)))
                     );
                 } catch (Exception e) {
                     attackedProfile = null;
@@ -114,7 +116,7 @@ public class KillauraA extends Check {
                 combatData.setTarget(attackedProfile.getPlayer().getEntityId());
 
                 ItemStack inHand = player.getItemInHand();
-                int kbLevel = inHand != null ? inHand.getEnchantmentLevel(Enchantment.KNOCKBACK) : 0;
+                int kbLevel = inHand.getEnchantmentLevel(Enchantment.KNOCKBACK);
 
                 if (kbLevel < 0) {
                     return;

@@ -8,11 +8,11 @@ import java.util.Date;
 @Getter
 public class PlayerLog {
 
-    private final String player;
-    private final String uuid;
-    private final String check;
-    private final String information;
-    private final String timeStamp;
+    String player;
+    String uuid;
+    String check;
+    String information;
+    String timeStamp;
 
     public PlayerLog(String player, String uuid, String check, String information) {
         this.player = player;

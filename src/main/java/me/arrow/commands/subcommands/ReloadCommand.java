@@ -8,7 +8,7 @@ import org.bukkit.command.CommandSender;
 public class ReloadCommand extends SubCommand {
 
 
-    private final Arrow plugin;
+    Arrow plugin;
 
     public ReloadCommand(Arrow plugin) {
         this.plugin = plugin;

@@ -365,9 +365,9 @@ public class VelocityData implements Data {
     @Getter
     @AllArgsConstructor
     public static class WrappedData {
-        private final long timestamp;
-        private final Actions action;
-        private final Vector vector;
+        private long timestamp;
+        private Actions action;
+        private Vector vector;
     }
 
     public Vector getTotalVelocity() {

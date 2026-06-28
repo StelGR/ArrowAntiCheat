@@ -37,8 +37,8 @@ public class SensitivityProcessor implements Processor {
     private double mcpSensitivity = 0.0; // the MCP multiplier (f in MC math)
 
     // small state
-    private float lastDeltaPitch = 0.0f;
-    private float pitchMode = 0.0f;
+    float lastDeltaPitch = 0.0f;
+    float pitchMode = 0.0f;
 
     // scaling for integer GCD method (must be large enough for precision)
     private static final long SCALAR = 1_000_000L; // 1e6 — safe and stable
@@ -83,7 +83,6 @@ public class SensitivityProcessor implements Processor {
         RotationData data = profile.getRotationData();
 
         float deltaPitch = Math.abs(data.getDeltaPitch());
-        float prevPitch = Math.abs(data.getLastDeltaPitch());
 
         // sanity gate: ignore extreme camera changes (teleports)
         if (deltaPitch >= 4.0f) {
@@ -132,7 +131,6 @@ public class SensitivityProcessor implements Processor {
     /**
      * Convert a pitchGCD -> mouseDelta using Karhu's formula:
      * ((cbrt(value / 0.15 / 8) - 0.2) / 0.6)
-     *
      * IMPORTANT: 'value' must be the *normalized* GCD (small float like 0.01)
      */
     private float convertToMouseDelta(float value) {

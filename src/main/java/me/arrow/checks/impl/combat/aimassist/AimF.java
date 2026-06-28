@@ -38,46 +38,46 @@ import java.util.Collections;
 @Experimental
 public class AimF extends Check {
 
-    private static final int SAMPLE_SIZE = 800;
+    int SAMPLE_SIZE = 800;
 
-    private static final double MIN_DELTA = 1.0E-4D;
-    private static final double MAX_VALID_DELTA = 180.0D;
+    double MIN_DELTA = 1.0E-4D;
+    double MAX_VALID_DELTA = 180.0D;
 
-    private static final int SMOOTH_WINDOW = 80;
-    private static final double SMOOTH_WINDOW_MAX_AVERAGE = 1.35D;
-    private static final double SMOOTH_WINDOW_MAX_STD = 0.18D;
-    private static final double SMOOTH_WINDOW_MIN_AVERAGE = 0.035D;
+    int SMOOTH_WINDOW = 80;
+    double SMOOTH_WINDOW_MAX_AVERAGE = 1.35D;
+    double SMOOTH_WINDOW_MAX_STD = 0.18D;
+    double SMOOTH_WINDOW_MIN_AVERAGE = 0.035D;
 
-    private static final double SPIKE_DELTA = 28.0D;
-    private static final double SPIKE_PREVIOUS_MAX = 1.25D;
-    private static final double SPIKE_NEXT_MAX = 2.25D;
+    double SPIKE_DELTA = 28.0D;
+    double SPIKE_PREVIOUS_MAX = 1.25D;
+    double SPIKE_NEXT_MAX = 2.25D;
 
-    private static final double FAIL_SUSPICION = 10.0D;
-    private static final double SOFT_SUSPICION = 6.0D;
+    double FAIL_SUSPICION = 10.0D;
+    double SOFT_SUSPICION = 6.0D;
 
-    private static final int ATTACK_SAMPLE_SIZE = 100;
-    private static final int MIN_ATTACK_SAMPLE_SIZE = 50;
+    int ATTACK_SAMPLE_SIZE = 100;
+    int MIN_ATTACK_SAMPLE_SIZE = 50;
 
-    private static final double CENTER_LOCK_DISTANCE = 0.085D;
-    private static final double CENTER_LOCK_DISTANCE_LAG = 0.145D;
+    double CENTER_LOCK_DISTANCE = 0.085D;
+    double CENTER_LOCK_DISTANCE_LAG = 0.145D;
 
-    private static final double SNAP_YAW_DELTA = 18.0D;
-    private static final double SNAP_PITCH_DELTA = 7.5D;
-    private static final double HARD_SNAP_YAW_DELTA = 35.0D;
+    double SNAP_YAW_DELTA = 18.0D;
+    double SNAP_PITCH_DELTA = 7.5D;
+    double HARD_SNAP_YAW_DELTA = 35.0D;
 
-    private static final double MAX_CENTER_ANGLE = 3.75D;
-    private static final double MAX_CENTER_ANGLE_LAG = 6.25D;
+    double MAX_CENTER_ANGLE = 3.75D;
+    double MAX_CENTER_ANGLE_LAG = 6.25D;
 
-    private static final int TARGET_SWITCH_TICKS = 8;
+    int TARGET_SWITCH_TICKS = 8;
 
-    private final List<AttackAimSample> attackSamples = new ArrayList<>(ATTACK_SAMPLE_SIZE);
+    List<AttackAimSample> attackSamples = new ArrayList<>(ATTACK_SAMPLE_SIZE);
 
-    private int lastTargetEntityId = -1;
-    private long lastTargetSwitchTime;
-    private double lastAttackYawDelta;
-    private double lastAttackPitchDelta;
+    int lastTargetEntityId = -1;
+    long lastTargetSwitchTime;
+    double lastAttackYawDelta;
+    double lastAttackPitchDelta;
 
-    private final List<YawSample> samples = new ArrayList<>(SAMPLE_SIZE);
+    List<YawSample> samples = new ArrayList<>(SAMPLE_SIZE);
 
     public AimF(Profile profile) {
         super(profile, CheckType.AIM, "F", "Aim Heuristics Analysis (Yaw)");
@@ -110,7 +110,7 @@ public class AimF extends Check {
             return;
         }
 
-        float yaw = getYaw(event);
+        float yaw = rotationData.getYaw();
         float deltaYaw = rotationData.getDeltaYaw();
         double absoluteDeltaYaw = Math.abs(deltaYaw);
 
@@ -638,14 +638,6 @@ public class AimF extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
-    private float getYaw(PacketReceiveEvent event) {
-        try {
-            return profile.getRotationData().getYaw();
-        } catch (Throwable ignored) {
-            return 0.0F;
-        }
-    }
-
     private int countSmoothWindows(List<Double> values) {
         if (values.size() < SMOOTH_WINDOW) {
             return 0;
@@ -720,7 +712,7 @@ public class AimF extends Check {
         int lastDirection = 0;
 
         for (double value : values) {
-            int direction = value > 0.0D ? 1 : value < 0.0D ? -1 : 0;
+            int direction = Double.compare(value, 0.0D);
 
             if (direction == 0) {
                 current = 0;
@@ -979,12 +971,12 @@ public class AimF extends Check {
         return String.format(Locale.US, "%.3f", value);
     }
 
-    private static final class YawSample {
+    static class YawSample {
 
-        private final float yaw;
-        private final float deltaYaw;
-        private final double absoluteDeltaYaw;
-        private final long timestamp;
+        float yaw;
+        float deltaYaw;
+        double absoluteDeltaYaw;
+        long timestamp;
 
         private YawSample(float yaw, float deltaYaw, double absoluteDeltaYaw, long timestamp) {
             this.yaw = yaw;
@@ -1061,7 +1053,7 @@ public class AimF extends Check {
         } catch (Throwable ignored) {
         }
 
-        return Math.max(0, Math.min(40, ticks));
+        return Math.min(40, ticks);
     }
 
     private double getEyeHeight(Player player) {
@@ -1209,24 +1201,24 @@ public class AimF extends Check {
         return Math.max(0.0D, tMin);
     }
 
-    private static final class AttackAimSample {
 
-        private final double deltaYaw;
-        private final double deltaPitch;
-        private final double rayBoxDistance;
-        private final double centerLineDistance;
-        private final double centerAngle;
+    static class AttackAimSample {
 
-        private final boolean rayHit;
-        private final boolean nearCenter;
-        private final boolean tightCenterAngle;
-        private final boolean snap;
-        private final boolean hardSnap;
-        private final boolean fastSwitch;
-        private final boolean laggy;
+        double deltaYaw;
+        double deltaPitch;
+        double rayBoxDistance;
+        double centerLineDistance;
+        double centerAngle;
+        boolean rayHit;
+        boolean nearCenter;
+        boolean tightCenterAngle;
+        boolean snap;
+        boolean hardSnap;
+        boolean fastSwitch;
+        boolean laggy;
 
-        private final String targetName;
-        private final long timestamp;
+        String targetName;
+        long timestamp;
 
         private AttackAimSample(double deltaYaw,
                                 double deltaPitch,

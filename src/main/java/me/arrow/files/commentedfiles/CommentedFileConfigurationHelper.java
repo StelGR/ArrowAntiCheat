@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 
 public class CommentedFileConfigurationHelper {
 
-    private final JavaPlugin plugin;
+    JavaPlugin plugin;
 
     /**
      * Manage custom configurations and files

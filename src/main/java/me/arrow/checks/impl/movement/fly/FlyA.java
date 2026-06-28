@@ -198,8 +198,6 @@ public class FlyA extends Check {
         if (movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) { debugExempt("riptiding"); return; }
         if (profile.getPlayer().isInsideVehicle()) { debugExempt("insideVehicle"); return; }
 
-        int pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
-
         if (profile.isBouncingOnSlime()) { debugExempt("slimeBounce"); return; }
         if (movementData.isOnTopOfWater()) { debugExempt("onTopOfWater"); return; }
         if (movementData.isInsideWater()) { debugExempt("insideWater"); return; }
@@ -299,7 +297,6 @@ public class FlyA extends Check {
                 || profile.isBouncingOnSlime()
                 || profile.isExempt().vehicle()
                 || movementData.isRiptiding()
-                || movementData.isInsideLiquid()
                 || profile.isExempt().isTeleports()
                 || !profile.isExempt().isRespawned()) {
             return;
@@ -451,7 +448,7 @@ public class FlyA extends Check {
         double jumpAmplifier = profile.getPotionData().getJumpAmplifier();
         double jumpStart = MoveUtils.getJumpMotion(profile);
 
-       // final double jumpStart = motion + (0.1D * jumpAmplifier);
+        // final double jumpStart = motion + (0.1D * jumpAmplifier);
         final double JUMP_TOL = 0.046D;
 
         if (md.isMovingUp()
@@ -538,7 +535,7 @@ public class FlyA extends Check {
                 || Math.abs(pred1 - VANILLA_MICRO) < TOL_MICRO
                 || Math.abs(pred2 - VANILLA_MICRO) < TOL_MICRO);
 
-        if (microMatches && !clientGround && !serverGround) {
+        if (microMatches && !clientGround) {
             lastOffset = Math.abs(deltaY - VANILLA_MICRO);
             return;
         }
@@ -559,12 +556,7 @@ public class FlyA extends Check {
         final double PRED_FALL_THRESH = -0.20D;
         final double FRACT_Y_TOL = 0.12D;
 
-        if (Math.abs(deltaY - LAND_NEG) <= LAND_TOL
-                && lastDeltaY < FALL_THRESH
-                && pred1 < PRED_FALL_THRESH
-                && pred2 < PRED_FALL_THRESH
-                && !clientGround
-                && !serverGround) {
+        if (Math.abs(deltaY - LAND_NEG) <= LAND_TOL && lastDeltaY < FALL_THRESH && pred1 < PRED_FALL_THRESH && pred2 < PRED_FALL_THRESH && !clientGround) {
             double y = getCurrentY(md);
             double frac = y - Math.floor(y + 1.0E-9D);
 
@@ -576,10 +568,7 @@ public class FlyA extends Check {
 
         lastOffset = Math.min(off1, off2);
 
-        if (lastOffset == 0.2268933260512424D
-                && deltaY == -0.07840000152587834D
-                && !clientGround
-                && !serverGround) {
+        if (lastOffset == 0.2268933260512424D && deltaY == -0.07840000152587834D && !clientGround) {
             return;
         }
 
@@ -623,7 +612,6 @@ public class FlyA extends Check {
     }
 
     private static final double GRAVITY = 0.08D;
-    private static final double DRAG = 0.98D;
 
     private boolean trackingFall;
     private double predictedDY;
@@ -638,7 +626,6 @@ public class FlyA extends Check {
         double fallDist = data.getFallDistance();
 
         int transTicks = profile.getConnectionData().getClientTickTrans();
-        int pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
 
         if (!Double.isFinite(dy) || !Double.isFinite(lastDy)) {
             resetGravityD("invalidMotion");
@@ -651,7 +638,7 @@ public class FlyA extends Check {
         if (profile.isExempt().vehicle()) { resetGravityD("vehicle"); return; }
         if (profile.getMovementData().getSinceOnGhostBlock() <= 10 + transTicks) { resetGravityD("ghostBlock"); return; }
 
-       // if (data.getSincePredictDownwardsTicks() < 5) { resetGravityD("predictDownwards"); return; }
+        // if (data.getSincePredictDownwardsTicks() < 5) { resetGravityD("predictDownwards"); return; }
         if (data.isNearWater()) { resetGravityD("nearWater"); return; }
         if (data.isNearLava()) { resetGravityD("nearLava"); return; }
         if (data.isNearWebs()) { resetGravityD("nearWebs"); return; }
@@ -674,11 +661,11 @@ public class FlyA extends Check {
 
         //if (data.isOnSlime()) { resetGravityD("onSlime"); return; }
 
-        if (data.isMovingUp()) { resetGravityD("movingUp"); return; }
-        if (data.isMovingDown()) { resetGravityD("movingDown"); return; }
-        //if (data.getVerticalMove() == MovementPredictionUtil.VerticalMove.DOWN) { resetGravityD("verticalMoveDown"); return; }
-        if (data.getSincePredictUpwardsTicks() < 10 + transTicks) { resetGravityD("predictUpwards"); return; }
-        if (data.getSincePredictDownwardsTicks() < 10 + transTicks) { resetGravityD("predictDownwards"); return; }
+        boolean stepPredictionContext = data.isNearStepMaterial()
+                || data.isMovingUp()
+                || data.isMovingDown()
+                || data.getSinceMovingUpTicks() < 2 + transTicks
+                || data.getSinceMovingDownTicks() < 2 + transTicks;
 
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return; }
 
@@ -694,10 +681,94 @@ public class FlyA extends Check {
             return;
         }
 
-        if (data.isOnGround()
-                || data.isServerGround()
+        boolean actualGround = data.isServerGround()
                 || data.isServerYGround()
-                || data.isPositionYGround()
+                || data.isPositionYGround();
+
+        boolean trustedClientGround = data.isOnGround()
+                && !data.isCustomInAir()
+                && data.getServerAirTicks() <= 1
+                && data.getCustomAirTicks() <= 1;
+
+        int airTicksPre = Math.max(data.getCustomAirTicks(), Math.max(data.getClientAirTicks(), data.getServerAirTicks()));
+        boolean slowFallingPre = profile.getPotionData().isHasSlowFalling();
+
+        double preExpectedDY = predictGravityDY(profile, data, lastDy);
+        double preAllowed = getFastFallAllowed(profile, data, dy, lastDy, preExpectedDY);
+        double preExcess = preExpectedDY - dy;
+        double preExpectedAcceleration = lastDy - preExpectedDY;
+        double preActualAcceleration = lastDy - dy;
+        double preAccelerationExcess = preActualAcceleration - preExpectedAcceleration;
+        boolean preTooFast = dy < preExpectedDY - preAllowed;
+
+        boolean directLowHopFastFall = !slowFallingPre
+                && !actualGround
+                && preTooFast
+                && airTicksPre >= 2
+                && airTicksPre <= 14 + transTicks
+                && dy < -0.120D
+                && preExcess > Math.max(0.065D, preAllowed * 1.45D)
+                && preAccelerationExcess > Math.max(0.045D, preAllowed * 1.15D);
+
+        boolean directHardFastFall = !slowFallingPre
+                && !actualGround
+                && preTooFast
+                && airTicksPre >= 2
+                && airTicksPre <= 18 + transTicks
+                && dy < -0.520D
+                && preExcess > Math.max(0.105D, preAllowed * 2.00D);
+
+        boolean directExtremeFastFall = !slowFallingPre
+                && !actualGround
+                && preTooFast
+                && airTicksPre >= 2
+                && dy < -0.720D
+                && preExcess > 0.160D;
+
+        boolean directFastFall = directLowHopFastFall
+                || directHardFastFall
+                || directExtremeFastFall;
+
+        if (directFastFall) {
+            negGravStreak += directExtremeFastFall ? 3.25D : directHardFastFall ? 2.50D : 1.75D;
+
+            double required = directExtremeFastFall ? 0.75D : directHardFastFall ? 1.25D : 2.00D;
+
+            if (increaseBuffer() > required || negGravStreak > required) {
+                fail("Negative Gravity Modification (Fast Fall)",
+                        "fallDist " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDist
+                                + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicksPre
+                                + "\nexpectedDY " + MsgType.MAIN_THEME_COLOR.getMessage() + preExpectedDY
+                                + "\ncurrentDY " + MsgType.MAIN_THEME_COLOR.getMessage() + dy
+                                + "\nlastDY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDy
+                                + "\nexcess " + MsgType.MAIN_THEME_COLOR.getMessage() + preExcess
+                                + "\nallowed " + MsgType.MAIN_THEME_COLOR.getMessage() + preAllowed
+                                + "\naccelExcess " + MsgType.MAIN_THEME_COLOR.getMessage() + preAccelerationExcess
+                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + data.isOnGround()
+                                + "\ncustomInAir " + MsgType.MAIN_THEME_COLOR.getMessage() + data.isCustomInAir()
+                                + "\nactualGround " + MsgType.MAIN_THEME_COLOR.getMessage() + actualGround
+                                + "\nstepPrediction " + MsgType.MAIN_THEME_COLOR.getMessage() + stepPredictionContext
+                                + "\ndirectLowHop " + MsgType.MAIN_THEME_COLOR.getMessage() + directLowHopFastFall
+                                + "\ndirectHard " + MsgType.MAIN_THEME_COLOR.getMessage() + directHardFastFall
+                                + "\ndirectExtreme " + MsgType.MAIN_THEME_COLOR.getMessage() + directExtremeFastFall);
+
+                trackingFall = false;
+                predictedDY = 0.0D;
+                predictedFallDist = 0.0D;
+                predictedTicks = 0;
+                negGravStreak = Math.max(required + 1.0D, negGravStreak);
+                return;
+            }
+        }
+
+        if (stepPredictionContext && data.isMovingUp()) { resetGravityD("movingUp"); return; }
+        if (stepPredictionContext && data.isMovingDown()) { resetGravityD("movingDown"); return; }
+        //if (data.getVerticalMove() == MovementPredictionUtil.VerticalMove.DOWN) { resetGravityD("verticalMoveDown"); return; }
+        if (stepPredictionContext && data.getSincePredictUpwardsTicks() < 10 + transTicks) { resetGravityD("predictUpwards"); return; }
+        if (stepPredictionContext && data.getSincePredictDownwardsTicks() < 10 + transTicks) { resetGravityD("predictDownwards"); return; }
+
+        if (actualGround
+                || trustedClientGround
                 || Math.abs(dy) < 1.0E-5D) {
             trackingFall = false;
             predictedDY = 0.0D;
@@ -752,20 +823,51 @@ public class FlyA extends Check {
         predictedDY = expectedDY;
 
         if (expectedDY < 0.0D) {
-            predictedFallDist += -expectedDY;
+            predictedFallDist -= expectedDY;
         }
 
         double allowed = getFastFallAllowed(profile, data, dy, lastDy, expectedDY);
         double excess = expectedDY - dy;
+        int airTicks = Math.max(data.getCustomAirTicks(), Math.max(data.getClientAirTicks(), data.getServerAirTicks()));
 
         boolean slowFalling = profile.getPotionData().isHasSlowFalling();
 
         if (slowFalling) return;
         boolean tooFast = dy < expectedDY - allowed;
 
+        double extraGravity = excess - allowed;
+        double expectedAcceleration = lastDy - expectedDY;
+        double actualAcceleration = lastDy - dy;
+        double accelerationExcess = actualAcceleration - expectedAcceleration;
+
         boolean doubleGravityMatch = tooFast
                 && doubleGravityDY < expectedDY
                 && Math.abs(dy - doubleGravityDY) < Math.abs(dy - expectedDY);
+
+        boolean lowHopFastFall = tooFast
+                && airTicks >= 2
+                && airTicks <= 14 + transTicks
+                && lastDy > -0.40D
+                && dy < -0.120D
+                && excess > Math.max(0.065D, allowed * 1.45D)
+                && accelerationExcess > Math.max(0.045D, allowed * 1.15D);
+
+        boolean lateMotionSet = tooFast
+                && airTicks >= 5
+                && airTicks <= 18 + transTicks
+                && dy < -0.300D
+                && extraGravity > 0.060D
+                && actualAcceleration > expectedAcceleration + Math.max(0.045D, allowed * 1.10D);
+
+        boolean hardMotionSet = tooFast
+                && airTicks >= 2
+                && dy < -0.520D
+                && excess > Math.max(0.105D, allowed * 2.00D);
+
+        boolean impossibleAcceleration = tooFast
+                && airTicks >= 2
+                && dy < -0.095D
+                && accelerationExcess > Math.max(0.055D, allowed * 1.45D);
 
         boolean terminalBreak = slowFalling
                 ? dy < -0.125D - allowed
@@ -776,7 +878,7 @@ public class FlyA extends Check {
         verbose(this.getClass().getSimpleName(), dy, expectedDY,
                 ChatColor.RED + "Verbose (4)"
                         + "\nfallDist " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDist
-                        + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getCustomAirTicks()
+                        + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
                         + "\npredTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + predictedTicks
                         + "\nexpectedDY " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedDY
                         + "\nnormalExpectedDY " + MsgType.MAIN_THEME_COLOR.getMessage() + normalExpectedDY
@@ -785,9 +887,15 @@ public class FlyA extends Check {
                         + "\ncurrentDY " + MsgType.MAIN_THEME_COLOR.getMessage() + dy
                         + "\nlastDY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDy
                         + "\nexcess " + MsgType.MAIN_THEME_COLOR.getMessage() + excess
+                        + "\nextraGravity " + MsgType.MAIN_THEME_COLOR.getMessage() + extraGravity
                         + "\nallowed " + MsgType.MAIN_THEME_COLOR.getMessage() + allowed
                         + "\nseverity " + MsgType.MAIN_THEME_COLOR.getMessage() + severity
+                        + "\naccelExcess " + MsgType.MAIN_THEME_COLOR.getMessage() + accelerationExcess
                         + "\ndoubleGravityMatch " + MsgType.MAIN_THEME_COLOR.getMessage() + doubleGravityMatch
+                        + "\nlowHopFastFall " + MsgType.MAIN_THEME_COLOR.getMessage() + lowHopFastFall
+                        + "\nlateMotionSet " + MsgType.MAIN_THEME_COLOR.getMessage() + lateMotionSet
+                        + "\nhardMotionSet " + MsgType.MAIN_THEME_COLOR.getMessage() + hardMotionSet
+                        + "\nimpossibleAcceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + impossibleAcceleration
                         + "\nslowFalling " + MsgType.MAIN_THEME_COLOR.getMessage() + slowFalling
                         + "\nstreak " + MsgType.MAIN_THEME_COLOR.getMessage() + negGravStreak);
 
@@ -796,6 +904,22 @@ public class FlyA extends Check {
 
             if (doubleGravityMatch) {
                 added += 0.85D;
+            }
+
+            if (lowHopFastFall) {
+                added += 0.70D;
+            }
+
+            if (lateMotionSet) {
+                added += 1.05D;
+            }
+
+            if (hardMotionSet) {
+                added += 1.60D;
+            }
+
+            if (impossibleAcceleration) {
+                added += 0.75D;
             }
 
             if (severity > 2.25D) {
@@ -817,15 +941,23 @@ public class FlyA extends Check {
             negGravStreak += added;
 
             boolean hardFastFall = terminalBreak
-                    || (doubleGravityMatch && excess > (slowFalling ? 0.030D : 0.050D) && data.getCustomAirTicks() >= 3)
+                    || hardMotionSet
+                    || lateMotionSet
+                    || lowHopFastFall
+                    || impossibleAcceleration
+                    || (doubleGravityMatch && excess > (slowFalling ? 0.030D : 0.050D) && airTicks >= 3)
                     || (excess > (slowFalling ? 0.045D : 0.095D) && severity > 3.0D);
 
-            double required = hardFastFall ? 3D : 5D;
+            boolean extremeFastFall = terminalBreak
+                    || hardMotionSet
+                    || (airTicks >= 3 && dy < -0.700D && excess > 0.180D);
+
+            double required = extremeFastFall ? 1D : hardFastFall ? 2D : 5D;
 
             if ((hardFastFall && increaseBuffer() > required) || negGravStreak > required) {
                 fail("Negative Gravity Modification " + (hardFastFall ? "(Fast Fall)" : "(Streak : "+ negGravStreak+")"),
                         "fallDist " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDist
-                                + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getCustomAirTicks()
+                                + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
                                 + "\nexpectedDY " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedDY
                                 + "\nnormalExpectedDY " + MsgType.MAIN_THEME_COLOR.getMessage() + normalExpectedDY
                                 + "\nexpectedType " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedResult.type
@@ -833,9 +965,15 @@ public class FlyA extends Check {
                                 + "\ncurrentDY " + MsgType.MAIN_THEME_COLOR.getMessage() + dy
                                 + "\nlastDY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDy
                                 + "\nexcess " + MsgType.MAIN_THEME_COLOR.getMessage() + excess
+                                + "\nextraGravity " + MsgType.MAIN_THEME_COLOR.getMessage() + extraGravity
                                 + "\nallowed " + MsgType.MAIN_THEME_COLOR.getMessage() + allowed
                                 + "\nseverity " + MsgType.MAIN_THEME_COLOR.getMessage() + severity
+                                + "\naccelExcess " + MsgType.MAIN_THEME_COLOR.getMessage() + accelerationExcess
                                 + "\ndoubleGravity " + MsgType.MAIN_THEME_COLOR.getMessage() + doubleGravityMatch
+                                + "\nlowHopFastFall " + MsgType.MAIN_THEME_COLOR.getMessage() + lowHopFastFall
+                                + "\nlateMotionSet " + MsgType.MAIN_THEME_COLOR.getMessage() + lateMotionSet
+                                + "\nhardMotionSet " + MsgType.MAIN_THEME_COLOR.getMessage() + hardMotionSet
+                                + "\nimpossibleAcceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + impossibleAcceleration
                                 + "\nslowFalling " + MsgType.MAIN_THEME_COLOR.getMessage() + slowFalling
                                 + "\nstreak " + MsgType.MAIN_THEME_COLOR.getMessage() + negGravStreak);
 
@@ -1196,14 +1334,14 @@ public class FlyA extends Check {
         final double SLOWFALL_CLAMP = -0.125D;
 
         if (user.getPotionData().isHasLevitation()) {
-            int amp = (int) user.getPotionData().getLevitationAmplifier();
+            int amp = user.getPotionData().getLevitationAmplifier();
             double levPerTick = (0.9D * (amp + 1)) / 20.0D;
             double predicted = lastDeltaY + levPerTick;
             return Double.isFinite(predicted) ? predicted : levPerTick;
         }
 
         if (user.getMovementData().isLastOnGround() && deltaY > 0.0D) {
-            int jumpAmp = (int) user.getPotionData().getJumpAmplifier();
+            int jumpAmp = user.getPotionData().getJumpAmplifier();
             return 0.42D + (jumpAmp * 0.1D);
         }
 
@@ -1399,7 +1537,7 @@ public class FlyA extends Check {
         boolean currentVanillaNeg = Math.abs(dy - VANILLA_NEG) <= 1.0E-8D;
         boolean lastSmallPositive = lastDy > 0.0D && lastDy <= 0.085D;
         boolean doubleGravityNear = Math.abs(doubleGravityDY - VANILLA_NEG) <= 0.006D
-                || Math.abs(doubleGravityDY - -0.07544406518949479D) <= 0.006D;
+                || Math.abs(doubleGravityDY + 0.07544406518949479D) <= 0.006D;
 
         return expectedMicro && currentVanillaNeg && lastSmallPositive && doubleGravityNear;
     }
@@ -1413,11 +1551,7 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (data.getCustomAirTicks() <= 0 && data.getFallDistance() > 0.0D && dy < 0.0D) {
-            return true;
-        }
-
-        return false;
+        return data.getCustomAirTicks() <= 0 && data.getFallDistance() > 0.0D && dy < 0.0D;
     }
 
     private void decayGravityD(double amount) {
