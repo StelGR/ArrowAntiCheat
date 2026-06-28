@@ -8,7 +8,7 @@ import org.bukkit.util.Vector;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-public final class MathUtils {
+public class MathUtils {
 
     private MathUtils() {
     }

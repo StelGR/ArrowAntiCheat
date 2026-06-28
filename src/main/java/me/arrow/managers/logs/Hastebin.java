@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public final class Hastebin {
+public class Hastebin {
 
     private static final String MCLOGS_UPLOAD_URL = "https://api.mclo.gs/1/log";
     private static final Pattern URL_PATTERN = Pattern.compile("\"url\"\\s*:\\s*\"([^\"]+)\"");

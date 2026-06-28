@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 /**
  * A custom concurrent sample list that we'll be using on our checks.
  */
-public final class ConcurrentSampleList<T> extends ConcurrentLinkedDeque<T> {
+public class ConcurrentSampleList<T> extends ConcurrentLinkedDeque<T> {
 
     private final int sampleSize;
     private final boolean update;

@@ -45,7 +45,7 @@ public class GuiListener implements Listener {
         }
 
         Inventory topInventory = getTopInventory(event);
-        int topSize = topInventory != null ? topInventory.getSize() : event.getInventory().getSize();
+        int topSize = topInventory.getSize();
 
         ItemStack clickedItem = event.getCurrentItem();
         int rawSlot = event.getRawSlot();
@@ -478,14 +478,11 @@ public class GuiListener implements Listener {
 
         Inventory topInventory = getTopInventory(event);
 
-        if (topInventory != null) {
-            String title = invokeString(topInventory, "getTitle");
-            if (title != null) return title;
+        String title = invokeString(topInventory, "getTitle");
+        if (title != null) return title;
 
-            return invokeString(topInventory, "getName");
-        }
+        return invokeString(topInventory, "getName");
 
-        return null;
     }
 
     private Inventory getTopInventory(InventoryClickEvent event) {
@@ -564,9 +561,6 @@ public class GuiListener implements Listener {
         }
 
         String displayName = ChatColor.stripColor(item.getItemMeta().getDisplayName());
-        if (displayName == null) {
-            return null;
-        }
 
         try {
             for (Check check : Arrow.getInstance().getProfileManager().getProfile(player).getCheckHolder().getChecks()) {

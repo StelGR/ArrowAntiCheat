@@ -4,7 +4,7 @@ import me.arrow.checks.impl.combat.autoclicker.autoclickerUtil.autoClickerMathUt
 
 import java.util.Collection;
 
-public final class Stats {
+public class Stats {
     private static final StatisticFunction ENTROPY = new Entropy();
     private static final StatisticFunction KURTOSIS = new Kurtosis();
     private static final StatisticFunction MAX = new Max();

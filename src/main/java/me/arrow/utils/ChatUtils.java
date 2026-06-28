@@ -5,7 +5,7 @@ import org.bukkit.ChatColor;
 
 import java.util.regex.Pattern;
 
-public final class ChatUtils {
+public class ChatUtils {
 
     private ChatUtils() {
     }

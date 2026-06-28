@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-public final class GeyserConfigEnforcer {
+public class GeyserConfigEnforcer {
 
     private GeyserConfigEnforcer() {
     }

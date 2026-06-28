@@ -17,9 +17,9 @@ import org.bukkit.util.Vector;
 
 import java.util.UUID;
 
-public final class AnimationListener implements Listener {
+public class AnimationListener implements Listener {
 
-    private final AnimationManager manager;
+    AnimationManager manager;
 
     public AnimationListener(AnimationManager manager) {
         this.manager = manager;

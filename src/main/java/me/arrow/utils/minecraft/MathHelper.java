@@ -3,7 +3,7 @@ package me.arrow.utils.minecraft;
 import java.util.Random;
 import java.util.UUID;
 
-public final class MathHelper {
+public class MathHelper {
 
     private MathHelper() {
     }
@@ -353,7 +353,7 @@ public final class MathHelper {
     }
 
     public static long getCoordinateRandom(int x, int y, int z) {
-        long i = (long) (x * 3129871) ^ (long) z * 116129781L ^ (long) y;
+        long i = (x * 3129871L) ^ (long) z * 116129781L ^ (long) y;
         i = i * i * 42317861L + i * 11L;
         return i;
     }

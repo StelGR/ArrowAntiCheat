@@ -4,9 +4,9 @@ package me.arrow.utils.customutils.animationSystem;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public final class BanAnimationGuiLayout {
+public class BanAnimationGuiLayout {
 
-    private static final int[] INNER_SLOTS = {
+    static int[] INNER_SLOTS = {
             10, 11, 12, 13, 14, 15, 16,
             19, 20, 21, 22, 23, 24, 25,
             28, 29, 30, 31, 32, 33, 34,

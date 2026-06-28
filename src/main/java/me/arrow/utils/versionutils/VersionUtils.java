@@ -9,7 +9,7 @@ import org.bukkit.entity.Player;
 
 
 //version utils for getting correct version, either from viaver, packetevents or velocity
-public final class VersionUtils {
+public class VersionUtils {
 
     private VersionUtils() {
     }
@@ -72,8 +72,7 @@ public final class VersionUtils {
                 return ClientVersion.UNKNOWN;
             }
 
-            ClientVersion version = ClientVersion.getById(protocol);
-            return version != null ? version : ClientVersion.UNKNOWN;
+            return ClientVersion.getById(protocol);
         } catch (Throwable ignored) {
             return ClientVersion.UNKNOWN;
         }
@@ -85,8 +84,7 @@ public final class VersionUtils {
         }
 
         try {
-            ClientVersion version = PacketEvents.getAPI().getPlayerManager().getClientVersion(player);
-            return version != null ? version : ClientVersion.UNKNOWN;
+            return PacketEvents.getAPI().getPlayerManager().getClientVersion(player);
         } catch (Throwable ignored) {
             return ClientVersion.UNKNOWN;
         }

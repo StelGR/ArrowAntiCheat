@@ -17,7 +17,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class Animation {
 
-    protected static final Particle<?> LAVA = new Particle<>(ParticleTypes.LAVA);
+    protected static Particle<?> LAVA = new Particle<>(ParticleTypes.LAVA);
     protected static final Particle<?> FLAME = new Particle<>(ParticleTypes.FLAME);
     protected static final Particle<?> SMOKE = new Particle<>(ParticleTypes.SMOKE);
     protected static final Particle<?> CLOUD = new Particle<>(ParticleTypes.CLOUD);
@@ -46,7 +46,6 @@ public abstract class Animation {
 
     public static Animation create(Type type, AnimationManager manager, Player player) {
         return switch (type) {
-            case DESTROYED -> new DestroyedAnimation(manager, player);
             case ANVIL -> new AnvilAnimation(manager, player);
             case NOISY -> new NoisyAnimation(manager, player);
             default -> new DestroyedAnimation(manager, player);

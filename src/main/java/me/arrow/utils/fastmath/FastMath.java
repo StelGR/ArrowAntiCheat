@@ -4,7 +4,7 @@ package me.arrow.utils.fastmath;
  * A much faster math library.
  * 99% of this is taken from ApacheMath, However i've improved a few methods myself.
  */
-public final class FastMath {
+public class FastMath {
 
     /**
      * Archimede's constant PI, ratio of circle circumference to diameter.

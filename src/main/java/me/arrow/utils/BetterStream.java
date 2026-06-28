@@ -13,7 +13,7 @@ import java.util.function.Predicate;
  * Obviously this does not include every single Stream method
  * However these methods are much faster than using streams.
  */
-public final class BetterStream {
+public class BetterStream {
 
     private BetterStream() {
     }

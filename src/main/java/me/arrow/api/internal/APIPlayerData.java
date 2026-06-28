@@ -8,7 +8,7 @@ import me.arrow.managers.profile.Profile;
 
 import java.util.List;
 
-public final class APIPlayerData implements PlayerData {
+public class APIPlayerData implements PlayerData {
     private final Profile profile;
     private final APICombatData combatData;
 

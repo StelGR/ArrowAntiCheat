@@ -9,7 +9,6 @@ import me.arrow.utils.MathUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
-import me.arrow.utils.customutils.Math.MathUtil;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
@@ -63,9 +62,6 @@ public class SetbackProcessor implements Processor {
 
             Location teleportLocation = profile.getMovementData().getLastGroundLocation();
 
-            if (teleportLocation == null) {
-                teleportLocation = MathUtil.getGroundLocation(profile);
-            }
 
             if (teleportLocation == null) {
                 return;

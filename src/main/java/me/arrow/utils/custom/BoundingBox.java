@@ -1,7 +1,8 @@
 package me.arrow.utils.custom;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import lombok.Getter;
-import me.arrow.utils.ServerVersion;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -17,7 +18,7 @@ import org.bukkit.util.Vector;
 @Getter
 public class BoundingBox {
 
-    private double minX, minY, minZ, maxX, maxY, maxZ;
+    public double minX, minY, minZ, maxX, maxY, maxZ;
 
     public BoundingBox(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
         resize(minX, minY, minZ, maxX, maxY, maxZ);
@@ -27,7 +28,7 @@ public class BoundingBox {
         /*
         Not supported in legacy versions
          */
-        if (ServerVersion.getVersion().isLowerThan(ServerVersion.v1_13_R1)) return null;
+        if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_13)) return null;
 
         org.bukkit.util.BoundingBox bukkitBox = entity.getBoundingBox();
 
@@ -488,23 +489,6 @@ public class BoundingBox {
         final double z2 = max.getZ();
 
         return contains(x1, y1, z1, x2, y2, z2);
-    }
-
-    public int hashCode() {
-        int result = 1;
-        long temp = Double.doubleToLongBits(getMaxX());
-        result = 31 * result + (int) (temp ^ temp >>> 32);
-        temp = Double.doubleToLongBits(getMaxY());
-        result = 31 * result + (int) (temp ^ temp >>> 32);
-        temp = Double.doubleToLongBits(getMaxZ());
-        result = 31 * result + (int) (temp ^ temp >>> 32);
-        temp = Double.doubleToLongBits(getMinX());
-        result = 31 * result + (int) (temp ^ temp >>> 32);
-        temp = Double.doubleToLongBits(getMinY());
-        result = 31 * result + (int) (temp ^ temp >>> 32);
-        temp = Double.doubleToLongBits(getMinZ());
-        result = 31 * result + (int) (temp ^ temp >>> 32);
-        return result;
     }
 
     public boolean equals(Object obj) {

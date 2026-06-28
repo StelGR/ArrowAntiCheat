@@ -1,20 +1,13 @@
 package me.arrow.utils.customutils.Math;
 
 import com.google.common.util.concurrent.AtomicDouble;
-
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.PotionType;
-import me.arrow.utils.customutils.BlockUtils.BlockUtil;
-import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
 import me.arrow.utils.customutils.PlayerLocation;
 import me.arrow.utils.customutils.Tuple;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.block.BlockFace;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -325,32 +318,6 @@ public class MathUtil {
         return round(value, i).doubleValue();
     }
 
-    public static Location getGroundLocation(Profile user) {
-        World world = user.getPlayer().getWorld();
-
-        Location location = user.getMovementData().getLocation().toBukkit();
-        int i = 0;
-        while (!Objects.requireNonNull(BlockUtil.getBlock(location)).getRelative(BlockFace.DOWN).getType().isSolid()
-                && location.getY() != 0) {
-            if (i++ > 20) {
-                break;
-            }
-            location.add(0, -1, 0);
-        }
-
-
-        if (location.getY() == 0){
-            return  user.getMovementData().getLocation().toBukkit();
-        }
-
-        location.add(0, .05, 0);
-
-        location.setYaw(user.getMovementData().getLocation().getYaw());
-        location.setPitch(user.getMovementData().getLocation().getPitch());
-
-        return location;
-    }
-
     public static double getCPS(Collection<? extends Number> values) {
         return 20 / getAverage(values);
     }
@@ -564,22 +531,6 @@ public class MathUtil {
 
         return 0;
     }
-
-
-    public static BoundingBox getHitbox(LivingEntity entity, PlayerLocation l, Profile user) {
-        float d = (float) user.getMovementData().getDeltaXZ();
-        Vector dimensions = entityDimensions.getOrDefault(entity.getType(), new Vector(0.4, 2, 0.4));
-        return new BoundingBox(0, 0, 0, 0, 0, 0).add((float) l.getX(), (float) l.getY(), (float) l.getZ()).grow((float) dimensions.getX(), (float) dimensions.getY(), (float) dimensions.getZ()).grow(.3f, 0.1f, .3f)
-                .grow((entity.getVelocity().getY() > 0 ? 0.15f : 0) + d / 1.25f, 0, (entity.getVelocity().getY() > 0 ? 0.15f : 0) + d / 1.25f);
-    }
-
-    public static BoundingBox getHitboxV2(LivingEntity entity, PlayerLocation l, Profile user) {
-        float d = (float) user.getMovementData().getDeltaXZ();
-        Vector dimensions = entityDimensions.getOrDefault(entity.getType(), new Vector(0.42, 2, 0.42));
-        return new BoundingBox(0, 0, 0, 0, 0, 0).add((float) l.getX(), (float) l.getY(), (float) l.getZ()).grow((float) dimensions.getX(), (float) dimensions.getY(), (float) dimensions.getZ()).grow(0.1f, 0.1f, 0.1f)
-                .grow((entity.getVelocity().getY() > 0 ? 0.15f : 0) + d / 1.25f, 0, (entity.getVelocity().getY() > 0 ? 0.15f : 0) + d / 1.25f);
-    }
-
 
     public static long gcd(long current, long last) {
         if (last <= 16384) return current;

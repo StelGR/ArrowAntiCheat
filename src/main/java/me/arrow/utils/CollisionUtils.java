@@ -19,7 +19,7 @@ import java.util.function.Predicate;
  * Supposed to do, The reason for it is to avoid certain method calls
  * And focus on perfomance more than anything, Due to collisions usually being heavy.
  */
-public final class CollisionUtils {
+public class CollisionUtils {
 
     private CollisionUtils() {
     }

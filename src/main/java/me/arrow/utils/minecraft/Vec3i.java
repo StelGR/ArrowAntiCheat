@@ -8,7 +8,7 @@ public class Vec3i implements Comparable<Vec3i> {
     /**
      * The Null vector constant (0, 0, 0)
      */
-    public static final Vec3i NULL_VECTOR = new Vec3i(0, 0, 0);
+    public static Vec3i NULL_VECTOR = new Vec3i(0, 0, 0);
 
     /**
      * X coordinate
@@ -16,7 +16,7 @@ public class Vec3i implements Comparable<Vec3i> {
      *  Get the X coordinate
 
      */
-    private final int x;
+    int x;
 
     /**
      * Y coordinate
@@ -24,7 +24,7 @@ public class Vec3i implements Comparable<Vec3i> {
      *  Get the Y coordinate
 
      */
-    private final int y;
+    int y;
 
     /**
      * Z coordinate
@@ -47,10 +47,9 @@ public class Vec3i implements Comparable<Vec3i> {
     public boolean equals(Object p_equals_1_) {
         if (this == p_equals_1_) {
             return true;
-        } else if (!(p_equals_1_ instanceof Vec3i)) {
+        } else if (!(p_equals_1_ instanceof Vec3i vec3i)) {
             return false;
         } else {
-            Vec3i vec3i = (Vec3i) p_equals_1_;
             return this.getX() == vec3i.getX() && (this.getY() == vec3i.getY() && this.getZ() == vec3i.getZ());
         }
     }

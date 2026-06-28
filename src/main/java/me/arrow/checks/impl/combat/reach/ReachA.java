@@ -15,9 +15,9 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
+import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
-import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
@@ -896,6 +896,7 @@ public class ReachA extends Check {
                 (float) (z + halfWidth + horizontalExpand)
         );
     }
+
     private double getTargetHeight(Player target) {
         if (target == null) {
             return 1.8D;

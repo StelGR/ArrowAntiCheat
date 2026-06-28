@@ -5,7 +5,7 @@ package me.arrow.utils.fastmath;
  *
  * @since 3.0
  */
-public final class NumbersUtils {
+public class NumbersUtils {
 
     /**
      * 0x40000000 - used to split a double into two parts, both with the low order bits cleared.

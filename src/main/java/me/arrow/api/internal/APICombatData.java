@@ -3,8 +3,8 @@ package me.arrow.api.internal;
 import me.stel.data.CombatData;
 import me.arrow.managers.profile.Profile;
 
-public final class APICombatData implements CombatData {
-    private final Profile profile;
+public class APICombatData implements CombatData {
+    Profile profile;
 
     public APICombatData(Profile profile) {
         this.profile = profile;

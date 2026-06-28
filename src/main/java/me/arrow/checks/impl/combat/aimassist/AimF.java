@@ -3,35 +3,26 @@ package me.arrow.checks.impl.combat.aimassist;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import me.arrow.Arrow;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
-import me.arrow.playerdata.data.impl.RotationData;
-
-import java.util.ArrayList;
-import java.util.List;
-
-
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
-import me.arrow.Arrow;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.TaskUtils;
+import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
-import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
-import java.util.Collections;
+import java.util.*;
 
 // this is actually again a check made by GPT 5.5, although it does not seem to flag anything so it may need rework
 

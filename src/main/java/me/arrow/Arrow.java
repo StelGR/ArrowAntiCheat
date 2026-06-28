@@ -1,23 +1,18 @@
 package me.arrow;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.Getter;
 import lombok.Setter;
-import me.arrow.playerdata.processors.impl.CollisionProcessor;
-import me.stel.API.ArrowAPIProvider;
 import me.arrow.api.internal.ArrowAPIImpl;
 import me.arrow.commands.CommandManager;
 import me.arrow.commands.bukkitCommands.Stuck;
 import me.arrow.files.Checks;
 import me.arrow.files.Config;
 import me.arrow.files.commentedfiles.CommentedFileConfiguration;
+import me.arrow.listeners.BukkitListener;
+import me.arrow.listeners.NetworkListener;
 import me.arrow.listeners.ProfileListener;
 import me.arrow.listeners.ViolationListener;
 import me.arrow.managers.AlertManager;
@@ -27,8 +22,7 @@ import me.arrow.managers.themes.ThemeManager;
 import me.arrow.managers.threads.ThreadManager;
 import me.arrow.nms.NmsManager;
 import me.arrow.playerdata.data.impl.RodData;
-import me.arrow.listeners.BukkitListener;
-import me.arrow.listeners.NetworkListener;
+import me.arrow.playerdata.processors.impl.CollisionProcessor;
 import me.arrow.tasks.LogsTask;
 import me.arrow.tasks.TickTask;
 import me.arrow.tasks.ViolationTask;
@@ -41,13 +35,20 @@ import me.arrow.utils.customutils.GuiStuff.GuiManager;
 import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.customutils.animationSystem.AnimationManager;
 import me.arrow.utils.versionutils.impl.VelocityClientVersionBridge;
+import me.stel.API.ArrowAPIProvider;
 import org.bukkit.Bukkit;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import static me.arrow.utils.customutils.OtherUtility.*;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import static me.arrow.utils.customutils.OtherUtility.log;
+import static me.arrow.utils.customutils.OtherUtility.translate;
 import static org.bukkit.Bukkit.getServer;
 
 // this is gonna be where i say my reasoning for open sourcing so early
@@ -83,7 +84,7 @@ import static org.bukkit.Bukkit.getServer;
 //
 //https://github.com/NikV2/AnticheatBase
 
-public final class Arrow {
+public class Arrow {
     @Getter
     private static Arrow instance;
 
@@ -390,7 +391,7 @@ public final class Arrow {
     }
 
     @Getter
-    private long serverTick;
+    long serverTick;
 
     public void logBedrockSupport() {
         boolean enabled = floodgatePresent || geyserPresent;

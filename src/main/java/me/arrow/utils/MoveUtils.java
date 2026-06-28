@@ -9,7 +9,7 @@ import org.bukkit.entity.Player;
  * NOTE: This is not perfect, It's made in case you want to make simple
  * Limit checks, There's lots of things that are wrong in here.
  */
-public final class MoveUtils {
+public class MoveUtils {
 
     //---------------------------------------------------------------------------------------
     public static final float MAXIMUM_PITCH = 90.0F;
@@ -38,23 +38,20 @@ public final class MoveUtils {
     public static final double RESET_MOTION = .003016261509046103D;
     //---------------------------------------------------------------------------------------
 
-    private MoveUtils() {
-
-    }
 
     /**
      * Conservative, realistic base air speed derived from ground base speed,
      * sprint state, and expected air-control. This is intended to approximate
      * the *maximum plausible* horizontal speed a player can produce while airborne,
      * taking into account potion/walk-speed modifiers (via MathUtil.getBaseSpeed).
-     *
+
      * Rationale:
      * - Use MathUtil.getBaseSpeed(player) as baseline (already accounts for speed potions/walkSpeed).
      * - Sprinting gives an empirical multiplier (~1.3 on ground). In air the sprint benefit is slightly
      *   reduced for control but still relevant for initial velocities after jump.
      * - Air-control is better modeled as an additive acceleration over ticks rather than a single
      *   absolute cap; we only need a conservative expected maximum, so we scale baseline.
-     *
+
      * This method aims to be conservative (avoid false positives) while giving the prediction
      * a dynamic base rather than a fixed constant.
      */

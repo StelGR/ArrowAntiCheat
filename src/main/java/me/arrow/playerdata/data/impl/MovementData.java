@@ -5,7 +5,10 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
-import com.github.retrooper.packetevents.wrapper.play.client.*;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPosition;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPositionAndRotation;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerRotation;
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
@@ -25,12 +28,15 @@ import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.*;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.materials.PEMaterials;
-import me.arrow.utils.customutils.*;
-import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
-import org.bukkit.*;
+import me.arrow.utils.customutils.OtherUtility;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
+
+import java.lang.reflect.Method;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
 
@@ -313,7 +319,6 @@ public class MovementData implements Data {
 
         //Process data
         processPlayerData();
-        updatePlayerBoundingBox();
         processBlocks();
 
         if (profile.getPlayer().getAllowFlight()) {
@@ -403,7 +408,6 @@ public class MovementData implements Data {
     void processBlocks() {
         NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, !TaskUtils.isFoliaServer());
-        updatePlayerBoundingBox();
 
         boolean flag_water = false, flag_lava = false, flag_web = false, flag_climbable = false,
                 flag_nearBuggyBlock = false, flag_bubble = false, flag_bed = false,
@@ -563,16 +567,6 @@ public class MovementData implements Data {
         };
     }
 
-    private void updatePlayerBoundingBox() {
-        boolean badVector = Math.abs(getLocation().toVector().length()
-                - getLastLocation().toVector().length()) >= 1;
-
-        profile.setBoundingBox(new BoundingBox((badVector ? getLocation().toVector()
-                : getLastLocation().toVector()), getLocation().toVector())
-                .grow(0.3f, 0, 0.3f)
-                .add(0, 0, 0, 0, 1.84f, 0));
-    }
-
     private boolean supportsEntityCollisionCheck() {
         try {
             return !PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8)
@@ -589,6 +583,7 @@ public class MovementData implements Data {
 
         NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
 
+        profile.setBoundingBox(createPlayerBox());
 
         handleNearbyBlocks();
 
@@ -650,8 +645,133 @@ public class MovementData implements Data {
         //this.ghostBlockProcessor.process();
 
         updateTicks();
+    }
+
+    private BoundingBox createPlayerBox() {
+        Player player = profile.getPlayer();
+
+        CustomLocation location = profile.getMovementData().getLocation();
+
+        double x = location.getX();
+        double y = location.getY();
+        double z = location.getZ();
+
+        PlayerBoxSize size = getPlayerBoxSize(player);
+
+        double width = size.width;
+        double height = size.height;
+
+        double halfWidth = width * 0.5D;
+
+        return new BoundingBox(
+                (float) (x - halfWidth),
+                (float) y,
+                (float) (z - halfWidth),
+                (float) (x + halfWidth),
+                (float) (y + height),
+                (float) (z + halfWidth)
+        );
+    }
+
+    private PlayerBoxSize getPlayerBoxSize(Player player) {
+        if (player == null) {
+            return PlayerBoxSize.STANDING;
+        }
+
+        String pose = getPoseName(player);
+
+        // Sleeping hitbox
+        if (pose.equals("SLEEPING")) {
+            return PlayerBoxSize.SLEEPING;
+        }
+
+        // Swimming, crawling, elytra gliding, trident spin attack
+        if (pose.equals("SWIMMING")
+                || pose.equals("CRAWLING")
+                || pose.equals("FALL_FLYING")
+                || pose.equals("SPIN_ATTACK")
+                || isSwimming(player)
+                || isGliding(player)) {
+            return PlayerBoxSize.FLAT;
+        }
+
+        // 1.14+ sneaking/crouching hitbox
+        if (hasModernSneakingDimensions()
+                && (player.isSneaking()
+                || pose.equals("CROUCHING")
+                || pose.equals("SNEAKING"))) {
+            return PlayerBoxSize.SNEAKING;
+        }
+
+        return PlayerBoxSize.STANDING;
+    }
 
 
+    private String getPoseName(Player player) {
+        try {
+            Method getPose = player.getClass().getMethod("getPose");
+            Object pose = getPose.invoke(player);
+
+            if (pose != null) {
+                return pose.toString().toUpperCase(java.util.Locale.ROOT);
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return "STANDING";
+    }
+
+    private boolean isSwimming(Player player) {
+        try {
+            Method isSwimming = player.getClass().getMethod("isSwimming");
+            Object result = isSwimming.invoke(player);
+
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private boolean isGliding(Player player) {
+        try {
+            return Arrow.getInstance().getNmsManager().getNmsInstance().isGliding(player);
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            Method isGliding = player.getClass().getMethod("isGliding");
+            Object result = isGliding.invoke(player);
+
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private boolean hasModernSneakingDimensions() {
+        try {
+            return PacketEvents.getAPI()
+                    .getServerManager()
+                    .getVersion()
+                    .isNewerThanOrEquals(ServerVersion.V_1_14);
+        } catch (Throwable ignored) {
+            return true;
+        }
+    }
+
+    private static class PlayerBoxSize {
+        static PlayerBoxSize STANDING = new PlayerBoxSize(0.6D, 1.8D);
+        static PlayerBoxSize SNEAKING = new PlayerBoxSize(0.6D, 1.5D);
+        static PlayerBoxSize FLAT = new PlayerBoxSize(0.6D, 0.6D);
+        static PlayerBoxSize SLEEPING = new PlayerBoxSize(0.2D, 0.2D);
+
+        double width;
+        double height;
+
+        private PlayerBoxSize(double width, double height) {
+            this.width = width;
+            this.height = height;
+        }
     }
 
 

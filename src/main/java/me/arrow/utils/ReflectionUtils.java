@@ -1,5 +1,7 @@
 package me.arrow.utils;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.exception.AnticheatException;
 import org.bukkit.Bukkit;
@@ -20,7 +22,7 @@ import java.util.Map;
  * <p>
  * In this class we'll also use caching making reflection less heavy
  */
-public final class ReflectionUtils {
+public class ReflectionUtils {
 
     private static final Map<String, Class<?>> NMS_CLASSES = new HashMap<>();
     private static final Map<String, Class<?>> OBC_CLASSES = new HashMap<>();
@@ -150,7 +152,7 @@ public final class ReflectionUtils {
 
     public static BoundingBox getBoundingBox(final Entity entity) {
 
-        if (ServerVersion.getVersion().isLowerThan(ServerVersion.v1_13_R1)) {
+        if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_13)) {
             try {
                 Object nmsBoundingBox = getMethod(getNMSClass("Entity"), "getBoundingBox")
                         .invoke(craftEntity(entity));
@@ -183,7 +185,7 @@ public final class ReflectionUtils {
         Class<?> boxClass = box.getClass();
 
         try {
-            if (ServerVersion.getVersion().isLowerThan(ServerVersion.v1_13_R1)) {
+            if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_13)) {
                 x = (double) getField(boxClass, "a").get(box);
                 y = (double) getField(boxClass, "b").get(box);
                 z = (double) getField(boxClass, "c").get(box);
@@ -209,7 +211,7 @@ public final class ReflectionUtils {
 
         try {
 
-            if (ServerVersion.getVersion().isLowerThan(ServerVersion.v1_13_R1)) {
+            if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_13)) {
                 x = (double) getField(boxClass, "d").get(box);
                 y = (double) getField(boxClass, "e").get(box);
                 z = (double) getField(boxClass, "f").get(box);

@@ -24,13 +24,13 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
-public final class AnimationManager {
+public class AnimationManager {
 
-    private static final double VIEW_DISTANCE = 50.0D;
-    private static final double VIEW_DISTANCE_SQUARED = VIEW_DISTANCE * VIEW_DISTANCE;
+    static double VIEW_DISTANCE = 50.0D;
+    static double VIEW_DISTANCE_SQUARED = VIEW_DISTANCE * VIEW_DISTANCE;
 
-    private final JavaPlugin plugin;
-    private final ConcurrentHashMap<UUID, ActiveAnimation> activeAnimations = new ConcurrentHashMap<>();
+    JavaPlugin plugin;
+    ConcurrentHashMap<UUID, ActiveAnimation> activeAnimations = new ConcurrentHashMap<>();
 
     public AnimationManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -292,16 +292,16 @@ public final class AnimationManager {
         }
     }
 
-    public static final class ParticlePoint {
+    public static class ParticlePoint {
 
-        private final double x;
-        private final double y;
-        private final double z;
-        private final float offsetX;
-        private final float offsetY;
-        private final float offsetZ;
-        private final float speed;
-        private final int count;
+        double x;
+        double y;
+        double z;
+        float offsetX;
+        float offsetY;
+        float offsetZ;
+        float speed;
+        int count;
 
         public ParticlePoint(double x, double y, double z, float offsetX, float offsetY, float offsetZ, float speed, int count) {
             this.x = x;

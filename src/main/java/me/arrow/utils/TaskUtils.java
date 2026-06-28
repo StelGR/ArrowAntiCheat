@@ -16,7 +16,7 @@ import java.util.concurrent.*;
 import java.lang.reflect.Method;
 import java.util.function.Consumer;
 
-public final class TaskUtils {
+public class TaskUtils {
 
     private static final Plugin PLUGIN = Arrow.getInstance().getHost();
     private static final boolean FOLIA = isFolia();

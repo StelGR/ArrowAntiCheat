@@ -10,7 +10,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.UUID;
 
 public class ArrowAPIImpl implements ArrowAPI {
-    private final ProfileManager profileManager;
+    ProfileManager profileManager;
 
     public ArrowAPIImpl(ProfileManager profileManager) {
         this.profileManager = profileManager;

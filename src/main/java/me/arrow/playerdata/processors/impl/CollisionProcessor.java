@@ -2,7 +2,7 @@ package me.arrow.playerdata.processors.impl;
 
 import me.arrow.playerdata.processors.Processor;
 import me.arrow.utils.TaskUtils;
-import me.arrow.utils.customutils.Hitboxes.GeneralHitboxes.BoundingBox;
+import me.arrow.utils.custom.BoundingBox;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;

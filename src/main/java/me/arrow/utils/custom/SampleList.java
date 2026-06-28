@@ -7,7 +7,7 @@ import java.util.LinkedList;
 /**
  * A custom sample list that we'll be using on our checks.
  */
-public final class SampleList<T> extends LinkedList<T> {
+public class SampleList<T> extends LinkedList<T> {
 
     private final int sampleSize;
     private final boolean update;

@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class VelocityClientVersionBridge implements PluginMessageListener {
+public class VelocityClientVersionBridge implements PluginMessageListener {
 
     private static final String MODERN_CHANNEL = "arrow:version";
     private static final String LEGACY_CHANNEL = "ArrowVersion";
@@ -72,7 +72,7 @@ public final class VelocityClientVersionBridge implements PluginMessageListener 
 
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
-        if (player == null || message == null) {
+        if (message == null) {
             return;
         }
 
@@ -89,10 +89,6 @@ public final class VelocityClientVersionBridge implements PluginMessageListener 
             }
 
             ClientVersion version = ClientVersion.getById(protocol);
-
-            if (version == null) {
-                version = ClientVersion.UNKNOWN;
-            }
 
             CLIENT_VERSIONS.put(uuid, version);
 

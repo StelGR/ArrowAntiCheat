@@ -14,12 +14,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
-public final class EntityUtil {
+public class EntityUtil {
 
-    private EntityUtil() {
-    }
-
-    private static final ConcurrentHashMap<UUID, EntityCache> CACHE = new ConcurrentHashMap<>();
+    static ConcurrentHashMap<UUID, EntityCache> CACHE = new ConcurrentHashMap<>();
 
     public static boolean isBoat(EntityType type) {
         if (type == null) {
@@ -48,7 +45,6 @@ public final class EntityUtil {
             return false;
         }
 
-        Player player = profile.getPlayer();
         EntityCache cache = getOrQueueRefresh(profile);
 
         return profile.getMovementData().isOnGround() && cache.onBoat;
@@ -167,14 +163,14 @@ public final class EntityUtil {
         try {
             Location base = player.getLocation();
 
-            if (base == null || base.getWorld() == null) {
+            if (base.getWorld() == null) {
                 return false;
             }
 
             double radiusSquared = radius * radius;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                if (entity == null || !canReadEntity(entity)) {
+                if (!canReadEntity(entity)) {
                     continue;
                 }
 
@@ -191,7 +187,7 @@ public final class EntityUtil {
 
                     Location entityLocation = entity.getLocation();
 
-                    if (entityLocation == null || entityLocation.getWorld() == null) {
+                    if (entityLocation.getWorld() == null) {
                         continue;
                     }
 
@@ -214,21 +210,21 @@ public final class EntityUtil {
     public static List<Entity> getEntitiesWithinRadius(Player player, double radius) {
         List<Entity> entities = new ArrayList<>();
 
-        if (player == null || radius <= 0.0D || !canReadNearbyEntities(player)) {
+        if (radius <= 0.0D || !canReadNearbyEntities(player)) {
             return entities;
         }
 
         try {
             Location base = player.getLocation();
 
-            if (base == null || base.getWorld() == null) {
+            if (base.getWorld() == null) {
                 return entities;
             }
 
             double radiusSquared = radius * radius;
 
             for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
-                if (entity == null || !canReadEntity(entity)) {
+                if (!canReadEntity(entity)) {
                     continue;
                 }
 
@@ -239,7 +235,7 @@ public final class EntityUtil {
 
                     Location entityLocation = entity.getLocation();
 
-                    if (entityLocation == null || entityLocation.getWorld() == null) {
+                    if (entityLocation.getWorld() == null) {
                         continue;
                     }
 
@@ -300,7 +296,7 @@ public final class EntityUtil {
 
                         Location entityLocation = entity.getLocation();
 
-                        if (entityLocation == null || entityLocation.getWorld() == null) {
+                        if (entityLocation.getWorld() == null) {
                             continue;
                         }
 
@@ -354,12 +350,12 @@ public final class EntityUtil {
         return Bukkit.isPrimaryThread();
     }
 
-    private static final class EntityCache {
-        private volatile boolean queued;
-        private volatile boolean onBoat;
-        private volatile boolean nearBoat;
-        private volatile boolean nearShulker;
-        private volatile boolean nearGhast;
-        private volatile long lastUpdate;
+    static class EntityCache {
+        volatile boolean queued;
+        volatile boolean onBoat;
+        volatile boolean nearBoat;
+        volatile boolean nearShulker;
+        volatile boolean nearGhast;
+        volatile long lastUpdate;
     }
 }

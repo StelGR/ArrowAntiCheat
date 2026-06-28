@@ -18,10 +18,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-public final class MiscUtils {
-
-    private MiscUtils() {
-    }
+public class MiscUtils {
 
     public static final ItemStack EMPTY_ITEM = new ItemStack(Material.AIR);
 
@@ -122,9 +119,8 @@ public final class MiscUtils {
         return firstLetter + restLetters;
     }
 
-    @SuppressWarnings("unchecked")
     public static <E> E randomElement(final Collection<? extends E> collection) {
-        if (collection.size() == 0) return null;
+        if (collection.isEmpty()) return null;
 
         int index = new Random().nextInt(collection.size());
 
