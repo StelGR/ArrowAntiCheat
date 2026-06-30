@@ -9,6 +9,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.TaskUtils;
@@ -20,7 +21,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
 
-import java.lang.reflect.Method;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -557,7 +557,7 @@ public class FlyA extends Check {
         final double FRACT_Y_TOL = 0.12D;
 
         if (Math.abs(deltaY - LAND_NEG) <= LAND_TOL && lastDeltaY < FALL_THRESH && pred1 < PRED_FALL_THRESH && pred2 < PRED_FALL_THRESH && !clientGround) {
-            double y = getCurrentY(md);
+            double y = md.getLocation().getY();
             double frac = y - Math.floor(y + 1.0E-9D);
 
             if (frac < FRACT_Y_TOL || frac > (1.0D - FRACT_Y_TOL)) {
@@ -611,14 +611,14 @@ public class FlyA extends Check {
         }
     }
 
-    private static final double GRAVITY = 0.08D;
+    static double GRAVITY = 0.08D;
 
-    private boolean trackingFall;
-    private double predictedDY;
-    private double predictedFallDist;
-    private int predictedTicks;
+    boolean trackingFall;
+    double predictedDY;
+    double predictedFallDist;
+    int predictedTicks;
 
-    private double negGravStreak;
+    double negGravStreak;
 
     public void GravityPredictionD(MovementData data) {
         double dy = data.getDeltaY();
@@ -661,11 +661,6 @@ public class FlyA extends Check {
 
         //if (data.isOnSlime()) { resetGravityD("onSlime"); return; }
 
-        boolean stepPredictionContext = data.isNearStepMaterial()
-                || data.isMovingUp()
-                || data.isMovingDown()
-                || data.getSinceMovingUpTicks() < 2 + transTicks
-                || data.getSinceMovingDownTicks() < 2 + transTicks;
 
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return; }
 
@@ -734,6 +729,9 @@ public class FlyA extends Check {
 
             double required = directExtremeFastFall ? 0.75D : directHardFastFall ? 1.25D : 2.00D;
 
+            if (data.getSincePredictUpwardsTicks() < 5 + transTicks) { resetGravityD("predictUpwards"); return; }
+            if (data.getSincePredictDownwardsTicks() < 5 + transTicks) { resetGravityD("predictDownwards"); return; }
+
             if (increaseBuffer() > required || negGravStreak > required) {
                 fail("Negative Gravity Modification (Fast Fall)",
                         "fallDist " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDist
@@ -747,7 +745,6 @@ public class FlyA extends Check {
                                 + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + data.isOnGround()
                                 + "\ncustomInAir " + MsgType.MAIN_THEME_COLOR.getMessage() + data.isCustomInAir()
                                 + "\nactualGround " + MsgType.MAIN_THEME_COLOR.getMessage() + actualGround
-                                + "\nstepPrediction " + MsgType.MAIN_THEME_COLOR.getMessage() + stepPredictionContext
                                 + "\ndirectLowHop " + MsgType.MAIN_THEME_COLOR.getMessage() + directLowHopFastFall
                                 + "\ndirectHard " + MsgType.MAIN_THEME_COLOR.getMessage() + directHardFastFall
                                 + "\ndirectExtreme " + MsgType.MAIN_THEME_COLOR.getMessage() + directExtremeFastFall);
@@ -761,11 +758,7 @@ public class FlyA extends Check {
             }
         }
 
-        if (stepPredictionContext && data.isMovingUp()) { resetGravityD("movingUp"); return; }
-        if (stepPredictionContext && data.isMovingDown()) { resetGravityD("movingDown"); return; }
-        //if (data.getVerticalMove() == MovementPredictionUtil.VerticalMove.DOWN) { resetGravityD("verticalMoveDown"); return; }
-        if (stepPredictionContext && data.getSincePredictUpwardsTicks() < 10 + transTicks) { resetGravityD("predictUpwards"); return; }
-        if (stepPredictionContext && data.getSincePredictDownwardsTicks() < 10 + transTicks) { resetGravityD("predictDownwards"); return; }
+
 
         if (actualGround
                 || trustedClientGround
@@ -955,6 +948,8 @@ public class FlyA extends Check {
             double required = extremeFastFall ? 1D : hardFastFall ? 2D : 5D;
 
             if ((hardFastFall && increaseBuffer() > required) || negGravStreak > required) {
+                if (data.getSincePredictUpwardsTicks() < 5 + transTicks) { resetGravityD("predictUpwards"); return; }
+                if (data.getSincePredictDownwardsTicks() < 5 + transTicks) { resetGravityD("predictDownwards"); return; }
                 fail("Negative Gravity Modification " + (hardFastFall ? "(Fast Fall)" : "(Streak : "+ negGravStreak+")"),
                         "fallDist " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDist
                                 + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
@@ -1021,21 +1016,28 @@ public class FlyA extends Check {
     }
 
     private double getPlacedBlockLandingPrediction(MovementData data, double normalPrediction) {
-        Object actionData = getActionData();
+        ActionData actionData = profile.getActionData();
 
-        if (actionData == null || data == null) {
+        if (actionData == null || data == null || data.getLocation() == null) {
             return Double.NaN;
         }
 
-        int ticks = getBlockPlacePredictionTicks(actionData);
+        int ticks = actionData.getBlockPlacePredictionTicks();
 
-        if (!hasRecentConfirmedUnderPlace(actionData, ticks)) {
+        if (!actionData.hasRecentConfirmedUnderPlace(ticks)) {
             return Double.NaN;
         }
 
-        double topY = getLastConfirmedUnderPlaceTopY(actionData);
-        double lastY = getLastY(data);
-        double currentY = getCurrentY(data);
+        double topY = Double.isFinite(actionData.getLastConfirmedUnderPlaceTopY())
+                ? actionData.getLastConfirmedUnderPlaceTopY()
+                : actionData.getLastConfirmedUnderPlaceY() == Integer.MIN_VALUE
+                ? Double.NaN
+                : actionData.getLastConfirmedUnderPlaceY() + 1.0D;
+
+        double currentY = data.getLocation().getY();
+        double lastY = data.getLastLocation() != null && Double.isFinite(data.getLastLocation().getY())
+                ? data.getLastLocation().getY()
+                : currentY - data.getDeltaY();
 
         if (!Double.isFinite(topY) || !Double.isFinite(lastY) || !Double.isFinite(currentY)) {
             return Double.NaN;
@@ -1063,15 +1065,15 @@ public class FlyA extends Check {
     }
 
     private double getPlacedBlockJumpPrediction(MovementData data) {
-        Object actionData = getActionData();
+        ActionData actionData = profile.getActionData();
 
-        if (actionData == null || data == null) {
+        if (actionData == null || data == null || data.getLocation() == null) {
             return Double.NaN;
         }
 
-        int ticks = Math.min(5 + profile.getConnectionData().getClientTickTrans(), getBlockPlacePredictionTicks(actionData));
+        int ticks = Math.min(5 + profile.getConnectionData().getClientTickTrans(), actionData.getBlockPlacePredictionTicks());
 
-        if (!hasRecentConfirmedUnderPlace(actionData, ticks)) {
+        if (!actionData.hasRecentConfirmedUnderPlace(ticks)) {
             return Double.NaN;
         }
 
@@ -1079,8 +1081,15 @@ public class FlyA extends Check {
             return Double.NaN;
         }
 
-        double topY = getLastConfirmedUnderPlaceTopY(actionData);
-        double lastY = getLastY(data);
+        double topY = Double.isFinite(actionData.getLastConfirmedUnderPlaceTopY())
+                ? actionData.getLastConfirmedUnderPlaceTopY()
+                : actionData.getLastConfirmedUnderPlaceY() == Integer.MIN_VALUE
+                ? Double.NaN
+                : actionData.getLastConfirmedUnderPlaceY() + 1.0D;
+
+        double lastY = data.getLastLocation() != null && Double.isFinite(data.getLastLocation().getY())
+                ? data.getLastLocation().getY()
+                : data.getLocation().getY() - data.getDeltaY();
 
         if (!Double.isFinite(topY) || !Double.isFinite(lastY)) {
             return Double.NaN;
@@ -1093,27 +1102,23 @@ public class FlyA extends Check {
                 || data.isServerYGround()
                 || data.isPositionYGround();
 
-        if (!wasOnPlacedBlock) {
-            return Double.NaN;
-        }
-
-        if (data.getDeltaY() <= 0.0D) {
+        if (!wasOnPlacedBlock || data.getDeltaY() <= 0.0D) {
             return Double.NaN;
         }
 
         return MoveUtils.getJumpMotion(profile);
     }
 
-    private boolean isHorizontallyOverPlacedBlock(MovementData data, Object actionData) {
+    private boolean isHorizontallyOverPlacedBlock(MovementData data, ActionData actionData) {
         if (data == null || actionData == null || data.getLocation() == null) {
             return false;
         }
 
-        double x = getCurrentX(data);
-        double z = getCurrentZ(data);
+        double x = data.getLocation().getX();
+        double z = data.getLocation().getZ();
 
-        int blockX = getInt(actionData, "getLastConfirmedUnderPlaceX", Integer.MIN_VALUE);
-        int blockZ = getInt(actionData, "getLastConfirmedUnderPlaceZ", Integer.MIN_VALUE);
+        int blockX = actionData.getLastConfirmedUnderPlaceX();
+        int blockZ = actionData.getLastConfirmedUnderPlaceZ();
 
         if (blockX == Integer.MIN_VALUE || blockZ == Integer.MIN_VALUE) {
             return false;
@@ -1154,64 +1159,6 @@ public class FlyA extends Check {
         }
 
         return Math.min(0.125D, tolerance);
-    }
-
-    private Object getActionData() {
-        try {
-            return profile.getActionData();
-        } catch (Throwable ignored) {
-            return null;
-        }
-    }
-
-    private int getBlockPlacePredictionTicks(Object actionData) {
-        int reflected = getInt(actionData, "getBlockPlacePredictionTicks", -1);
-
-        if (reflected > 0) {
-            return reflected;
-        }
-
-        int transTicks = 0;
-        int pingTicks = 0;
-
-        try {
-            transTicks = Math.max(0, profile.getConnectionData().getClientTickTrans());
-        } catch (Throwable ignored) {
-        }
-
-        try {
-            pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
-        } catch (Throwable ignored) {
-        }
-
-        return Math.max(3, Math.min(20, 3 + transTicks + pingTicks));
-    }
-
-    private boolean hasRecentConfirmedUnderPlace(Object actionData, int ticks) {
-        Boolean result = getBooleanWithInt(actionData, "hasRecentConfirmedUnderPlace", ticks);
-
-        if (result != null) {
-            return result;
-        }
-
-        int lastTicks = getInt(actionData, "getLastConfirmedUnderPlaceTicks", 1000);
-        return lastTicks <= ticks;
-    }
-
-    private double getLastConfirmedUnderPlaceTopY(Object actionData) {
-        double topY = getDouble(actionData, "getLastConfirmedUnderPlaceTopY", Double.NaN);
-
-        if (Double.isFinite(topY)) {
-            return topY;
-        }
-
-        int y = getInt(actionData, "getLastConfirmedUnderPlaceY", Integer.MIN_VALUE);
-
-        if (y == Integer.MIN_VALUE) {
-            return Double.NaN;
-        }
-
-        return y + 1.0D;
     }
 
     private double predictGravityDY(Profile profile, MovementData data, double previousDY) {
@@ -1276,10 +1223,6 @@ public class FlyA extends Check {
 
     private void resetGravityD(String reason) {
         debugExemptD(reason);
-        trackingFall = false;
-        predictedDY = 0.0D;
-        predictedFallDist = 0.0D;
-        predictedTicks = 0;
         negGravStreak = 0.0D;
         resetPlacedBlockGravityState();
     }
@@ -1291,11 +1234,7 @@ public class FlyA extends Check {
         predictedTicks = 0;
     }
 
-    private void debugExemptD(String reason) {
-        if (Config.Setting.DEBUG.getBoolean()) {
-            OtherUtility.log("Fly A (4): is Exempting (" + reason + ")");
-        }
-    }
+
 
     private double getPrediction(Profile user, double deltaY) {
         MovementData md = user.getMovementData();
@@ -1424,93 +1363,6 @@ public class FlyA extends Check {
                 .anyMatch(material -> material.name().equals("POWDER_SNOW"));
     }
 
-    private double getCurrentX(MovementData data) {
-        return getDoubleFromObject(data.getLocation(), "getX", 0.0D);
-    }
-
-    private double getCurrentY(MovementData data) {
-        return getDoubleFromObject(data.getLocation(), "getY", 0.0D);
-    }
-
-    private double getCurrentZ(MovementData data) {
-        return getDoubleFromObject(data.getLocation(), "getZ", 0.0D);
-    }
-
-    private double getLastY(MovementData data) {
-        Object lastLocation = invoke(data, "getLastLocation");
-
-        if (lastLocation != null) {
-            double value = getDoubleFromObject(lastLocation, "getY", Double.NaN);
-
-            if (Double.isFinite(value)) {
-                return value;
-            }
-        }
-
-        return getCurrentY(data) - data.getDeltaY();
-    }
-
-    private Object invoke(Object object, String methodName) {
-        if (object == null || methodName == null) {
-            return null;
-        }
-
-        try {
-            Method method = object.getClass().getMethod(methodName);
-            return method.invoke(object);
-        } catch (Throwable ignored) {
-            return null;
-        }
-    }
-
-    private int getInt(Object object, String methodName, int fallback) {
-        Object value = invoke(object, methodName);
-
-        if (value instanceof Number) {
-            return ((Number) value).intValue();
-        }
-
-        return fallback;
-    }
-
-    private double getDouble(Object object, String methodName, double fallback) {
-        Object value = invoke(object, methodName);
-
-        if (value instanceof Number) {
-            return ((Number) value).doubleValue();
-        }
-
-        return fallback;
-    }
-
-    private double getDoubleFromObject(Object object, String methodName, double fallback) {
-        Object value = invoke(object, methodName);
-
-        if (value instanceof Number) {
-            return ((Number) value).doubleValue();
-        }
-
-        return fallback;
-    }
-
-    private Boolean getBooleanWithInt(Object object, String methodName, int value) {
-        if (object == null || methodName == null) {
-            return null;
-        }
-
-        try {
-            Method method = object.getClass().getMethod(methodName, int.class);
-            Object result = method.invoke(object, value);
-
-            if (result instanceof Boolean) {
-                return (Boolean) result;
-            }
-        } catch (Throwable ignored) {
-        }
-
-        return null;
-    }
-
     private void debugExempt(String reason) {
         if (Config.Setting.DEBUG.getBoolean()) {
             OtherUtility.log("Fly A (1): is Exempting (" + reason + ")");
@@ -1526,6 +1378,12 @@ public class FlyA extends Check {
     private void debugExemptC(String reason) {
         if (Config.Setting.DEBUG.getBoolean()) {
             OtherUtility.log("Fly A (3): is Exempting (" + reason + ")");
+        }
+    }
+
+    private void debugExemptD(String reason) {
+        if (Config.Setting.DEBUG.getBoolean()) {
+            OtherUtility.log("Fly A (4): is Exempting (" + reason + ")");
         }
     }
 
@@ -1558,11 +1416,11 @@ public class FlyA extends Check {
         negGravStreak = Math.max(0.0D, negGravStreak - amount);
     }
 
-    private static final class PredictionResult {
+    static class PredictionResult {
 
-        private final double prediction;
-        private final String type;
-        private final double offset;
+        double prediction;
+        final String type;
+        double offset;
 
         private PredictionResult(double prediction, String type, double offset) {
             this.prediction = prediction;

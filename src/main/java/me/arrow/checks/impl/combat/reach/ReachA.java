@@ -888,12 +888,12 @@ public class ReachA extends Check {
         double halfWidth = width * 0.5D;
 
         return new BoundingBox(
-                (float) (x - halfWidth - horizontalExpand),
-                (float) (y - verticalExpand),
-                (float) (z - halfWidth - horizontalExpand),
-                (float) (x + halfWidth + horizontalExpand),
-                (float) (y + height + verticalExpand),
-                (float) (z + halfWidth + horizontalExpand)
+                (x - halfWidth - horizontalExpand),
+                (y - verticalExpand),
+                (z - halfWidth - horizontalExpand),
+                (x + halfWidth + horizontalExpand),
+                (y + height + verticalExpand),
+                (z + halfWidth + horizontalExpand)
         );
     }
 

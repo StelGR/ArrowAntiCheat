@@ -5,11 +5,11 @@ import lombok.Setter;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.processors.Processor;
 import me.arrow.tasks.TickTask;
-import me.arrow.utils.MathUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import org.bukkit.Location;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
@@ -42,8 +42,6 @@ public class SetbackProcessor implements Processor {
 
     @Override
     public void process() {
-        if (MathUtils.elapsedTicks(this.lastStoredLocationTicks) < 20
-                || MathUtils.elapsedTicks(this.lastSetbackTicks) < 40) return;
 
         this.locations.add(profile.getMovementData().getLocation());
 
@@ -60,40 +58,7 @@ public class SetbackProcessor implements Processor {
                 return;
             }
 
-            Location teleportLocation = profile.getMovementData().getLastGroundLocation();
-
-
-            if (teleportLocation == null) {
-                return;
-            }
-
-            profile.isExempt().setSetback(true);
-
-            final Location finalLocation = teleportLocation.clone();
-
-            /*
-             * Store setback history
-             */
-            addSetbackHistory(
-                    player.getUniqueId(),
-                    reason,
-                    finalLocation
-            );
-
-            /*
-             * Teleport sync
-             */
-            teleportSetback(player, finalLocation);
-
-            setbackDebug(
-                    profile,
-                    "&c" + reason + " &7setback -> &6"
-                            + finalLocation.getBlockX() + ", "
-                            + finalLocation.getBlockY() + ", "
-                            + finalLocation.getBlockZ()
-            );
-
-
+            setback(reason);
 
         } catch (Exception e) {
 
@@ -104,6 +69,58 @@ public class SetbackProcessor implements Processor {
 
             e.printStackTrace();
         }
+    }
+
+
+    public void setback(String reason) {
+        this.lastSetbackTicks = TickTask.getCurrentTick();
+
+        Player p = profile.getPlayer();
+
+        if (p == null) return;
+
+        if (this.locations.isEmpty()) {
+
+            final CustomLocation cloned = profile.getMovementData().getLastLocation().clone();
+
+            int count = 0;
+
+            while (cloned.getBlock().getRelative(BlockFace.DOWN).isEmpty()) {
+
+                cloned.subtract(0D, 1D, 0D);
+
+                //Prevents crashes
+                if (count++ > 5) break;
+            }
+
+            teleportSetback(p, cloned.toBukkit());
+
+            setbackDebug(
+                    profile,
+                    "&c" + reason + " &7setback -> &6"
+                            + cloned.getBlockX() + ", "
+                            + cloned.getBlockY() + ", "
+                            + cloned.getBlockZ()
+            );
+//            TaskUtils.task(() -> p.teleport(cloned.toBukkit(), PlayerTeleportEvent.TeleportCause.PLUGIN));
+
+            return;
+        }
+
+        final Location setbackLocation = locations.getLast().toBukkit();
+
+        if (setbackLocation.getWorld() != p.getWorld()) return;
+
+        teleportSetback(p, setbackLocation);
+
+        setbackDebug(
+                profile,
+                "&c" + reason + " &7setback -> &6"
+                        + setbackLocation.getBlockX() + ", "
+                        + setbackLocation.getBlockY() + ", "
+                        + setbackLocation.getBlockZ()
+        );
+//        TaskUtils.task(() -> p.teleport(setbackLocation, PlayerTeleportEvent.TeleportCause.PLUGIN));
     }
 
     private void addSetbackHistory(UUID uuid, String reason, Location location) {
