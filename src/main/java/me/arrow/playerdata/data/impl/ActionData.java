@@ -3,6 +3,7 @@ package me.arrow.playerdata.data.impl;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import lombok.Getter;
@@ -203,18 +204,8 @@ public class ActionData implements Data {
     }
 
     public int getBlockPlacePredictionTicks() {
-        int transTicks = 0;
-        int pingTicks = 0;
-
-        try {
-            transTicks = Math.max(0, profile.getConnectionData().getClientTickTrans());
-        } catch (Throwable ignored) {
-        }
-
-        try {
-            pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
-        } catch (Throwable ignored) {
-        }
+        int transTicks = profile.getConnectionData().getClientTickTrans();
+        int pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
 
         return Math.max(3, Math.min(20, 3 + transTicks + pingTicks));
     }
@@ -226,19 +217,13 @@ public class ActionData implements Data {
             return;
         }
 
-        WrapperPlayClientPlayerBlockPlacement packet;
+        WrapperPlayClientPlayerBlockPlacement packet = new WrapperPlayClientPlayerBlockPlacement(event);
 
-        try {
-            packet = new WrapperPlayClientPlayerBlockPlacement(event);
-        } catch (Throwable ignored) {
-            return;
-        }
+        Vector3i position = packet.getBlockPosition();
 
-        Object position = packet.getBlockPosition();
-
-        int x = getCoordinate(position, "getX");
-        int y = getCoordinate(position, "getY");
-        int z = getCoordinate(position, "getZ");
+        int x = position.getX();
+        int y = position.getY();
+        int z = position.getZ();
 
         if (x == -1 && y == -1 && z == -1) {
             return;
@@ -615,15 +600,6 @@ public class ActionData implements Data {
         }
     }
 
-    private int getCoordinate(Object object, String methodName) {
-        Object value = invoke(object, methodName);
-
-        if (value instanceof Number) {
-            return ((Number) value).intValue();
-        }
-
-        return 0;
-    }
 
     private static final class PendingUnderPlace {
 
@@ -665,11 +641,11 @@ public class ActionData implements Data {
             return;
         }
 
-        Object pos = packet.getBlockPosition();
+        Vector3i pos = packet.getBlockPosition();
 
-        int x = getCoordinate(pos, "getX");
-        int y = getCoordinate(pos, "getY");
-        int z = getCoordinate(pos, "getZ");
+        int x = pos.getX();
+        int y = pos.getY();
+        int z = pos.getZ();
 
         if (x == -1 && y == -1 && z == -1) {
             return;
