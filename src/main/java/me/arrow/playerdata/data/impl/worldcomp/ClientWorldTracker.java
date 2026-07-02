@@ -25,7 +25,7 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class ClientWorldTracker implements Data {
+public class ClientWorldTracker implements Data {
 
     int DEFAULT_MIN_Y = 0;
     int DEFAULT_MAX_Y_OLD = 255;

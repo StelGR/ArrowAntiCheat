@@ -18,6 +18,7 @@ import me.arrow.playerdata.data.CheckHolder;
 import me.arrow.playerdata.data.impl.*;
 import me.arrow.playerdata.data.impl.worldcomp.BlockProcessor;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
+import me.arrow.playerdata.data.impl.worldcomp.GeysersTracker;
 import me.arrow.playerdata.processors.impl.NMSProcessor;
 import me.arrow.playerdata.processors.impl.TransactionProcessor;
 import me.arrow.utils.ChatUtils;
@@ -65,6 +66,7 @@ public class Profile {
     private final BlockProcessor blockProcessor;
     private final ClientWorldTracker clientWorldTracker;
     private final NMSProcessor nmsProcessor;
+    private final GeysersTracker geysersTracker;
     //-------------------------------------------
 
     //--------------------------------------
@@ -181,6 +183,7 @@ public class Profile {
         this.clientWorldTracker = new ClientWorldTracker(this);
         this.blockProcessor = new BlockProcessor(this);
         this.clientBrandListener = new ClientBrandListener(Arrow.getInstance());
+        this.geysersTracker = new GeysersTracker(this);
 
 
         //Check Holder

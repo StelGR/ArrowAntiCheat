@@ -3,6 +3,7 @@ package me.arrow.checks.impl.movement.fly;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -11,6 +12,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
+import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.OtherUtility;
@@ -66,6 +68,11 @@ public class FlyB extends Check {
 
             if (profile.shouldCancel()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (shouldCancel)");
+                return;
+            }
+
+            if (profile.getGeysersTracker().isBeingPushed()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - geysers (26.2+)");
                 return;
             }
 
@@ -185,6 +192,13 @@ public class FlyB extends Check {
                 return;
             }
 
+            CustomLocation loc = movementData.getLocation();
+
+            if (!Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(loc.getWorld(), loc.getBlockX(), loc.getBlockZ())) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (unloaded chunk)");
+                return;
+            }
+
             int clientAirTicks = movementData.getCustomAirTicks();
 
             double deltaY = movementData.getDeltaY();
@@ -199,8 +213,8 @@ public class FlyB extends Check {
                     || movementData.isNearShulkerBox()
                     || movementData.isNearLava()
                     || movementData.isNearWater()
-                    || movementData.getSinceRiptidingTicks() < 30
-                    || movementData.getSinceBubbleTicks() < 25 + profile.getConnectionData().getClientTickTrans()
+                    || movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2)
+                    || movementData.getSinceBubbleTicks() < 25 + + (profile.getConnectionData().getClientTickTrans() * 2)
                     || profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 return;
             }

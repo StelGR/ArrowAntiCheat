@@ -3,6 +3,7 @@ package me.arrow.checks.impl.movement.fly;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -13,6 +14,7 @@ import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.TaskUtils;
+import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.OtherUtility;
 import org.apache.commons.math3.util.FastMath;
 import org.bukkit.ChatColor;
@@ -81,6 +83,13 @@ public class FlyA extends Check {
                 return;
             }
 
+            if (profile.getGeysersTracker().isBeingPushed()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: Exempt - geysers (26.2+)");
+                return;
+            }
+
+            CustomLocation loc = movementData.getLocation();
+
             if (movementData.isOnBoat()
                     || movementData.isNearBoat()
                     || movementData.isNearShulker()
@@ -89,6 +98,7 @@ public class FlyA extends Check {
                     || movementData.isNearWater()
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
+                    || !Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(loc.getWorld(), loc.getBlockX(), loc.getBlockZ())
                     || movementData.getSinceLevitationEffectTicks() < 10) {
                 return;
             }
@@ -423,7 +433,7 @@ public class FlyA extends Check {
         if (profile.isExempt().isTeleports()) { debugExemptC("teleport"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isNearContact()) { debugExemptC("contact"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isNearWater()) { debugExemptC("nearWater"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.elytraMomentum() > 0) { debugExemptC("elytraMomentum"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (md.elytraMomentum() != 0) { debugExemptC("elytraMomentum"); lastOffset = 0.0D; bufferC = 0.0D; return; }
 
         if (md.getSincePredictDownwardsTicks() < 5) { debugExemptC("predictDownwards"); lastOffset = 0.0D; bufferC = 0.0D; return; }
 

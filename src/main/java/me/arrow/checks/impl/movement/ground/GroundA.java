@@ -51,7 +51,8 @@ public class GroundA extends Check {
                     || movementData.isNearClimbable()
                     || movementData.isNearGhast()
                     || movementData.isNearShulker()
-                    || movementData.getSincePredictUpwardsTicks() < 5
+                    || movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
+                    || movementData.getSinceCollideTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
                     || profile.getMovementData().getSincePowderSnowTicks() < 10
                     || profile.getVehicleData().getSinceVehicleTicks() < 1) {
                 return;

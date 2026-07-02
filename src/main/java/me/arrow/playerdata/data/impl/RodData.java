@@ -59,9 +59,6 @@ public class RodData implements Data {
         this.profile = profile;
     }
 
-    /**
-     * Call once from onEnable()
-     */
     public static void init(Plugin plugin) {
         if (INITED.compareAndSet(false, true)) {
             PLUGIN = plugin;

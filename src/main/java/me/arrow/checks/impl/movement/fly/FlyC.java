@@ -76,6 +76,11 @@ public class FlyC extends Check {
                 return;
             }
 
+            if (profile.getGeysersTracker().isBeingPushed()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly C: Exempt - geysers (26.2+)");
+                return;
+            }
+
             if (movementData.getSinceTeleportTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly C: is Exempting (SinceTeleports)");
                 return;

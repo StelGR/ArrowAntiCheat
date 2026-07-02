@@ -177,7 +177,7 @@ public class SpeedA extends Check {
         allowedLimit += movementData.getDolphinGraceBoost();
 
         if (movementData.getSinceCollideTicks() < 12 + profile.getConnectionData().getClientTickTrans() ) {
-            allowedLimit += 0.0275;
+            allowedLimit += 0.07;
         }
 
         allowedLimit += movementData.elytraMomentum();
@@ -399,12 +399,11 @@ public class SpeedA extends Check {
             expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.00925 : 0;
         }
 
-
         if (movementData.getSinceMovingOnIceTicks() < 20 || movementData.getSinceMovingOnSlimeTicks() < 20) {
             expectedSpeed += 0.01D;
         }
 
-        if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2) ) {
+        if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             expectedSpeed += 0.125;
         }
 
