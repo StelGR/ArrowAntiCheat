@@ -78,7 +78,15 @@ public class InstanceDefault implements NmsInstance {
 
     @Override
     public boolean isGliding(Player player) {
-        return PacketEvents.getAPI().getServerManager().getVersion().isNewerThan(ServerVersion.V_1_8_8) && player.isGliding();
+        if (!PacketEvents.getAPI().getServerManager().getVersion().isNewerThan(ServerVersion.V_1_8_8)) {
+            return false;
+        }
+
+        if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_14)) {
+            return player.getPose() == Pose.FALL_FLYING;
+        }
+
+        return player.isGliding();
     }
 
     @Override

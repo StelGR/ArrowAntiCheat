@@ -10,6 +10,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.utils.ChatUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.TaskUtils;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.entity.Player;
 
 //niks network listener converted to PacketEvents from ProtocolLib, i prefer packetevents.
@@ -50,6 +51,7 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
         }
 
         profile.handleReceive(event);
+        //OtherUtility.log(player.getName()+" sent: "+event.getPacketType().getName());
     }
 
     @Override
@@ -61,6 +63,9 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
         if (profile == null) return;
 
         profile.handleSend(event);
+
+
+        //OtherUtility.log("Server sent: "+event.getPacketType().getName() + " to "+player.getName());
     }
 
     private String checkCrasher(PacketTypeCommon packet, PacketReceiveEvent event) {

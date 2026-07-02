@@ -34,6 +34,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Pose;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
@@ -140,7 +141,6 @@ public class MovementData implements Data {
 
     @Override
     public void processReceive(PacketReceiveEvent event) {
-
         final long currentTime = event.getTimestamp();
         if (event.getPacketType().equals(PLAYER_FLYING)) {
             WrapperPlayClientPlayerFlying move = new WrapperPlayClientPlayerFlying(event);
@@ -1033,7 +1033,7 @@ public class MovementData implements Data {
             sinceCollideTicks = 0;
         } else sinceCollideTicks++;
 
-        if (Arrow.getInstance().getNmsManager().getNmsInstance().isGliding(profile.getPlayer())) {
+        if (Arrow.getInstance().getNmsManager().getNmsInstance().isGliding(profile.getPlayer()) ) {
             sinceGlidingTicks = 0;
         }
         else sinceGlidingTicks++;
@@ -1212,15 +1212,15 @@ public class MovementData implements Data {
         final float STEP  = 0.025f;
         final int   TICKS_PER_STEP = 4;
         final int   MAX_STEPS = 20;    // 6 * 2 = 12 ticks
-        final int   ZERO_AT_TICK = 80;
+        final int   ZERO_AT_TICK = 120;
 
-        if (sinceGlidingTicks == 0 && getSinceElytraEquipTicks() == 0) return 0.2F;
+        if (sinceGlidingTicks == 0 && getSinceElytraEquipTicks() == 0) return 0.4F;
         if (sinceGlidingTicks == 1) return START;
         if (sinceGlidingTicks >= ZERO_AT_TICK) return 0f;
 
         int steps = Math.min(sinceGlidingTicks / TICKS_PER_STEP, MAX_STEPS);
         float value = START - steps * STEP;
-        return Math.max(value, 0f);
+        return Math.abs(value);
     }
 
     private float dolphinGraceMomentum;

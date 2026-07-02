@@ -13,12 +13,6 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-
 import static me.arrow.utils.customutils.OtherUtility.setbackDebug;
 
 // idk what is going on in here tbh but i have it use my setback logs
@@ -26,10 +20,9 @@ import static me.arrow.utils.customutils.OtherUtility.setbackDebug;
 public class SetbackProcessor implements Processor {
 
     SampleList<CustomLocation> locations = new SampleList<>(10, true);
-    private static final Map<UUID, List<String>> SETBACK_HISTORY = new ConcurrentHashMap<>();
 
     private final Profile profile;
-    private int lastSetbackTicks, lastStoredLocationTicks;
+    int lastSetbackTicks, lastStoredLocationTicks;
 
 
     @Getter
@@ -57,6 +50,18 @@ public class SetbackProcessor implements Processor {
             if (player == null || !player.isOnline()) {
                 return;
             }
+
+            Location teleportLocation = profile.getMovementData().getLastGroundLocation();
+
+            teleportSetback(player, teleportLocation);
+
+            setbackDebug(
+                    profile,
+                    "&c" + reason + " &7setback -> &6"
+                            + teleportLocation.getBlockX() + ", "
+                            + teleportLocation.getBlockY() + ", "
+                            + teleportLocation.getBlockZ()
+            );
 
             setback(reason);
 
@@ -121,30 +126,6 @@ public class SetbackProcessor implements Processor {
                         + setbackLocation.getBlockZ()
         );
 //        TaskUtils.task(() -> p.teleport(setbackLocation, PlayerTeleportEvent.TeleportCause.PLUGIN));
-    }
-
-    private void addSetbackHistory(UUID uuid, String reason, Location location) {
-
-        List<String> history = SETBACK_HISTORY.computeIfAbsent(
-                uuid,
-                k -> new CopyOnWriteArrayList<>()
-        );
-
-        history.add(
-                "[" + System.currentTimeMillis() + "] "
-                        + reason
-                        + " -> "
-                        + location.getBlockX() + ", "
-                        + location.getBlockY() + ", "
-                        + location.getBlockZ()
-        );
-
-        /*
-         * Prevent infinite growth
-         */
-        if (history.size() > 60) {
-            history.remove(0);
-        }
     }
 
     private void teleportSetback(Player player, Location location) {

@@ -17,6 +17,7 @@ import lombok.Getter;
 import lombok.Setter;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.util.Vector;
 
 import java.util.Map;
@@ -153,11 +154,15 @@ public class VelocityData implements Data {
     @Override
     public void processSend(PacketSendEvent event) {
         if (event.getPacketType() == PacketType.Play.Server.ENTITY_VELOCITY) {
+
+
             WrapperPlayServerEntityVelocity wrapper = new WrapperPlayServerEntityVelocity(event);
 
+//            OtherUtility.log("Velocity: " + wrapper.getVelocity() + " | PacketEntityID: " + wrapper.getEntityId() + " | Player ID: " + profile.getPlayer().getEntityId());
             if (profile.getPlayer() == null || wrapper.getEntityId() != profile.getPlayer().getEntityId()) {
                 return;
             }
+
 
             Vector3d v = wrapper.getVelocity();
             Vector packetVelocity = new Vector(v.getX(), v.getY(), v.getZ());
@@ -172,9 +177,13 @@ public class VelocityData implements Data {
             WrapperPlayServerExplosion explosion = new WrapperPlayServerExplosion(event);
             Vector3d knockback = explosion.getKnockback();
 
+//            OtherUtility.log("Explosion Velocity: " + explosion.getKnockback() + " | Explosion Particle: " + explosion.getParticle() + " | Explotion Position: " + explosion.getPosition());
+
             if (knockback == null) {
                 return;
             }
+
+
 
             Vector packetExplosion = new Vector(knockback.getX(), knockback.getY(), knockback.getZ());
 
