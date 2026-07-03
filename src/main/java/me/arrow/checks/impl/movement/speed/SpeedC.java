@@ -60,6 +60,11 @@ public class SpeedC extends Check {
             return;
         }
 
+        if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed C: is Exempting (Piston Update)");
+            return;
+        }
+
         if (profile.getExempt().isReelingIn()) {
             if (Config.Setting.DEBUG.getBoolean()) {
                 OtherUtility.log("SpeedC: is Exempting (reelingIn)");

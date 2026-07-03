@@ -12,7 +12,7 @@ import org.bukkit.block.data.type.PotentSulfur;
 import org.bukkit.entity.Player;
 import org.bukkit.util.BoundingBox;
 
-public final class GeysersTracker implements Processor {
+public class GeysersTracker implements Processor {
 
     int PUSH_GRACE_TICKS = 2;
     int SCAN_DOWN_BLOCKS = 32;
@@ -67,40 +67,44 @@ public final class GeysersTracker implements Processor {
     }
 
     private boolean isInsideActiveGeyserColumn(Player player) {
-        if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_26_2)) {
+        try {
+            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_26_2)) {
 
-            World world = player.getWorld();
-            BoundingBox box = player.getBoundingBox();
+                World world = player.getWorld();
+                BoundingBox box = player.getBoundingBox();
 
-            int minX = floor(box.getMinX() + 1.0E-7D);
-            int maxX = floor(box.getMaxX() - 1.0E-7D);
-            int minZ = floor(box.getMinZ() + 1.0E-7D);
-            int maxZ = floor(box.getMaxZ() - 1.0E-7D);
+                int minX = floor(box.getMinX() + 1.0E-7D);
+                int maxX = floor(box.getMaxX() - 1.0E-7D);
+                int minZ = floor(box.getMinZ() + 1.0E-7D);
+                int maxZ = floor(box.getMaxZ() - 1.0E-7D);
 
-            int topY = Math.min(world.getMaxHeight() - 1, floor(box.getMinY()));
-            int bottomY = Math.max(world.getMinHeight(), topY - SCAN_DOWN_BLOCKS);
+                int topY = Math.min(world.getMaxHeight() - 1, floor(box.getMinY()));
+                int bottomY = Math.max(world.getMinHeight(), topY - SCAN_DOWN_BLOCKS);
 
-            for (int x = minX; x <= maxX; x++) {
-                for (int z = minZ; z <= maxZ; z++) {
-                    for (int y = topY; y >= bottomY; y--) {
-                        Block block = world.getBlockAt(x, y, z);
+                for (int x = minX; x <= maxX; x++) {
+                    for (int z = minZ; z <= maxZ; z++) {
+                        for (int y = topY; y >= bottomY; y--) {
+                            Block block = world.getBlockAt(x, y, z);
 
-                        if (!(block.getBlockData() instanceof PotentSulfur sulfur)) {
-                            continue;
-                        }
+                            if (!(block.getBlockData() instanceof PotentSulfur sulfur)) {
+                                continue;
+                            }
 
-                        if (!isActiveGeyserState(sulfur.getPotentSulfurState())) {
-                            continue;
-                        }
+                            if (!isActiveGeyserState(sulfur.getPotentSulfurState())) {
+                                continue;
+                            }
 
-                        if (intersectsGeyserColumn(box, x, y, z)) {
-                            return true;
+                            if (intersectsGeyserColumn(box, x, y, z)) {
+                                return true;
+                            }
                         }
                     }
                 }
             }
+            return false;
+        } catch (NoSuchFieldError ignored) {
+            return false;
         }
-        return false;
     }
 
     private boolean isActiveGeyserState(PotentSulfur.State state) {

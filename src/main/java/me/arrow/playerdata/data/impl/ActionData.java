@@ -2,10 +2,14 @@ package me.arrow.playerdata.data.impl;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
@@ -14,6 +18,8 @@ import me.arrow.playerdata.data.Data;
 import me.arrow.utils.MiscUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.desync.Desync;
+import me.arrow.utils.custom.materials.MaterialType;
+import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -28,6 +34,7 @@ import org.bukkit.block.BlockFace;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
@@ -72,6 +79,18 @@ public class ActionData implements Data {
     private int lastConfirmedUnderBreakY;
     private int lastConfirmedUnderBreakZ;
     private Material lastConfirmedUnderBreakOldType = Material.AIR;
+
+    private int sinceBlockUpdateUnderTicks = 1000;
+    private int sincePistonUpdateTicks = 1000;
+    private int lastBlockUpdateUnderX;
+    private int lastBlockUpdateUnderY;
+    private int lastBlockUpdateUnderZ;
+    private Material lastBlockUpdateUnderOldType = Material.AIR;
+    private Material lastBlockUpdateUnderNewType = Material.AIR;
+    private int lastPistonUpdateX;
+    private int lastPistonUpdateY;
+    private int lastPistonUpdateZ;
+    private Material lastPistonUpdateType = Material.AIR;
 
     private volatile boolean actionTickQueued;
     private final AtomicInteger queuedActionTicks = new AtomicInteger();
@@ -142,7 +161,14 @@ public class ActionData implements Data {
 
     @Override
     public void processSend(PacketSendEvent event) {
+        if (event.getPacketType().equals(PacketType.Play.Server.BLOCK_CHANGE)) {
+            handleServerBlockChange(event);
+            return;
+        }
 
+        if (event.getPacketType().equals(PacketType.Play.Server.MULTI_BLOCK_CHANGE)) {
+            handleServerMultiBlockChange(event);
+        }
     }
 
     private void runPlayerWorldTask(Player player, Runnable runnable) {
@@ -171,6 +197,7 @@ public class ActionData implements Data {
 
             tickBlockBreakPrediction();
             confirmPendingUnderBreaks();
+            tickBlockUpdatePrediction();
             return;
         }
 
@@ -189,6 +216,7 @@ public class ActionData implements Data {
                 for (int i = 0; i < ticks; i++) {
                     tickBlockPlacePrediction();
                     tickBlockBreakPrediction();
+                    tickBlockUpdatePrediction();
                 }
 
                 confirmPendingUnderPlaces();
@@ -201,6 +229,88 @@ public class ActionData implements Data {
 
     public boolean hasRecentConfirmedUnderPlace(int ticks) {
         return lastConfirmedUnderPlaceTicks <= ticks;
+    }
+
+    public boolean hasRecentBlockUpdateUnder(int ticks) {
+        return sinceBlockUpdateUnderTicks <= ticks;
+    }
+
+    public boolean hasRecentPistonUpdate(int ticks) {
+        return sincePistonUpdateTicks <= ticks;
+    }
+
+    private void handleServerBlockChange(PacketSendEvent event) {
+        WrapperPlayServerBlockChange blockChange;
+
+        try {
+            blockChange = new WrapperPlayServerBlockChange(event);
+        } catch (Throwable ignored) {
+            return;
+        }
+
+        int x = blockChange.getBlockPosition().getX();
+        int y = blockChange.getBlockPosition().getY();
+        int z = blockChange.getBlockPosition().getZ();
+
+        Material material = null;
+
+        try {
+            material = materialFromState(blockChange.getBlockState().getType());
+        } catch (Throwable ignored) {
+        }
+
+        handleServerBlockUpdate(x, y, z, material);
+    }
+
+    private void handleServerMultiBlockChange(PacketSendEvent event) {
+        WrapperPlayServerMultiBlockChange multiBlockChange;
+
+        try {
+            multiBlockChange = new WrapperPlayServerMultiBlockChange(event);
+        } catch (Throwable ignored) {
+            return;
+        }
+
+        for (WrapperPlayServerMultiBlockChange.EncodedBlock block : multiBlockChange.getBlocks()) {
+            Material material = null;
+
+            try {
+                material = materialFromState(block.getBlockState(profile.getVersion()).getType());
+            } catch (Throwable ignored) {
+            }
+
+            handleServerBlockUpdate(block.getX(), block.getY(), block.getZ(), material);
+        }
+    }
+
+    private void handleServerBlockUpdate(int x, int y, int z, Material newType) {
+        if (newType == null || profile.getMovementData() == null) {
+            return;
+        }
+
+        if (!isPacketPositionInFootSupportArea(x, y, z, newType, 1.25D)) {
+            return;
+        }
+
+        boolean supportMaterial = isSupportMaterial(newType);
+        boolean pistonUpdate = isPistonRelated(newType) || profile.getMovementData().isNearPiston();
+
+        if (pistonUpdate) {
+            sincePistonUpdateTicks = 0;
+            lastPistonUpdateX = x;
+            lastPistonUpdateY = y;
+            lastPistonUpdateZ = z;
+            lastPistonUpdateType = newType;
+        }
+
+        if (!supportMaterial) {
+            sinceBlockUpdateUnderTicks = 0;
+            lastBlockUpdateUnderX = x;
+            lastBlockUpdateUnderY = y;
+            lastBlockUpdateUnderZ = z;
+            lastBlockUpdateUnderOldType = Material.AIR;
+            lastBlockUpdateUnderNewType = newType;
+        }
     }
 
     public int getBlockPlacePredictionTicks() {
@@ -297,6 +407,11 @@ public class ActionData implements Data {
         return value >= 1000 ? 1000 : value + 1;
     }
 
+    private void tickBlockUpdatePrediction() {
+        sinceBlockUpdateUnderTicks = increment(sinceBlockUpdateUnderTicks);
+        sincePistonUpdateTicks = increment(sincePistonUpdateTicks);
+    }
+
     private void confirmPendingUnderPlaces() {
         if (pendingUnderPlaces.isEmpty()) {
             return;
@@ -351,7 +466,7 @@ public class ActionData implements Data {
             return false;
         }
 
-        if (isReplaceable(now)) {
+        if (!isSupportMaterial(now)) {
             return false;
         }
 
@@ -369,21 +484,67 @@ public class ActionData implements Data {
     }
 
     private boolean isUnderLocation(Block block, CustomLocation location) {
+        return isInFootSupportArea(block, location, 2.25D);
+    }
+
+    private boolean isInFootSupportArea(Block block, CustomLocation location, double belowRange) {
+        return isInFootSupportArea(block, location, belowRange, block == null ? null : block.getType());
+    }
+
+    private boolean isInFootSupportArea(Block block, CustomLocation location, double belowRange, Material supportType) {
         if (block == null || location == null) {
             return false;
         }
 
-        double blockCenterX = block.getX() + 0.5D;
-        double blockCenterZ = block.getZ() + 0.5D;
-        double dx = Math.abs(blockCenterX - location.getX());
-        double dz = Math.abs(blockCenterZ - location.getZ());
+        if (location.getWorld() != null) {
+            block.getWorld();
+            if (!block.getWorld().equals(location.getWorld())) {
+                return false;
+            }
+        }
 
-        double topY = block.getY() + getBlockTopHeight(block.getType());
+        int dx = Math.abs(block.getX() - location.getBlockX());
+        int dz = Math.abs(block.getZ() - location.getBlockZ());
 
-        return dx <= 0.95D
-                && dz <= 0.95D
+        double topY = block.getY() + getBlockTopHeight(supportType);
+
+        return dx <= 1
+                && dz <= 1
                 && topY <= location.getY() + 0.15D
-                && topY >= location.getY() - 2.25D;
+                && topY >= location.getY() - belowRange;
+    }
+
+    private boolean isPacketPositionInFootSupportArea(int x, int y, int z, Material material, double belowRange) {
+        return isPacketPositionInFootSupportArea(x, y, z, material, profile.getMovementData().getLocation(), belowRange)
+                || isPacketPositionInFootSupportArea(x, y, z, material, profile.getMovementData().getLastLocation(), belowRange)
+                || isPacketPositionInFootSupportArea(x, y, z, material, profile.getMovementData().getLastLastLocation(), belowRange);
+    }
+
+    private boolean isPacketPositionInFootSupportArea(int x, int y, int z, Material material, CustomLocation location, double belowRange) {
+        if (location == null) {
+            return false;
+        }
+
+        int dx = Math.abs(x - location.getBlockX());
+        int dz = Math.abs(z - location.getBlockZ());
+        if (dx > 1 || dz > 1) {
+            return false;
+        }
+
+        if (isSupportMaterial(material)) {
+            return isSupportTopNearFeet(y + getBlockTopHeight(material), location, belowRange);
+        }
+
+        return isSupportTopNearFeet(y + 1.0D, location, belowRange)
+                || isSupportTopNearFeet(y + 0.5D, location, belowRange)
+                || isSupportTopNearFeet(y + 0.1875D, location, belowRange)
+                || isSupportTopNearFeet(y + 0.125D, location, belowRange)
+                || isSupportTopNearFeet(y + 0.0625D, location, belowRange);
+    }
+
+    private boolean isSupportTopNearFeet(double topY, CustomLocation location, double belowRange) {
+        return topY <= location.getY() + 0.15D
+                && topY >= location.getY() - belowRange;
     }
 
     private boolean canPlaceThere(Block clicked, Block placed, ItemStack item) {
@@ -556,6 +717,99 @@ public class ActionData implements Data {
         }
     }
 
+    private boolean isSupportMaterial(Material material) {
+        if (material == null || !material.isBlock()) {
+            return false;
+        }
+
+        String name = material.name();
+
+        if (MaterialType.isMaterial(name, MaterialType.AIR)
+                || MaterialType.isMaterial(name, MaterialType.LIQUID)
+                || MaterialType.isMaterial(name, MaterialType.TRANSPARENT)) {
+            return false;
+        }
+
+        if (isKnownThinSupport(name)) {
+            return true;
+        }
+
+        try {
+            if (PEMaterials.isNonFullCollision(material)) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            return material.isSolid();
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private boolean isKnownThinSupport(String name) {
+        if (name == null) {
+            return false;
+        }
+
+        return name.equals("CARPET")
+                || name.endsWith("_CARPET")
+                || name.equals("SNOW")
+                || name.equals("LILY_PAD")
+                || name.equals("WATER_LILY")
+                || name.equals("SCAFFOLDING")
+                || name.equals("FARMLAND")
+                || name.equals("SOUL_SAND")
+                || name.equals("HONEY_BLOCK")
+                || name.endsWith("_SLAB")
+                || name.equals("STEP")
+                || name.equals("WOODEN_SLAB");
+    }
+
+    private boolean isPistonRelated(Material material) {
+        if (material == null) {
+            return false;
+        }
+
+        String name = material.name();
+        return name.contains("PISTON")
+                || name.contains("MOVING_PISTON")
+                || name.contains("PISTON_HEAD")
+                || name.contains("PISTON_EXTENSION");
+    }
+
+    private Material materialFromState(StateType type) {
+        if (type == null) {
+            return null;
+        }
+
+        return materialFromStateName(type.getName());
+    }
+
+    private Material materialFromStateName(String stateName) {
+        if (stateName == null) {
+            return null;
+        }
+
+        String name = stateName.trim();
+
+        int namespace = name.indexOf(':');
+        if (namespace != -1) {
+            name = name.substring(namespace + 1);
+        }
+
+        name = name.toUpperCase(Locale.ROOT).replace(' ', '_');
+
+        Material material = Material.matchMaterial(name);
+
+        if (material != null) {
+            return material;
+        }
+
+        return Material.matchMaterial("LEGACY_" + name);
+    }
+
     private BlockFace readFace(WrapperPlayClientPlayerBlockPlacement packet) {
         Object raw = invoke(packet, "getFace");
 
@@ -671,7 +925,7 @@ public class ActionData implements Data {
 
         Material oldType = target.getType();
 
-        if (isReplaceable(oldType)) {
+        if (!isSupportMaterial(oldType)) {
             return;
         }
 
@@ -738,9 +992,9 @@ public class ActionData implements Data {
             Block block = world.getBlockAt(br.x, br.y, br.z);
             Material now = block.getType();
 
-            // Confirm break: block changed from old solid-ish type to replaceable/air-like
+            // Confirm break: support block changed into non-support/air-like.
             if (now == br.oldType) continue;
-            if (!isReplaceable(now)) continue;
+            if (isSupportMaterial(now)) continue;
 
             lastConfirmedUnderBreakTicks = 0;
             lastConfirmedUnderBreakX = br.x;
@@ -763,21 +1017,7 @@ public class ActionData implements Data {
     }
 
     private boolean isUnderBreakLocation(Block block, CustomLocation location) {
-        if (block == null || location == null) return false;
-
-        double blockCenterX = block.getX() + 0.5D;
-        double blockCenterZ = block.getZ() + 0.5D;
-
-        double dx = Math.abs(blockCenterX - location.getX());
-        double dz = Math.abs(blockCenterZ - location.getZ());
-
-        // For breaks, we want "support blocks" under feet, not above.
-        double blockTopY = block.getY() + getBlockTopHeight(block.getType());
-
-        return dx <= 0.95D
-                && dz <= 0.95D
-                && blockTopY <= location.getY() + 0.15D
-                && blockTopY >= location.getY() - 1.25D; // tighter than place (break should be directly under)
+        return isInFootSupportArea(block, location, 1.25D);
     }
 
     private static final class PendingUnderBreak {

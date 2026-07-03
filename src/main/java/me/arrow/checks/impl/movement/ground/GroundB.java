@@ -44,7 +44,11 @@ public class GroundB extends Check {
                 || movementData.isInsideLiquid()
                 || movementData.isNearLava()
                 || movementData.isNearWater()) return;
-
+        if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
+                || profile.getActionData().hasRecentBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground B: is Exempting (Block Update/Piston Update)");
+            return;
+        }
 
         if (profile.getMovementData().getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground B: is Exempting (elytra glide)");
@@ -62,15 +66,11 @@ public class GroundB extends Check {
         double deltaXZ = movementData.getDeltaXZ();
         double deltaY = movementData.getDeltaY();
 
-        boolean holdingBlock = isHoldingBlock();
-        boolean recentlyPlaced = profile.getLastBlockPlaceTimer().hasNotPassed(getBlockPlaceLimit());
-        boolean recentlyCancelledPlace = profile.getLastBlockPlaceCancelTimer().hasNotPassed(3 + getLagTicks());
+        boolean recentlyPlaced = profile.getActionData().hasRecentConfirmedUnderPlace(5 + profile.getConnectionData().getClientTickTrans() * 2);
 
         double airTickLimit = getAirTickLimit(
                 movementData,
-                holdingBlock,
-                recentlyPlaced,
-                recentlyCancelledPlace
+                recentlyPlaced
         );
 
         //invalid 1 was a terribly made check, i removed it, invalid2 does most of the job. but it can still false, needs improvements
@@ -151,9 +151,7 @@ public class GroundB extends Check {
     }
 
     private double getAirTickLimit(MovementData movementData,
-                                   boolean holdingBlock,
-                                   boolean recentlyPlaced,
-                                   boolean recentlyCancelledPlace) {
+                                   boolean recentlyPlaced) {
 
         double limit = 5.0D;
 
@@ -167,12 +165,8 @@ public class GroundB extends Check {
             limit += 1.0D;
         }
 
-        if (recentlyPlaced && holdingBlock) {
+        if (recentlyPlaced) {
             limit += 3.0D;
-        }
-
-        if (recentlyCancelledPlace) {
-            limit += 2.0D;
         }
 
         /*

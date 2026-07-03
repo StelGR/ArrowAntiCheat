@@ -1219,7 +1219,7 @@ public class MovementData implements Data {
     public float elytraMomentum() {
         int ping = Math.max(0, profile.getConnectionData().getTransPing());
         final float START = 0.8f + (Math.max(0f, ping - 50f) / 50f) * 0.3f;
-        final float STEP  = 0.025f;
+        final float STEP  = 0.0125f;
         final int   TICKS_PER_STEP = 4;
         final int   MAX_STEPS = 20;    // 6 * 2 = 12 ticks
         final int   ZERO_AT_TICK = 120;
