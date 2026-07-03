@@ -14,17 +14,16 @@ import org.bukkit.util.BoundingBox;
 
 public final class GeysersTracker implements Processor {
 
-    private static final int PUSH_GRACE_TICKS = 2;
-
-    private static final int SCAN_DOWN_BLOCKS = 32;
+    int PUSH_GRACE_TICKS = 2;
+    int SCAN_DOWN_BLOCKS = 32;
 
     Profile profile;
 
     @Getter
-    private volatile boolean beingPushedByGeyser;
+    boolean beingPushedByGeyser;
 
-    private volatile int trackerTick;
-    private volatile int lastPushedTick = Integer.MIN_VALUE;
+    int trackerTick;
+    int lastPushedTick = Integer.MIN_VALUE;
 
     public GeysersTracker(Profile profile) {
         this.profile = profile;

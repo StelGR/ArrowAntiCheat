@@ -230,6 +230,10 @@ public class FlyA extends Check {
         if (profile.getExempt().isReelingIn()) { debugExempt("reelingIn"); return; }
 //        if (movementData.getSinceElytraEquipTicks() < 10) { debugExempt("Elytra Equip"); return; }
 
+
+
+
+
         if (movementData.getSincePowderSnowTicks() < 10) {
             debugExempt("Powder Snow");
             return;
@@ -268,6 +272,17 @@ public class FlyA extends Check {
                             + "\n * sYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerYGround()
                             + "\n * sGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerGround()
                             + "\n * pYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPositionYGround());
+        }
+
+        double expectedDeltaY = -0.0784000015258789D;
+        double expectedPred = -0.3052933275771155D;
+        if (movementData.getSincePredictDownwardsTicksWithoutMaterial() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
+                && Math.abs(deltaY - expectedDeltaY) < 1E-6
+                && !movementData.isOnGround()
+                && !movementData.isServerGround()
+                && Math.abs(prediction - expectedPred) < 1E-6) {
+            debugExempt("predictDownwardsTicksWithoutMaterials");
+            return;
         }
 
         boolean exempt = profile.getMovementData().getSinceGlidingTicks() < 20;
