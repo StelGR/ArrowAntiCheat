@@ -147,12 +147,8 @@ public class VelocityA extends Check {
 
         if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8) && profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)) {
 
-            if (profile.getPlayer() != null && profile.getPlayer().getLastDamageCause() != null) {
-                EntityDamageEvent.DamageCause cause = profile.getPlayer().getLastDamageCause().getCause();
-
-                if (IGNORED_CAUSES.contains(cause)) {
-                    return;
-                }
+            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
             }
             double deltaY = movementData.getDeltaY();
 

@@ -137,8 +137,7 @@ public class MotionB extends Check {
 //                buffer -= Math.min(buffer, 0.1);
 //            }
 
-            if (profile.getLastFallDamageTimer().passed(25)
-                    && clientGround
+            if (clientGround
                     && deltaY != 0
                     && !exempt
                     && !movementData.isMovingUp()

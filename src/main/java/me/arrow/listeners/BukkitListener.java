@@ -285,27 +285,22 @@ public class BukkitListener implements Listener {
         }
 
 
-        if (event instanceof EntityDamageEvent) {
-            if (!(((EntityDamageEvent) event).getEntity() instanceof Player)) return;
+        if (event instanceof EntityDamageEvent damageEvent) {
+            if (!(damageEvent.getEntity() instanceof Player)) return;
 
-            Profile user = Arrow.getInstance().getProfileManager().getProfile((Player) ((EntityDamageEvent) event).getEntity());
+            Profile user = Arrow.getInstance().getProfileManager().getProfile((Player) damageEvent.getEntity());
 
             if (user != null) {
-                if (((EntityDamageEvent) event).getCause() == EntityDamageEvent.DamageCause.FALL) {
-                    user.getLastFallDamageTimer().reset();
-                }
+                user.getDamageData().record(damageEvent.getCause());
 
-                if (((EntityDamageEvent) event).getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK) {
-                    user.getLastAttackByEntityTimer().reset();
-                }
-
-                if (((EntityDamageEvent) event).getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
+                if (damageEvent.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
                     user.getLastShotByArrowTimer().reset();
                 }
 
-                if (((EntityDamageEvent) event).getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK) {
+                if (damageEvent.getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK) {
+                    user.getLastAttackByEntityTimer().reset();
                     int ticks = user.getCombatData().getCancelTicks();
-                    if (((EntityDamageEvent) event).isCancelled()) {
+                    if (damageEvent.isCancelled()) {
                         ticks += (ticks < 20 ? 1 : 0);
                     } else {
                         ticks -= (ticks > 0 ? 5 : 0);
@@ -316,53 +311,12 @@ public class BukkitListener implements Listener {
             }
         }
 
-        if (event instanceof PlayerTeleportEvent) {
-            Profile user = Arrow.getInstance().getProfileManager().getProfile(((PlayerTeleportEvent) event).getPlayer());
-
-            if (user != null) {
-                if (((PlayerTeleportEvent) event).getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN || ((PlayerTeleportEvent) event).getCause() == PlayerTeleportEvent.TeleportCause.COMMAND || ((PlayerTeleportEvent) event).getCause() == PlayerTeleportEvent.TeleportCause.END_GATEWAY || ((PlayerTeleportEvent) event).getCause() == PlayerTeleportEvent.TeleportCause.CHORUS_FRUIT || ((PlayerTeleportEvent) event).getCause() == PlayerTeleportEvent.TeleportCause.END_PORTAL || ((PlayerTeleportEvent) event).getCause() == PlayerTeleportEvent.TeleportCause.NETHER_PORTAL) {
-                    user.getLastTeleportTimer().reset();
-                }
-
-                if (((PlayerTeleportEvent) event).getCause() == PlayerTeleportEvent.TeleportCause.UNKNOWN) {
-                    user.getLastUnknownTeleportTimer().reset();
-                }
-
-                if (((PlayerTeleportEvent) event).getCause() == PlayerTeleportEvent.TeleportCause.ENDER_PEARL) {
-                    if (user.getEnderPearlThrowLocation() != null
-                            && user.getEnderPearlThrowLocation().getWorld().equals(user.getPlayer().getWorld())) {
-                        user.setEnderPearlDistance(user.getEnderPearlThrowLocation()
-                                .distance(user.getPlayer().getLocation()));
-                    }
-                    user.getLastEnderpearlTimer().reset();
-                }
-            }
-        }
-
         if (event instanceof PlayerRespawnEvent) {
             Profile user = Arrow.getInstance().getProfileManager().getProfile(((PlayerRespawnEvent) event).getPlayer());
 
             if (user != null) {
                 user.getSinceDeathTimer().reset();
             }
-        }
-
-        if (event instanceof BlockPlaceEvent) {
-            Profile user = Arrow.getInstance().getProfileManager().getProfile(((BlockPlaceEvent) event).getPlayer());
-
-            if (user != null) {
-                user.setBlockPlaced(((BlockPlaceEvent) event).getBlockPlaced());
-
-                if (((BlockPlaceEvent) event).getItemInHand().getType().isBlock()) {
-                    if (((BlockPlaceEvent) event).isCancelled()) {
-                        user.getLastBlockPlaceCancelTimer().reset();
-                        return;
-                    }
-
-                    user.getLastBlockPlaceTimer().reset();
-                }
-            }
-
         }
 
         if (event instanceof BlockBreakEvent blockBreakEvent) {
@@ -385,15 +339,13 @@ public class BukkitListener implements Listener {
                                 if (!rayResult.allowed()) {
                                     blockBreakEvent.setCancelled(true);
 
-                                    TaskUtils.taskAsync(() -> {
-                                        check.fail("Breaking bed through block",
-                                                "eyeLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + player.getEyeLocation().toVector()
-                                                        + "\ntargetLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + new Vector(targetBlock.getX() + 0.5D, targetBlock.getY() + 0.5D, targetBlock.getZ() + 0.5D)
-                                                        + "\nhitBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + (rayResult.hitBlock() == null ? "none" : rayResult.hitBlock().getType().name())
-                                                        + "\nhitLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + rayResult.hitLocation()
-                                                        + "\ntargetBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + targetBlock.getType().name()
-                                                        + "\ndistance " + MsgType.MAIN_THEME_COLOR.getMessage() + player.getEyeLocation().distance(targetBlock.getLocation().add(0.5D, 0.5D, 0.5D)));
-                                    });
+                                    TaskUtils.taskAsync(() -> check.fail("Breaking bed through block",
+                                            "eyeLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + player.getEyeLocation().toVector()
+                                                    + "\ntargetLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + new Vector(targetBlock.getX() + 0.5D, targetBlock.getY() + 0.5D, targetBlock.getZ() + 0.5D)
+                                                    + "\nhitBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + (rayResult.hitBlock() == null ? "none" : rayResult.hitBlock().getType().name())
+                                                    + "\nhitLocation " + MsgType.MAIN_THEME_COLOR.getMessage() + rayResult.hitLocation()
+                                                    + "\ntargetBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + targetBlock.getType().name()
+                                                    + "\ndistance " + MsgType.MAIN_THEME_COLOR.getMessage() + player.getEyeLocation().distance(targetBlock.getLocation().add(0.5D, 0.5D, 0.5D))));
 
                                 }
                             }
@@ -409,7 +361,6 @@ public class BukkitListener implements Listener {
             try {
                 // getWhoClicked() returns HumanEntity — use reflection to avoid direct InventoryView type usage
                 Object whoClicked = ((InventoryClickEvent) event).getWhoClicked();
-                if (whoClicked == null) return;
 
                 // call getOpenInventory()
                 Method getOpenInv = whoClicked.getClass().getMethod("getOpenInventory");
@@ -427,7 +378,7 @@ public class BukkitListener implements Listener {
                 // reflection failed — fallback: try event.getView().getTitle() if available
                 try {
                     String title = ((InventoryClickEvent) event).getView().getTitle(); // may throw LinkageError on mismatch
-                    if (title != null && (title.contains("Arrow") || title.contains("Player: "))) {
+                    if (title.contains("Arrow") || title.contains("Player: ")) {
                         ((InventoryClickEvent) event).setCancelled(true);
                     }
                 } catch (Throwable t) {
@@ -452,36 +403,11 @@ public class BukkitListener implements Listener {
                 user.getActionData().setInInventory(false);
             }
         }
-
-        if (event instanceof PlayerInteractEvent) {
-            Profile user = Arrow.getInstance().getProfileManager().getProfile(((PlayerInteractEvent) event).getPlayer());
-
-            if (user != null) {
-
-                if (((PlayerInteractEvent) event).getAction() == Action.RIGHT_CLICK_AIR
-                        || ((PlayerInteractEvent) event).getAction() == Action.RIGHT_CLICK_BLOCK) {
-
-                    if (((PlayerInteractEvent) event)
-                            .getPlayer().getItemInHand().getType().equals(Material.ENDER_PEARL)) {
-                        user.setEnderPearlThrowLocation(user.getPlayer().getLocation());
-                    }
-                }
-            }
-        }
     }
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onJoin(PlayerJoinEvent event) {
         try {
-            Profile profile = Arrow.getInstance().getProfileManager().getProfile(event.getPlayer());
-
-//            if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
-//                if (hasGroupManager()) {
-//                    event.getPlayer().setDisplayName(OtherUtility.translate(getPrefix(event.getPlayer()) + event.getPlayer().getName()));
-//                    event.getPlayer().setPlayerListName(OtherUtility.translate(getPrefix(event.getPlayer()) + event.getPlayer().getName()));
-//                }
-//            }
-
             Player player = event.getPlayer();
 
             TaskUtils.playerLater(player, 40L, () -> {
@@ -680,16 +606,6 @@ public class BukkitListener implements Listener {
         }
         return null;
     }
-    @EventHandler
-    public void onCrossbowShoot(EntityShootBowEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
-
-        // Check if it’s your custom “Infinity Crossbow”
-        if (Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_ENABLE.getBoolean() && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean() && Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_ITEMS.getBoolean()) {
-            event.setConsumeItem(false); // prevents arrow consumption
-        }
-    }
-
 
     @EventHandler
     public void onBlockBreak2(BlockBreakEvent event) {
@@ -890,8 +806,10 @@ public class BukkitListener implements Listener {
     }
 
     private BedBreakRayResult getBedBreakRayResult(Player player, Block targetBlock, double maxDistance) {
-        if (player == null || targetBlock == null || targetBlock.getWorld() == null) {
+        if (player == null || targetBlock == null) {
             return new BedBreakRayResult(false, null, null);
+        } else {
+            targetBlock.getWorld();
         }
 
         Location eye = player.getEyeLocation();

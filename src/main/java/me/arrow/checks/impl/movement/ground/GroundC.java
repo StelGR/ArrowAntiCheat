@@ -73,12 +73,8 @@ public class GroundC extends Check {
 
             MovementData movementData = profile.getMovementData();
 
-            if (profile.getPlayer().getLastDamageCause() != null) {
-                EntityDamageEvent.DamageCause cause = profile.getPlayer().getLastDamageCause().getCause();
-
-                if (IGNORED_CAUSES.contains(cause)) {
-                    return;
-                }
+            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
             }
 
             if (profile.shouldCancel()

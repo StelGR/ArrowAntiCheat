@@ -224,7 +224,7 @@ public class ScaffoldB extends Check {
 
         int trans = Math.max(0, profile.getConnectionData().getClientTickTrans());
         boolean recentPlace = recentPlaceTicks <= PLACE_CONTEXT_TICKS + trans
-                || profile.getLastBlockPlaceTimer().hasNotPassed(PLACE_CONTEXT_TICKS + trans);
+                || profile.getActionData().hasRecentConfirmedUnderPlace(PLACE_CONTEXT_TICKS + trans);
 
         if (!recentPlace) {
             return false;
