@@ -53,17 +53,21 @@ public class SetbackProcessor implements Processor {
 
             Location teleportLocation = profile.getMovementData().getLastGroundLocation();
 
-            teleportSetback(player, teleportLocation);
 
-            setbackDebug(
-                    profile,
-                    "&c" + reason + " &7setback -> &6"
-                            + teleportLocation.getBlockX() + ", "
-                            + teleportLocation.getBlockY() + ", "
-                            + teleportLocation.getBlockZ()
-            );
+            if (profile.getMovementData().isCustomInAir() && profile.getMovementData().getCustomAirTicks() >= 13) {
+                teleportSetback(player, teleportLocation);
 
-            setback(reason);
+                setbackDebug(
+                        profile,
+                        "&c" + reason + " &7setback -> &6"
+                                + teleportLocation.getBlockX() + ", "
+                                + teleportLocation.getBlockY() + ", "
+                                + teleportLocation.getBlockZ()
+                );
+            }
+            else {
+                setback(reason);
+            }
 
         } catch (Exception e) {
 

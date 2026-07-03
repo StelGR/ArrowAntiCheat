@@ -77,6 +77,13 @@ public class FlyB extends Check {
                 return;
             }
 
+            if (profile.getActionData().hasRecentBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - block update under");
+                movementData.setCustomAirTicks(0);
+                return;
+            }
+
+
             if (profile.getLastBlockPlaceTimer().hasNotPassed(8 + profile.getConnectionData().getClientTickTrans())
                     && CollisionUtils.isNearEdge(movementData.getLocation())) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (nearEdge + blockplace)");

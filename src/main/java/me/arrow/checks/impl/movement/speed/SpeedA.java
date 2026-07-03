@@ -160,6 +160,11 @@ public class SpeedA extends Check {
             return;
         }
 
+        if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A: is Exempting (Piston Update)");
+            return;
+        }
+
 
         double predicted = deltaXZ * blockFriction;
 
