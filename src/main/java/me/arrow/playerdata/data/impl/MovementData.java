@@ -94,7 +94,7 @@ public class MovementData implements Data {
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
             customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
-            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks;
+            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks;
 
     @Getter
     @Setter
@@ -1075,6 +1075,16 @@ public class MovementData implements Data {
             sincePredictUpwardsTicks = 0;
         }
         else sincePredictUpwardsTicks++;
+
+        if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN) {
+            sincePredictDownwardsTicksWithoutMaterial = 0;
+        }
+        else sincePredictDownwardsTicksWithoutMaterial++;
+
+        if (verticalMove == MovementPredictionUtil.VerticalMove.UP) {
+            sincePredictUpwardsTicksWithoutMaterial = 0;
+        }
+        else sincePredictUpwardsTicksWithoutMaterial++;
 
         if (isMovingDown()) {
             sincePredictDownwardsTicks = 0;

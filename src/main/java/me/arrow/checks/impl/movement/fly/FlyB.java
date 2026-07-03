@@ -73,6 +73,7 @@ public class FlyB extends Check {
 
             if (profile.getGeysersTracker().isBeingPushed()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - geysers (26.2+)");
+                movementData.setCustomAirTicks(0);
                 return;
             }
 
