@@ -56,7 +56,7 @@ public class ScaffoldA extends Check {
                 return;
             }
 
-            if (profile.getLastBlockPlaceTimer().hasNotPassed(15 + profile.getConnectionData().getClientTickTrans())
+            if (profile.getActionData().hasRecentConfirmedUnderPlace(5 + (profile.getConnectionData().getClientTickTrans() * 2))
                     && profile.isAirBridging(profile.getPlayer().getLocation())) {
                 if (interactions.add(flying) && interactions.size() >= 15) {
                     double std = MathUtil.getStandardDeviation(MathUtil.dequeTranslator(interactions));

@@ -160,7 +160,7 @@ public class IllegalMoveB extends Check {
         boolean holdingBlock = blockInHand || blockInOffHand;
 
         int blockPlaceLimit = clientTickTrans == 0 ? 3 : Math.min(3 + transPing / clientTickTrans, 20);
-        boolean recentlyPlaced = profile.getLastBlockPlaceTimer().hasNotPassed(blockPlaceLimit);
+        boolean recentlyPlaced = profile.getActionData().hasRecentConfirmedUnderPlace(blockPlaceLimit);
 
 
         final double predictedX = lastDeltaX * 0.9100000262260437;

@@ -86,6 +86,9 @@ public class VelocityB extends Check {
             return;
         }
 
+        if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            return;
+        }
 
         invalidHorizontalA(movementData, velocityData);
         spoofVelocity(movementData, velocityData);

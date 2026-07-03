@@ -67,6 +67,7 @@ public class Profile {
     private final ClientWorldTracker clientWorldTracker;
     private final NMSProcessor nmsProcessor;
     private final GeysersTracker geysersTracker;
+    private final DamageData damageData;
     //-------------------------------------------
 
     //--------------------------------------
@@ -121,24 +122,13 @@ public class Profile {
 //    private final ConnectionProcessor connectionProcessor = new ConnectionProcessor();
 
     private final Exempt exempt;
-    private double enderPearlDistance;
-    private Location enderPearlThrowLocation;
-    private Block blockPlaced;
-    EventTimer lastFlightToggleTimer = new EventTimer(20, this),
-            lastSuffocationTimer = new EventTimer(20, this),
+
+    EventTimer lastFlightToggleTimer = new EventTimer(40, this),
             lastBlockBreakTimer = new EventTimer(20, this),
             lastExplosionTimer = new EventTimer(40, this),
             lastShotByArrowTimer = new EventTimer(20, this),
             lastAttackByEntityTimer = new EventTimer(20, this),
-            lastFireTickTimer = new EventTimer(40, this),
-            lastBlockPlaceCancelTimer = new EventTimer(20, this),
-            lastBlockPlaceTimer = new EventTimer(40, this),
-            lastFallDamageTimer = new EventTimer(40, this),
-            lastTeleportTimer = new EventTimer(20, this),
             sinceDeathTimer = new EventTimer(40, this),
-            lastEnderpearlTimer = new EventTimer(20, this),
-            lastUnknownTeleportTimer = new EventTimer(20, this),
-            teleportTicks = new EventTimer(20, this),
             vehicleTicks = new EventTimer(20, this),
             reelingTicks = new EventTimer(40, this);
 
@@ -184,6 +174,7 @@ public class Profile {
         this.blockProcessor = new BlockProcessor(this);
         this.clientBrandListener = new ClientBrandListener(Arrow.getInstance());
         this.geysersTracker = new GeysersTracker(this);
+        this.damageData = new DamageData(this);
 
 
         //Check Holder
@@ -279,7 +270,7 @@ public class Profile {
 
     public boolean shouldCancel() {
         return player.isFlying()
-                || getLastFlightToggleTimer().hasNotPassed(20)
+                || getLastFlightToggleTimer().hasNotPassed(40)
                 || player.getGameMode() == GameMode.CREATIVE
                 || player.getGameMode() == GameMode.SPECTATOR
                 || getTick() < 120

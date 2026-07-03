@@ -84,7 +84,7 @@ public class FlyB extends Check {
             }
 
 
-            if (profile.getLastBlockPlaceTimer().hasNotPassed(8 + profile.getConnectionData().getClientTickTrans())
+            if (profile.getActionData().hasRecentConfirmedUnderPlace(5 + (profile.getConnectionData().getClientTickTrans() * 2))
                     && CollisionUtils.isNearEdge(movementData.getLocation())) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (nearEdge + blockplace)");
                 return;
@@ -222,7 +222,7 @@ public class FlyB extends Check {
                     || movementData.isNearLava()
                     || movementData.isNearWater()
                     || movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2)
-                    || movementData.getSinceBubbleTicks() < 25 + + (profile.getConnectionData().getClientTickTrans() * 2)
+                    || movementData.getSinceBubbleTicks() < 25 + (profile.getConnectionData().getClientTickTrans() * 2)
                     || profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 return;
             }
@@ -318,7 +318,6 @@ public class FlyB extends Check {
                     + "\n * extraTicksVel " + MsgType.MAIN_THEME_COLOR.getMessage() + extraFromVel
                     + "\n * sinceNearSlimeTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSinceNearSlimeTicks()
                     + "\n * velMag " + MsgType.MAIN_THEME_COLOR.getMessage() + velMag
-                    + "\n * placeTimer " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getLastBlockPlaceTimer().getTick()
                     + "\n * velocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalHorizontalVelocity()
                     + "\n * velocityV " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalVerticalVelocity()
                     + "\n * velocityH Sustain " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalHorizontalVelocitySustain()
@@ -328,7 +327,7 @@ public class FlyB extends Check {
             int maxTicks = Math.min(15, profile.getConnectionData().getClientTickTrans() == 0 ? 15 : 10 + (profile.getConnectionData().getTransPing() / 20) / profile.getConnectionData().getClientTickTrans());
 
             if (inAir
-                    && profile.getLastBlockPlaceTimer().passed(2 + profile.getConnectionData().getClientTickTrans())
+                    && !profile.getActionData().hasRecentBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))
                     && movementData.getCustomAirTicks() > maxTicks
                     && !movementData.isNearWater()
                     && !movementData.isNearWebs()

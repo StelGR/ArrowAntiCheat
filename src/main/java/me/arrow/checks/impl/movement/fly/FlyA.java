@@ -118,23 +118,11 @@ public class FlyA extends Check {
                 return;
             }
 
-            if (profile.getPlayer() != null && profile.getPlayer().getLastDamageCause() != null) {
-                EntityDamageEvent.DamageCause cause = profile.getPlayer().getLastDamageCause().getCause();
 
-                if (IGNORED_CAUSES.contains(cause)) {
-                    TaskUtils.taskLater(
-                            () -> {
-                                if (profile.getPlayer() != null) {
-                                    profile.getPlayer().setLastDamageCause(null);
-                                }
-                            },
-                            6L + (profile.getConnectionData().getClientTickTrans() * 2L)
-                    );
-
-                    lastOffset = 0.0D;
-                    resetPlacedBlockGravityState();
-                    return;
-                }
+            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                lastOffset = 0.0D;
+                resetPlacedBlockGravityState();
+                return;
             }
 
             if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {

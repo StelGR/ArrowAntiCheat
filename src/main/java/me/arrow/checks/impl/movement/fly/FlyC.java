@@ -15,6 +15,9 @@ import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 // simple accel limit check, seems to false on pistons, and slimes specifically for some reason, when you crouch and get pushed by a piston. otherwise decent
 
 @Experimental
@@ -31,6 +34,24 @@ public class FlyC extends Check {
 
     }
 
+    private static final Set<EntityDamageEvent.DamageCause> IGNORED_CAUSES = buildIgnoredCauses();
+
+    private static Set<EntityDamageEvent.DamageCause> buildIgnoredCauses() {
+        EnumSet<EntityDamageEvent.DamageCause> set = EnumSet.noneOf(EntityDamageEvent.DamageCause.class);
+        addCauseIfPresent(set, "VOID");
+        addCauseIfPresent(set, "SUFFOCATION");
+        addCauseIfPresent(set, "LIGHTNING");
+        addCauseIfPresent(set, "CONTACT");
+        return set;
+    }
+
+    private static void addCauseIfPresent(Set<EntityDamageEvent.DamageCause> set, String name) {
+        try {
+            set.add(EntityDamageEvent.DamageCause.valueOf(name));
+        } catch (IllegalArgumentException ignored) {
+        }
+    }
+
     @Override
     public void handle(PacketReceiveEvent event) {
         if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
@@ -40,14 +61,8 @@ public class FlyC extends Check {
 
             MovementData movementData = profile.getMovementData();
 
-            if (profile.getPlayer().getLastDamageCause() != null) {
-                EntityDamageEvent.DamageCause cause = profile.getPlayer().getLastDamageCause().getCause();
-                if (cause == EntityDamageEvent.DamageCause.VOID
-                        || cause == EntityDamageEvent.DamageCause.SUFFOCATION
-                        || cause == EntityDamageEvent.DamageCause.LIGHTNING
-                        || cause == EntityDamageEvent.DamageCause.CONTACT) {
-                    return;
-                }
+            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
             }
 
             if (profile.isExempt().isTeleports()) {
@@ -62,16 +77,16 @@ public class FlyC extends Check {
                     || movementData.isNearBoat()
                     || movementData.isNearGhast()
                     || movementData.isNearWebs()
-                    || profile.getLastBlockPlaceTimer().hasNotPassed(10 + profile.getConnectionData().getClientTickTrans())
+                    || profile.getActionData().hasRecentConfirmedUnderPlace(5 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || movementData.isNearBed()
                     || movementData.isNearLava()
-                    || movementData.getSinceNearWaterTicks() < 15 + profile.getConnectionData().getClientTickTrans()
+                    || movementData.getSinceNearWaterTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)
                     || movementData.isNearClimbable()
                     || movementData.getSlimeTicks() > 0
                     || movementData.isMovingUp()
                     || movementData.isMovingDown()
                     || movementData.getSinceRiptidingTicks() < 30
-                    || movementData.getSinceBubbleTicks() < 10 + profile.getConnectionData().getClientTickTrans()
+                    || movementData.getSinceBubbleTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
                     || profile.getPotionData().isHasLevitation()) {
                 return;
             }

@@ -79,12 +79,8 @@ public class MotionA extends Check {
                 return;
             }
 
-            if (profile.getPlayer().getLastDamageCause() != null) {
-                EntityDamageEvent.DamageCause cause = profile.getPlayer().getLastDamageCause().getCause();
-
-                if (IGNORED_CAUSES.contains(cause)) {
-                    return;
-                }
+            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
             }
 
             int ghostLiquidWebTicks = Math.min(
@@ -104,7 +100,7 @@ public class MotionA extends Check {
             if (profile.shouldCancel()
                     || profile.isExempt().isTeleports()
                     || !profile.isExempt().isRespawned()
-                    || profile.getLastBlockPlaceTimer().hasNotPassed(6 +(profile.getConnectionData().getClientTickTrans() * 2))
+                    || profile.getActionData().hasRecentConfirmedUnderPlace(6 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || profile.isBouncingOnSlime()
                     || profile.getPlayer().isInsideVehicle()
                     || movementData.isNearWater()
