@@ -34,7 +34,6 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Pose;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
@@ -394,10 +393,7 @@ public class MovementData implements Data {
         movingUp = moving && (getDeltaY() > 0 || getLastDeltaY() > 0) && nearStepMaterial;
 
         movingDown = moving && (getDeltaY() < 0 || getLastDeltaY() < 0) && nearStepMaterial;
-       // OtherUtility.log("Player: " + profile.getPlayer().getName() + " | isPhasing: " + isPhasing(profile));
 
-
-//        isCollidingNearbyEntitiesAsync(profile.getPlayer(), playerBox).thenAccept(colliding -> isColliding = colliding);
         if (!supportsEntityCollisionCheck()) {
             isColliding = false;
         } else {
@@ -1218,13 +1214,13 @@ public class MovementData implements Data {
 
     public float elytraMomentum() {
         int ping = Math.max(0, profile.getConnectionData().getTransPing());
-        final float START = 0.8f + (Math.max(0f, ping - 50f) / 50f) * 0.3f;
-        final float STEP  = 0.0125f;
-        final int   TICKS_PER_STEP = 4;
-        final int   MAX_STEPS = 20;    // 6 * 2 = 12 ticks
-        final int   ZERO_AT_TICK = 120;
+        float START = 0.9f + (Math.max(0f, ping - 50f) / 50f) * 0.3f;
+        float STEP  = 0.05f;
+        int TICKS_PER_STEP = 4;
+        int MAX_STEPS = 300;    // 6 * 2 = 12 ticks
+        int ZERO_AT_TICK = 120;
 
-        if (sinceGlidingTicks == 0 && getSinceElytraEquipTicks() == 0) return 0.4F;
+        if (sinceGlidingTicks == 0 && getSinceElytraEquipTicks() == 0) return 0.65F;
         if (sinceGlidingTicks == 1) return START;
         if (sinceGlidingTicks >= ZERO_AT_TICK) return 0f;
 

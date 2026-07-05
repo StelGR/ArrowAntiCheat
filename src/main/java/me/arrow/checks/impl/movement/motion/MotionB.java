@@ -3,7 +3,6 @@ package me.arrow.checks.impl.movement.motion;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -15,7 +14,10 @@ import me.arrow.utils.custom.materials.MaterialType;
 // this is a bit more complicated that Motion D, but i am getting tired, it is also basically like 3 checks in one, i have not seen it false
 // but it could false, that's why its set as experimental
 
-@Experimental
+
+// Update: 04/07/2026
+// it is no longer experimental, as i have not seen major falses.
+
 public class MotionB extends Check {
     public MotionB(Profile profile) {
         super(profile, CheckType.MOTION, "B", "Checks for invalid deltaY movements");
@@ -60,12 +62,9 @@ public class MotionB extends Check {
                 return;
             }
 
-            int ghostLiquidWebTicks = Math.min(
-                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-            );
+            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
-            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
                 return;
             }
 

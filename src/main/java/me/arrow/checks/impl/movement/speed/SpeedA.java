@@ -189,12 +189,9 @@ public class SpeedA extends Check {
         allowedLimit += movementData.getDolphinGraceBoost();
         allowedLimit += movementData.isColliding() ? 0.05 : 0;
 
-        int ghostLiquidWebTicks = Math.min(
-                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-        );
+        int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
-        if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+        if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
             allowedLimit += 0.2;
         }
 

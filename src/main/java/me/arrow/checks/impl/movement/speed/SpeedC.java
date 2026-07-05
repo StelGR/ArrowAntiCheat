@@ -17,6 +17,8 @@ import me.arrow.utils.customutils.OtherUtility;
 
 // this is simply start sprint disabler check, works almost perfectly
 
+// I need more feedback to ensure this has 0 falses, if that is the case, experimental tag will be removed
+
 @Experimental
 public class SpeedC extends Check {
 
