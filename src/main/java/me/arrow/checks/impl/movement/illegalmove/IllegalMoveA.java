@@ -10,7 +10,6 @@ package me.arrow.checks.impl.movement.illegalmove;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
@@ -20,7 +19,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.customutils.OtherUtility;
 
-@Experimental
+
 public class IllegalMoveA extends Check {
     public IllegalMoveA(Profile profile) {
         super(profile, CheckType.ILLEGALMOVE, "A", "Checks for fast fall, step, and too high deltaXZ");
@@ -97,12 +96,9 @@ public class IllegalMoveA extends Check {
             verbose(this.getClass().getSimpleName(), deltaY, 1, data);
 
 
-            int ghostLiquidWebTicks = Math.min(
-                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-            );
+            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
-            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion F: is Exempting (ghostblock liquid/web/pending physics place)");
                 return;
             }

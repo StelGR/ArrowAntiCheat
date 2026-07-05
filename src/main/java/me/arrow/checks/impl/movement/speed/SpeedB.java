@@ -23,12 +23,13 @@ import org.bukkit.util.Vector;
 // this is a very decent check, it accounts for acceleration and deceleration, the acceleration part is based off of OpenKarhu's speed b
 // it does have alot of improvements though, but it has some issues with modified attribute speed, remember the goal of the anticheat is to work on  ALL minecraft versions.
 
+// Due to some prediction issues with this check, although i have not seen any false positives, but you never know
+
 @Experimental
 public class SpeedB extends Check {
     public SpeedB(Profile profile) {
         super(profile, CheckType.SPEED, "B", "Checks for deceleration/acceleration");
     }
-
 
     float lastDeltaYaw;
 
@@ -202,12 +203,9 @@ public class SpeedB extends Check {
                 threshold += 0.3D;
             }
 
-            int ghostLiquidWebTicks = Math.min(
-                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-            );
+            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
-            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
                 threshold += 0.2D;
             }
 

@@ -17,6 +17,9 @@ import me.arrow.utils.customutils.Math.MathUtil;
 
 import java.util.Locale;
 
+// This uses a math util class to get the direction of the player, which is essentially a guess.
+// Due to that fact, OmniSprintA will remain experimental due to false positives.
+
 @Experimental
 public class OmniSprintA extends Check {
 

@@ -105,12 +105,9 @@ public class FlyB extends Check {
                 return;
             }
 
-            int ghostLiquidWebTicks = Math.min(
-                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-            );
+            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
-            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (ghostblock liquid/web/pending physics place)");
                 return;
             }

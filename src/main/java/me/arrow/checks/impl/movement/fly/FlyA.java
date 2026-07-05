@@ -13,7 +13,6 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.MoveUtils;
-import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.OtherUtility;
 import org.apache.commons.math3.util.FastMath;
@@ -130,14 +129,11 @@ public class FlyA extends Check {
                 return;
             }
 
-            int ghostLiquidWebTicks = Math.min(
-                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-            );
+            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
-            if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
                 if (Config.Setting.DEBUG.getBoolean()) {
-                    OtherUtility.log("Fly A: is Exempting (ghostblock liquid/web)");
+                    OtherUtility.log("Fly A: is Exempting (ghost physics placement)");
                 }
 
                 bufferA = 0.0D;
@@ -312,6 +308,11 @@ public class FlyA extends Check {
                 || movementData.isRiptiding()
                 || profile.isExempt().isTeleports()
                 || !profile.isExempt().isRespawned()) {
+            return;
+        }
+
+        if (movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A (2): is Exempting (since bubble water)");
             return;
         }
 
