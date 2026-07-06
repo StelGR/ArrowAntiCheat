@@ -51,7 +51,7 @@ public class NoSlowdown extends Check {
 
             NoSlowA(movementData, actionData, predictionData);
             //NoSlowB(movementData, actionData, predictionData);
-           // NoSlowC(movementData, actionData, predictionData);
+            //NoSlowC(movementData, actionData, predictionData);
             //NoSlowD(movementData, actionData, predictionData);
         }
     }
@@ -74,10 +74,12 @@ public class NoSlowdown extends Check {
     }
 
     public void NoSlowC(MovementData movementData, ActionData actionData, PredictionData predictionData) {
-        if (actionData.isSneaking()) sneakingTicks++;
+        if (profile.isSneaking()) sneakingTicks++;
         else sneakingTicks = 0;
 
         int swiftSneak = movementData.getEquipment().getSwiftSneakLevel();
+
+        if (profile.getVelocityData().isTakingVelocity()) return;
 
         double baseNoSprint = 0.092;
         double baseSprint = 0.12;
@@ -85,7 +87,7 @@ public class NoSlowdown extends Check {
         double capNoSprint = baseNoSprint * (1.0 + (0.15 * swiftSneak));
         double capSprint = baseSprint * (1.0 + (0.15 * swiftSneak));
 
-        boolean invalid3 = actionData.isSneaking()
+        boolean invalid3 = profile.isSneaking()
                 && (actionData.isSprinting() && actionData.isLastSprinting() && actionData.isLastLastSprinting()
                 ? movementData.getDeltaXZ() > capSprint
                 : movementData.getDeltaXZ() > capNoSprint)

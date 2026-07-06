@@ -80,15 +80,8 @@ public class FlyB extends Check {
             if (profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - block update under");
                 movementData.setCustomAirTicks(0);
-                return;
             }
 
-
-            if (profile.getActionData().hasRecentConfirmedUnderPlace(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    && CollisionUtils.isNearEdge(movementData.getLocation())) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (nearEdge + blockplace)");
-                return;
-            }
 
             if (profile.isBouncingOnSlime()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (bouncing on slime)");
@@ -105,7 +98,7 @@ public class FlyB extends Check {
                 return;
             }
 
-            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+            int ghostPhysicsTicks = 6 + (profile.getConnectionData().getClientTickTrans() * 4);
 
             if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (ghostblock liquid/web/pending physics place)");
@@ -254,18 +247,6 @@ public class FlyB extends Check {
             boolean exempt = movementData.isInsideLiquid()
                     || movementData.isNearWebs()
                     || (profile.getMovementData().getSinceGlidingTicks() < 10);
-
-            if (profile.getPlayer().getLastDamageCause() != null) {
-                EntityDamageEvent.DamageCause cause = profile.getPlayer().getLastDamageCause().getCause();
-                if (cause == EntityDamageEvent.DamageCause.VOID
-                        || cause == EntityDamageEvent.DamageCause.SUFFOCATION
-                        || cause == EntityDamageEvent.DamageCause.LIGHTNING
-                        || cause == EntityDamageEvent.DamageCause.CONTACT) {
-
-                    clientAirTickLimit += 2;
-                    airTickLimit += 2;
-                }
-            }
 
             double vel = Math.max(
                     profile.getVelocityData().getTotalVerticalVelocitySustain(),

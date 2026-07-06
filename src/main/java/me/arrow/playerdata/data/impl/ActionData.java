@@ -60,6 +60,8 @@ public class ActionData implements Data {
 
     int lastAllowFlightTicks, lastSleepingTicks, lastRidingTicks, sinceLastSprintingTicks, sinceSneakingTicks;
 
+    private static final int PLACE_CONFIRM_STABLE_TICKS = 2;
+
     private final ArrayDeque<PendingUnderPlace> pendingUnderPlaces = new ArrayDeque<>();
 
     private int lastBlockPlaceAttemptTicks = 1000;
@@ -294,6 +296,10 @@ public class ActionData implements Data {
 
     private void handleServerBlockUpdate(int x, int y, int z, Material newType) {
         if (newType == null || profile.getMovementData() == null) {
+            return;
+        }
+
+        if (isPendingUnderPlacePosition(x, y, z)) {
             return;
         }
 
@@ -541,6 +547,22 @@ public class ActionData implements Data {
             Block block = world.getBlockAt(place.x, place.y, place.z);
 
             if (!isConfirmedPlacedBlock(block, place.oldType)) {
+                place.stableTicks = 0;
+                place.stableType = Material.AIR;
+                continue;
+            }
+
+            Material now = block.getType();
+
+            if (place.stableType != now) {
+                place.stableType = now;
+                place.stableTicks = 1;
+                continue;
+            }
+
+            place.stableTicks++;
+
+            if (place.stableTicks < PLACE_CONFIRM_STABLE_TICKS) {
                 continue;
             }
 
@@ -548,8 +570,8 @@ public class ActionData implements Data {
             lastConfirmedUnderPlaceX = block.getX();
             lastConfirmedUnderPlaceY = block.getY();
             lastConfirmedUnderPlaceZ = block.getZ();
-            lastConfirmedUnderPlaceTopY = block.getY() + getBlockTopHeight(block.getType());
-            lastConfirmedUnderPlaceType = block.getType();
+            lastConfirmedUnderPlaceTopY = block.getY() + getBlockTopHeight(now);
+            lastConfirmedUnderPlaceType = now;
 
             iterator.remove();
         }
@@ -966,6 +988,16 @@ public class ActionData implements Data {
         return false;
     }
 
+    private boolean isPendingUnderPlacePosition(int x, int y, int z) {
+        for (PendingUnderPlace place : pendingUnderPlaces) {
+            if (place.x == x && place.y == y && place.z == z) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private Material getKnownOldSupportType(int x, int y, int z) {
         for (PendingUnderBreak pendingBreak : pendingUnderBreaks) {
             if (pendingBreak.x == x && pendingBreak.y == y && pendingBreak.z == z) {
@@ -1029,6 +1061,8 @@ public class ActionData implements Data {
         private final int z;
         private final Material oldType;
         private int ageTicks;
+        private int stableTicks;
+        private Material stableType = Material.AIR;
 
         private PendingUnderPlace(String worldName, int x, int y, int z, Material oldType) {
             this.worldName = worldName;

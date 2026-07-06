@@ -155,13 +155,8 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (movementData.isMovingUp() || movementData.getSinceMovingUpTicks() < 10) {
             groundBuffer = 0;
-            return;
-        }
-
-        if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A: is Exempting (Piston Update)");
             return;
         }
 
@@ -182,17 +177,20 @@ public class SpeedA extends Check {
         allowedLimit += movementData.getDolphinGraceBoost();
 
         if (movementData.getSinceCollideTicks() < 12 + profile.getConnectionData().getClientTickTrans() ) {
-            allowedLimit += 0.07;
+            allowedLimit += 0.0275;
         }
 
         allowedLimit += movementData.elytraMomentum();
         allowedLimit += movementData.getDolphinGraceBoost();
         allowedLimit += movementData.isColliding() ? 0.05 : 0;
 
-        int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
 
-        if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-            allowedLimit += 0.05;
+        if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            allowedLimit += 0.2;
         }
 
         if (serverGround && deltaXZ != 0) {
@@ -313,7 +311,7 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (movementData.getSincePredictUpwardsTicks() < 10) {
             airBuffer = 0;
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - movingUp");
             return;
@@ -376,16 +374,13 @@ public class SpeedA extends Check {
 
         double maxJumpHeight = MoveUtils.getJumpMotion(profile);
 
-        //if (profile.getPotionData().isHasJump()) maxJumpHeight += (profile.getPotionData().getJumpAmplifier() * 0.1F);
-
-        if (deltaY > 0.41 && deltaY <= maxJumpHeight && clientAirTicks == 1) {
-            expectedSpeed = deltaXZ / SpeedUtilities.getAfterJumpSpeed(profile);
+        if (isVanillaJumpStart(deltaY, maxJumpHeight, clientAirTicks)) {
+            expectedSpeed = applyAfterJumpAllowance(expectedSpeed, speedLevel);
         }
 
         double expected = -0.0784000015258789D;
         if (Math.abs(deltaY - expected) < 1E-6 && clientAirTicks == 1) {
-            expectedSpeed += speedLevel > 0 ? (0.05325 + (0.008D * speedLevel)) : 0.052525;
-            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.061225 : 0;
+            expectedSpeed += speedLevel > 0 ? (0.05325 + (0.008D * speedLevel)) : 0.052525D;
         }
 
         double expected2 = 0.33319999363422426D;
@@ -402,12 +397,13 @@ public class SpeedA extends Check {
             expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.00925 : 0;
         }
 
+
         if (movementData.getSinceMovingOnIceTicks() < 20 || movementData.getSinceMovingOnSlimeTicks() < 20) {
             expectedSpeed += 0.01D;
         }
 
-        if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            expectedSpeed += 0.075;
+        if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2) ) {
+            expectedSpeed += 0.125;
         }
 
         if (movementData.getSinceMovingOnIceTicks() > 0 && movementData.getSinceMovingOnIceTicks() < 120) {
@@ -416,6 +412,15 @@ public class SpeedA extends Check {
 
         expectedSpeed += movementData.elytraMomentum();
         expectedSpeed += movementData.getDolphinGraceBoost();
+
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
+
+        if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+            expectedSpeed += 0.2;
+        }
 
         String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
@@ -476,5 +481,24 @@ public class SpeedA extends Check {
 
             //verbose(this.getClass().getSimpleName(), airBuffer, 6, format);
         } else airBuffer = Math.max(0, airBuffer - 0.005D);
+    }
+
+    private boolean isVanillaJumpStart(double deltaY, double maxJumpHeight, int clientAirTicks) {
+        return clientAirTicks == 1
+                && deltaY > maxJumpHeight - 0.045D
+                && deltaY <= maxJumpHeight + 1.0E-6D;
+    }
+
+    private double applyAfterJumpAllowance(double expectedSpeed, int speedLevel) {
+        double afterJump = SpeedUtilities.getAfterJumpSpeed(profile);
+
+        if (afterJump <= 0.0D || Double.isNaN(afterJump) || Double.isInfinite(afterJump)) {
+            afterJump = 0.915D;
+        }
+
+        double bounded = expectedSpeed / afterJump;
+        double jumpBoost = speedLevel > 0 ? 0.27525D + (0.006D * speedLevel) : 0.27525D;
+
+        return Math.max(expectedSpeed, bounded + jumpBoost);
     }
 }

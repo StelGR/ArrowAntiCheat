@@ -3,7 +3,6 @@ package me.arrow.checks.impl.movement.fly;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -13,7 +12,6 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.MoveUtils;
-import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.OtherUtility;
 import org.apache.commons.math3.util.FastMath;
 import org.bukkit.ChatColor;
@@ -82,13 +80,6 @@ public class FlyA extends Check {
                 return;
             }
 
-            if (profile.getGeysersTracker().isBeingPushed()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: Exempt - geysers (26.2+)");
-                return;
-            }
-
-            CustomLocation loc = movementData.getLocation();
-
             if (movementData.isOnBoat()
                     || movementData.isNearBoat()
                     || movementData.isNearShulker()
@@ -97,7 +88,6 @@ public class FlyA extends Check {
                     || movementData.isNearWater()
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
-                    || !Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(loc.getWorld(), loc.getBlockX(), loc.getBlockZ())
                     || movementData.getSinceLevitationEffectTicks() < 10) {
                 return;
             }
@@ -117,7 +107,6 @@ public class FlyA extends Check {
                 return;
             }
 
-
             if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 lastOffset = 0.0D;
                 resetPlacedBlockGravityState();
@@ -129,11 +118,14 @@ public class FlyA extends Check {
                 return;
             }
 
-            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
 
-            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+            if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 if (Config.Setting.DEBUG.getBoolean()) {
-                    OtherUtility.log("Fly A: is Exempting (ghost physics placement)");
+                    OtherUtility.log("Fly A: is Exempting (ghostblock liquid/web)");
                 }
 
                 bufferA = 0.0D;
@@ -214,10 +206,6 @@ public class FlyA extends Check {
         if (profile.getExempt().isReelingIn()) { debugExempt("reelingIn"); return; }
 //        if (movementData.getSinceElytraEquipTicks() < 10) { debugExempt("Elytra Equip"); return; }
 
-
-
-
-
         if (movementData.getSincePowderSnowTicks() < 10) {
             debugExempt("Powder Snow");
             return;
@@ -256,17 +244,6 @@ public class FlyA extends Check {
                             + "\n * sYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerYGround()
                             + "\n * sGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerGround()
                             + "\n * pYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPositionYGround());
-        }
-
-        double expectedDeltaY = -0.0784000015258789D;
-        double expectedPred = -0.3052933275771155D;
-        if (movementData.getSincePredictDownwardsTicksWithoutMaterial() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
-                && Math.abs(deltaY - expectedDeltaY) < 1E-6
-                && !movementData.isOnGround()
-                && !movementData.isServerGround()
-                && Math.abs(prediction - expectedPred) < 1E-6) {
-            debugExempt("predictDownwardsTicksWithoutMaterials");
-            return;
         }
 
         boolean exempt = profile.getMovementData().getSinceGlidingTicks() < 20;
@@ -308,11 +285,6 @@ public class FlyA extends Check {
                 || movementData.isRiptiding()
                 || profile.isExempt().isTeleports()
                 || !profile.isExempt().isRespawned()) {
-            return;
-        }
-
-        if (movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A (2): is Exempting (since bubble water)");
             return;
         }
 
@@ -420,7 +392,7 @@ public class FlyA extends Check {
         boolean clientGround = md.isOnGround();
         boolean serverGround = md.isServerGround();
         boolean isGliding = md.getSinceGlidingTicks() < 10;
-        boolean hasVelocity = profile.getVelocityData().isTakingVelocity();
+        boolean hasVelocity = profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2);
 
         if (onSlime) { debugExemptC("slime"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (onHoney) { debugExemptC("honey"); lastOffset = 0.0D; bufferC = 0.0D; return; }
@@ -437,7 +409,7 @@ public class FlyA extends Check {
         if (profile.isExempt().isTeleports()) { debugExemptC("teleport"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isNearContact()) { debugExemptC("contact"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isNearWater()) { debugExemptC("nearWater"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.elytraMomentum() != 0) { debugExemptC("elytraMomentum"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (md.elytraMomentum() > 0) { debugExemptC("elytraMomentum"); lastOffset = 0.0D; bufferC = 0.0D; return; }
 
         if (md.getSincePredictDownwardsTicks() < 5) { debugExemptC("predictDownwards"); lastOffset = 0.0D; bufferC = 0.0D; return; }
 
@@ -601,11 +573,11 @@ public class FlyA extends Check {
                             + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
                             + "\nground " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                             + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                            + "\ntook Damage? " + MsgType.MAIN_THEME_COLOR.getMessage() + (profile.getPlayer().getLastDamageCause() == null ? "No" : profile.getPlayer().getLastDamageCause().getCause()));
+                            + "\ntook Damage? " + MsgType.MAIN_THEME_COLOR.getMessage() + (profile.getDamageData().getLastCause() == null ? "No" : profile.getDamageData().getLastCause()));
         }
 
         if (!clientGround) {
-            if (++bufferC > 4.0D) {
+            if (++bufferC > 2.0D) {
                 fail("Not following MCP Gravity (3)",
                         "offset " + MsgType.MAIN_THEME_COLOR.getMessage() + lastOffset
                                 + "\nprediction1 " + MsgType.MAIN_THEME_COLOR.getMessage() + pred1
@@ -617,11 +589,11 @@ public class FlyA extends Check {
                                 + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
                                 + "\nground " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                                 + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                + "\ntook Damage? " + MsgType.MAIN_THEME_COLOR.getMessage() + (profile.getPlayer().getLastDamageCause() == null ? "No" : profile.getPlayer().getLastDamageCause().getCause()));
+                                + "\ntook Damage? " + MsgType.MAIN_THEME_COLOR.getMessage() + (profile.getDamageData().getLastCause() == null ? "No" : profile.getDamageData().getLastCause()));
                 bufferC = Math.max(5, bufferC);
             }
         } else {
-            bufferC -= Math.min(bufferC, 0.05D);
+            bufferC -= Math.min(bufferC, 0.025D);
         }
     }
 
@@ -633,6 +605,7 @@ public class FlyA extends Check {
     int predictedTicks;
 
     double negGravStreak;
+    double lowHopStreak;
 
     public void GravityPredictionD(MovementData data) {
         double dy = data.getDeltaY();
@@ -709,6 +682,28 @@ public class FlyA extends Check {
         double preActualAcceleration = lastDy - dy;
         double preAccelerationExcess = preActualAcceleration - preExpectedAcceleration;
         boolean preTooFast = dy < preExpectedDY - preAllowed;
+        boolean lowHop = isLowHopMotion(data, dy, lastDy, preExpectedDY, preAllowed, actualGround, trustedClientGround, airTicksPre, transTicks);
+
+        if (lowHop) {
+            lowHopStreak += data.isOnGround() && data.isCustomInAir() ? 1.45D : 1.0D;
+
+            if (increaseBuffer() > 2.0D || lowHopStreak > 2.25D) {
+                fail("Negative Gravity Modification (Low Hop)",
+                        "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + dy
+                                + "\nlastDY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDy
+                                + "\nexpectedDY " + MsgType.MAIN_THEME_COLOR.getMessage() + preExpectedDY
+                                + "\nallowed " + MsgType.MAIN_THEME_COLOR.getMessage() + preAllowed
+                                + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicksPre
+                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + data.isOnGround()
+                                + "\ncustomInAir " + MsgType.MAIN_THEME_COLOR.getMessage() + data.isCustomInAir()
+                                + "\nactualGround " + MsgType.MAIN_THEME_COLOR.getMessage() + actualGround
+                                + "\nstreak " + MsgType.MAIN_THEME_COLOR.getMessage() + lowHopStreak);
+
+                lowHopStreak = Math.max(3.0D, lowHopStreak);
+            }
+        } else {
+            lowHopStreak = Math.max(0.0D, lowHopStreak - 0.25D);
+        }
 
         boolean directLowHopFastFall = !slowFallingPre
                 && !actualGround
@@ -772,8 +767,6 @@ public class FlyA extends Check {
             }
         }
 
-
-
         if (actualGround
                 || trustedClientGround
                 || Math.abs(dy) < 1.0E-5D) {
@@ -782,6 +775,7 @@ public class FlyA extends Check {
             predictedFallDist = 0.0D;
             predictedTicks = 0;
             negGravStreak = Math.max(0.0D, negGravStreak - 0.35D);
+            lowHopStreak = Math.max(0.0D, lowHopStreak - 0.35D);
             return;
         }
 
@@ -1235,9 +1229,81 @@ public class FlyA extends Check {
         return Math.min(0.120D, allowed);
     }
 
+    private boolean isLowHopMotion(MovementData data,
+                                   double dy,
+                                   double lastDy,
+                                   double expectedDY,
+                                   double allowed,
+                                   boolean actualGround,
+                                   boolean trustedClientGround,
+                                   int airTicks,
+                                   int transTicks) {
+        if (data == null || profile.getPotionData().isHasSlowFalling()) {
+            return false;
+        }
+
+        if (actualGround || dy <= 0.0D) {
+            return false;
+        }
+
+        boolean nearStepOrWall = data.isNearStepMaterial()
+                || data.isNearWall()
+                || data.isMovingUp()
+                || data.isMovingDown()
+                || data.getLastNearWallTicks() < 3 + transTicks
+                || data.getSincePredictUpwardsTicks() < 3 + transTicks
+                || data.getSincePredictDownwardsTicks() < 3 + transTicks;
+
+        if (nearStepOrWall && Math.abs(dy - expectedDY) <= Math.max(0.060D, allowed * 1.50D)) {
+            return false;
+        }
+
+        ActionData actionData = profile.getActionData();
+        int supportTicks = 5 + (transTicks * 2);
+
+        if (actionData != null
+                && (actionData.hasRecentConfirmedUnderPlace(supportTicks)
+                || actionData.hasRecentConfirmedUnderBreak(supportTicks)
+                || actionData.hasRecentBlockUpdateUnder(supportTicks)
+                || actionData.hasRecentPistonUpdate(supportTicks))) {
+            return false;
+        }
+
+        double jumpMotion = MoveUtils.getJumpMotion(profile);
+        double jumpAllowed = Math.max(0.075D, allowed + 0.040D);
+
+        boolean spoofedGroundAir = data.isOnGround()
+                && !actualGround
+                && (data.isCustomInAir() || dy < expectedDY - Math.max(0.050D, allowed * 1.25D));
+
+        boolean lowJumpStart = (data.isLastOnGround() || data.isLastServerGround() || data.isLastPositionYGround())
+                && airTicks <= 2
+                && Math.abs(lastDy) <= 0.080D
+                && dy > 0.030D
+                && dy < jumpMotion - jumpAllowed;
+
+        boolean upwardMotionCut = airTicks >= 2
+                && airTicks <= 8 + transTicks
+                && lastDy > 0.080D
+                && expectedDY > 0.060D
+                && Math.abs(dy - expectedDY) > Math.max(0.055D, allowed * 1.35D)
+                && dy < expectedDY - Math.max(0.055D, allowed * 1.35D);
+
+        boolean spoofedLowHop = spoofedGroundAir
+                && dy > 0.030D
+                && dy < Math.min(jumpMotion - 0.060D, expectedDY - Math.max(0.045D, allowed * 1.15D));
+
+        if (nearStepOrWall) {
+            return upwardMotionCut && Math.abs(dy - expectedDY) > Math.max(0.090D, allowed * 2.00D);
+        }
+
+        return lowJumpStart || upwardMotionCut || spoofedLowHop;
+    }
+
     private void resetGravityD(String reason) {
         debugExemptD(reason);
         negGravStreak = 0.0D;
+        lowHopStreak = 0.0D;
         resetPlacedBlockGravityState();
     }
 

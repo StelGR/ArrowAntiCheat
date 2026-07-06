@@ -60,7 +60,7 @@ public class MotionD extends Check {
                     || movementData.isNearWater()
                     || movementData.isNearLava()
                     || movementData.isNearClimbable()
-                    || profile.getVelocityData().isTakingVelocity()
+                    || (profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 10)
                     || profile.getPlayer().isInsideVehicle()) {
                 return;
             }
@@ -79,7 +79,7 @@ public class MotionD extends Check {
             boolean invalid = deltaY == -lastDeltaY && deltaY != 0.0;
 
             if (invalid) {
-                if (++buffer > 7) {
+                if (++buffer > 3) {
                     fail("Impossible Vertical Motion",
                             "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                             + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
@@ -90,7 +90,7 @@ public class MotionD extends Check {
                         + "\n * lastDeltaY "+ MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
                         + "\n * underBlock "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
             } else {
-                buffer -= Math.min(buffer, 0.125);
+                buffer -= Math.min(buffer, 0.05);
             }
         }
     }
