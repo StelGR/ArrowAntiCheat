@@ -80,6 +80,8 @@ public class ActionData implements Data {
     private int lastConfirmedUnderBreakZ;
     private Material lastConfirmedUnderBreakOldType = Material.AIR;
 
+    private final ArrayDeque<PendingBlockUpdateUnder> pendingBlockUpdatesUnder = new ArrayDeque<>();
+
     private int sinceBlockUpdateUnderTicks = 1000;
     private int sincePistonUpdateTicks = 1000;
     private int lastBlockUpdateUnderX;
@@ -197,7 +199,9 @@ public class ActionData implements Data {
 
             tickBlockBreakPrediction();
             confirmPendingUnderBreaks();
+
             tickBlockUpdatePrediction();
+            confirmPendingBlockUpdatesUnder();
             return;
         }
 
@@ -221,6 +225,7 @@ public class ActionData implements Data {
 
                 confirmPendingUnderPlaces();
                 confirmPendingUnderBreaks();
+                confirmPendingBlockUpdatesUnder();
             } finally {
                 actionTickQueued = false;
             }
@@ -233,6 +238,10 @@ public class ActionData implements Data {
 
     public boolean hasRecentBlockUpdateUnder(int ticks) {
         return sinceBlockUpdateUnderTicks <= ticks;
+    }
+
+    public boolean hasRecentConfirmedBlockUpdateUnder(int ticks) {
+        return hasRecentBlockUpdateUnder(ticks);
     }
 
     public boolean hasRecentPistonUpdate(int ticks) {
@@ -288,28 +297,35 @@ public class ActionData implements Data {
             return;
         }
 
+        if (isCorrectiveUnderPlacePacket(x, y, z, newType)) {
+            return;
+        }
+
         if (!isPacketPositionInFootSupportArea(x, y, z, newType, 1.25D)) {
             return;
         }
 
-        boolean supportMaterial = isSupportMaterial(newType);
+        boolean newSupportMaterial = isSupportMaterial(newType);
         boolean pistonUpdate = isPistonRelated(newType) || profile.getMovementData().isNearPiston();
+        boolean supportRemoved = !newSupportMaterial;
 
-        if (pistonUpdate) {
-            sincePistonUpdateTicks = 0;
-            lastPistonUpdateX = x;
-            lastPistonUpdateY = y;
-            lastPistonUpdateZ = z;
-            lastPistonUpdateType = newType;
+        if (!supportRemoved && !pistonUpdate) {
+            return;
         }
 
-        if (!supportMaterial) {
-            sinceBlockUpdateUnderTicks = 0;
-            lastBlockUpdateUnderX = x;
-            lastBlockUpdateUnderY = y;
-            lastBlockUpdateUnderZ = z;
-            lastBlockUpdateUnderOldType = Material.AIR;
-            lastBlockUpdateUnderNewType = newType;
+        pendingBlockUpdatesUnder.add(new PendingBlockUpdateUnder(
+                getPlayerWorldName(),
+                x,
+                y,
+                z,
+                getKnownOldSupportType(x, y, z),
+                newType,
+                supportRemoved,
+                pistonUpdate
+        ));
+
+        while (pendingBlockUpdatesUnder.size() > 16) {
+            pendingBlockUpdatesUnder.pollFirst();
         }
     }
 
@@ -410,6 +426,92 @@ public class ActionData implements Data {
     private void tickBlockUpdatePrediction() {
         sinceBlockUpdateUnderTicks = increment(sinceBlockUpdateUnderTicks);
         sincePistonUpdateTicks = increment(sincePistonUpdateTicks);
+
+        Iterator<PendingBlockUpdateUnder> iterator = pendingBlockUpdatesUnder.iterator();
+
+        while (iterator.hasNext()) {
+            PendingBlockUpdateUnder update = iterator.next();
+            update.ageTicks++;
+
+            if (update.ageTicks > getBlockUpdateConfirmationTicks()) {
+                iterator.remove();
+            }
+        }
+    }
+
+    private int getBlockUpdateConfirmationTicks() {
+        int transTicks = 0;
+        int pingTicks = 0;
+
+        try { transTicks = Math.max(0, profile.getConnectionData().getClientTickTrans()); } catch (Throwable ignored) {}
+        try { pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50); } catch (Throwable ignored) {}
+
+        return Math.max(3, Math.min(20, 3 + transTicks + pingTicks));
+    }
+
+    private void confirmPendingBlockUpdatesUnder() {
+        if (pendingBlockUpdatesUnder.isEmpty()) {
+            return;
+        }
+
+        Player player = profile.getPlayer();
+
+        if (player == null || !player.isOnline()) {
+            pendingBlockUpdatesUnder.clear();
+            return;
+        }
+
+        World world = player.getWorld();
+        Iterator<PendingBlockUpdateUnder> iterator = pendingBlockUpdatesUnder.iterator();
+
+        while (iterator.hasNext()) {
+            PendingBlockUpdateUnder update = iterator.next();
+
+            if (update.worldName != null && !update.worldName.equals(world.getName())) {
+                iterator.remove();
+                continue;
+            }
+
+            Material actualType = world.getBlockAt(update.x, update.y, update.z).getType();
+
+            if (isCorrectiveUnderPlacePacket(update.x, update.y, update.z, actualType)) {
+                iterator.remove();
+                continue;
+            }
+
+            if (update.supportRemoved) {
+                if (isSupportMaterial(actualType)) {
+                    continue;
+                }
+
+                if (!isPacketPositionInFootSupportArea(update.x, update.y, update.z, update.oldType, 1.25D)) {
+                    continue;
+                }
+
+                sinceBlockUpdateUnderTicks = 0;
+                lastBlockUpdateUnderX = update.x;
+                lastBlockUpdateUnderY = update.y;
+                lastBlockUpdateUnderZ = update.z;
+                lastBlockUpdateUnderOldType = update.oldType == null ? Material.AIR : update.oldType;
+                lastBlockUpdateUnderNewType = actualType;
+            }
+
+            if (update.pistonUpdate && sameMaterialOrAirFamily(actualType, update.newType)) {
+                Material supportReference = isSupportMaterial(actualType) ? actualType : update.oldType;
+
+                if (!isPacketPositionInFootSupportArea(update.x, update.y, update.z, supportReference, 1.25D)) {
+                    continue;
+                }
+
+                sincePistonUpdateTicks = 0;
+                lastPistonUpdateX = update.x;
+                lastPistonUpdateY = update.y;
+                lastPistonUpdateZ = update.z;
+                lastPistonUpdateType = actualType;
+            }
+
+            iterator.remove();
+        }
     }
 
     private void confirmPendingUnderPlaces() {
@@ -810,6 +912,70 @@ public class ActionData implements Data {
         return Material.matchMaterial("LEGACY_" + name);
     }
 
+    private String getPlayerWorldName() {
+        Player player = profile.getPlayer();
+
+        if (player == null) {
+            return null;
+        } else {
+            player.getWorld();
+        }
+
+        return player.getWorld().getName();
+    }
+
+    private boolean sameMaterialOrAirFamily(Material first, Material second) {
+        if (first == second) {
+            return true;
+        }
+
+        if (first == null || second == null) {
+            return false;
+        }
+
+        if (isAirLike(first) && isAirLike(second)) {
+            return true;
+        }
+
+        return first.name().equals(second.name());
+    }
+
+    private boolean isAirLike(Material material) {
+        if (material == null) {
+            return false;
+        }
+
+        String name = material.name();
+        return name.equals("AIR")
+                || name.equals("CAVE_AIR")
+                || name.equals("VOID_AIR")
+                || name.equals("LEGACY_AIR");
+    }
+
+    private boolean isCorrectiveUnderPlacePacket(int x, int y, int z, Material material) {
+        for (PendingUnderPlace place : pendingUnderPlaces) {
+            if (place.x != x || place.y != y || place.z != z) {
+                continue;
+            }
+
+            if (sameMaterialOrAirFamily(material, place.oldType)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Material getKnownOldSupportType(int x, int y, int z) {
+        for (PendingUnderBreak pendingBreak : pendingUnderBreaks) {
+            if (pendingBreak.x == x && pendingBreak.y == y && pendingBreak.z == z) {
+                return pendingBreak.oldType;
+            }
+        }
+
+        return Material.AIR;
+    }
+
     private BlockFace readFace(WrapperPlayClientPlayerBlockPlacement packet) {
         Object raw = invoke(packet, "getFace");
 
@@ -870,6 +1036,37 @@ public class ActionData implements Data {
             this.y = y;
             this.z = z;
             this.oldType = oldType;
+        }
+    }
+
+    private static final class PendingBlockUpdateUnder {
+
+        private final String worldName;
+        private final int x;
+        private final int y;
+        private final int z;
+        private final Material oldType;
+        private final Material newType;
+        private final boolean supportRemoved;
+        private final boolean pistonUpdate;
+        private int ageTicks;
+
+        private PendingBlockUpdateUnder(String worldName,
+                                        int x,
+                                        int y,
+                                        int z,
+                                        Material oldType,
+                                        Material newType,
+                                        boolean supportRemoved,
+                                        boolean pistonUpdate) {
+            this.worldName = worldName;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.oldType = oldType;
+            this.newType = newType;
+            this.supportRemoved = supportRemoved;
+            this.pistonUpdate = pistonUpdate;
         }
     }
 

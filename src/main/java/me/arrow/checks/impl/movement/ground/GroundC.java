@@ -35,35 +35,6 @@ public class GroundC extends Check {
 
     }
 
-    private static final Set<EntityDamageEvent.DamageCause> IGNORED_CAUSES = buildIgnoredCauses();
-
-    private static Set<EntityDamageEvent.DamageCause> buildIgnoredCauses() {
-        EnumSet<EntityDamageEvent.DamageCause> set = EnumSet.noneOf(EntityDamageEvent.DamageCause.class);
-        addCauseIfPresent(set, "VOID");
-        addCauseIfPresent(set, "POISON");
-        addCauseIfPresent(set, "WITHER");
-        addCauseIfPresent(set, "FALL");
-        addCauseIfPresent(set, "MAGIC");
-        addCauseIfPresent(set, "FIRE");
-        addCauseIfPresent(set, "FIRE_TICK");
-        addCauseIfPresent(set, "CAMPFIRE");
-        addCauseIfPresent(set, "SUFFOCATION");
-        addCauseIfPresent(set, "LIGHTNING");
-        addCauseIfPresent(set, "CONTACT");
-        addCauseIfPresent(set, "THORNS");
-        addCauseIfPresent(set, "FLY_INTO_WALL");
-        addCauseIfPresent(set, "CRAMMING");
-        addCauseIfPresent(set, "WORLD_BORDER");
-        return set;
-    }
-
-    private static void addCauseIfPresent(Set<EntityDamageEvent.DamageCause> set, String name) {
-        try {
-            set.add(EntityDamageEvent.DamageCause.valueOf(name));
-        } catch (IllegalArgumentException ignored) {
-        }
-    }
-
     @Override
     public void handle(PacketReceiveEvent event) {
         if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
@@ -73,10 +44,6 @@ public class GroundC extends Check {
 
             MovementData movementData = profile.getMovementData();
 
-            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                return;
-            }
-
             if (profile.shouldCancel()
                     || movementData.isNearShulkerBox()
                     || movementData.isNearShulker()
@@ -85,12 +52,7 @@ public class GroundC extends Check {
                     || movementData.isNearBed()
                     || profile.isExempt().vehicle()
                     || movementData.isNearGhast()
-                    || profile.getActionData().getLastConfirmedUnderPlaceTicks() < (15 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || movementData.isNearBoat()) {
-                return;
-            }
-
-            if (profile.getActionData().getLastConfirmedUnderBreakTicks() < (5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 return;
             }
 
@@ -106,7 +68,7 @@ public class GroundC extends Check {
             String verboseInfo = "clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + ground
                     + "\nserverPositionGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverPositionGround
                     + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                    + "\nair Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
+                    + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
                     + "\nnearEdge " + MsgType.MAIN_THEME_COLOR.getMessage() + CollisionUtils.isNearEdge(movementData.getLocation())
                     + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
                     + "\nlocY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLocation().getY()
@@ -116,7 +78,7 @@ public class GroundC extends Check {
             if (profile.getActionData().hasRecentConfirmedUnderBreak(5 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || profile.getActionData().hasRecentConfirmedUnderPlace(8 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    || profile.getActionData().hasRecentBlockUpdateUnder(8 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                    || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(8 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground c: is Exempting (Block Update/Piston Update/Block Place/Block Break)");
                 return;
             }

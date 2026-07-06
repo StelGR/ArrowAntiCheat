@@ -1221,7 +1221,7 @@ public class MovementData implements Data {
         int ZERO_AT_TICK = 120;
 
         if (sinceGlidingTicks == 0 && getSinceElytraEquipTicks() == 0) return 0.65F;
-        if (sinceGlidingTicks == 1) return START;
+        if (profile.getTick() > 120 && sinceGlidingTicks == 1) return START;
         if (sinceGlidingTicks >= ZERO_AT_TICK) return 0f;
 
         int steps = Math.min(sinceGlidingTicks / TICKS_PER_STEP, MAX_STEPS);

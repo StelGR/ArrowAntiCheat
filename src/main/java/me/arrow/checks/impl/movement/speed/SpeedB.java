@@ -308,7 +308,7 @@ public class SpeedB extends Check {
 
                         if (invalid) {
                             double excess = closest - limit;
-                            bufferAddition = Math.min(5.0D, Math.max(5D, excess * 20D));
+                            bufferAddition = Math.min(2, Math.max(7.5D, excess * 25D));
 
                             if ((vlBuffer += bufferAddition) >= required) {
                                 fail("Invalid acceleration",

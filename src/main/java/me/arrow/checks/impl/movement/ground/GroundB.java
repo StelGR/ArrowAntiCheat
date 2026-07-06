@@ -45,7 +45,7 @@ public class GroundB extends Check {
                 || movementData.isNearLava()
                 || movementData.isNearWater()) return;
         if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                || profile.getActionData().hasRecentBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground B: is Exempting (Block Update/Piston Update)");
             return;
         }

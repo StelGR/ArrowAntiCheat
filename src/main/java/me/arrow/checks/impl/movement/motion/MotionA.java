@@ -180,38 +180,43 @@ public class MotionA extends Check {
                     && lastGround
                     && deltaY > 0.0
                     && deltaY < maxJumpHeight) {
-                if (++buffer > 2) {
-                    fail("Jumping Lower Than Expected",
-                            "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                    + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
-                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
-                                    + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
-                                    + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
-                }
+//                if (++buffer > 2) {
+//
+//                }
+
+                fail("Jumping Lower Than Expected",
+                        "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
+                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
+                                + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
+                                + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
 
                 verbose(this.getClass().getSimpleName(), buffer, 2, data);
-            } else {
-                buffer -= Math.min(buffer, 0.001);
             }
+//            else {
+//                buffer -= Math.min(buffer, 0.001);
+//            }
 
             if (!isGround
                     && lastGround
                     && deltaY > motion
                     && !movementData.isMovingUp()) {
-                if (++buffer2 > 1) {
-                    fail("Jumping Higher Than Expected",
-                            "deltaY "+ MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                    + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
-                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
-                                    + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
-                                    + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
-                }
+//                if (++buffer2 > 1) {
+//
+//                }
+
+                fail("Jumping Higher Than Expected",
+                        "deltaY "+ MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
+                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
+                                + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
+                                + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
 
                 verbose(this.getClass().getSimpleName(), buffer2, 2, data);
             }
-            else {
-                buffer2 -= Math.min(buffer2, 0.025);
-            }
+//            else {
+//                buffer2 -= Math.min(buffer2, 0.025);
+//            }
         }
     }
 }

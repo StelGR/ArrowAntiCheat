@@ -155,7 +155,7 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (movementData.isMovingUp() || movementData.getSinceMovingUpTicks() < 10) {
+        if (movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             groundBuffer = 0;
             return;
         }
@@ -192,7 +192,7 @@ public class SpeedA extends Check {
         int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
         if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-            allowedLimit += 0.2;
+            allowedLimit += 0.05;
         }
 
         if (serverGround && deltaXZ != 0) {
@@ -313,7 +313,7 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (movementData.getSincePredictUpwardsTicks() < 10) {
+        if (movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             airBuffer = 0;
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - movingUp");
             return;
@@ -378,13 +378,14 @@ public class SpeedA extends Check {
 
         //if (profile.getPotionData().isHasJump()) maxJumpHeight += (profile.getPotionData().getJumpAmplifier() * 0.1F);
 
-        if (deltaY > 0 && deltaY <= maxJumpHeight && clientAirTicks == 1) {
+        if (deltaY > 0.41 && deltaY <= maxJumpHeight && clientAirTicks == 1) {
             expectedSpeed = deltaXZ / SpeedUtilities.getAfterJumpSpeed(profile);
         }
 
         double expected = -0.0784000015258789D;
         if (Math.abs(deltaY - expected) < 1E-6 && clientAirTicks == 1) {
-            expectedSpeed = deltaXZ / SpeedUtilities.getAfterJumpSpeed(profile);
+            expectedSpeed += speedLevel > 0 ? (0.05325 + (0.008D * speedLevel)) : 0.052525;
+            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.061225 : 0;
         }
 
         double expected2 = 0.33319999363422426D;
@@ -406,7 +407,7 @@ public class SpeedA extends Check {
         }
 
         if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            expectedSpeed += 0.125;
+            expectedSpeed += 0.075;
         }
 
         if (movementData.getSinceMovingOnIceTicks() > 0 && movementData.getSinceMovingOnIceTicks() < 120) {
@@ -415,15 +416,6 @@ public class SpeedA extends Check {
 
         expectedSpeed += movementData.elytraMomentum();
         expectedSpeed += movementData.getDolphinGraceBoost();
-
-        int ghostLiquidWebTicks = Math.min(
-                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-        );
-
-        if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-            expectedSpeed += 0.2;
-        }
 
         String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
