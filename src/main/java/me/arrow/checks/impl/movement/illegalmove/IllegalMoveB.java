@@ -180,7 +180,7 @@ public class IllegalMoveB extends Check {
             limit += 0.2;
         }
 
-        if (profile.getVelocityData().isTakingVelocity() ) airticklimit += extraTicks;
+        if (profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 8 ) airticklimit += extraTicks;
 
         final boolean invalid = difference > 0.00747 && deltaXZ > limit && airTicks > airticklimit ;
 

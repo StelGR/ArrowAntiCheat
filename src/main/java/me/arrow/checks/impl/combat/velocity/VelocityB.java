@@ -12,6 +12,7 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.VelocityData;
 import me.arrow.utils.customutils.Math.MathUtil;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.util.Vector;
 
 import java.util.EnumSet;
 import java.util.Set;
@@ -73,22 +74,17 @@ public class VelocityB extends Check {
         MovementData movementData = profile.getMovementData();
         VelocityData velocityData = profile.getVelocityData();
 
-        if (profile == null
-                || profile.getPlayer() == null
+        if (profile.getPlayer() == null
                 || !profile.getPlayer().isOnline()
                 || profile.getMovementData() == null
                 || profile.getVelocityData() == null
                 || movementData.isMovingUp()
                 || movementData.isNearWall()
                 || movementData.getSinceMovingUpTicks() < 5
-                || profile.getBlockProcessor().isUnderGhostBlock()
-                || profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
+                || profile.getBlockProcessor().isUnderGhostBlock()) {
             return;
         }
 
-        if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            return;
-        }
 
         invalidHorizontalA(movementData, velocityData);
         spoofVelocity(movementData, velocityData);
@@ -103,21 +99,97 @@ public class VelocityB extends Check {
 
 
     public void invalidHorizontalA(MovementData movementData, VelocityData velocityData) {
-        double deltaXZ = movementData.getDeltaXZ();
+        if (velocityData.getVelocityTicks() != 1) {
+            thresholdA -= Math.min(thresholdA, 0.05D);
+            return;
+        }
 
-        double velocityH = velocityData.getVelocityHfvc();
+        Vector velocity = velocityData.getVelocityfvc();
 
-        velocityH -= MathUtil.movingFlyingV3(profile, false);
+        if (velocity == null) {
+            thresholdA -= Math.min(thresholdA, 0.05D);
+            return;
+        }
 
-        double totalVelocity = deltaXZ / velocityH;
+        double velocityH = Math.hypot(velocity.getX(), velocity.getZ());
 
-        if (totalVelocity < 0.99 && velocityData.getVelocityTicks() == 1) {
-            if (++thresholdA > 8) {
-                fail("Invalid Horizontal Velocity","velocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + totalVelocity);
+        if (velocityH < 0.075D) {
+            thresholdA -= Math.min(thresholdA, 0.05D);
+            return;
+        }
+
+        Vector actual = new Vector(movementData.getDeltaX(), 0.0D, movementData.getDeltaZ());
+        Vector lastActual = new Vector(movementData.getLastDeltaX(), 0.0D, movementData.getLastDeltaZ());
+        Vector expectedDirection = velocity.clone().setY(0.0D).normalize();
+
+        double projected = actual.dot(expectedDirection);
+        double lastProjected = lastActual.dot(expectedDirection);
+        double friction = getHorizontalCarryFriction(movementData);
+        double compensatedProjected = projected - (lastProjected * friction);
+        double movementAllowance = Math.max(0.0D, MathUtil.movingFlyingV3(profile, false));
+        double stateAllowance = getHorizontalVelocityStateAllowance(movementData);
+        double expected = Math.max(0.025D, velocityH - movementAllowance - stateAllowance);
+        double ratio = Math.max(Math.max(0.0D, projected), Math.max(0.0D, compensatedProjected)) / expected;
+
+        if (ratio < 0.62D) {
+            double add = ratio < 0.25D ? 1.25D : 0.75D;
+
+            if ((thresholdA += add) > 5.0D) {
+                fail("Invalid Horizontal Velocity",
+                        "ratio " + MsgType.MAIN_THEME_COLOR.getMessage() + ratio
+                                + "\nprojected " + MsgType.MAIN_THEME_COLOR.getMessage() + projected
+                                + "\ncompensated " + MsgType.MAIN_THEME_COLOR.getMessage() + compensatedProjected
+                                + "\nlastProjected " + MsgType.MAIN_THEME_COLOR.getMessage() + lastProjected
+                                + "\nexpected " + MsgType.MAIN_THEME_COLOR.getMessage() + expected
+                                + "\nvelocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH
+                                + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaXZ()
+                                + "\nmoveAllowance " + MsgType.MAIN_THEME_COLOR.getMessage() + movementAllowance
+                                + "\nstateAllowance " + MsgType.MAIN_THEME_COLOR.getMessage() + stateAllowance
+                                + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
+                                + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks());
+                thresholdA = Math.max(6.0D, thresholdA);
             }
         } else {
-            thresholdA -= Math.min(thresholdA, 0.025);
+            thresholdA -= Math.min(thresholdA, 0.35D);
         }
+    }
+
+    private double getHorizontalCarryFriction(MovementData movementData) {
+        if (movementData == null) {
+            return 0.91D;
+        }
+
+        if (movementData.isOnGround() || movementData.isLastOnGround()) {
+            double friction = movementData.getFrictionFactor();
+
+            if (Double.isFinite(friction) && friction > 0.0D) {
+                return Math.min(1.0D, friction);
+            }
+        }
+
+        return 0.91D;
+    }
+
+    private double getHorizontalVelocityStateAllowance(MovementData movementData) {
+        double allowance = 0.030D;
+
+        if (movementData.getClientAirTicks() <= 3 || movementData.getServerAirTicks() <= 3) {
+            allowance += 0.060D;
+        }
+
+        if (movementData.getDeltaY() > 0.0D || movementData.getLastDeltaY() > 0.0D) {
+            allowance += 0.045D;
+        }
+
+        if (movementData.getSinceCollideTicks() < 5 + profile.getConnectionData().getClientTickTrans()) {
+            allowance += 0.040D;
+        }
+
+        if (movementData.isOnGround() || movementData.isLastOnGround()) {
+            allowance += 0.025D;
+        }
+
+        return allowance;
     }
 
 

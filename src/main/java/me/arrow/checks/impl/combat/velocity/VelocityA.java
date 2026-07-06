@@ -78,8 +78,7 @@ public class VelocityA extends Check {
                 || movementData.isNearWall()
                 || movementData.isUnderblock()
                 || movementData.getSinceMovingUpTicks() < 5
-                || profile.getBlockProcessor().isUnderGhostBlock()
-                || profile.getBlockProcessor().getLastGhostLiquidWebTick() < 10 + profile.getConnectionData().getClientTickTrans()) {
+                || profile.getBlockProcessor().isUnderGhostBlock()) {
             return;
         }
 

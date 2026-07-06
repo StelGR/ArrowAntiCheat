@@ -414,11 +414,7 @@ public class VelocityData implements Data {
 
     public boolean isTakingVelocity() {
         return getTotalHorizontalVelocity() > 0.0D
-                || getTotalVerticalVelocity() > 0.0D
-                || getTotalHorizontalVelocitySustain() > 0.0D
-                || getTotalVerticalVelocitySustain() > 0.0D
-                || stackedHorizontalVelocity > 0.0D
-                || stackedVerticalVelocity > 0.0D;
+                || getTotalVerticalVelocity() > 0.0D;
     }
 
     private static Vector copy(Vector vector) {
