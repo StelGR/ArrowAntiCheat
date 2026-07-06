@@ -172,7 +172,7 @@ public class IllegalMoveB extends Check {
         difference /= (this.wasSprinting ? 1.3 : 1.0);
         difference -= sprinting ? 0.02589 : 0.02;
 
-        double airticklimit = movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2) ? 15 : ((recentlyPlaced && holdingBlock) ? 7 : 3);
+        double airticklimit = movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2) ? 6 : ((recentlyPlaced && holdingBlock) ? 7 : 3);
 
         int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 

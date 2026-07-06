@@ -82,8 +82,6 @@ public class CombatData implements Data {
                 clickTimestamps.removeFirst();
             }
 
-
-
             this.currentCps = clickTimestamps.size();
 
             cpsSamples.add(currentCps);

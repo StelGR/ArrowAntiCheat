@@ -51,23 +51,24 @@ public class SetbackProcessor implements Processor {
                 return;
             }
 
-            Location teleportLocation = profile.getMovementData().getLastGroundLocation();
+            CustomLocation teleportLocation = profile.getMovementData().getLastSetBackLocation();
 
+            teleportSetback(player, teleportLocation);
 
-            if (profile.getMovementData().isCustomInAir() && profile.getMovementData().getCustomAirTicks() >= 13) {
-                teleportSetback(player, teleportLocation);
+            setbackDebug(
+                    profile,
+                    "&c" + reason + " &7setback -> &6"
+                            + teleportLocation.getBlockX() + ", "
+                            + teleportLocation.getBlockY() + ", "
+                            + teleportLocation.getBlockZ()
+            );
 
-                setbackDebug(
-                        profile,
-                        "&c" + reason + " &7setback -> &6"
-                                + teleportLocation.getBlockX() + ", "
-                                + teleportLocation.getBlockY() + ", "
-                                + teleportLocation.getBlockZ()
-                );
-            }
-            else {
-                setback(reason);
-            }
+//            if (profile.getMovementData().isCustomInAir() && profile.getMovementData().getCustomAirTicks() >= 13) {
+//
+//            }
+//            else {
+//                setback(reason);
+//            }
 
         } catch (Exception e) {
 
@@ -102,7 +103,7 @@ public class SetbackProcessor implements Processor {
                 if (count++ > 5) break;
             }
 
-            teleportSetback(p, cloned.toBukkit());
+            teleportSetback(p, cloned);
 
             setbackDebug(
                     profile,
@@ -116,7 +117,7 @@ public class SetbackProcessor implements Processor {
             return;
         }
 
-        final Location setbackLocation = locations.getLast().toBukkit();
+        final CustomLocation setbackLocation = locations.getLast();
 
         if (setbackLocation.getWorld() != p.getWorld()) return;
 
@@ -132,19 +133,19 @@ public class SetbackProcessor implements Processor {
 //        TaskUtils.task(() -> p.teleport(setbackLocation, PlayerTeleportEvent.TeleportCause.PLUGIN));
     }
 
-    private void teleportSetback(Player player, Location location) {
+    private void teleportSetback(Player player, CustomLocation location) {
         if (player == null || location == null) {
             return;
         }
 
         if (TaskUtils.isFoliaServer()) {
-            tryTeleportAsync(player, location);
+            tryTeleportAsync(player, location.toBukkit());
             return;
         }
 
         TaskUtils.task(() -> {
             if (player.isOnline()) {
-                player.teleport(location, PlayerTeleportEvent.TeleportCause.PLUGIN);
+                player.teleport(location.toBukkit(), PlayerTeleportEvent.TeleportCause.PLUGIN);
             }
         });
     }

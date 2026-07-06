@@ -77,7 +77,7 @@ public class FlyB extends Check {
                 return;
             }
 
-            if (profile.getActionData().hasRecentBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - block update under");
                 movementData.setCustomAirTicks(0);
                 return;
@@ -324,7 +324,7 @@ public class FlyB extends Check {
             int maxTicks = Math.min(15, profile.getConnectionData().getClientTickTrans() == 0 ? 15 : 10 + (profile.getConnectionData().getTransPing() / 20) / profile.getConnectionData().getClientTickTrans());
 
             if (inAir
-                    && !profile.getActionData().hasRecentBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    && !profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))
                     && movementData.getCustomAirTicks() > maxTicks
                     && !movementData.isNearWater()
                     && !movementData.isNearWebs()

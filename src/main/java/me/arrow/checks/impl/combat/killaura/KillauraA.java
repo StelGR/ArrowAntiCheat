@@ -74,7 +74,7 @@ public class KillauraA extends Check {
                         decreaseBufferBy(0.4);
                     } else if ((increaseBufferBy(0.5 + extrabuffer)) > 6.0) {
                         fail("Invalid motion when attacking",
-                                "motion " + attackMotion + "/" + MsgType.MAIN_THEME_COLOR.getMessage() + moveSpeed
+                                "motion " + MsgType.MAIN_THEME_COLOR.getMessage() + attackMotion + "/" + MsgType.MAIN_THEME_COLOR.getMessage() + moveSpeed
                                         + "\nacceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
                                         + "\nattacks " + MsgType.MAIN_THEME_COLOR.getMessage() + this.attacks);
                     }
