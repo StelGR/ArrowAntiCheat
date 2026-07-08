@@ -59,7 +59,7 @@ public class KillauraA extends Check {
                 if (!profile.getPlayer().isInsideVehicle()
                         && movementData.getDeltaXZ() > 0.1
                         && movementData.getSinceIceTicks() > 2
-                        && !profile.getVelocityData().isTakingVelocity()) {
+                        && profile.getVelocityData().getVelocityTicks() > 5) {
                     double deltaX = movementData.getLastDeltaX() * (movementData.isLastLastOnGround() ? movementData.getLastFrictionFactor() : 0.91F);
                     double deltaZ = movementData.getLastDeltaZ() * (movementData.isLastLastOnGround() ? movementData.getLastFrictionFactor() : 0.91F);
                     deltaX *= 0.6;

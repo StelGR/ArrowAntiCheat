@@ -3,6 +3,7 @@ package me.arrow.checks.impl.movement.fly;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -191,7 +192,7 @@ public class FlyA extends Check {
         if (movementData.isNearLava()) { debugExempt("nearLava"); return; }
         if (movementData.isNearWater()) { debugExempt("nearWater"); return; }
         if (movementData.isNearBuggyBlock()) { debugExempt("nearBuggyBlock"); return; }
-        if (profile.getVelocityData().isTakingVelocity()) { debugExempt("isTakingVelocity"); return; }
+        if (profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2)) { debugExempt("isTakingVelocity"); return; }
         if (movementData.isNearWebs()) { debugExempt("nearWebs"); return; }
         if (movementData.isUnderblock()) { debugExempt("underblock"); return; }
         if (movementData.isNearBed()) { debugExempt("nearBed"); return; }
@@ -201,7 +202,9 @@ public class FlyA extends Check {
         if (movementData.isNearShulkerBox()) { debugExempt("nearShulkerBox"); return; }
         if (movementData.isNearShulker()) { debugExempt("nearShulker"); return; }
         if (movementData.getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) { debugExempt("sinceGhostblock"); return; }
-        if (movementData.getSinceMovingOnSlimeTicks() < 10) { debugExempt("movingOnSlime"); return; }
+        if (movementData.isOnSlime()) {
+            return;
+        }
         if (movementData.isNearClimbable()) { debugExempt("nearClimbable"); return; }
         if (profile.getExempt().isReelingIn()) { debugExempt("reelingIn"); return; }
 //        if (movementData.getSinceElytraEquipTicks() < 10) { debugExempt("Elytra Equip"); return; }
@@ -214,7 +217,8 @@ public class FlyA extends Check {
         if (movementData.isMovingUp()
                 || movementData.isMovingDown()
                 || movementData.getSincePredictUpwardsTicks() < 10
-                || movementData.getSincePredictDownwardsTicks() < 10) {
+                || movementData.getSincePredictDownwardsTicks() < 10
+                || movementData.getSincePredictDownwardsTicksWithoutMaterial() < 5) {
             bufferA -= Math.min(bufferA, 0.75D);
             return;
         }
@@ -320,9 +324,16 @@ public class FlyA extends Check {
         boolean exempt = profile.getMovementData().getSinceGlidingTicks() < 15
                 || Math.abs(deltaY - MoveUtils.getJumpMotion(profile)) <= 1.0E-9D;
 
-        if (!isClientGround
-                && profile.getVelocityData().getTotalVerticalVelocity() == 0.0D
-                && profile.getVelocityData().getTotalHorizontalVelocity() == 0.0D) {
+        double expected = 0.33319999363422426D;
+
+        if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)
+                && !isClientGround && Math.abs(deltaY - expected) < 1E-6
+                && profile.getActionData().getLastConfirmedUnderPlaceTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            return; // vanilla building up
+        }
+
+        if (!isClientGround &&
+                !(profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2))) {
 
             double normalPrediction;
 
@@ -387,7 +398,7 @@ public class FlyA extends Check {
         boolean onLadder = md.isNearClimbable();
         boolean onIce = md.getMovingOnIceTicks() > 0;
         boolean onHoney = md.getMovingOnHoneyTicks() > 0;
-        boolean onSlime = md.getMovingOnSlimeTicks() > 0;
+        boolean onSlime = md.isOnSlime();
         boolean nearBed = md.isNearBed();
         boolean clientGround = md.isOnGround();
         boolean serverGround = md.isServerGround();
@@ -465,13 +476,11 @@ public class FlyA extends Check {
             return;
         }
 
-        double horizontal = profile.getVelocityData().getTotalHorizontalVelocity();
         final double JUMP_START_TOL_BASE = 0.06D;
         final double JUMP_START_TOL_PER_AMP = 0.02D;
         double jumpTolDynamic = JUMP_START_TOL_BASE + (jumpAmplifier * JUMP_START_TOL_PER_AMP);
-        final double HORIZONTAL_VEL_LIMIT = 1.0D;
 
-        if (!clientGround && Math.abs(deltaY - jumpStart) <= jumpTolDynamic && horizontal <= HORIZONTAL_VEL_LIMIT) {
+        if (!clientGround && Math.abs(deltaY - jumpStart) <= jumpTolDynamic) {
             lastOffset = 0.0D;
             return;
         }
@@ -558,6 +567,12 @@ public class FlyA extends Check {
             return;
         }
 
+        double expected = 0.33319999363422426D;
+
+        if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8) && !clientGround && Math.abs(deltaY - expected) < 1E-6 && profile.getActionData().getLastConfirmedUnderPlaceTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            return; // vanilla building up
+        }
+
         String predictionType = off1 <= off2 ? pred1Result.type : pred2Result.type;
 
         if (deltaY != 0.0D) {
@@ -634,26 +649,27 @@ public class FlyA extends Check {
         if (data.isNearShulker()) { resetGravityD("nearShulker"); return; }
         if (data.isNearShulkerBox()) { resetGravityD("nearShulkerBox"); return; }
         if (data.isNearClimbable()) { resetGravityD("nearClimbable"); return; }
-        if (data.isOnSlime()) { resetGravityD("onSlime"); return; }
+        if (data.isOnSlime()) {
+            return;
+        }
         if (data.isNearContact()) { resetGravityD("nearContact"); return; }
-
         if (data.getSinceGlidingTicks() < 20 + transTicks) { resetGravityD("gliding"); return; }
 
-        if (data.isOnHoney()) { resetGravityD("onHoney"); return; }
+        if (data.isOnHoney()) {
+            return;
+        }
+
         if (data.isInsideWater()) { resetGravityD("insideWater"); return; }
         if (data.isOnTopOfWater()) { resetGravityD("onTopOfWater"); return; }
         if (data.isBottomOfWater()) { resetGravityD("bottomOfWater"); return; }
         if (data.isUnderblock()) { resetGravityD("underBlock"); return; }
         if (data.getMovingUnderblockTicks() > 0) { resetGravityD("movingUnderBlock"); return; }
 
-        //if (data.isOnSlime()) { resetGravityD("onSlime"); return; }
 
 
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return; }
 
-        if (profile.getVelocityData().isTakingVelocity()) { resetGravityD("takingVelocity"); return; }
-        if (Math.abs(profile.getVelocityData().getTotalVerticalVelocity()) > 1.0E-5D) { resetGravityD("verticalVelocity"); return; }
-        if (profile.getVelocityData().getTotalHorizontalVelocity() > 0.0D) { resetGravityD("horizontalVelocity"); return; }
+        if (profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2)) { resetGravityD("takingVelocity"); return; }
 
         if (profile.getPotionData().isHasJump()) { resetGravityD("jumpPotion"); return; }
         if (profile.getPotionData().isHasLevitation()) { resetGravityD("levitation"); return; }

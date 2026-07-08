@@ -99,7 +99,7 @@ public class Arrow {
     private static final GuiManager guiManager = new GuiManager();
 
     @Getter
-    private final String version = "107-pre2";
+    private final String version = "107-pre3";
 
     @Getter
     private final JavaPlugin host;     // the “real” plugin, either ArrowPlugin or ArrowLoader

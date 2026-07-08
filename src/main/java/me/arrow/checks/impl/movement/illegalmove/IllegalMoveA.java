@@ -17,6 +17,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.customutils.OtherUtility;
 
 
@@ -61,19 +62,40 @@ public class IllegalMoveA extends Check {
             double deltaY = movementData.getDeltaY();
             double deltaXZ = movementData.getDeltaXZ();
 
-            String data = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY;
+            String data = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (1)\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                    +"\n * deltaXZ "+ MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                    +"\n * nearWall "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isNearWall()
+                    +"\n * lastNearWall "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastNearWall()
+                    +"\n * lastLastNearWall "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastLastNearWall()
+                    +"\n * nearWallPacket "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPacketNearWall()
+                    +"\n * nearWall(2) "+ MsgType.MAIN_THEME_COLOR.getMessage() + CollisionUtils.isNearWall(movementData.getLocation());
+
+            String data2 = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (2)\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                    +"\n * deltaXZ "+ MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                    +"\n * nearWall "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isNearWall()
+                    +"\n * lastNearWall "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastNearWall()
+                    +"\n * lastLastNearWall "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastLastNearWall()
+                    +"\n * nearWallPacket "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPacketNearWall()
+                    +"\n * nearWall(2) "+ MsgType.MAIN_THEME_COLOR.getMessage() + CollisionUtils.isNearWall(movementData.getLocation());
+
+            String data3 = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (3)\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                    +"\n * deltaXZ "+ MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                    +"\n * nearWall "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isNearWall()
+                    +"\n * lastNearWall "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastNearWall()
+                    +"\n * lastLastNearWall "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastLastNearWall()
+                    +"\n * nearWallPacket "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPacketNearWall()
+                    +"\n * nearWall(2) "+ MsgType.MAIN_THEME_COLOR.getMessage() + CollisionUtils.isNearWall(movementData.getLocation());
+
             if (deltaY < -3.921
                     && !profile.isExempt().isTeleports()
                     && profile.getMovementData().getSinceRiptidingTicks() > 30
                     && !profile.getVelocityData().isTakingVelocity()) {
-                verbose(this.getClass().getSimpleName(), deltaY, -3.92, data);
+                verbose(this.getClass().getSimpleName(), deltaY, -3.92, "DeltaY: "+data);
                 fail("Falling too fast", "deltaY "+ MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
             }
 
             // checking for velocity here, is very useless, also i think jump ampliefier math is wrong
             // i haven't seen a false though
-
-
 
             double air_speedMultiplier = SpeedUtilities.getPotionSpeedAirMultiplier(profile);
 
@@ -89,41 +111,41 @@ public class IllegalMoveA extends Check {
             }
 
             if (deltaXZ > expectedSpeed) {
-                verbose(this.getClass().getSimpleName(),deltaXZ, 9.9, MsgType.MAIN_THEME_COLOR.getMessage() +"* Verbose\n * deltaXZ "+MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ);
+                verbose(this.getClass().getSimpleName(),deltaXZ, 9.9, MsgType.MAIN_THEME_COLOR.getMessage() +"* Verbose (XZ)\n * deltaXZ "+MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ);
                 fail("Impossible deltaXZ movement", "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ);
             }
 
-            verbose(this.getClass().getSimpleName(), deltaY, 1, data);
+            verbose(this.getClass().getSimpleName(), deltaY, 1, data2);
 
 
-            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+//            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+//
+//            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+//                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion F: is Exempting (ghostblock liquid/web/pending physics place)");
+//                return;
+//            }
 
-            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion F: is Exempting (ghostblock liquid/web/pending physics place)");
-                return;
-            }
+            double stepHeight = 0.5975D;
 
-            double stepHeight;
-
-            if (movementData.isNearStepMaterial()) stepHeight = 0.5975D;
-            else stepHeight = 0.49;
+//            if (movementData.isNearStepMaterial()) stepHeight ;
+//            else stepHeight = 0.49;
 
             if (profile.getPotionData().isHasJump()) stepHeight += (profile.getPotionData().getJumpAmplifier() * 0.1F);
 
-            if (deltaY > stepHeight
-                    && (movementData.isNearWall())
-                    && !profile.isBouncingOnSlime()
+            if ((deltaY > stepHeight)
+                    && (movementData.isNearWall() || movementData.isLastNearWall() || movementData.isLastLastNearWall())
+                    && (!profile.isBouncingOnSlime()
                     && !profile.isExempt().isTeleports()
                     && movementData.getSincePowderSnowTicks() > 20
                     && !(movementData.isOnBoat()
                     || movementData.isNearBoat())
                     && !movementData.isNearLava()
                     && !movementData.isNearWater()
-                    && !profile.getVelocityData().isTakingVelocity()
+                    && !movementData.isClimb()
+                    && (profile.getVelocityData().getVelocityTicks() < 6)
                     && movementData.getSinceRiptidingTicks() > 15
-                    && !profile.isBouncingOnSlime()
-                    && movementData.getSinceGlidingTicks() > 15) {
-                verbose(this.getClass().getSimpleName(),deltaY, 1.0, data);
+                    && movementData.getSinceGlidingTicks() > 15)) {
+                verbose(this.getClass().getSimpleName(), deltaY, 1.0, data3);
                 fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
             }
         }

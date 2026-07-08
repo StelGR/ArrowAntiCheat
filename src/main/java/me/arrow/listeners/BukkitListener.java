@@ -531,7 +531,7 @@ public class BukkitListener implements Listener {
         // Always available
         addUnbreakableItem(player, "DIAMOND_SWORD");
         addUnbreakableItem(player, "FISHING_ROD");
-        addUnbreakableItemWithEnchantments(player, new String[]{"BOW"}, new String[]{"INFINITY"}, 1);
+        addUnbreakableItemWithEnchantments(player, new String[]{"BOW"}, new String[]{"INFINITY", "ARROW_INFINITE"}, 1);
 
         player.getInventory().setItem(9, new ItemStack(Material.ARROW, 1));
         addItem(player, 64, "DIAMOND_BLOCK");
@@ -584,8 +584,12 @@ public class BukkitListener implements Listener {
 
         Enchantment enchantment = firstEnchantment(enchantNames);
         if (enchantment != null) {
-            itemMeta.addEnchant(enchantment, level, true);
+            boolean added = itemMeta.addEnchant(enchantment, level, true);
             itemStack.setItemMeta(itemMeta);
+
+            if (!added || !itemStack.containsEnchantment(enchantment)) {
+                itemStack.addUnsafeEnchantment(enchantment, level);
+            }
         }
 
         player.getInventory().addItem(itemStack);
@@ -594,8 +598,17 @@ public class BukkitListener implements Listener {
     private Material firstMaterial(String... names) {
         for (String name : names) {
             Material material = Material.matchMaterial(name);
+
+            if (material == null) {
+                try {
+                    material = Material.getMaterial(name);
+                } catch (Throwable ignored) {
+                }
+            }
+
             if (material != null) return material;
         }
+
         return null;
     }
 
@@ -603,7 +616,18 @@ public class BukkitListener implements Listener {
         for (String name : names) {
             Enchantment enchantment = Enchantment.getByName(name);
             if (enchantment != null) return enchantment;
+
+            if (name.equalsIgnoreCase("INFINITY")) {
+                enchantment = Enchantment.getByName("ARROW_INFINITE");
+                if (enchantment != null) return enchantment;
+            }
+
+            if (name.equalsIgnoreCase("UNBREAKING")) {
+                enchantment = Enchantment.getByName("DURABILITY");
+                if (enchantment != null) return enchantment;
+            }
         }
+
         return null;
     }
 
@@ -795,8 +819,14 @@ public class BukkitListener implements Listener {
     public void onProjectileHit(ProjectileHitEvent event) {
         if (!isTestServerBuildZoneEnabled()) return;
 
-        if (event.getHitBlock() != null && event.getHitBlock().getType() == Material.DECORATED_POT) {
-            event.setCancelled(true);
+
+        try {
+
+            if (event.getHitBlock() != null && event.getHitBlock().getType() == Material.DECORATED_POT) {
+                event.setCancelled(true);
+            }
+        } catch (NoSuchMethodError e) {
+            event.setCancelled(false);
         }
     }
 

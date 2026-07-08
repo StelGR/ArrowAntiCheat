@@ -250,7 +250,7 @@ public class SpeedA extends Check {
 
     final double AIR_MAX_SLIME_SPEED_BOOST = 2.4;
     final double AIR_MAX_ICE_SPEED_BOOST = 6.25;
-    final double AIR_MAX_UNDER_BLOCK_SPEED_BOOST = 0.6;
+    final double AIR_MAX_UNDER_BLOCK_SPEED_BOOST = 0.95;
     final double AIR_MAX_HONEY_SPEED_BOOST = 1.1;
 
     public void calculateAir(MovementData movementData, float movingIceTicks, double movingSlimeTicks, int movingHoneyTicks, float underBlockMoveTime, double velocityH, double deltaY, double deltaXZ, int clientAirTicks, boolean clientGround, boolean serverGround) {

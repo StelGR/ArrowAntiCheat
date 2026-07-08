@@ -84,7 +84,10 @@ public class GuiUtility {
         itemMeta.setDisplayName(itemName);
         if (hideFlag) itemMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         if (glowing) {
-            itemMeta.addEnchant(Enchantment.SHARPNESS, 1, false);
+            Enchantment glowEnchantment = firstEnchantment("SHARPNESS", "DAMAGE_ALL");
+            if (glowEnchantment != null) {
+                itemMeta.addEnchant(glowEnchantment, 1, true);
+            }
             itemMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
         itemStack.setItemMeta(itemMeta);
@@ -451,6 +454,48 @@ public class GuiUtility {
         }
 
         return stack;
+    }
+
+    public static ItemStack createItem(String... materialNames) {
+        Material material = firstMaterial(materialNames);
+
+        if (material == null) {
+            material = Material.BOOK;
+        }
+
+        return new ItemStack(material, 1);
+    }
+
+    public static Material firstMaterial(String... names) {
+        if (names == null) return null;
+
+        for (String name : names) {
+            if (name == null || name.isEmpty()) continue;
+
+            Material material = Material.matchMaterial(name);
+
+            if (material == null) {
+                try {
+                    material = Material.getMaterial(name);
+                } catch (Throwable ignored) {
+                }
+            }
+
+            if (material != null) return material;
+        }
+
+        return null;
+    }
+
+    private static Enchantment firstEnchantment(String... names) {
+        if (names == null) return null;
+
+        for (String name : names) {
+            Enchantment enchantment = Enchantment.getByName(name);
+            if (enchantment != null) return enchantment;
+        }
+
+        return null;
     }
 
 }

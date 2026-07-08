@@ -6,7 +6,7 @@ import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.playerdata.processors.Processor;
 
 
-//niks cinematic processor, unused
+//niks cinematic processor, rarely used
 
 /**
  * A simple cinematic processor to determine whether a player is using cinematic

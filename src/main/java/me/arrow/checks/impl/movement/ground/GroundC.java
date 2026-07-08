@@ -75,13 +75,13 @@ public class GroundC extends Check {
                     + "\nlocY (floor) " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.floor(movementData.getLocation().getY())
                     + "\nlocY - locY(floor) difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()));
 
-            if (profile.getActionData().hasRecentConfirmedUnderBreak(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    || profile.getActionData().hasRecentConfirmedUnderPlace(8 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    || profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(8 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground c: is Exempting (Block Update/Piston Update/Block Place/Block Break)");
-                return;
-            }
+//            if (profile.getActionData().hasRecentConfirmedUnderBreak(5 + (profile.getConnectionData().getClientTickTrans() * 2))
+//                    || profile.getActionData().hasRecentConfirmedUnderPlace(8 + (profile.getConnectionData().getClientTickTrans() * 2))
+//                    || profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
+//                    || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(8 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+//                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground c: is Exempting (Block Update/Piston Update/Block Place/Block Break)");
+//                return;
+//            }
 
             if (profile.getMovementData().getSinceOnGhostBlock() <= 1) {
 //                boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
@@ -100,7 +100,7 @@ public class GroundC extends Check {
 
             if (world.shouldHardSetback()) {
                 fail("WorldTracker: Real ghostblock collision", verboseInfo);
-                movementData.setCustomAirTicks(0);
+                //movementData.setCustomAirTicks(0);
 
                 if (Config.Setting.DEBUG.getBoolean()) {
                     OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
@@ -110,7 +110,7 @@ public class GroundC extends Check {
             if (profile.getBlockProcessor().isOnGhostBlock()) {
                 fail("BlockProcessor: On Ghostblock?", verboseInfo);
 
-                movementData.setCustomAirTicks(0);
+                //movementData.setCustomAirTicks(0);
                 if (Config.Setting.DEBUG.getBoolean()) {
                     OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
                 }

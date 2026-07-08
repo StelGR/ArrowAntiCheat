@@ -367,8 +367,8 @@ public class ReachA extends Check {
                 }
 
                 if (bestDistance > 3.4) {
-                    profile.getTrustFactor().decreaseTrustBy(30);
-                    increaseBufferBy(10);
+                    profile.getTrustFactor().decreaseTrustBy(20);
+                    increaseBufferBy(3);
                 }
 
                 if (profile.getTrustScore() >= 80) {
