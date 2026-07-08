@@ -32,7 +32,7 @@ public class VelocityA extends Check {
     public void handle(PacketSendEvent event) {
     }
 
-    private double thresholdA, thresholdB, thresholdC;
+    private double thresholdA, thresholdB, thresholdC, groundSpoofBuffer;
 
     private static final Set<EntityDamageEvent.DamageCause> IGNORED_CAUSES = buildIgnoredCauses();
 
@@ -86,6 +86,7 @@ public class VelocityA extends Check {
         invalidVerticalA(movementData, velocityData);
         invalidVerticalB(movementData, velocityData);
         invalidVerticalC(movementData, velocityData);
+        spoofVelocity(movementData, velocityData);
     }
 
     private boolean isMovement(PacketReceiveEvent event) {
@@ -167,6 +168,24 @@ public class VelocityA extends Check {
                     } else {
                         thresholdC -= Math.min(thresholdC, 0.125);
                     }
+                }
+            }
+        }
+    }
+
+    public void spoofVelocity(MovementData movementData, VelocityData velocityData) {
+        double deltaY = movementData.getDeltaY();
+        double velocity = velocityData.getVelocityVfvc();
+
+        if (velocityData.getVelocityTicks() == 1) {
+            if (deltaY < 0.42F && velocity < 2.0D && velocity > 0.2D) {
+                if (movementData.isOnGround() && movementData.isLastOnGround()) {
+                    if (++groundSpoofBuffer > 3.0D) {
+                        fail("Spoofed ground velocity", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocity);
+                    }
+                } else {
+                    groundSpoofBuffer -= Math.min(groundSpoofBuffer, 0.5D);
                 }
             }
         }

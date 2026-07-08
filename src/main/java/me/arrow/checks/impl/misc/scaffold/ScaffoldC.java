@@ -122,10 +122,10 @@ public class ScaffoldC extends Check {
         boolean verticalBridgeContext = verticalBridgeTicks > 0;
         boolean legitJumpPlaceContext = recentConfirmedPlace && isLegitJumpPlaceMotion(movementData);
 
-        if (direction.isBackwardsNoStrafe()) {
-            decayState();
-            return;
-        }
+//        if (direction.isBackwardsNoStrafe()) {
+//            decayState();
+//            return;
+//        }
 
         if (verticalBridgeContext || legitJumpPlaceContext) {
             decayState();
@@ -160,6 +160,7 @@ public class ScaffoldC extends Check {
                             + "\nsector " + direction.getSector());
             return;
         }
+
 
         if (!recentConfirmedPlace) {
             buffer = Math.max(0.0D, buffer - 0.04D);
@@ -198,10 +199,7 @@ public class ScaffoldC extends Check {
                 && lastDeltaY > UPWARD_REPEAT_MIN
                 && Math.abs(deltaY - lastDeltaY) < UPWARD_REPEAT_ACCEL;
 
-        boolean upwardBad = recentConfirmedPlace
-                && !isNormalJumpArc(movementData)
-                && !lastConfirmedPlaceWasVertical
-                && (upwardHigh || upwardRepeated);
+        boolean upwardBad = !isNormalJumpArc(movementData) && !lastConfirmedPlaceWasVertical && (upwardHigh || upwardRepeated);
 
         if (fastBackwards) {
             backwardsFastTicks++;

@@ -140,7 +140,33 @@ public class OtherUtility {
         addItemFlagCompat(itemMeta, "HIDE_ENCHANTS");
 
         itemStack.setItemMeta(itemMeta);
-        return itemStack;
+        return applied ? itemStack : applyUnbreakableNbtCompat(itemStack);
+    }
+
+    private static ItemStack applyUnbreakableNbtCompat(ItemStack itemStack) {
+        try {
+            String craftPackage = Bukkit.getServer().getClass().getPackage().getName();
+            String version = craftPackage.substring(craftPackage.lastIndexOf('.') + 1);
+
+            Class<?> craftItemStackClass = Class.forName("org.bukkit.craftbukkit." + version + ".inventory.CraftItemStack");
+            Class<?> nbtTagCompoundClass = Class.forName("net.minecraft.server." + version + ".NBTTagCompound");
+
+            Method asNmsCopy = craftItemStackClass.getMethod("asNMSCopy", ItemStack.class);
+            Object nmsItemStack = asNmsCopy.invoke(null, itemStack);
+
+            Object tag = nbtTagCompoundClass.getConstructor().newInstance();
+
+            Method setBoolean = nbtTagCompoundClass.getMethod("setBoolean", String.class, boolean.class);
+            setBoolean.invoke(tag, "Unbreakable", true);
+
+            Method setTag = nmsItemStack.getClass().getMethod("setTag", nbtTagCompoundClass);
+            setTag.invoke(nmsItemStack, tag);
+
+            Method asBukkitCopy = craftItemStackClass.getMethod("asBukkitCopy", nmsItemStack.getClass());
+            return (ItemStack) asBukkitCopy.invoke(null, nmsItemStack);
+        } catch (Throwable ignored) {
+            return itemStack;
+        }
     }
 
     private static boolean trySetUnbreakableCompat(ItemMeta meta, boolean unbreakable) {

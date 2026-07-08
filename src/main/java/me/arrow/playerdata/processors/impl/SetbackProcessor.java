@@ -51,7 +51,7 @@ public class SetbackProcessor implements Processor {
                 return;
             }
 
-            CustomLocation teleportLocation = profile.getMovementData().getLastSetBackLocation();
+            CustomLocation teleportLocation = profile.getMovementData().getLastGroundLocation();
 
             teleportSetback(player, teleportLocation);
 

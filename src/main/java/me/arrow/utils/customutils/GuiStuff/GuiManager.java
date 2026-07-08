@@ -567,7 +567,7 @@ public class GuiManager {
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
 
-        gui.setItem(13, GuiUtility.generateItem(new ItemStack(Material.WOODEN_SWORD, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Hitbox"),
+        gui.setItem(13, GuiUtility.generateItem(createItem("WOODEN_SWORD", "WOOD_SWORD"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Hitbox"),
                 Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                         OtherUtility.translate("&7Manage the hitbox checks"),
                         OtherUtility.translate(OtherUtility.guiLine())
@@ -580,7 +580,7 @@ public class GuiManager {
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
 
-        gui.setItem(15, GuiUtility.generateItem(new ItemStack(Material.COBWEB, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Velocity"),
+        gui.setItem(15, GuiUtility.generateItem(createItem("COBWEB", "WEB"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Velocity"),
                 Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                         OtherUtility.translate("&7Manage the velocity checks"),
                         OtherUtility.translate(OtherUtility.guiLine())
@@ -673,7 +673,7 @@ public class GuiManager {
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
 
-        gui.setItem(12, GuiUtility.generateItem(new ItemStack(Material.GRASS_BLOCK, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Interact"),
+        gui.setItem(12, GuiUtility.generateItem(createItem("GRASS_BLOCK", "GRASS"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Interact"),
             Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                 OtherUtility.translate("&7Manage the interact checks"),
                 OtherUtility.translate(OtherUtility.guiLine())

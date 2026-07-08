@@ -76,17 +76,11 @@ public class TimerA extends Check {
 
         this.balance = Math.max(-capLength, this.balance + delay);
 
-        if (!profile.getMovementData().isMoving()) {
-            balance = -(profile.getConnectionData().getTransPing() * 2L);
-            now = System.nanoTime();
-            lastFlyingPacket = System.nanoTime();
-        }
-
         if (this.balance > FLYING_OFFSET + 5_000_000L) {
 
             if (ready()) {
 
-                double maxbuffer = profile.getConnectionData().getTransPing() > 200 ? 12 : 5;
+                double maxbuffer = 5;
 
                 if (++this.violations > maxbuffer) {
 

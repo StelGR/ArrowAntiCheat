@@ -3,6 +3,7 @@ package me.arrow.checks.impl.movement.motion;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -142,6 +143,15 @@ public class MotionA extends Check {
                 return;
             }
 
+            double expected = 0.40444491418477924D;
+
+            if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)
+                    && !movementData.isOnGround() && Math.abs(deltaY - expected) < 1E-6
+                    && profile.getActionData().getLastConfirmedUnderPlaceTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                buffer2 = 0;
+                return; // vanilla building up
+            }
+
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(movementData.getLocation(), true);
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(movementData.getLastLocation(), true);
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(movementData.getLastLastLocation(), true);
@@ -180,22 +190,22 @@ public class MotionA extends Check {
                     && lastGround
                     && deltaY > 0.0
                     && deltaY < maxJumpHeight) {
-//                if (++buffer > 2) {
-//
-//                }
+                if (++buffer > 2) {
+                    fail("Jumping Lower Than Expected",
+                            "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                    + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
+                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
+                                    + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
+                                    + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
+                }
 
-                fail("Jumping Lower Than Expected",
-                        "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
-                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
-                                + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
-                                + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
+
 
                 verbose(this.getClass().getSimpleName(), buffer, 2, data);
             }
-//            else {
-//                buffer -= Math.min(buffer, 0.001);
-//            }
+            else {
+                buffer -= Math.min(buffer, 0.025);
+            }
 
             if (!isGround
                     && lastGround

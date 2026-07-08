@@ -131,8 +131,6 @@ public class SpeedB extends Check {
 
         boolean velocity = profile.getVelocityData().isTakingVelocity();
 
-
-
         if (checkValid() && movementData.getMovingUnderblockTicks() <= 0) {
 
             double attribute = SpeedUtilities.getMovementSpeedAttribute(profile);
@@ -144,7 +142,6 @@ public class SpeedB extends Check {
             float forceSprint = 0.026F;
 
             Vector move = new Vector(deltaX, 0.0, deltaZ);
-
 
             Vector compLastMove;
             if (movementData.isLastServerGround()) {
@@ -217,7 +214,7 @@ public class SpeedB extends Check {
                 }
             }
 
-            if (profile.getVelocityData().getVelocityTicks() <= 5 && !movementData.isLastOnGround()) {
+            if (profile.getVelocityData().getVelocityTicks() <= 7 && !movementData.isLastOnGround()) {
                 threshold += sustainVelocity * 1.25D + 0.6D;
             }
 
@@ -233,7 +230,7 @@ public class SpeedB extends Check {
                     + "\n * velocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
             if (!(deltaXZ > 0.1D)) {
-                vlBuffer = Math.max(0.0, vlBuffer - 0.75);
+                vlBuffer = Math.max(0.0, vlBuffer - 0.05);
             } else {
                 Vector subtracted = move.clone().subtract(compLastMove);
 
@@ -285,7 +282,6 @@ public class SpeedB extends Check {
                         } catch (Throwable ignored) {
                         }
                         limit += currentlyRiptiding ? (1.5 * riptideLevel) : 0;
-                        limit += sustainVelocity / 2;
                         limit += movementData.elytraMomentum();
                         if (movementData.isLastOnGround() && !clientGround && deltaY >= 0.0D) {
                             limit += SpeedUtilities.getAirAttributeBonus(profile) * 0.45D;
@@ -301,14 +297,14 @@ public class SpeedB extends Check {
                         int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 50 : 30;
 
                         if (movementData.getSincePredictUpwardsTicks() < 10
-                                || movementData.getSincePredictDownwardsTicks() < 10) {
+                                || movementData.getSincePredictDownwardsTicks() < 5) {
                             vlBuffer = Math.max(0.0D, vlBuffer - 0.5D);
                             return;
                         }
 
                         if (invalid) {
                             double excess = closest - limit;
-                            bufferAddition = Math.min(2, Math.max(7.5D, excess * 25D));
+                            bufferAddition = Math.min(5, Math.max(7.5D, excess * 25D));
 
                             if ((vlBuffer += bufferAddition) >= required) {
                                 fail("Invalid acceleration",
@@ -322,7 +318,7 @@ public class SpeedB extends Check {
                                                 + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                                 + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
-                                vlBuffer = Math.max(60D, vlBuffer);
+                                vlBuffer = Math.max(75D, vlBuffer);
                             }
                         } else {
                             vlBuffer = Math.max(0.0D, vlBuffer - 0.075D);
@@ -346,7 +342,7 @@ public class SpeedB extends Check {
                                 + "\n * velocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
                     } else {
-                        vlBuffer = Math.max(0.0, vlBuffer - 0.05);
+                        vlBuffer = Math.max(0.0, vlBuffer - 0.025);
                     }
                 } else {
                     vlBuffer = Math.max(0.0, vlBuffer - 0.05);

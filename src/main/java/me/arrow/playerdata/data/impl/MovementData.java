@@ -29,7 +29,6 @@ import me.arrow.utils.custom.*;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.materials.PEMaterials;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -79,12 +78,12 @@ public class MovementData implements Data {
 
     @Getter
     @Setter
-    Location lastGroundLocation;
+    CustomLocation lastGroundLocation;
 
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround,
-        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston;
+        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston;
 
 
     @Getter
@@ -285,7 +284,7 @@ public class MovementData implements Data {
         positionYGround = getLocation().getY() % 0.015625 < 0.009;
 
         if (onGround && serverGround && !customInAir) {
-            setLastGroundLocation(profile.getPlayer().getLocation());
+            setLastGroundLocation(getLocation());
         }
 
         predictPlayerMovement();
@@ -504,7 +503,12 @@ public class MovementData implements Data {
         }
 
         isBottomOfWater = isInsideWater && isServerGround();
-        nearWall = CollisionUtils.isNearWall(getLocation());
+        //nearWall = CollisionUtils.isNearWall(getLocation());
+        lastLastNearWall = lastNearWall;
+        lastNearWall = nearWall;
+        nearWall = isNearWallScanner(getLocation());
+
+
 
         boolean flag_underblock = false;
 
@@ -544,6 +548,65 @@ public class MovementData implements Data {
         climb = MaterialType.isMaterial(nms.getType(location.clone().subtract(0D, -1D, 0D).getBlock()).name(), MaterialType.CLIMBABLE)
                 || MaterialType.isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
 
+    }
+
+    private boolean isNearWallScanner(CustomLocation location) {
+        if (location == null || location.getWorld() == null) {
+            return false;
+        }
+
+        Player player = profile.getPlayer();
+        PlayerBoxSize size = getPlayerBoxSize(player);
+        NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
+        World world = location.getWorld();
+
+        double halfWidth = size.width * 0.5D;
+        double expand = 0.075D;
+
+        double minX = location.getX() - halfWidth - expand;
+        double maxX = location.getX() + halfWidth + expand;
+        double minZ = location.getZ() - halfWidth - expand;
+        double maxZ = location.getZ() + halfWidth + expand;
+
+        int minBlockX = floor(minX);
+        int maxBlockX = floor(maxX);
+        int minBlockZ = floor(minZ);
+        int maxBlockZ = floor(maxZ);
+
+        int minBlockY = floor(location.getY());
+        int maxBlockY = floor(location.getY() + Math.max(0.1D, size.height - 0.001D));
+
+        for (int y = minBlockY; y <= maxBlockY; y++) {
+            for (int x = minBlockX; x <= maxBlockX; x++) {
+                for (int z = minBlockZ; z <= maxBlockZ; z++) {
+                    Material material = nms.getType(world.getBlockAt(x, y, z));
+
+                    if (isWallMaterial(material)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isWallMaterial(Material material) {
+        if (material == null || isTransparent(material)) {
+            return false;
+        }
+
+        String name = material.name();
+
+        return !MaterialType.isMaterial(name, MaterialType.LIQUID)
+                && !MaterialType.isMaterial(name, MaterialType.WEB)
+                && !MaterialType.isMaterial(name, MaterialType.BUBBLE)
+                && !MaterialType.isMaterial(name, MaterialType.WATER_PLANT);
+    }
+
+    private int floor(double value) {
+        int integer = (int) value;
+        return value < integer ? integer - 1 : integer;
     }
 
     public boolean isTransparent(Material material) {
