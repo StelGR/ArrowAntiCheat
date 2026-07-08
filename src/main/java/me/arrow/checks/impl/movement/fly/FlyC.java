@@ -11,6 +11,7 @@ import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.VelocityData;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -82,7 +83,8 @@ public class FlyC extends Check {
                     || movementData.isNearLava()
                     || movementData.getSinceNearWaterTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)
                     || movementData.isNearClimbable()
-                    || movementData.getSlimeTicks() > 0
+                    || movementData.isOnSlime()
+                    || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                     || movementData.isMovingUp()
                     || movementData.isMovingDown()
                     || movementData.getSinceRiptidingTicks() < 30

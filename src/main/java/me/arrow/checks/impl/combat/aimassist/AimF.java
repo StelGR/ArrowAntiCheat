@@ -258,7 +258,7 @@ public class AimF extends Check {
         if (suspicion >= FAIL_SUSPICION) {
             int requiredBuffer = profile.getTrustFactor().getRequiredBuffer();
 
-            if (increaseBuffer() > requiredBuffer) {
+            if (increaseBuffer() > (Math.min(Math.abs(requiredBuffer / 2), requiredBuffer))) {
                 if (profile.getTrustFactor().getTrust() >= 80) {
                     profile.getTrustFactor().decreaseTrustBy(4);
                     decreaseBufferBy(0.75D);

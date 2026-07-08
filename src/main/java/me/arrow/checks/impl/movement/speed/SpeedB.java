@@ -152,7 +152,6 @@ public class SpeedB extends Check {
 
             Vector plainComp = compLastMove.clone();
 
-
             if (profile.getCombatData().getAttackedTicks() <= 1) {
                 compLastMove.multiply(0.6);
             }
@@ -214,7 +213,7 @@ public class SpeedB extends Check {
                 }
             }
 
-            if (profile.getVelocityData().getVelocityTicks() <= 7 && !movementData.isLastOnGround()) {
+            if (profile.getVelocityData().getVelocityTicks() <= 10 && !movementData.isLastOnGround()) {
                 threshold += sustainVelocity * 1.25D + 0.6D;
             }
 

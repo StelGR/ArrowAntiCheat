@@ -147,7 +147,7 @@ public class MotionA extends Check {
 
             if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)
                     && !movementData.isOnGround() && Math.abs(deltaY - expected) < 1E-6
-                    && profile.getActionData().getLastConfirmedUnderPlaceTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                    && profile.getActionData().getLastConfirmedUnderPlaceTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 buffer2 = 0;
                 return; // vanilla building up
             }

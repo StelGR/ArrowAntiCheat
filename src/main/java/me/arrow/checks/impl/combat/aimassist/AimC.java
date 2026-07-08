@@ -51,9 +51,9 @@ public class AimC extends Check {
                     if (calculateAim()) {
                         int requiredBuffer = profile.getTrustFactor().getRequiredBuffer();
 
-                        if (increaseBuffer() > requiredBuffer) {
+                        if (increaseBuffer() > (Math.min(Math.abs(requiredBuffer / 2), requiredBuffer))) {
                             if (profile.getTrustFactor().getTrust() >= 80) {
-                                profile.getTrustFactor().decreaseTrustBy(2.75);
+                                profile.getTrustFactor().decreaseTrustBy(5);
                             } else {
                                 fail("Smooth Aim", "deltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
                                 + "\ndeltaPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaPitch);

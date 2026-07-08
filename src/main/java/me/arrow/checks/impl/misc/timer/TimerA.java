@@ -8,6 +8,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.CollisionUtils;
 
 public class TimerA extends Check {
 
@@ -151,6 +152,6 @@ public class TimerA extends Check {
                 && !profile.shouldCancel()
                 && !profile.isExempt().isTeleports()
                 && !profile.isExempt().vehicle()
-                && Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(profile.getMovementData().getLocation().getWorld(), (int) profile.getMovementData().getLocation().getX(), (int) profile.getMovementData().getLocation().getZ());
+                && CollisionUtils.isChunkLoaded(profile.getMovementData().getLocation());
     }
 }

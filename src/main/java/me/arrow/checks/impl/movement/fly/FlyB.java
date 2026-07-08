@@ -192,7 +192,7 @@ public class FlyB extends Check {
 
             CustomLocation loc = movementData.getLocation();
 
-            if (!Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(loc.getWorld(), loc.getBlockX(), loc.getBlockZ())) {
+            if (!CollisionUtils.isChunkLoaded(movementData.getLocation())) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (unloaded chunk)");
                 return;
             }

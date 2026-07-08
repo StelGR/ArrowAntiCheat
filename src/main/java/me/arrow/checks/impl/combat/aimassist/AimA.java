@@ -37,7 +37,7 @@ public class AimA extends Check {
 
                     if (buffer++ > requiredBuffer) {
                         if (profile.getTrustFactor().getTrust() >= 80) {
-                            profile.getTrustFactor().decreaseTrust();
+                            profile.getTrustFactor().decreaseTrustBy(2.5);
                         } else {
                             fail("Rounding Rotations", "pitchDifference " + MsgType.MAIN_THEME_COLOR.getMessage() + pitch +
                                     "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + rotationData.getPitch() +
