@@ -819,15 +819,12 @@ public class BukkitListener implements Listener {
     public void onProjectileHit(ProjectileHitEvent event) {
         if (!isTestServerBuildZoneEnabled()) return;
 
-
         try {
-
             if (event.getHitBlock() != null && event.getHitBlock().getType() == Material.DECORATED_POT) {
                 event.setCancelled(true);
             }
-        } catch (NoSuchMethodError e) {
-            event.setCancelled(false);
         }
+        catch (NoSuchMethodError ignored) {}
     }
 
     private boolean isTestServerBuildZoneEnabled() {

@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -12,6 +13,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.apache.commons.math3.util.FastMath;
@@ -89,6 +91,7 @@ public class FlyA extends Check {
                     || movementData.isNearWater()
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
+                    || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                     || movementData.getSinceLevitationEffectTicks() < 10) {
                 return;
             }
@@ -658,14 +661,11 @@ public class FlyA extends Check {
         if (data.isOnHoney()) {
             return;
         }
-
         if (data.isInsideWater()) { resetGravityD("insideWater"); return; }
         if (data.isOnTopOfWater()) { resetGravityD("onTopOfWater"); return; }
         if (data.isBottomOfWater()) { resetGravityD("bottomOfWater"); return; }
         if (data.isUnderblock()) { resetGravityD("underBlock"); return; }
         if (data.getMovingUnderblockTicks() > 0) { resetGravityD("movingUnderBlock"); return; }
-
-
 
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return; }
 

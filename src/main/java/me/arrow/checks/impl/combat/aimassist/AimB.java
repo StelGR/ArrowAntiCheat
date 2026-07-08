@@ -39,7 +39,7 @@ public class AimB extends Check {
                         && deltaYawClamped > 6.2f && lastDeltaYaw > 0.4f) {
                     int requiredBuffer = profile.getTrustFactor().getRequiredBuffer();
 
-                    if (increaseBuffer() > requiredBuffer) {
+                    if (increaseBuffer() > (Math.min(Math.abs(requiredBuffer / 2), requiredBuffer))) {
                         if (profile.getTrustFactor().getTrust() >= 80) {
                             profile.getTrustFactor().decreaseTrustBy(3);
                         } else {

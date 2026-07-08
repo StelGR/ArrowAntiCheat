@@ -72,7 +72,7 @@ public class Checks implements Initializer {
 
         AIM_A("AimA.enabled", true, "Should we enable this module?"),
         AIM_A_PUNISH("AimA.punish", "", "Punishment settings"),
-        AIM_A_PUNiSH_ENABLED("AimA.punish.enabled", false, "Should punishments be enabled for this check?"),
+        AIM_A_PUNiSH_ENABLED("AimA.punish.enabled", true, "Should punishments be enabled for this check?"),
         AIM_A_PUNiSH_MODE("AimA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         AIM_A_MAX_VL("AimA.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
@@ -102,9 +102,15 @@ public class Checks implements Initializer {
 
         AIM_F("AimF.enabled", true, "Should we enable this module?"),
         AIM_F_PUNISH("AimF.punish", "", "Punishment settings"),
-        AIM_F_PUNiSH_ENABLED("AimF.punish.enabled", false, "Should punishments be enabled for this check?"),
-        AIM_F_PUNiSH_MODE("AimF.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        AIM_F_MAX_VL("AimF.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+        AIM_F_PUNiSH_ENABLED("AimF.punish.enabled", true, "Should punishments be enabled for this check?"),
+        AIM_F_PUNiSH_MODE("AimF.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AIM_F_MAX_VL("AimF.punish.vl", 5, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        AIM_G("AimG.enabled", true, "Should we enable this module?"),
+        AIM_G_PUNISH("AimG.punish", "", "Punishment settings"),
+        AIM_G_PUNiSH_ENABLED("AimG.punish.enabled", false, "Should punishments be enabled for this check?"),
+        AIM_G_PUNiSH_MODE("AimG.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AIM_G_MAX_VL("AimG.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
         REACH_A("ReachA.enabled", true, "Should we enable this module?"),
         REACH_A_MAX_SAMPLES("ReachA.maxSamples", 40, "Do not touch this if you don't know what you are doing."),

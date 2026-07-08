@@ -54,7 +54,7 @@ public class AimD extends Check {
                     if (MathUtil.isScientificNotation(yawDifference) && pitchDifference == 0.0f) {
                         int requiredBuffer = profile.getTrustFactor().getRequiredBuffer();
 
-                        if (increaseBuffer() > requiredBuffer) {
+                        if (increaseBuffer() > (Math.min(Math.abs(requiredBuffer / 2), requiredBuffer))) {
                             if (profile.getTrustFactor().getTrust() >= 80) {
                                 profile.getTrustFactor().decreaseTrustBy(5);
                             } else {

@@ -175,7 +175,7 @@ public class Arrow {
             printMessage.removeAll(List.of(HEADER));
             log("");
             log(translate("&6" + "=================================================================="));
-            log(translate("&6" + "➪  Version&7: &b" +  getVersion()));
+            log(translate("&6" + "➪  Version&7: &b" + getVersion()));
             log("");
             PacketEvents.getAPI().init();
             PacketEvents.setAPI(SpigotPacketEventsBuilder.build(Arrow.getInstance().getHost()));
