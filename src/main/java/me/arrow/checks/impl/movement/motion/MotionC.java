@@ -9,6 +9,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.utils.MoveUtils;
 import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.customutils.OtherUtility;
 
@@ -97,7 +98,11 @@ public class MotionC extends Check {
             int clientAirTicks = movementData.getClientAirTicks();
             double deltaY = movementData.getDeltaY();
             double deltaXZ = movementData.getDeltaXZ();
-            boolean isNearWall = movementData.isNearWall();
+            boolean isNearWall = movementData.isNearWall()
+                    || movementData.isLastNearWall()
+                    || movementData.isLastLastNearWall()
+                    || movementData.isPacketNearWall()
+                    || movementData.getLastNearWallTicks() <= 1;
             boolean serverGround = movementData.isServerYGround();
             boolean clientGround = movementData.isOnGround();
             int nearWallTicks = movementData.getNearWallTicks();
@@ -122,13 +127,17 @@ public class MotionC extends Check {
             if (movementData.isNearFence()) airTickLimit += 4;
 
             //temporary piston fix
-            if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) airTickLimit += 8;
+            if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    && deltaY > MoveUtils.getJumpMotion(profile)
+                    && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                airTickLimit += 8;
+            }
 
             boolean invalid = serverAirTicks > airTickLimit
-                    && deltaY > -0.12
+                    && deltaY > -0.23
                     && isNearWall
                     && nearWallTicks > 8
-                    && !(movementData.getSinceGlidingTicks() < 10 && movementData.getSinceGlidingTicks() > 1);
+                    && movementData.getSinceGlidingTicks() > 20 + (profile.getConnectionData().getClientTickTrans() * 2);
 
             if (isNearWall && serverAirTicks > 0)
                 verbose(this.getClass().getSimpleName(), serverAirTicks, airTickLimit, MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround

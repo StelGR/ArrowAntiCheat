@@ -103,7 +103,8 @@ public class FlyA extends Check {
                     || world.physicsMismatch
                     || world.onGhostBlock
                     || world.insideGhostBlock
-                    || world.underGhostBlock) {
+                    || world.underGhostBlock
+                    || profile.getBlockProcessor().isUnderGhostBlock()) {
                 return;
             }
 
@@ -208,6 +209,14 @@ public class FlyA extends Check {
         if (movementData.isOnSlime()) {
             return;
         }
+
+        //temporary piston fix
+        if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
+                && deltaY > MoveUtils.getJumpMotion(profile)
+                && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            return;
+        }
+
         if (movementData.isNearClimbable()) { debugExempt("nearClimbable"); return; }
         if (profile.getExempt().isReelingIn()) { debugExempt("reelingIn"); return; }
 //        if (movementData.getSinceElytraEquipTicks() < 10) { debugExempt("Elytra Equip"); return; }
@@ -305,6 +314,13 @@ public class FlyA extends Check {
 //            return;
 //        }
 
+        //temporary piston fix
+        if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
+                && deltaY > MoveUtils.getJumpMotion(profile)
+                && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            return;
+        }
+
         if (movementData.getSincePowderSnowTicks() < 10) {
             debugExemptB("Powder Snow");
             return;
@@ -331,7 +347,7 @@ public class FlyA extends Check {
 
         if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)
                 && !isClientGround && Math.abs(deltaY - expected) < 1E-6
-                && profile.getActionData().getLastConfirmedUnderPlaceTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                && profile.getActionData().hasRecentUnderPlaceSupport(20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
             return; // vanilla building up
         }
 
@@ -408,7 +424,7 @@ public class FlyA extends Check {
         boolean isGliding = md.getSinceGlidingTicks() < 10;
         boolean hasVelocity = profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2);
 
-        if (onSlime) { debugExemptC("slime"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (onSlime) { return; }
         if (onHoney) { debugExemptC("honey"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (onIce) { debugExemptC("ice"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (onLadder) { debugExemptC("ladder"); lastOffset = 0.0D; bufferC = 0.0D; return; }
@@ -430,6 +446,14 @@ public class FlyA extends Check {
         if (md.isNearHoney()) {
             debugExemptC("nearHoney");
             lastOffset = 0.0D;
+            return;
+        }
+
+        //temporary piston fix
+        if (profile.getMovementData().getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
+//                && deltaY > MoveUtils.getJumpMotion(profile)
+                && profile.getMovementData().getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            debugExemptC("nearpiston + slime + bounce");
             return;
         }
 
@@ -572,7 +596,9 @@ public class FlyA extends Check {
 
         double expected = 0.33319999363422426D;
 
-        if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8) && !clientGround && Math.abs(deltaY - expected) < 1E-6 && profile.getActionData().getLastConfirmedUnderPlaceTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)
+                && !clientGround && Math.abs(deltaY - expected) < 1E-6
+                && profile.getActionData().hasRecentUnderPlaceSupport(20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
             return; // vanilla building up
         }
 

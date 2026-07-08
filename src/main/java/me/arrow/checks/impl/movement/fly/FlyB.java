@@ -12,6 +12,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
+import me.arrow.utils.MoveUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.custom.SampleList;
@@ -272,13 +273,17 @@ public class FlyB extends Check {
             if (movementData.isNearFence()) airTickLimit += 4;
 
             //temporary piston fix
-            if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) airTickLimit += 8;
+            if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    && deltaY > MoveUtils.getJumpMotion(profile)
+                    && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                airTickLimit += 8;
+            }
 
             airTickLimit = Math.max(airTickLimit, 12);
 
             boolean invalidNormal =
                     serverAirTicks > airTickLimit
-                    && deltaY > -0.3005
+                    && deltaY > -0.37
                     && inAir;
 
             verbose(this.getClass().getSimpleName(), serverAirTicks, airTickLimit, MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround

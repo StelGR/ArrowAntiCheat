@@ -71,33 +71,42 @@ public class RodData implements Data {
     private static final class FishListener implements Listener {
         @EventHandler(ignoreCancelled = true)
         public void onPlayerFish(PlayerFishEvent event) {
-            // Accept both CAUGHT_ENTITY and REEL_IN to be robust
-            Player owner = event.getPlayer();
-            Entity hooked = event.getHook().getHookedEntity();
+            try {
+                // Accept both CAUGHT_ENTITY and REEL_IN to be robust
+                Player owner = event.getPlayer();
+                Entity hooked = event.getHook().getHookedEntity();
 
-            if (hooked instanceof Player target && (event.getState() == PlayerFishEvent.State.CAUGHT_ENTITY || event.getState() == PlayerFishEvent.State.REEL_IN)) {
-                int id = target.getEntityId();
-                UUID uuid = target.getUniqueId();
+                if (hooked instanceof Player target && (event.getState() == PlayerFishEvent.State.CAUGHT_ENTITY || event.getState() == PlayerFishEvent.State.REEL_IN)) {
+                    int id = target.getEntityId();
+                    UUID uuid = target.getUniqueId();
 
-                if (target == owner) return;
+                    if (target == owner) return;
 
-                PENDING.put(id, new Pending(uuid, System.currentTimeMillis()));
-                if (Config.Setting.DEBUG.getBoolean()) if (PLUGIN != null) OtherUtility.log("[RodData] REEL_IN/CAUGHT registered for target=" + target.getName() + " id=" + id + " owner=" + owner.getName());
+                    PENDING.put(id, new Pending(uuid, System.currentTimeMillis()));
+                    if (Config.Setting.DEBUG.getBoolean()) if (PLUGIN != null)
+                        OtherUtility.log("[RodData] REEL_IN/CAUGHT registered for target=" + target.getName() + " id=" + id + " owner=" + owner.getName());
 
-                // immediate reset on target profile (helps some race cases)
-                Profile p = Arrow.getInstance().getProfileManager().getProfile(target);
-                if (p != null) {
-                    try { p.getReelingTicks().reset(); } catch (Throwable ignored) {}
+                    // immediate reset on target profile (helps some race cases)
+                    Profile p = Arrow.getInstance().getProfileManager().getProfile(target);
+                    if (p != null) {
+                        try {
+                            p.getReelingTicks().reset();
+                        } catch (Throwable ignored) {
+                        }
+                    }
+
+                    if (Config.Setting.DEBUG.getBoolean())
+                        OtherUtility.log("[RodData] REEL_IN/CAUGHT reset ticks for target=" + target.getName() + " id=" + id + " owner=" + owner.getName());
+
+                    // schedule cleanup
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            PENDING.remove(id);
+                        }
+                    }.runTaskLater(Arrow.getInstance().getHost(), AUTO_REMOVE_TICKS);
                 }
-
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("[RodData] REEL_IN/CAUGHT reset ticks for target=" + target.getName() + " id=" + id + " owner=" + owner.getName());
-
-                // schedule cleanup
-                new BukkitRunnable() {
-                    @Override
-                    public void run() { PENDING.remove(id); }
-                }.runTaskLater(Arrow.getInstance().getHost(), AUTO_REMOVE_TICKS);
-            }
+            } catch (NoSuchMethodError | NoSuchFieldError ignored) {}
         }
     }
 

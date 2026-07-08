@@ -229,7 +229,7 @@ public class SpeedB extends Check {
                     + "\n * velocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
             if (!(deltaXZ > 0.1D)) {
-                vlBuffer = Math.max(0.0, vlBuffer - 0.05);
+                vlBuffer = Math.max(0.0, vlBuffer - 0.0075);
             } else {
                 Vector subtracted = move.clone().subtract(compLastMove);
 
@@ -246,11 +246,11 @@ public class SpeedB extends Check {
                         if (movingTicks <= 3.0F) {
                             if (++smallBuffer > 3.0) {
                                 smallBuffer = 3.0;
-                                vlBuffer = Math.max(0.0, vlBuffer - 0.075);
+                                vlBuffer = Math.max(0.0, vlBuffer - 0.0075);
                             }
                             lastMove = new Vector(deltaX, 0.0, deltaZ);
                         } else {
-                            smallBuffer = Math.max(0.0, smallBuffer - 0.01);
+                            smallBuffer = Math.max(0.0, smallBuffer - 0.005);
                         }
 
                         double closest = Math.min(Math.min(bestNormal, bestNormal2), Math.min(bestBlocking, bestBlocking2));
@@ -281,6 +281,7 @@ public class SpeedB extends Check {
                         } catch (Throwable ignored) {
                         }
                         limit += currentlyRiptiding ? (1.5 * riptideLevel) : 0;
+                        limit += profile.getVelocityData().getTotalHorizontalVelocity();
                         limit += movementData.elytraMomentum();
                         if (movementData.isLastOnGround() && !clientGround && deltaY >= 0.0D) {
                             limit += SpeedUtilities.getAirAttributeBonus(profile) * 0.45D;
@@ -293,7 +294,7 @@ public class SpeedB extends Check {
 
                         boolean invalid = closest > limit && !profile.isBouncingOnSlime();
 
-                        int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 50 : 30;
+                        int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 50 : 25;
 
                         if (movementData.getSincePredictUpwardsTicks() < 10
                                 || movementData.getSincePredictDownwardsTicks() < 5) {
@@ -303,7 +304,7 @@ public class SpeedB extends Check {
 
                         if (invalid) {
                             double excess = closest - limit;
-                            bufferAddition = Math.min(5, Math.max(7.5D, excess * 25D));
+                            bufferAddition = Math.min(5, Math.max(7.5D, excess * 27.5D));
 
                             if ((vlBuffer += bufferAddition) >= required) {
                                 fail("Invalid acceleration",
@@ -320,7 +321,7 @@ public class SpeedB extends Check {
                                 vlBuffer = Math.max(75D, vlBuffer);
                             }
                         } else {
-                            vlBuffer = Math.max(0.0D, vlBuffer - 0.075D);
+                            vlBuffer = Math.max(0.0D, vlBuffer - 0.005D);
                         }
 
                         verbose(this.getClass().getSimpleName(), vlBuffer, required, "* Verbose (accel) (2)\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
@@ -341,10 +342,10 @@ public class SpeedB extends Check {
                                 + "\n * velocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
                     } else {
-                        vlBuffer = Math.max(0.0, vlBuffer - 0.025);
+                        vlBuffer = Math.max(0.0, vlBuffer - 0.0025);
                     }
                 } else {
-                    vlBuffer = Math.max(0.0, vlBuffer - 0.05);
+                    vlBuffer = Math.max(0.0, vlBuffer - 0.005);
                 }
             }
 
