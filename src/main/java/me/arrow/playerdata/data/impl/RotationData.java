@@ -15,11 +15,8 @@ import me.arrow.tasks.TickTask;
 import me.arrow.utils.ChatUtils;
 import me.arrow.utils.MathUtils;
 
-import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;
-
-// niks rotationdata kept almost vanilla, good enough, but i do have a trustedYaw function, to verify the clients yaw switch and prevent bypasses
-// on omnisprint by spoofing the yaw.
+import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.PLAYER_ROTATION;
 
 public class RotationData implements Data {
 
@@ -27,19 +24,26 @@ public class RotationData implements Data {
 
     @Getter
     private final SensitivityProcessor sensitivityProcessor;
+
     @Getter
     private final CinematicProcessor cinematicProcessor;
 
     @Getter
-    private float yaw, lastYaw, pitch, lastPitch, deltaYaw, lastDeltaYaw,
-            deltaPitch, lastDeltaPitch, yawAccel, lastYawAccel, pitchAccel, lastPitchAccel;
+    private float yaw, lastYaw, pitch, lastPitch,
+            deltaYaw, lastDeltaYaw,
+            deltaPitch, lastDeltaPitch,
+            yawAccel, lastYawAccel,
+            pitchAccel, lastPitchAccel;
 
     @Getter
     private int rotationsAfterTeleport, lastRotationTicks;
 
     @Getter
     private float trustedYaw, lastTrustedYaw;
+
     private boolean trustedYawInitialized;
+
+    private int invalidSnapThreshold;
 
     public RotationData(Profile profile) {
         this.profile = profile;
@@ -47,22 +51,18 @@ public class RotationData implements Data {
         this.cinematicProcessor = new CinematicProcessor(profile);
     }
 
-    private int invalidSnapThreshold;
-
     @Override
     public void processReceive(PacketReceiveEvent event) {
-
         if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
+            final WrapperPlayClientPlayerPositionAndRotation wrapper =
+                    new WrapperPlayClientPlayerPositionAndRotation(event);
 
-            final WrapperPlayClientPlayerPositionAndRotation posLookWrapper = new WrapperPlayClientPlayerPositionAndRotation(event);
+            processRotation(wrapper.getYaw(), wrapper.getPitch());
+        } else if (event.getPacketType().equals(PLAYER_ROTATION)) {
+            final WrapperPlayClientPlayerRotation wrapper =
+                    new WrapperPlayClientPlayerRotation(event);
 
-            processRotation(posLookWrapper.getYaw(), posLookWrapper.getPitch());
-
-        }
-        else if (event.getPacketType().equals(PLAYER_ROTATION)) {
-            final WrapperPlayClientPlayerRotation lookWrapper = new WrapperPlayClientPlayerRotation(event);
-
-            processRotation(lookWrapper.getYaw(), lookWrapper.getPitch());
+            processRotation(wrapper.getYaw(), wrapper.getPitch());
         }
     }
 
@@ -73,14 +73,27 @@ public class RotationData implements Data {
         }
     }
 
-    private void processRotation(float yaw, float pitch) {
+    private void processRotation(float packetYaw, float packetPitch) {
+        if (!isFinite(packetYaw) || !isFinite(packetPitch)) {
+            return;
+        }
 
-        //Duplicate rotation packet (1.17+)
+        /*
+         * Store yaw like Minecraft/F3 display: -180 -> 180.
+         * Store pitch as vanilla legal pitch: -90 -> 90.
+         */
+        final float yaw = MathUtils.clamp180(packetYaw);
+        final float pitch = clamp(packetPitch, -90.0F, 90.0F);
+
+        // Duplicate rotation packet (1.17+)
         if (profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_17)
                 && profile.isExempt().isTeleports()
                 && yaw == this.yaw
                 && pitch == this.pitch
-                && profile.getActionData().getLastRidingTicks() > 1) return;
+                && profile.getVehicleData() != null
+                && profile.getVehicleData().getSinceVehicleTicks() > 1) {
+            return;
+        }
 
         final float lastYaw = this.yaw;
 
@@ -95,10 +108,9 @@ public class RotationData implements Data {
         final float lastDeltaYaw = this.deltaYaw;
 
         /*
-        Clamp the deltaYaw to similarize the behavior between 1.8 -> latest versions of minecraft.
-        (In 1.9 the packet's data is sent differently)
+         * Same old/Nik behavior, but now both yaw values are normalized.
          */
-        final float deltaYaw = Math.abs(MathUtils.clamp180(Math.abs(yaw - lastYaw)));
+        final float deltaYaw = Math.abs(MathUtils.clamp180(yaw - lastYaw));
 
         this.lastDeltaYaw = lastDeltaYaw;
         this.deltaYaw = deltaYaw;
@@ -121,46 +133,34 @@ public class RotationData implements Data {
         this.lastPitchAccel = lastPitchAccel;
         this.pitchAccel = pitchAccel;
 
-        //Process sensitivity
         this.sensitivityProcessor.process();
-
-        //Process cinematic
         this.cinematicProcessor.process();
 
         this.rotationsAfterTeleport++;
-
         this.lastRotationTicks = TickTask.getCurrentTick();
 
-
         updateTrustedYaw();
-        /*
-        This fixes the infamous bug which gets triggered when moving your client to the side in a small window
-        And makes you snap around insanely fast, This will not affect legitimate players who snap around at any
-        Sensitivity or DPI since it's almost impossible for your deltaYaw to be the same as the rotation constant
-        While the acceleration is also zero for 10 times.
+        handleSnapBug();
+    }
 
-        This bug is very problematic since after it gets triggered all of your rotations will have
-        An identical pattern, Which can lead to exploits, bugs or even falses.
-        (Yes this is more problematic than you think, Due to the way sensitivity works in the minecraft client with the GUI)
-         */
-        if (this.deltaYaw > 10F
-                && this.deltaPitch == 0F
-                && this.yawAccel == 0F
+    private void handleSnapBug() {
+        if (this.deltaYaw > 10.0F
+                && this.deltaPitch == 0.0F
+                && this.yawAccel == 0.0F
                 && this.deltaYaw == this.sensitivityProcessor.getConstantYaw()
                 && this.rotationsAfterTeleport > 5) {
 
             if (this.invalidSnapThreshold++ > 10) {
-
                 ChatUtils.log("Kicking " + profile.getPlayer().getName() + " for triggering the snap bug.");
 
                 profile.kick("Invalid Rotation Packet");
 
                 this.invalidSnapThreshold = 0;
             }
-
-        } else this.invalidSnapThreshold = 0;
+        } else {
+            this.invalidSnapThreshold = 0;
+        }
     }
-
 
     private void updateTrustedYaw() {
         if (!trustedYawInitialized) {
@@ -172,20 +172,31 @@ public class RotationData implements Data {
 
         this.lastTrustedYaw = this.trustedYaw;
 
-        float diff = wrapDegrees(this.yaw - this.trustedYaw);
-        float maxStep = 18.0f;
+        float diff = MathUtils.clamp180(this.yaw - this.trustedYaw);
+        float maxStep = 18.0F;
 
         if (Math.abs(diff) <= maxStep) {
             this.trustedYaw = this.yaw;
         } else {
-            this.trustedYaw = wrapDegrees(this.trustedYaw + clamp(diff, -maxStep, maxStep));
+            this.trustedYaw = MathUtils.clamp180(this.trustedYaw + clamp(diff, -maxStep, maxStep));
         }
     }
 
+    private static boolean isFinite(float value) {
+        return !Float.isNaN(value) && !Float.isInfinite(value);
+    }
+
     private static float wrapDegrees(float value) {
-        value %= 360.0f;
-        if (value >= 180.0f) value -= 360.0f;
-        if (value < -180.0f) value += 360.0f;
+        value %= 360.0F;
+
+        if (value >= 180.0F) {
+            value -= 360.0F;
+        }
+
+        if (value < -180.0F) {
+            value += 360.0F;
+        }
+
         return value;
     }
 

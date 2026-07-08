@@ -26,6 +26,8 @@ import org.bukkit.util.Vector;
 
 // strafe has moved to illegalmoveb
 
+// update 107-pre3, jump height has been somewhat been fixed
+
 public class SpeedA extends Check {
     public SpeedA(Profile profile) {
         super(profile, CheckType.SPEED, "A", "Checks if the player is following vanilla speed");
@@ -351,6 +353,10 @@ public class SpeedA extends Check {
         }
 
         double kbComponent = Math.max(vd.getVelocityH(), 0.0);
+
+        if (vd.getVelocityTicks() == 1) {
+            expectedSpeed += 0.03;
+        }
 
         double explosionComponent = 0.0;
         if (explosionH > 0.0) {

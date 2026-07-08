@@ -18,6 +18,7 @@ import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.CollisionUtils;
+import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
 
 
@@ -118,17 +119,24 @@ public class IllegalMoveA extends Check {
             verbose(this.getClass().getSimpleName(), deltaY, 1, data2);
 
 
-//            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
-//
-//            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-//                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion F: is Exempting (ghostblock liquid/web/pending physics place)");
-//                return;
-//            }
+            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+
+            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMoveA: is Exempting (ghostblock liquid/web/pending physics place)");
+                return;
+            }
 
             double stepHeight = 0.5975D;
 
 //            if (movementData.isNearStepMaterial()) stepHeight ;
 //            else stepHeight = 0.49;
+
+            //temporary piston fix
+            if (movementData.getSinceNearSlimeTicks() <= (15 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    && deltaY > MoveUtils.getJumpMotion(profile)
+                    && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
+            }
 
             if (profile.getPotionData().isHasJump()) stepHeight += (profile.getPotionData().getJumpAmplifier() * 0.1F);
 
@@ -142,7 +150,7 @@ public class IllegalMoveA extends Check {
                     && !movementData.isNearLava()
                     && !movementData.isNearWater()
                     && !movementData.isClimb()
-                    && (profile.getVelocityData().getVelocityTicks() < 6)
+                    && (profile.getVelocityData().getVelocityTicks() > 6)
                     && movementData.getSinceRiptidingTicks() > 15
                     && movementData.getSinceGlidingTicks() > 15)) {
                 verbose(this.getClass().getSimpleName(), deltaY, 1.0, data3);

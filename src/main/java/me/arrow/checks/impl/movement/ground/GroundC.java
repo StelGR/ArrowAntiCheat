@@ -58,8 +58,10 @@ public class GroundC extends Check {
 
             boolean ground = movementData.isOnGround();
 
-            boolean serverPositionGround = movementData.isPositionYGround()
-                    || movementData.isLastPositionYGround();
+            boolean serverPositionGround = movementData.isPositionYGround();
+            boolean serverPositionGroundLast = movementData.isLastPositionYGround();
+
+            boolean serverYGround = movementData.isServerYGround();
 
 
             boolean serverGround = movementData.isServerGround();
@@ -67,7 +69,9 @@ public class GroundC extends Check {
 
             String verboseInfo = "clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + ground
                     + "\nserverPositionGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverPositionGround
+                    + "\nserverPositionGroundLast " + MsgType.MAIN_THEME_COLOR.getMessage() + serverPositionGroundLast
                     + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                    + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverYGround
                     + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
                     + "\nnearEdge " + MsgType.MAIN_THEME_COLOR.getMessage() + CollisionUtils.isNearEdge(movementData.getLocation())
                     + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
@@ -75,13 +79,20 @@ public class GroundC extends Check {
                     + "\nlocY (floor) " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.floor(movementData.getLocation().getY())
                     + "\nlocY - locY(floor) difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()));
 
-//            if (profile.getActionData().hasRecentConfirmedUnderBreak(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-//                    || profile.getActionData().hasRecentConfirmedUnderPlace(8 + (profile.getConnectionData().getClientTickTrans() * 2))
-//                    || profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-//                    || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(8 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-//                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground c: is Exempting (Block Update/Piston Update/Block Place/Block Break)");
-//                return;
-//            }
+            if (profile.getActionData().hasRecentConfirmedUnderBreak(5 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    || profile.getActionData().hasRecentUnderPlaceSupport(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground c: is Exempting (Block Update/Piston Update/Block Place/Block Break)");
+                return;
+            }
+
+            if (serverPositionGround && serverYGround && movementData.isCustomInAir() && ground) {
+
+                fail("On Ghostblock?", verboseInfo);
+
+                if (Config.Setting.DEBUG.getBoolean()) {
+                    OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
+                }
+            }
 
             if (profile.getMovementData().getSinceOnGhostBlock() <= 1) {
 //                boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
@@ -116,11 +127,7 @@ public class GroundC extends Check {
                 }
             }
 
-            verbose(this.getClass().getSimpleName(), movementData.getCustomAirTicks(), 2 ,"mathFloor " + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()))
-                    + "\ninAir " + movementData.isCustomInAir()
-                    + "\nAirTicks " + movementData.getCustomAirTicks()
-                    + "\nclientGround " + movementData.isOnGround()
-                    + "\nfalldistance " + movementData.getFallDistance());
+            verbose(this.getClass().getSimpleName(), movementData.getCustomAirTicks(), 2 ,verboseInfo);
 
         }
     }

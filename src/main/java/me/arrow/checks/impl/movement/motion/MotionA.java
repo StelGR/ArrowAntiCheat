@@ -76,13 +76,12 @@ public class MotionA extends Check {
                     || world.physicsMismatch
                     || world.onGhostBlock
                     || world.insideGhostBlock
-                    || world.underGhostBlock) {
+                    || world.underGhostBlock
+                    || profile.getBlockProcessor().isUnderGhostBlock()) {
                 return;
             }
 
-            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                return;
-            }
+
 
             int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
@@ -145,11 +144,14 @@ public class MotionA extends Check {
 
             double expected = 0.40444491418477924D;
 
+            int trans = profile.getConnectionData().getClientTickTrans();
+
             if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)
-                    && !movementData.isOnGround() && Math.abs(deltaY - expected) < 1E-6
-                    && profile.getActionData().getLastConfirmedUnderPlaceTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                buffer2 = 0;
-                return; // vanilla building up
+                    && !movementData.isOnGround()
+                    && Math.abs(deltaY - expected) < 1E-6
+                    && profile.getActionData().hasRecentTowerBlockPlace(20 + (trans * 2), 2 + trans)) {
+                buffer2 = 0.0D;
+                return; // vanilla 1.8 tower/building up first tick
             }
 
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(movementData.getLocation(), true);
@@ -184,28 +186,13 @@ public class MotionA extends Check {
 
 
             //temporary fix for pistons slime blocks.
-            if (movementData.getSinceNearSlimeTicks() <= (10 + (profile.getConnectionData().getClientTickTrans() * 2)) && movementData.isNearPiston()) return;
-
-            if (!isGround
-                    && lastGround
-                    && deltaY > 0.0
-                    && deltaY < maxJumpHeight) {
-                if (++buffer > 2) {
-                    fail("Jumping Lower Than Expected",
-                            "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                    + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
-                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
-                                    + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
-                                    + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
-                }
-
-
-
-                verbose(this.getClass().getSimpleName(), buffer, 2, data);
+            if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    && deltaY > MoveUtils.getJumpMotion(profile)
+                    && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
             }
-            else {
-                buffer -= Math.min(buffer, 0.025);
-            }
+
+
 
             if (!isGround
                     && lastGround
@@ -227,7 +214,35 @@ public class MotionA extends Check {
 //            else {
 //                buffer2 -= Math.min(buffer2, 0.025);
 //            }
+
+
+            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
+            }
+
+            if (!isGround
+                    && lastGround
+                    && deltaY > 0.0
+                    && deltaY < maxJumpHeight) {
+                if (++buffer > 2) {
+                    fail("Jumping Lower Than Expected",
+                            "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                    + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
+                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
+                                    + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
+                                    + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
+                }
+
+
+
+                verbose(this.getClass().getSimpleName(), buffer, 2, data);
+            }
+            else {
+                buffer -= Math.min(buffer, 0.025);
+            }
         }
+
+
     }
 }
 

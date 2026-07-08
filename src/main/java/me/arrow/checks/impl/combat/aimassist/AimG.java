@@ -26,21 +26,29 @@ public class AimG extends Check {
         if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
 
-            if (profile.getCombatData().getAttackedTicks() < 20
+            if (profile.getCombatData().getAttackedTicks() < 40
                     && profile.getMovementData().isMoving()
-                    && profile.getRotationData().getCinematicProcessor().isCinematic()) {
-                invalidPitch();
-                invalidYaw();
+                    && !profile.getRotationData().getCinematicProcessor().isCinematic()) {
+
+                RotationData rotationData = profile.getRotationData();
+
+                float deltaYaw = rotationData.getDeltaYaw();
+                float deltaPitch = rotationData.getDeltaPitch();
+
+                verbose(this.getClass().getSimpleName(), deltaYaw, deltaPitch,"deltaPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaPitch +
+                        "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + rotationData.getPitch() +
+                        "\nlastPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + rotationData.getLastPitch() +
+                        "\ndeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw +
+                        "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + rotationData.getYaw() +
+                        "\nlastPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + rotationData.getLastYaw());
+                invalidPitch(deltaPitch, deltaYaw, rotationData);
+                invalidYaw(deltaPitch, deltaYaw, rotationData);
             }
         }
     }
 
     double pitchBuffer;
-    public void invalidPitch() {
-        RotationData rotationData = profile.getRotationData();
-
-        float deltaYaw = rotationData.getDeltaYaw();
-        float deltaPitch = rotationData.getDeltaPitch();
+    public void invalidPitch(double deltaPitch, double deltaYaw, RotationData rotationData) {
 
         boolean invalid = deltaPitch < .0001 && deltaPitch > 0 && deltaYaw > .5F;
 
@@ -60,11 +68,7 @@ public class AimG extends Check {
 
 
     double yawBuffer;
-    public void invalidYaw() {
-        RotationData rotationData = profile.getRotationData();
-
-        float deltaYaw = rotationData.getDeltaYaw();
-        float deltaPitch = rotationData.getDeltaPitch();
+    public void invalidYaw(double deltaPitch, double deltaYaw, RotationData rotationData) {
 
         boolean invalid = deltaYaw < .0001 && deltaYaw > 0 && deltaPitch > .5F;
 

@@ -92,7 +92,7 @@ public class MovementData implements Data {
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
             customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
-            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks;
+            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks;
 
     @Getter
     @Setter
@@ -316,6 +316,8 @@ public class MovementData implements Data {
         }
 
         //Process data
+
+        updateNearWallState();
         processPlayerData();
         processBlocks();
 
@@ -334,6 +336,14 @@ public class MovementData implements Data {
         //this.getGhostBlockProcessor().process();
 
 
+    }
+
+    private void updateNearWallState() {
+        boolean currentNearWall = isNearWallScanner(this.location) || this.packetNearWall;
+
+        this.lastLastNearWall = this.lastNearWall;
+        this.lastNearWall = this.nearWall;
+        this.nearWall = currentNearWall;
     }
 
     private void predictPlayerMovement() {
@@ -556,12 +566,21 @@ public class MovementData implements Data {
         }
 
         Player player = profile.getPlayer();
+
+        if (player == null) {
+            return false;
+        }
+
         PlayerBoxSize size = getPlayerBoxSize(player);
         NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
         World world = location.getWorld();
 
+        /*
+         * Player width is 0.6, half is 0.3.
+         * Extra 0.24 detects a wall close to the side without requiring intersection.
+         */
         double halfWidth = size.width * 0.5D;
-        double expand = 0.075D;
+        double expand = 0.24D;
 
         double minX = location.getX() - halfWidth - expand;
         double maxX = location.getX() + halfWidth + expand;
@@ -573,8 +592,12 @@ public class MovementData implements Data {
         int minBlockZ = floor(minZ);
         int maxBlockZ = floor(maxZ);
 
-        int minBlockY = floor(location.getY());
-        int maxBlockY = floor(location.getY() + Math.max(0.1D, size.height - 0.001D));
+        /*
+         * Do not check below legs.
+         * Feet/body/head only.
+         */
+        int minBlockY = floor(location.getY() + 0.001D);
+        int maxBlockY = floor(location.getY() + Math.max(0.6D, size.height) - 0.001D);
 
         for (int y = minBlockY; y <= maxBlockY; y++) {
             for (int x = minBlockX; x <= maxBlockX; x++) {
@@ -659,7 +682,9 @@ public class MovementData implements Data {
 
         //Near Wall
 
-        this.lastNearWallTicks = CollisionUtils.isNearWall(this.location) ? 0 : this.lastNearWallTicks + 1;
+        this.lastNearWallTicks = (this.nearWall || this.lastNearWall || this.packetNearWall)
+                ? 0
+                : this.lastNearWallTicks + 1;
 
         //Near Edge
 
@@ -977,6 +1002,9 @@ public class MovementData implements Data {
         if (isNearSlime()) sinceNearSlimeTicks = 0;
         else sinceNearSlimeTicks++;
 
+        if (isNearPiston()) sinceNearPistonTicks = 0;
+        else sinceNearPistonTicks++;
+
         boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.SOUL_SAND);
         boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.SOUL_SAND);
         boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.SOUL_SAND);
@@ -1056,9 +1084,14 @@ public class MovementData implements Data {
             customAirTicks = 0;
         }
 
-        if (isNearWall()
+        boolean nearWallNow = isNearWall()
+                || isLastNearWall()
+                || isLastLastNearWall()
+                || isPacketNearWall();
+
+        if (nearWallNow
                 && !(isNearLava() || isInsideWater() || isNearWebs())
-                && !profile.getPlayer().isInsideVehicle()){
+                && !profile.getPlayer().isInsideVehicle()) {
             nearWallTicks++;
         } else {
             nearWallTicks = 0;

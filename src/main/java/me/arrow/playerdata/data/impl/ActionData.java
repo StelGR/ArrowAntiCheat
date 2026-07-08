@@ -71,6 +71,7 @@ public class ActionData implements Data {
     private int lastConfirmedUnderPlaceZ;
     private double lastConfirmedUnderPlaceTopY;
     private Material lastConfirmedUnderPlaceType = Material.AIR;
+    private String lastConfirmedUnderPlaceWorldName;
 
     // ---- Confirmed under-break tracking ----
     private final ArrayDeque<PendingUnderBreak> pendingUnderBreaks = new ArrayDeque<>();
@@ -235,7 +236,8 @@ public class ActionData implements Data {
     }
 
     public boolean hasRecentConfirmedUnderPlace(int ticks) {
-        return lastConfirmedUnderPlaceTicks <= ticks;
+        return lastConfirmedUnderPlaceTicks <= ticks
+                && isLastConfirmedUnderPlaceStillValid();
     }
 
     public boolean hasRecentBlockUpdateUnder(int ticks) {
@@ -403,28 +405,199 @@ public class ActionData implements Data {
         Block clicked = world.getBlockAt(x, y, z);
         Block placed = clicked.getRelative(face);
 
-        lastBlockPlaceAttemptTicks = 0;
-
         if (!isPotentialUnderPlacement(placed)) {
             return;
         }
 
-        if (!canPlaceThere(clicked, placed, item)) {
+        Material oldType = placed.getType();
+
+        /*
+         * Important:
+         * Do not count spam clicks on already-existing support blocks.
+         * If this is not replaceable before the click, it is not a new block placement.
+         */
+        if (!isReplaceable(oldType)) {
             return;
         }
 
-        pendingUnderPlaces.add(new PendingUnderPlace(
+        if (!canTrackUnderPlace(clicked, placed, item)) {
+            return;
+        }
+
+        /*
+         * Only now it is a real possible placement attempt.
+         * Previously this was set before validation, so invalid spam could keep resetting it.
+         */
+        lastBlockPlaceAttemptTicks = 0;
+
+        addOrKeepPendingUnderPlace(
                 world.getName(),
                 placed.getX(),
                 placed.getY(),
                 placed.getZ(),
-                placed.getType()
+                oldType
+        );
+    }
+
+
+    private boolean canTrackUnderPlace(Block clicked, Block placed, ItemStack item) {
+        if (clicked == null || placed == null || item == null) {
+            return false;
+        }
+
+        if (!isBlockItem(item)) {
+            return false;
+        }
+
+        /*
+         * Must be placing against a real block.
+         */
+        if (isReplaceable(clicked.getType())) {
+            return false;
+        }
+
+        /*
+         * Must start from air/replaceable.
+         * This prevents spam clicking existing blocks from resetting placement tracking.
+         */
+        return isReplaceable(placed.getType());
+    }
+
+    private void addOrKeepPendingUnderPlace(String worldName, int x, int y, int z, Material oldType) {
+        if (oldType == null) {
+            oldType = Material.AIR;
+        }
+
+        Iterator<PendingUnderPlace> iterator = pendingUnderPlaces.iterator();
+
+        while (iterator.hasNext()) {
+            PendingUnderPlace existing = iterator.next();
+
+            if (!samePendingPlace(existing, worldName, x, y, z)) {
+                continue;
+            }
+
+            /*
+             * Existing pending started from air/replaceable.
+             * Keep it. Do not reset age/stable ticks.
+             *
+             * This is the spam-click fix:
+             * spamming the same under block should not replace/evict the original
+             * valid pending placement before it confirms.
+             */
+            if (isReplaceable(existing.oldType)) {
+                return;
+            }
+
+            /*
+             * Existing pending is useless because it started from a solid block.
+             * Remove it so a real replaceable -> solid transition can be tracked.
+             */
+            iterator.remove();
+            break;
+        }
+
+        pendingUnderPlaces.add(new PendingUnderPlace(
+                worldName,
+                x,
+                y,
+                z,
+                oldType
         ));
 
-        while (pendingUnderPlaces.size() > 10) {
+        /*
+         * 3x3 under-foot support area is only 9 blocks.
+         * Keep this high enough that spam cannot evict a valid pending before
+         * PLACE_CONFIRM_STABLE_TICKS.
+         */
+        while (pendingUnderPlaces.size() > 32) {
+            removeWorstPendingUnderPlace();
+        }
+    }
+
+    private boolean samePendingPlace(PendingUnderPlace place, String worldName, int x, int y, int z) {
+        if (place == null) {
+            return false;
+        }
+
+        if (place.x != x || place.y != y || place.z != z) {
+            return false;
+        }
+
+        if (place.worldName == null || worldName == null) {
+            return true;
+        }
+
+        return place.worldName.equals(worldName);
+    }
+
+    private void removeWorstPendingUnderPlace() {
+        PendingUnderPlace worst = null;
+
+        for (PendingUnderPlace place : pendingUnderPlaces) {
+            /*
+             * Prefer removing invalid/noisy entries first.
+             */
+            if (!isReplaceable(place.oldType)) {
+                worst = place;
+                break;
+            }
+
+            if (worst == null || place.ageTicks > worst.ageTicks) {
+                worst = place;
+            }
+        }
+
+        if (worst != null) {
+            pendingUnderPlaces.remove(worst);
+        } else {
             pendingUnderPlaces.pollFirst();
         }
     }
+
+    private boolean isLastConfirmedUnderPlaceStillValid() {
+        Player player = profile.getPlayer();
+
+        if (player == null || !player.isOnline() || profile.getMovementData() == null) {
+            return false;
+        }
+
+        World world = player.getWorld();
+
+        if (lastConfirmedUnderPlaceWorldName != null
+                && !lastConfirmedUnderPlaceWorldName.equals(world.getName())) {
+            return false;
+        }
+
+        Block block = world.getBlockAt(
+                lastConfirmedUnderPlaceX,
+                lastConfirmedUnderPlaceY,
+                lastConfirmedUnderPlaceZ
+        );
+
+        Material actual = block.getType();
+
+        /*
+         * WorldGuard / cancelled placement / corrective packet case:
+         * if the server did not really keep a support block here, this must not count.
+         */
+        if (!isSupportMaterial(actual)) {
+            return false;
+        }
+
+        /*
+         * Do not allow an old confirmed block far away from the player to keep
+         * exempting gravity or jump checks.
+         */
+        return isPacketPositionInFootSupportArea(
+                block.getX(),
+                block.getY(),
+                block.getZ(),
+                actual,
+                2.25D
+        );
+    }
+
     private int increment(int value) {
         return value >= 1000 ? 1000 : value + 1;
     }
@@ -572,6 +745,7 @@ public class ActionData implements Data {
             lastConfirmedUnderPlaceZ = block.getZ();
             lastConfirmedUnderPlaceTopY = block.getY() + getBlockTopHeight(now);
             lastConfirmedUnderPlaceType = now;
+            lastConfirmedUnderPlaceWorldName = world.getName();
 
             iterator.remove();
         }
@@ -580,13 +754,20 @@ public class ActionData implements Data {
     private boolean isConfirmedPlacedBlock(Block block, Material oldType) {
         if (block == null) {
             return false;
-        } else {
-            block.getType();
         }
 
         Material now = block.getType();
 
-        if (now == oldType) {
+        /*
+         * Only confirm replaceable -> support.
+         * This prevents clicks on already-existing blocks from being treated as a
+         * fresh under-place.
+         */
+        if (!isReplaceable(oldType)) {
+            return false;
+        }
+
+        if (sameMaterialOrAirFamily(now, oldType) || now == oldType) {
             return false;
         }
 
@@ -1270,5 +1451,108 @@ public class ActionData implements Data {
 
     public boolean hasRecentConfirmedUnderBreak(int ticks) {
         return lastConfirmedUnderBreakTicks <= ticks;
+    }
+
+    public boolean hasRecentUnderPlaceSupport(int ticks) {
+        if (hasRecentConfirmedUnderPlace(ticks)) {
+            return true;
+        }
+
+        return hasRecentPendingUnderPlaceSupport(ticks);
+    }
+
+    public boolean hasRecentTowerBlockPlace(int supportTicks, int attemptTicks) {
+        return hasRecentUnderPlaceSupport(supportTicks)
+                || hasRecentPendingUnderPlaceAttempt(attemptTicks);
+    }
+
+    public boolean hasRecentPendingUnderPlaceSupport(int ticks) {
+        Player player = profile.getPlayer();
+
+        if (player == null || !player.isOnline() || profile.getMovementData() == null) {
+            return false;
+        }
+
+        World world = player.getWorld();
+
+        for (PendingUnderPlace place : pendingUnderPlaces) {
+            if (place.ageTicks > ticks) {
+                continue;
+            }
+
+            if (place.worldName != null && !place.worldName.equals(world.getName())) {
+                continue;
+            }
+
+            Block block = world.getBlockAt(place.x, place.y, place.z);
+            Material actual = block.getType();
+
+            /*
+             * WorldGuard/cancelled place case:
+             * if the server did not really keep a support block, do not count it.
+             */
+            if (!isSupportMaterial(actual)) {
+                continue;
+            }
+
+            /*
+             * Must be a real replaceable -> support change.
+             */
+            if (!isReplaceable(place.oldType)) {
+                continue;
+            }
+
+            if (sameMaterialOrAirFamily(actual, place.oldType) || actual == place.oldType) {
+                continue;
+            }
+
+            if (!isPacketPositionInFootSupportArea(place.x, place.y, place.z, actual, 2.25D)) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean hasRecentPendingUnderPlaceAttempt(int ticks) {
+        if (lastBlockPlaceAttemptTicks > ticks) {
+            return false;
+        }
+
+        Player player = profile.getPlayer();
+
+        if (player == null || !player.isOnline() || profile.getMovementData() == null) {
+            return false;
+        }
+
+        World world = player.getWorld();
+
+        for (PendingUnderPlace place : pendingUnderPlaces) {
+            if (place.ageTicks > ticks) {
+                continue;
+            }
+
+            if (place.worldName != null && !place.worldName.equals(world.getName())) {
+                continue;
+            }
+
+            if (!isReplaceable(place.oldType)) {
+                continue;
+            }
+
+            /*
+             * This is intentionally only an attempt check.
+             * Use it only for the first exact 1.8 tower tick, not as a general gravity exempt.
+             */
+            if (!isPacketPositionInFootSupportArea(place.x, place.y, place.z, Material.STONE, 2.25D)) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 }

@@ -276,12 +276,14 @@ public class BukkitListener implements Listener {
         }
 
         if (event instanceof PlayerFishEvent) {
-            if (((PlayerFishEvent) event).getState() == PlayerFishEvent.State.REEL_IN && ((PlayerFishEvent) event).getHook().getHookedEntity() instanceof Player target) {
-                Profile user = Arrow.getInstance().getProfileManager().getProfile(target);
-                if (user != null) {
-                    user.getReelingTicks().reset();
+            try {
+                if (((PlayerFishEvent) event).getState() == PlayerFishEvent.State.REEL_IN && ((PlayerFishEvent) event).getHook().getHookedEntity() instanceof Player target) {
+                    Profile user = Arrow.getInstance().getProfileManager().getProfile(target);
+                    if (user != null) {
+                        user.getReelingTicks().reset();
+                    }
                 }
-            }
+            } catch (NoSuchFieldError | NoSuchMethodError ignored) {}
         }
 
 
@@ -824,7 +826,7 @@ public class BukkitListener implements Listener {
                 event.setCancelled(true);
             }
         }
-        catch (NoSuchMethodError ignored) {}
+        catch (NoSuchFieldError | NoSuchMethodError ignored) {}
     }
 
     private boolean isTestServerBuildZoneEnabled() {
