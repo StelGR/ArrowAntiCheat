@@ -9,7 +9,7 @@ import org.bukkit.block.Block;
 
 import java.util.Locale;
 
-public final class PEMaterials {
+public class PEMaterials {
 
     private PEMaterials() {
     }

@@ -83,13 +83,12 @@ public class RotationData implements Data {
          * Store pitch as vanilla legal pitch: -90 -> 90.
          */
         final float yaw = MathUtils.clamp180(packetYaw);
-        final float pitch = clamp(packetPitch, -90.0F, 90.0F);
 
         // Duplicate rotation packet (1.17+)
         if (profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_17)
                 && profile.isExempt().isTeleports()
                 && yaw == this.yaw
-                && pitch == this.pitch
+                && packetPitch == this.pitch
                 && profile.getVehicleData() != null
                 && profile.getVehicleData().getSinceVehicleTicks() > 1) {
             return;
@@ -103,13 +102,10 @@ public class RotationData implements Data {
         final float lastPitch = this.pitch;
 
         this.lastPitch = lastPitch;
-        this.pitch = pitch;
+        this.pitch = packetPitch;
 
         final float lastDeltaYaw = this.deltaYaw;
 
-        /*
-         * Same old/Nik behavior, but now both yaw values are normalized.
-         */
         final float deltaYaw = Math.abs(MathUtils.clamp180(yaw - lastYaw));
 
         this.lastDeltaYaw = lastDeltaYaw;

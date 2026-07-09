@@ -61,6 +61,7 @@ public class GroundA extends Check {
             boolean serverGround = movementData.isServerGround();
             boolean clientGround = movementData.isOnGround();
             boolean serverGround2 = movementData.isServerYGround();
+            int trans = profile.getConnectionData().getClientTickTrans();
 
             boolean invalid2 = !serverGround2 && clientGround && movementData.getCustomAirTicks() != 0;
 
@@ -70,9 +71,14 @@ public class GroundA extends Check {
                     && !movementData.isNearWater()
                     && !movementData.isNearLava()
                     && !movementData.isMovingUp()
+                    && !profile.getActionData().hasRecentUnderPlaceSupport(10 + (profile.getConnectionData().getClientTickTrans() * 2))
                     && movementData.getSincePredictDownwardsTicks() < 10
                     && movementData.getSincePredictUpwardsTicks() < 10
                     && !profile.isBedrockPlayer();
+
+            if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
+            }
 
             if (invalid1 || invalid2
                     || invalid3

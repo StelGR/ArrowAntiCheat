@@ -1076,7 +1076,6 @@ public class MovementData implements Data {
                 && !isNearWebs()
                 && !EntityUtil.isOnBoat(profile)
                 && !profile.isBouncingOnSlime()
-                && profile.getMovementData().getSinceOnGhostBlock() > (4 + profile.getConnectionData().getClientTickTrans())
                 //&& !CollisionUtils.isNearEdge(getLocation())
         ) {
             customAirTicks++;

@@ -165,6 +165,9 @@ public class OmniSprintA extends Check {
                         || movementData.isOnBoat()
                         || movementData.isNearWall()
                         || movementData.isColliding()
+                        || movementData.isUnderblock()
+                        || movementData.getSincePredictDownwardsTicks() < 5
+                        || movementData.getSincePredictUpwardsTicks() < 5
                         || movementData.getSinceCollideTicks() < 3
                         || movementData.getSinceOnGhostBlock() < 5 + profile.getConnectionData().getClientTickTrans()
                         || movementData.getSinceTeleportTicks() < 3 + profile.getConnectionData().getClientTickTrans()

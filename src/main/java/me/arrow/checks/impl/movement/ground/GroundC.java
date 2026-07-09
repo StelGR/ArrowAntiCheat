@@ -13,10 +13,6 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.event.entity.EntityDamageEvent;
-
-import java.util.EnumSet;
-import java.util.Set;
 
 // this is, the ghostblock processor, it blocks world guard block glitching to climb walls
 // and also blocks almost every attempt to ghostblock fly
@@ -79,8 +75,13 @@ public class GroundC extends Check {
                     + "\nlocY (floor) " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.floor(movementData.getLocation().getY())
                     + "\nlocY - locY(floor) difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()));
 
-            if (profile.getActionData().hasRecentConfirmedUnderBreak(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    || profile.getActionData().hasRecentUnderPlaceSupport(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+
+            int trans = profile.getConnectionData().getClientTickTrans();
+
+            if (profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2))
+//                    || profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
+//                    || profile.getActionData().hasRecentTowerBlockPlace(20 + (trans * 2), 2 + trans)
+                    ) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground c: is Exempting (Block Update/Piston Update/Block Place/Block Break)");
                 return;
             }

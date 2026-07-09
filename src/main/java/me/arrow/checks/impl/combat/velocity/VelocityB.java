@@ -370,7 +370,7 @@ public class VelocityB extends Check {
     }
 
     private double getRequiredPercent() {
-        double required = 99.99D;
+        double required = 97.5D;
 
         if (profile.getPlayer().getMaximumNoDamageTicks() < 10) {
             required -= 20.0D;

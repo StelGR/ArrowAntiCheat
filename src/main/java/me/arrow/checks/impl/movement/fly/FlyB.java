@@ -63,7 +63,8 @@ public class FlyB extends Check {
                     || world.physicsMismatch
                     || world.onGhostBlock
                     || world.nearGhostBlock
-                    || world.insideGhostBlock) {
+                    || world.insideGhostBlock
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 return;
             }
 

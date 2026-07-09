@@ -4,7 +4,6 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
-import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -91,6 +90,7 @@ public class FlyA extends Check {
                     || movementData.isNearWater()
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
+                    || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
                     || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                     || movementData.getSinceLevitationEffectTicks() < 10) {
                 return;
@@ -104,7 +104,7 @@ public class FlyA extends Check {
                     || world.onGhostBlock
                     || world.insideGhostBlock
                     || world.underGhostBlock
-                    || profile.getBlockProcessor().isUnderGhostBlock()) {
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 return;
             }
 
@@ -196,7 +196,10 @@ public class FlyA extends Check {
         if (movementData.isNearLava()) { debugExempt("nearLava"); return; }
         if (movementData.isNearWater()) { debugExempt("nearWater"); return; }
         if (movementData.isNearBuggyBlock()) { debugExempt("nearBuggyBlock"); return; }
-        if (profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2)) { debugExempt("isTakingVelocity"); return; }
+        if (profile.getVelocityData().getVelocityTicks() < 8 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            debugExempt("isTakingVelocity");
+            return;
+        }
         if (movementData.isNearWebs()) { debugExempt("nearWebs"); return; }
         if (movementData.isUnderblock()) { debugExempt("underblock"); return; }
         if (movementData.isNearBed()) { debugExempt("nearBed"); return; }

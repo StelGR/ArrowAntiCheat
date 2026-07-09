@@ -8,6 +8,8 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
+import lombok.Getter;
+import lombok.Setter;
 import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
@@ -52,6 +54,17 @@ public class ClientWorldTracker implements Data {
     volatile boolean modernLookupDone;
     volatile boolean legacyLookupDone;
 
+    int CANCELLED_BLOCK_AREA_SYNC_EVERY_TICKS = 2;
+    int CANCELLED_BLOCK_AREA_SYNC_RADIUS_XZ = 1;
+    int CANCELLED_BLOCK_AREA_SYNC_DOWN = 1;
+    int CANCELLED_BLOCK_AREA_SYNC_UP = 2;
+    int MAX_FULL_AREA_SYNC_BLOCKS = 64;
+
+    @Getter
+    @Setter
+    private boolean periodicCancelledBlockAreaSyncEnabled = true;
+    private int requestedCancelledBlockAreaSyncTicks;
+
     Profile profile;
 
     Map<Long, ClientChunk> chunks = new ConcurrentHashMap<>();
@@ -69,6 +82,7 @@ public class ClientWorldTracker implements Data {
 
     public ClientWorldTracker(Profile profile) {
         this.profile = profile;
+
     }
 
     @Override
@@ -214,6 +228,15 @@ public class ClientWorldTracker implements Data {
         if (trackableArea) {
             requestActiveWorldRepair();
         }
+    }
+
+
+    public void requestCancelledBlockAreaSync() {
+        /*
+         * Used by BlockProcessor when a placement gets cancelled.
+         * Keep it short, because this sends every block in the area.
+         */
+        this.requestedCancelledBlockAreaSyncTicks = Math.max(this.requestedCancelledBlockAreaSyncTicks, 2);
     }
 
     private void handleChunkData(PacketSendEvent event) {
@@ -1677,6 +1700,25 @@ public class ClientWorldTracker implements Data {
     private void processWorldTick() {
         ensurePlayerChunksKnown(1);
 
+        boolean periodicFullAreaSync =
+                periodicCancelledBlockAreaSyncEnabled
+                        && tick % CANCELLED_BLOCK_AREA_SYNC_EVERY_TICKS == 0;
+
+        boolean requestedFullAreaSync = requestedCancelledBlockAreaSyncTicks > 0;
+
+        if (periodicFullAreaSync || requestedFullAreaSync) {
+            forceSyncPlayerAreaToClient(
+                    CANCELLED_BLOCK_AREA_SYNC_RADIUS_XZ,
+                    CANCELLED_BLOCK_AREA_SYNC_DOWN,
+                    CANCELLED_BLOCK_AREA_SYNC_UP,
+                    MAX_FULL_AREA_SYNC_BLOCKS
+            );
+
+            if (requestedCancelledBlockAreaSyncTicks > 0) {
+                requestedCancelledBlockAreaSyncTicks--;
+            }
+        }
+
         if (activeWorldRepairTicks > 0 || tick % CLIENT_MIRROR_REPAIR_EVERY_TICKS == 0) {
             repairClientMirrorAroundPlayer(
                     CLIENT_MIRROR_REPAIR_RADIUS_XZ,
@@ -1691,6 +1733,53 @@ public class ClientWorldTracker implements Data {
         }
 
         preCheckScan();
+    }
+
+    private void forceSyncPlayerAreaToClient(int radiusXZ, int down, int up, int maxUpdates) {
+        Player player = profile.getPlayer();
+
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        if (profile.getMovementData() == null || profile.getMovementData().getLocation() == null) {
+            return;
+        }
+
+        if (!canReadWorldNow()) {
+            return;
+        }
+
+        CustomLocation loc = profile.getMovementData().getLocation();
+        World world = player.getWorld();
+
+        int baseX = floor(loc.getX());
+        int baseY = floor(loc.getY());
+        int baseZ = floor(loc.getZ());
+
+        int sent = 0;
+
+        for (int x = baseX - radiusXZ; x <= baseX + radiusXZ; x++) {
+            for (int y = baseY - down; y <= baseY + up; y++) {
+                for (int z = baseZ - radiusXZ; z <= baseZ + radiusXZ; z++) {
+                    if (sent >= maxUpdates) {
+                        return;
+                    }
+
+                    Block block = world.getBlockAt(x, y, z);
+
+                    /*
+                     * Force authoritative server state to client.
+                     * This does not care if our mirror thinks it already matches.
+                     */
+                    sendBlockChangeCompat(player, block);
+                    setClientMaterial(x, y, z, block.getType());
+                    clearHistoryAt(x, y, z);
+
+                    sent++;
+                }
+            }
+        }
     }
 
 }
