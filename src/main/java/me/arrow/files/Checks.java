@@ -130,6 +130,9 @@ public class Checks implements Initializer {
 
         REACH_B("ReachB.enabled", true, "Should we enable this module?"),
         REACH_B_PUNISH("ReachB.punish", "", "Punishment settings"),
+        REACH_B_THRESHOLD("ReachB.threshold", 0.0005, "Hitbox expansion threshold for uncertainty"),
+        REACH_B_CANCEL_IMPOSSIBLE("ReachB.cancelImpossibleHits", true, "Should we cancel impossible hits in real-time?"),
+        REACH_B_MAX_REACH("ReachB.maxReach", 3.0005, "Maximum allowed reach distance in blocks"),
         REACH_B_PUNiSH_ENABLED("ReachB.punish.enabled", false, "Should punishments be enabled for this check?"),
         REACH_B_PUNiSH_MODE("ReachB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         REACH_B_MAX_VL("ReachB.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),

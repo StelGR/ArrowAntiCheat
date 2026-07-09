@@ -139,7 +139,7 @@ public class MotionC extends Check {
                     && nearWallTicks > 8
                     && movementData.getSinceGlidingTicks() > 20 + (profile.getConnectionData().getClientTickTrans() * 2);
 
-            if (isNearWall && serverAirTicks > 0)
+            if (isNearWall)
                 verbose(this.getClass().getSimpleName(), serverAirTicks, airTickLimit, MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                         + "\n * clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                         + "\n * nearWallTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + nearWallTicks

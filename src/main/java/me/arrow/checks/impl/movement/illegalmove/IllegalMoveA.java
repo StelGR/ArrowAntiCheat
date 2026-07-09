@@ -150,7 +150,7 @@ public class IllegalMoveA extends Check {
                     && !movementData.isNearLava()
                     && !movementData.isNearWater()
                     && !movementData.isClimb()
-                    && (profile.getVelocityData().getVelocityTicks() > 6)
+                    && !profile.getVelocityData().isTakingVelocity()
                     && movementData.getSinceRiptidingTicks() > 15
                     && movementData.getSinceGlidingTicks() > 15)) {
                 verbose(this.getClass().getSimpleName(), deltaY, 1.0, data3);

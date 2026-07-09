@@ -10,6 +10,7 @@ import me.arrow.checks.impl.combat.backtrack.BackTrackA;
 import me.arrow.checks.impl.combat.backtrack.BackTrackB;
 import me.arrow.checks.impl.combat.killaura.KillauraA;
 import me.arrow.checks.impl.combat.reach.ReachA;
+import me.arrow.checks.impl.combat.reach.ReachB;
 import me.arrow.checks.impl.combat.velocity.VelocityA;
 import me.arrow.checks.impl.combat.velocity.VelocityB;
 import me.arrow.checks.impl.misc.badpackets.*;
@@ -98,6 +99,7 @@ public class CheckHolder {
                 new BackTrackB(this.profile),
 
                 new ReachA(this.profile),
+                new ReachB(this.profile),
 
                 new VelocityA(this.profile),
                 new VelocityB(this.profile),

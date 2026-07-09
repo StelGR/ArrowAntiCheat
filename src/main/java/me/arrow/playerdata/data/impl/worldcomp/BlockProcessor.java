@@ -17,6 +17,8 @@ import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.EventTimer;
 import me.arrow.utils.customutils.EvictingList;
+import me.arrow.utils.custom.materials.MaterialType;
+import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -61,10 +63,25 @@ public class BlockProcessor implements Data {
     int PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS = 10;
     int RECENT_PLACE_BLOCK_CHANGE_GRACE_TICKS = 8;
     int PHYSICS_PLACE_AREA_RADIUS = 1;
-    int PHYSICS_PLACE_AREA_BELOW = 1;
-    int PHYSICS_PLACE_AREA_ABOVE = 2;
+    int PHYSICS_PLACE_AREA_BELOW = 3;
+    int PHYSICS_PLACE_AREA_ABOVE = 4;
+
+    // Wider short-lived range only for already-started cancelled/pending physics placements.
+    // Needed at modern world min (-64), because bucket targets can resolve to y=-65
+    // or fall just below the player area while the client is still applying bucket physics.
+    int PHYSICS_CONTEXT_AREA_RADIUS = 2;
+    int PHYSICS_CONTEXT_AREA_BELOW = 8;
+    int PHYSICS_CONTEXT_AREA_ABOVE = 6;
+
+    // Wider range only for normal full-block cancelled/ghost placements.
+    // This catches blocks above head / under feet / edge-of-void timing without making
+    // water, powder snow, lava, web, vines, etc. globally too forgiving.
+    int CANCELLED_BLOCK_PLACE_AREA_RADIUS = 2;
+    int CANCELLED_BLOCK_PLACE_AREA_BELOW = 3;
+    int CANCELLED_BLOCK_PLACE_AREA_ABOVE = 5;
     double CANCELLED_PHYSICS_GHOST_RANGE_XZ = 3.0D;
     double CANCELLED_PHYSICS_GHOST_RANGE_Y = 3.0D;
+
 
     int MAX_GHOST_BLOCK_TICKS = 20 * 8;
     int MAX_CANCELLED_PLACE_GHOST_TICKS = 20;
@@ -73,10 +90,20 @@ public class BlockProcessor implements Data {
     int GHOST_SYNC_COOLDOWN_TICKS = 8;
     int GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS = 4;
     int AREA_SYNC_COOLDOWN_TICKS = 1;
-    int MAX_AREA_SYNC_BLOCKS = 32;
+    int MAX_AREA_SYNC_BLOCKS = 96;
     int MAX_SYNC_BLOCKS_PER_FLUSH = 4;
     int SELF_SYNC_IGNORE_TICKS = 3;
     int CANCELLED_PHYSICS_CONTEXT_TICKS = PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS;
+    int RECENT_CANCELLED_BLOCK_CONTEXT_TICKS = 20;
+    int NORMAL_BLOCK_PLACE_PENDING_CONTEXT_TICKS = PLACE_CONFIRMATION_GRACE_TICKS + 3;
+
+    int recentCancelledBlockTicks = CLEARED_GHOST_CONTEXT_TICK;
+    Vector recentCancelledBlockVector;
+    Material recentCancelledBlockMaterial;
+
+    int pendingNormalBlockPlaceTicks = CLEARED_GHOST_CONTEXT_TICK;
+    Vector pendingNormalBlockPlaceVector;
+    Material pendingNormalBlockPlaceMaterial;
 
 
     int lastGhostInteractionAreaSyncTick = 100;
@@ -250,7 +277,7 @@ public class BlockProcessor implements Data {
             this.pendingVineLadderWallTick = 0;
             this.pendingVineLadderWallVector = placedVector;
             this.pendingVineLadderWallMaterial = attemptedMaterial;
-            this.lastPendingPhysicsPlaceTick = 0;
+            resetPhysicsPlacementTicks();
             return;
         }
 
@@ -262,11 +289,16 @@ public class BlockProcessor implements Data {
         this.pendingPlacementTicks = 0;
         this.placeTicks++;
 
+        if (!isCancelledPhysicsContextMaterial(attemptedMaterial)
+                && isCancelledPlacementInPlayerArea(clickedVector, placedVector)) {
+            markPendingNormalBlockPlacementContext(selectCancelledPlaceVector(clickedVector, placedVector), attemptedMaterial);
+        }
+
         if (isCancelledPhysicsContextMaterial(attemptedMaterial)
                 && isPhysicsPlacementInPlayerArea(clickedVector, placedVector)) {
             // Start the simple WorldGuard/protection physics grace only after interaction-only clicks
             // have been filtered out. Lever/button/chest clicks must not reach this point.
-            markPendingPhysicsPlacementContext(placedVector, attemptedMaterial);
+            markPendingPhysicsPlacementContext(selectPhysicsPlaceVector(clickedVector, placedVector), attemptedMaterial);
         }
 
         this.hasPlacedBlock = this.recentC2SPacket;
@@ -288,12 +320,15 @@ public class BlockProcessor implements Data {
         this.lastGhostInteractionAreaSyncTick++;
         this.lastAreaSyncTick++;
         this.recentPlacePacketTicks++;
+        this.recentCancelledBlockTicks = incrementContextTick(this.recentCancelledBlockTicks);
+        this.pendingNormalBlockPlaceTicks = incrementContextTick(this.pendingNormalBlockPlaceTicks);
 
         ageGhostBlocks();
         ageSelfSyncedBlocks();
         scheduleSyncFlush();
         handlePendingVineLadderWallPlace();
         refreshCancelledPhysicsPlacementContext();
+        refreshPendingNormalBlockPlacementContext();
 
         this.recentC2SPacket = flying.hasRotationChanged() && !flying.hasPositionChanged();
 
@@ -319,7 +354,9 @@ public class BlockProcessor implements Data {
                 Vector placeVector = this.currentBlockCords;
                 Vector clickedVector = this.lastClickedBlockVector;
                 Material attempted = this.blockPlaceMaterial;
-                Material confirmedMaterial = findConfirmedPlacedMaterial(placeVector, clickedVector, attempted);
+                Material confirmedMaterial = isCancelledPhysicsContextMaterial(attempted)
+                        ? findConfirmedPlacedMaterial(placeVector, clickedVector, attempted)
+                        : findConfirmedNormalPlacedMaterial(placeVector, clickedVector, attempted);
 
                 if (confirmedMaterial != null) {
                     this.main = confirmedMaterial;
@@ -364,7 +401,9 @@ public class BlockProcessor implements Data {
 
             Material attempted = this.lastAttemptedPlaceMaterial;
             Vector vector = this.currentBlockCords;
-            Material confirmedMaterial = findConfirmedPlacedMaterial(vector, this.lastClickedBlockVector, attempted);
+            Material confirmedMaterial = isCancelledPhysicsContextMaterial(attempted)
+                    ? findConfirmedPlacedMaterial(vector, this.lastClickedBlockVector, attempted)
+                    : findConfirmedNormalPlacedMaterial(vector, this.lastClickedBlockVector, attempted);
 
             if (confirmedMaterial != null) {
                 clearConfirmedPlacementGhostContext(vector, attempted, confirmedMaterial);
@@ -384,11 +423,25 @@ public class BlockProcessor implements Data {
                 this.lastConfirmedCancelPlaceTimer.reset();
 
                 boolean physicsContext = isCancelledPhysicsContextMaterial(attempted);
-                boolean nearCancelledPlacement = isBlockInPlayerPhysicsPlaceArea(vector);
+                boolean nearCancelledPlacement = physicsContext
+                        ? isPhysicsPlacementInPlayerArea(this.lastClickedBlockVector, vector)
+                        : isCancelledPlacementInPlayerArea(this.lastClickedBlockVector, vector);
+
+                Vector contextVector = physicsContext
+                        ? selectPhysicsPlaceVector(this.lastClickedBlockVector, vector)
+                        : selectCancelledPlaceVector(this.lastClickedBlockVector, vector);
+
+                if (nearCancelledPlacement) {
+                    if (physicsContext) {
+                        beginCancelledPhysicsPlacementContext(contextVector, attempted);
+                    } else {
+                        beginCancelledBlockPlacementContext(contextVector, attempted);
+                    }
+                }
 
                 if (!isTrackableGhostMaterial(attempted) && !physicsContext) {
                     if (autoCorrectGhostBlocks && nearCancelledPlacement) {
-                        syncCancelledPlacementArea(vector);
+                        syncCancelledPlacementArea(contextVector);
                     }
 
                     this.lastAttemptedPlaceMaterial = null;
@@ -397,37 +450,26 @@ public class BlockProcessor implements Data {
                     return;
                 }
 
-                if (nearCancelledPlacement || !physicsContext) {
+                if (!nearCancelledPlacement && !physicsContext) {
                     addGhostBlock(vector, attempted, "placement-cancelled-or-mismatch", MAX_CANCELLED_PLACE_GHOST_TICKS);
                 }
-
-                boolean expiredPhysicsPendingWindow =
-                        physicsContext && this.pendingPlacementTicks >= PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS;
 
                 boolean on = isPlayerStandingOnGhost(vector);
                 boolean inside = isPlayerInsideGhost(vector);
                 boolean under = isPlayerUnderGhost(vector);
                 boolean contact = on || inside || under;
 
-                if (physicsContext && nearCancelledPlacement && !expiredPhysicsPendingWindow) {
-                    beginCancelledPhysicsPlacementContext(vector, attempted);
-                }
-
-                if (contact && (!physicsContext || !expiredPhysicsPendingWindow)) {
+                if (contact && !physicsContext) {
                     this.lastGhostBlockTick = 0;
                     this.nearGhostBlock = true;
                     this.interactingGhostBlock = true;
                     this.onGhostBlock = this.onGhostBlock || on;
                     this.insideGhostBlock = this.insideGhostBlock || inside;
                     this.underGhostBlock = this.underGhostBlock || under;
-
-                    if (physicsContext) {
-                        this.lastGhostLiquidWebTick = 0;
-                    }
                 }
 
                 if (autoCorrectGhostBlocks && nearCancelledPlacement) {
-                    syncCancelledPlacementArea(vector);
+                    syncCancelledPlacementArea(contextVector);
                 }
             }
 
@@ -437,6 +479,190 @@ public class BlockProcessor implements Data {
         }
     }
 
+
+    void beginCancelledBlockPlacementContext(Vector vector, Material material) {
+        if (vector == null || !isBlockInPlayerCancelledPlaceArea(vector)) {
+            return;
+        }
+
+        clearPendingNormalBlockPlacementContext(vector);
+
+        this.recentCancelledBlockTicks = 0;
+        this.recentCancelledBlockVector = vector.clone();
+        this.recentCancelledBlockMaterial = material;
+
+        this.lastGhostBlockTick = 0;
+        this.nearGhostBlock = true;
+        this.interactingGhostBlock = true;
+
+        addGhostBlock(vector, material, "normal-placement-cancelled", MAX_CANCELLED_PLACE_GHOST_TICKS);
+
+        if (autoCorrectGhostBlocks) {
+            syncCancelledPlacementArea(vector);
+        }
+
+        try {
+            if (data.getClientWorldTracker() != null) {
+                data.getClientWorldTracker().requestActiveWorldRepair();
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    void markPendingNormalBlockPlacementContext(Vector vector, Material material) {
+        if (vector == null || material == null || !isBlockInPlayerCancelledPlaceArea(vector)) {
+            return;
+        }
+
+        this.pendingNormalBlockPlaceTicks = 0;
+        this.pendingNormalBlockPlaceVector = vector.clone();
+        this.pendingNormalBlockPlaceMaterial = material;
+
+        this.lastGhostBlockTick = 0;
+        this.nearGhostBlock = true;
+        this.interactingGhostBlock = true;
+
+        if (autoCorrectGhostBlocks) {
+            syncCancelledPlacementArea(vector);
+        }
+    }
+
+    void refreshPendingNormalBlockPlacementContext() {
+        if (!hasPendingNormalBlockPlacementContext(NORMAL_BLOCK_PLACE_PENDING_CONTEXT_TICKS)) {
+            return;
+        }
+
+        this.lastGhostBlockTick = 0;
+        this.nearGhostBlock = true;
+        this.interactingGhostBlock = true;
+    }
+
+    boolean hasPendingNormalBlockPlacementContext(int maxTicks) {
+        int allowedTicks = Math.max(1, Math.min(maxTicks, NORMAL_BLOCK_PLACE_PENDING_CONTEXT_TICKS));
+
+        if (this.pendingNormalBlockPlaceTicks >= allowedTicks) {
+            return false;
+        }
+
+        if (this.pendingNormalBlockPlaceVector == null || this.pendingNormalBlockPlaceMaterial == null) {
+            return false;
+        }
+
+        if (!isBlockInPlayerCancelledPlaceArea(this.pendingNormalBlockPlaceVector)) {
+            return false;
+        }
+
+        Vector confirmationVector = this.currentBlockCords != null
+                ? this.currentBlockCords
+                : this.pendingNormalBlockPlaceVector;
+
+        Material confirmed = findConfirmedNormalPlacedMaterial(
+                confirmationVector,
+                this.lastClickedBlockVector,
+                this.pendingNormalBlockPlaceMaterial
+        );
+
+        if (confirmed != null) {
+            clearPendingNormalBlockPlacementContext(this.pendingNormalBlockPlaceVector);
+            return false;
+        }
+
+        return true;
+    }
+
+    void clearPendingNormalBlockPlacementContext(Vector vector) {
+        if (this.pendingNormalBlockPlaceVector == null) {
+            return;
+        }
+
+        if (vector == null || sameBlockVector(this.pendingNormalBlockPlaceVector, vector)) {
+            this.pendingNormalBlockPlaceTicks = CLEARED_GHOST_CONTEXT_TICK;
+            this.pendingNormalBlockPlaceVector = null;
+            this.pendingNormalBlockPlaceMaterial = null;
+        }
+    }
+
+    void clearRecentCancelledBlockPlacementContext(Vector vector) {
+        if (this.recentCancelledBlockVector == null) {
+            return;
+        }
+
+        if (vector == null || sameBlockVector(this.recentCancelledBlockVector, vector)) {
+            this.recentCancelledBlockTicks = CLEARED_GHOST_CONTEXT_TICK;
+            this.recentCancelledBlockVector = null;
+            this.recentCancelledBlockMaterial = null;
+        }
+    }
+
+    boolean isCancelledPlacementInPlayerArea(Vector clickedVector, Vector placedVector) {
+        return isBlockInPlayerCancelledPlaceArea(placedVector)
+                || isBlockInPlayerCancelledPlaceArea(clickedVector);
+    }
+
+    boolean isBlockInPlayerCancelledPlaceArea(Vector block) {
+        return isBlockInPlayerArea(
+                block,
+                CANCELLED_BLOCK_PLACE_AREA_RADIUS,
+                CANCELLED_BLOCK_PLACE_AREA_BELOW,
+                CANCELLED_BLOCK_PLACE_AREA_ABOVE,
+                true
+        );
+    }
+
+    public boolean hasRecentCancelledBlockPlacement(int maxTicks) {
+        int allowedTicks = Math.max(1, maxTicks);
+
+        if (this.recentCancelledBlockTicks >= allowedTicks) {
+            return false;
+        }
+
+        if (this.recentCancelledBlockVector == null) {
+            return true;
+        }
+
+        return isBlockInPlayerCancelledPlaceArea(this.recentCancelledBlockVector);
+    }
+
+    public boolean isCancelledBlockPlacementExempt(int maxTicks) {
+        int allowedTicks = Math.max(1, maxTicks);
+
+        return hasRecentCancelledBlockPlacement(allowedTicks)
+                || hasPendingNormalBlockPlacementContext(allowedTicks)
+                || hasPendingPhysicsPlacementContextForTicks(allowedTicks)
+                || hasCancelledPhysicsPlacementContext(allowedTicks);
+    }
+
+    Vector selectPhysicsPlaceVector(Vector clickedVector, Vector placedVector) {
+        if (isBlockInPlayerPhysicsPlaceArea(placedVector)) {
+            return placedVector;
+        }
+
+        if (isBlockInPlayerPhysicsPlaceArea(clickedVector)) {
+            return clickedVector;
+        }
+
+        return placedVector != null ? placedVector : clickedVector;
+    }
+
+    Vector selectCancelledPlaceVector(Vector clickedVector, Vector placedVector) {
+        if (isBlockInPlayerCancelledPlaceArea(placedVector)) {
+            return placedVector;
+        }
+
+        if (isBlockInPlayerCancelledPlaceArea(clickedVector)) {
+            return clickedVector;
+        }
+
+        return placedVector != null ? placedVector : clickedVector;
+    }
+
+    boolean sameBlockVector(Vector first, Vector second) {
+        return first != null
+                && second != null
+                && first.getBlockX() == second.getBlockX()
+                && first.getBlockY() == second.getBlockY()
+                && first.getBlockZ() == second.getBlockZ();
+    }
 
     void keepPendingPlacementPhysicsExemption() {
         // Keeps Fly/Gravity checks exempt while a nearby physics placement is waiting for server confirmation.
@@ -450,20 +676,16 @@ public class BlockProcessor implements Data {
             return;
         }
 
-        if (!isBlockInPlayerPhysicsPlaceArea(this.currentBlockCords)) {
+        if (!isPhysicsPlacementContextInPlayerArea(this.lastClickedBlockVector, this.currentBlockCords)) {
             return;
         }
 
-        this.lastGhostBlockTick = 0;
-        this.nearGhostBlock = true;
-        this.interactingGhostBlock = true;
+        resetPhysicsPlacementTicks();
     }
 
     void markPendingPhysicsPlacementContext(Vector vector, Material material) {
         // Physics placements are client-predicted immediately, so movement checks must exempt while confirmation is pending.
-        this.lastPendingPhysicsPlaceTick = 0;
-        this.lastGhostLiquidWebTick = 0;
-        this.lastGhostBlockTick = 0;
+        resetPhysicsPlacementTicks();
 
         if (vector != null) {
             this.nearGhostBlock = true;
@@ -485,7 +707,7 @@ public class BlockProcessor implements Data {
                 (int) Math.floor(loc.getZ())
         );
 
-        if (!isBlockInPlayerPhysicsPlaceArea(vector)) {
+        if (!isBlockInPlayerPhysicsContextArea(vector)) {
             return false;
         }
 
@@ -512,11 +734,23 @@ public class BlockProcessor implements Data {
         this.cancelledPhysicsContextTicks = CANCELLED_PHYSICS_CONTEXT_TICKS;
         this.cancelledPhysicsContextVector = vector != null ? vector.clone() : null;
         this.cancelledPhysicsContextMaterial = material;
-        this.lastGhostLiquidWebTick = 0;
-        this.lastPendingPhysicsPlaceTick = 0;
-        this.lastGhostBlockTick = 0;
-        this.nearGhostBlock = true;
-        this.interactingGhostBlock = true;
+
+        resetPhysicsPlacementTicks();
+
+        if (vector != null) {
+            addGhostBlock(vector, material, "physics-placement-cancelled", MAX_CANCELLED_PLACE_GHOST_TICKS);
+
+            if (autoCorrectGhostBlocks) {
+                syncCancelledPlacementArea(vector);
+            }
+        }
+
+        try {
+            if (data.getClientWorldTracker() != null) {
+                data.getClientWorldTracker().requestActiveWorldRepair();
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     void refreshCancelledPhysicsPlacementContext() {
@@ -536,16 +770,13 @@ public class BlockProcessor implements Data {
             return;
         }
 
-        if (this.cancelledPhysicsContextVector != null
-                && !isBlockInPlayerPhysicsPlaceArea(this.cancelledPhysicsContextVector)) {
-            return;
-        }
-
-        this.lastGhostLiquidWebTick = 0;
-        this.lastPendingPhysicsPlaceTick = 0;
-        this.lastGhostBlockTick = 0;
-        this.nearGhostBlock = true;
-        this.interactingGhostBlock = true;
+        /*
+         * Do not stop this context just because the vector slipped outside the
+         * normal 3x3 physics scan. At modern world min (-64), bucket placement
+         * vectors can be y=-65 / clamped by the server while the client still
+         * applies powder-snow/water/lava physics for a few ticks.
+         */
+        resetPhysicsPlacementTicks();
     }
 
     boolean isPhysicsPlacementInPlayerArea(Vector clickedVector, Vector placedVector) {
@@ -554,10 +785,49 @@ public class BlockProcessor implements Data {
                 || isBlockInPlayerPhysicsPlaceArea(clickedVector);
     }
 
-    boolean isBlockInPlayerPhysicsPlaceArea(Vector block) {
-        // Restricts physics-placement exemptions to the 3x3 block area around the player's feet.
-        CustomLocation loc = data.getMovementData().getLocation();
+    boolean isPhysicsPlacementContextInPlayerArea(Vector clickedVector, Vector placedVector) {
+        return isBlockInPlayerPhysicsContextArea(placedVector)
+                || isBlockInPlayerPhysicsContextArea(clickedVector);
+    }
 
+    boolean isBlockInPlayerPhysicsContextArea(Vector block) {
+        return isBlockInPlayerArea(
+                block,
+                PHYSICS_CONTEXT_AREA_RADIUS,
+                PHYSICS_CONTEXT_AREA_BELOW,
+                PHYSICS_CONTEXT_AREA_ABOVE,
+                true
+        );
+    }
+
+    boolean isBlockInPlayerPhysicsPlaceArea(Vector block) {
+        return isBlockInPlayerArea(
+                block,
+                PHYSICS_PLACE_AREA_RADIUS,
+                PHYSICS_PLACE_AREA_BELOW,
+                PHYSICS_PLACE_AREA_ABOVE,
+                true
+        );
+    }
+
+    boolean isBlockInPlayerArea(Vector block, int radiusXZ, int below, int above, boolean includeRecentLocations) {
+        if (block == null || data.getMovementData() == null) {
+            return false;
+        }
+
+        if (isBlockInPlayerArea(block, data.getMovementData().getLocation(), radiusXZ, below, above)) {
+            return true;
+        }
+
+        if (!includeRecentLocations) {
+            return false;
+        }
+
+        return isBlockInPlayerArea(block, data.getMovementData().getLastLocation(), radiusXZ, below, above)
+                || isBlockInPlayerArea(block, data.getMovementData().getLastLastLocation(), radiusXZ, below, above);
+    }
+
+    boolean isBlockInPlayerArea(Vector block, CustomLocation loc, int radiusXZ, int below, int above) {
         if (loc == null || block == null) {
             return false;
         }
@@ -566,10 +836,73 @@ public class BlockProcessor implements Data {
         int playerY = (int) Math.floor(loc.getY());
         int playerZ = (int) Math.floor(loc.getZ());
 
-        return Math.abs(block.getBlockX() - playerX) <= PHYSICS_PLACE_AREA_RADIUS
-                && Math.abs(block.getBlockZ() - playerZ) <= PHYSICS_PLACE_AREA_RADIUS
-                && block.getBlockY() >= playerY - PHYSICS_PLACE_AREA_BELOW
-                && block.getBlockY() <= playerY + PHYSICS_PLACE_AREA_ABOVE;
+        int blockY = clampBlockYToWorld(block.getBlockY());
+
+        return Math.abs(block.getBlockX() - playerX) <= radiusXZ
+                && Math.abs(block.getBlockZ() - playerZ) <= radiusXZ
+                && blockY >= playerY - below
+                && blockY <= playerY + above;
+    }
+
+    int clampBlockYToWorld(int y) {
+        World world = getPlayerWorldSafely();
+
+        if (world == null) {
+            return y;
+        }
+
+        int minY = getWorldMinHeight(world);
+        int maxY = getWorldMaxBlockY(world);
+
+        if (y < minY) {
+            return minY;
+        }
+
+        return Math.min(y, maxY);
+    }
+
+    int getWorldMinHeight(World world) {
+        if (world == null) {
+            return 0;
+        }
+
+        try {
+            Method method = world.getClass().getMethod("getMinHeight");
+            Object value = method.invoke(world);
+
+            if (value instanceof Number) {
+                return ((Number) value).intValue();
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return 0;
+    }
+
+    int getWorldMaxBlockY(World world) {
+        if (world == null) {
+            return 255;
+        }
+
+        try {
+            return world.getMaxHeight() - 1;
+        } catch (Throwable ignored) {
+            return 255;
+        }
+    }
+
+    World getPlayerWorldSafely() {
+        Player player = data.getPlayer();
+
+        if (player == null || !player.isOnline()) {
+            return null;
+        }
+
+        try {
+            return player.getWorld();
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     void clearConfirmedPlacementGhostContext(Vector vector, Material attemptedMaterial, Material serverMaterial) {
@@ -577,6 +910,9 @@ public class BlockProcessor implements Data {
         if (vector != null) {
             removeGhostBlock(vector);
         }
+
+        clearPendingNormalBlockPlacementContext(vector);
+        clearRecentCancelledBlockPlacementContext(vector);
 
         this.cancelledPhysicsContextTicks = 0;
         this.cancelledPhysicsContextVector = null;
@@ -613,6 +949,10 @@ public class BlockProcessor implements Data {
             return false;
         }
 
+        if (isCancelledBlockPlacementExempt(allowedTicks)) {
+            return true;
+        }
+
         if (this.pendingVineLadderWallPlace) {
             if (this.pendingVineLadderWallTick >= allowedTicks) {
                 return false;
@@ -632,7 +972,7 @@ public class BlockProcessor implements Data {
 
         if (this.cancelledPhysicsContextTicks > 0) {
             if (this.cancelledPhysicsContextVector != null
-                    && !isBlockInPlayerPhysicsPlaceArea(this.cancelledPhysicsContextVector)) {
+                    && !isBlockInPlayerPhysicsContextArea(this.cancelledPhysicsContextVector)) {
                 return false;
             }
 
@@ -644,6 +984,39 @@ public class BlockProcessor implements Data {
         }
 
         return this.nearGhostBlock || this.interactingGhostBlock || hasActiveGhostContact();
+    }
+
+    boolean hasPendingPhysicsPlacementContextForTicks(int allowedTicks) {
+        if (!hasPendingPhysicsPlacementContext()) {
+            return false;
+        }
+
+        if (this.pendingPlacementTicks >= allowedTicks) {
+            return false;
+        }
+
+        return isPhysicsPlacementContextInPlayerArea(this.lastClickedBlockVector, this.currentBlockCords);
+    }
+
+    boolean hasCancelledPhysicsPlacementContext(int allowedTicks) {
+        if (this.cancelledPhysicsContextTicks <= 0) {
+            return false;
+        }
+
+        if (this.cancelledPhysicsContextVector != null
+                && !isBlockInPlayerPhysicsContextArea(this.cancelledPhysicsContextVector)) {
+            return false;
+        }
+
+        return (CANCELLED_PHYSICS_CONTEXT_TICKS - this.cancelledPhysicsContextTicks) < allowedTicks;
+    }
+
+    void resetPhysicsPlacementTicks() {
+        this.lastGhostLiquidWebTick = 0;
+        this.lastPendingPhysicsPlaceTick = 0;
+        this.lastGhostBlockTick = 0;
+        this.nearGhostBlock = true;
+        this.interactingGhostBlock = true;
     }
 
     boolean hasPendingPhysicsPlacementContext() {
@@ -688,6 +1061,10 @@ public class BlockProcessor implements Data {
         this.currentBlockCords = null;
 
         return true;
+    }
+
+    private int incrementContextTick(int value) {
+        return value >= CLEARED_GHOST_CONTEXT_TICK ? CLEARED_GHOST_CONTEXT_TICK : value + 1;
     }
 
     boolean isPhysicsPlacementMaterial(Material material) {
@@ -776,6 +1153,32 @@ public class BlockProcessor implements Data {
 
         return null;
     }
+
+    Material findConfirmedNormalPlacedMaterial(Vector placeVector, Vector clickedVector, Material attempted) {
+        if (attempted == null) {
+            return null;
+        }
+
+        Material direct = getServerMaterial(placeVector);
+
+        if (isSamePlacedMaterial(direct, attempted)) {
+            return direct;
+        }
+
+        /*
+         * Only allow clicked-block confirmation for replaceable targets like snow/tall grass.
+         * Otherwise clicking a STONE block while holding STONE can look falsely confirmed.
+         */
+        Material clicked = getServerMaterial(clickedVector);
+
+        if (isReplaceablePlacementTarget(clicked, attempted)
+                && isSamePlacedMaterial(clicked, attempted)) {
+            return clicked;
+        }
+
+        return null;
+    }
+
 
     void handleMultiBlockChange(PacketSendEvent event) {
         // Processes multi-block server updates and queues tiny repairs for relevant nearby changes.
@@ -1507,11 +1910,28 @@ public class BlockProcessor implements Data {
 
     boolean isPhysicsGhostMaterial(Material material) {
         // Detects blocks that can affect movement physics when desynced.
-        if (material == null || material == Material.AIR) {
+        if (material == null || isAirLike(material)) {
             return false;
         }
 
         String name = material.name();
+
+        if (MaterialType.isMaterial(name, MaterialType.LIQUID)
+                || MaterialType.isMaterial(name, MaterialType.WATER)
+                || MaterialType.isMaterial(name, MaterialType.LAVA)
+                || MaterialType.isMaterial(name, MaterialType.WEB)
+                || MaterialType.isMaterial(name, MaterialType.POWDER_SNOW)
+                || MaterialType.isMaterial(name, MaterialType.HONEY)
+                || MaterialType.isMaterial(name, MaterialType.SLIME)
+                || MaterialType.isMaterial(name, MaterialType.ICE)
+                || MaterialType.isMaterial(name, MaterialType.SOUL_BLOCK)
+                || MaterialType.isMaterial(name, MaterialType.SOUL_SAND)
+                || MaterialType.isMaterial(name, MaterialType.SOUL_SOIL)
+                || MaterialType.isMaterial(name, MaterialType.SCAFFOLDING)
+                || MaterialType.isMaterial(name, MaterialType.BUBBLE)
+                || MaterialType.isMaterial(name, MaterialType.CLIMBABLE)) {
+            return true;
+        }
 
         return name.contains("WATER")
                 || name.contains("LAVA")
@@ -1523,6 +1943,7 @@ public class BlockProcessor implements Data {
                 || name.contains("BUBBLE")
                 || name.contains("ICE")
                 || name.contains("SOUL_SAND")
+                || name.contains("SOUL_SOIL")
                 || isClimbableGhostMaterial(material);
     }
 
@@ -1832,7 +2253,7 @@ public class BlockProcessor implements Data {
         this.pendingVineLadderWallTick++;
 
         if (this.pendingVineLadderWallTick <= PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS) {
-            this.lastPendingPhysicsPlaceTick = 0;
+            resetPhysicsPlacementTicks();
             return;
         }
 
@@ -1916,7 +2337,26 @@ public class BlockProcessor implements Data {
         } catch (Throwable ignored) {
         }
 
+        try {
+            if (PEMaterials.isNonFullCollision(material)) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+
         String name = material.name();
+
+        if (MaterialType.isMaterial(name, MaterialType.HALF_BLOCK)
+                || MaterialType.isMaterial(name, MaterialType.STAIRS)
+                || MaterialType.isMaterial(name, MaterialType.FENCE)
+                || MaterialType.isMaterial(name, MaterialType.WALL)
+                || MaterialType.isMaterial(name, MaterialType.PANE)
+                || MaterialType.isMaterial(name, MaterialType.TRAPDOOR)
+                || MaterialType.isMaterial(name, MaterialType.BED)
+                || MaterialType.isMaterial(name, MaterialType.SHULKER)
+                || MaterialType.isMaterial(name, MaterialType.SNOW)) {
+            return true;
+        }
 
         return name.contains("SLAB")
                 || name.contains("STEP")
@@ -2002,6 +2442,7 @@ public class BlockProcessor implements Data {
         this.cancelledPhysicsContextTicks = 0;
         this.cancelledPhysicsContextVector = null;
         this.cancelledPhysicsContextMaterial = null;
+        clearPendingNormalBlockPlacementContext(null);
     }
 
     Vector getPlacedVector(int x, int y, int z, int faceValue) {
@@ -2409,17 +2850,17 @@ public class BlockProcessor implements Data {
     }
 
     boolean isAirLike(Material material) {
-        // Treats all modern air variants as air.
+        // Treats all modern/legacy air variants as air.
         if (material == null) {
             return true;
         }
 
-        if (material == Material.AIR) {
-            return true;
-        }
-
         String name = material.name();
-        return name.equals("CAVE_AIR") || name.equals("VOID_AIR");
+        return material == Material.AIR
+                || MaterialType.isMaterial(name, MaterialType.AIR)
+                || name.equals("CAVE_AIR")
+                || name.equals("VOID_AIR")
+                || name.equals("LEGACY_AIR");
     }
 
     boolean isKnownGhostNear(Vector vector, double range) {
@@ -2554,14 +2995,17 @@ public class BlockProcessor implements Data {
         );
     }
     boolean isLiquidMaterial(Material material) {
-        // Detects water/lava materials.
+        // Detects water/lava materials across legacy and modern names.
         if (material == null) {
             return false;
         }
 
         String name = material.name();
 
-        return name.contains("WATER")
+        return MaterialType.isMaterial(name, MaterialType.LIQUID)
+                || MaterialType.isMaterial(name, MaterialType.WATER)
+                || MaterialType.isMaterial(name, MaterialType.LAVA)
+                || name.contains("WATER")
                 || name.contains("LAVA");
     }
     void syncCancelledPlacementArea(Vector vector) {
@@ -2578,21 +3022,21 @@ public class BlockProcessor implements Data {
         int maxZ = Integer.MIN_VALUE;
 
         if (vector != null) {
-            minX = Math.min(minX, vector.getBlockX() - 2);
-            minY = Math.min(minY, vector.getBlockY() - 2);
-            minZ = Math.min(minZ, vector.getBlockZ() - 2);
-            maxX = Math.max(maxX, vector.getBlockX() + 2);
-            maxY = Math.max(maxY, vector.getBlockY() + 2);
-            maxZ = Math.max(maxZ, vector.getBlockZ() + 2);
+            minX = Math.min(minX, vector.getBlockX() - CANCELLED_BLOCK_PLACE_AREA_RADIUS);
+            minY = Math.min(minY, vector.getBlockY() - CANCELLED_BLOCK_PLACE_AREA_BELOW);
+            minZ = Math.min(minZ, vector.getBlockZ() - CANCELLED_BLOCK_PLACE_AREA_RADIUS);
+            maxX = Math.max(maxX, vector.getBlockX() + CANCELLED_BLOCK_PLACE_AREA_RADIUS);
+            maxY = Math.max(maxY, vector.getBlockY() + CANCELLED_BLOCK_PLACE_AREA_ABOVE);
+            maxZ = Math.max(maxZ, vector.getBlockZ() + CANCELLED_BLOCK_PLACE_AREA_RADIUS);
         }
 
         if (this.lastClickedBlockVector != null) {
-            minX = Math.min(minX, this.lastClickedBlockVector.getBlockX() - 2);
-            minY = Math.min(minY, this.lastClickedBlockVector.getBlockY() - 2);
-            minZ = Math.min(minZ, this.lastClickedBlockVector.getBlockZ() - 2);
-            maxX = Math.max(maxX, this.lastClickedBlockVector.getBlockX() + 2);
-            maxY = Math.max(maxY, this.lastClickedBlockVector.getBlockY() + 2);
-            maxZ = Math.max(maxZ, this.lastClickedBlockVector.getBlockZ() + 2);
+            minX = Math.min(minX, this.lastClickedBlockVector.getBlockX() - CANCELLED_BLOCK_PLACE_AREA_RADIUS);
+            minY = Math.min(minY, this.lastClickedBlockVector.getBlockY() - CANCELLED_BLOCK_PLACE_AREA_BELOW);
+            minZ = Math.min(minZ, this.lastClickedBlockVector.getBlockZ() - CANCELLED_BLOCK_PLACE_AREA_RADIUS);
+            maxX = Math.max(maxX, this.lastClickedBlockVector.getBlockX() + CANCELLED_BLOCK_PLACE_AREA_RADIUS);
+            maxY = Math.max(maxY, this.lastClickedBlockVector.getBlockY() + CANCELLED_BLOCK_PLACE_AREA_ABOVE);
+            maxZ = Math.max(maxZ, this.lastClickedBlockVector.getBlockZ() + CANCELLED_BLOCK_PLACE_AREA_RADIUS);
         }
 
         CustomLocation loc = data.getMovementData().getLocation();
@@ -2602,12 +3046,12 @@ public class BlockProcessor implements Data {
             int py = (int) Math.floor(loc.getY());
             int pz = (int) Math.floor(loc.getZ());
 
-            minX = Math.min(minX, px - 2);
-            minY = Math.min(minY, py - 2);
-            minZ = Math.min(minZ, pz - 2);
-            maxX = Math.max(maxX, px + 2);
-            maxY = Math.max(maxY, py + 3);
-            maxZ = Math.max(maxZ, pz + 2);
+            minX = Math.min(minX, px - CANCELLED_BLOCK_PLACE_AREA_RADIUS);
+            minY = Math.min(minY, py - CANCELLED_BLOCK_PLACE_AREA_BELOW);
+            minZ = Math.min(minZ, pz - CANCELLED_BLOCK_PLACE_AREA_RADIUS);
+            maxX = Math.max(maxX, px + CANCELLED_BLOCK_PLACE_AREA_RADIUS);
+            maxY = Math.max(maxY, py + CANCELLED_BLOCK_PLACE_AREA_ABOVE);
+            maxZ = Math.max(maxZ, pz + CANCELLED_BLOCK_PLACE_AREA_RADIUS);
         }
 
         if (minX == Integer.MAX_VALUE) {
@@ -2639,6 +3083,18 @@ public class BlockProcessor implements Data {
         int fMaxX = Math.max(minX, maxX);
         int fMaxY = Math.max(minY, maxY);
         int fMaxZ = Math.max(minZ, maxZ);
+
+        World world = getPlayerWorldSafely();
+
+        if (world != null) {
+            fMinY = Math.max(fMinY, getWorldMinHeight(world));
+            fMaxY = Math.min(fMaxY, getWorldMaxBlockY(world));
+
+            if (fMinY > fMaxY) {
+                return;
+            }
+        }
+
         int limit = Math.max(1, Math.min(maxBlocks, MAX_AREA_SYNC_BLOCKS));
         int queued = 0;
 
