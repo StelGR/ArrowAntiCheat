@@ -34,6 +34,7 @@ public class VelocityData implements Data {
 
     private Vector velocity = new Vector();
     private Vector velocityfvc = new Vector();
+    private Vector pendingEntityVelocity = new Vector();
 
     private Vector explosionKnockbackPacket = new Vector();
     private Vector explosionKnockback = new Vector();
@@ -54,6 +55,11 @@ public class VelocityData implements Data {
     private double stackedHorizontalVelocity;
     private int stackedFullStopTicks;
     private int velocityTicks;
+    private int entityVelocitySequence;
+    private int entityVelocityTicks = 1000;
+    private int explosionVelocityTicks = 1000;
+    private int entityVelocityPacketTicks = 1000;
+    private int explosionVelocityPacketTicks = 1000;
 
     private final Profile profile;
 
@@ -83,44 +89,17 @@ public class VelocityData implements Data {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
 
-            velocityTicks++;
-
+            velocityTicks = incrementTicks(velocityTicks);
+            entityVelocityTicks = incrementTicks(entityVelocityTicks);
+            explosionVelocityTicks = incrementTicks(explosionVelocityTicks);
+            entityVelocityPacketTicks = incrementTicks(entityVelocityPacketTicks);
+            explosionVelocityPacketTicks = incrementTicks(explosionVelocityPacketTicks);
             long currentTick = System.currentTimeMillis() / 50L;
 
             if (currentTick - lastDecayTick >= 2) {
                 lastDecayTick = currentTick;
 
                 MovementData movementData = profile.getMovementData();
-
-                if (velocityH > 0.0D) {
-                    double totalH = velocityH;
-
-                    totalH *= movementData.isOnGround()
-                            ? movementData.getFrictionFactor()
-                            : 0.91F;
-
-                    velocityH = Math.max(totalH - 0.001D, 0.0D);
-                }
-
-                if (velocityV > 0.0D) {
-                    double totalV = velocityV;
-
-                    totalV = (totalV * (movementData.isOnGround()
-                            ? movementData.getFrictionFactor()
-                            : 0.91F)) - 0.04D;
-
-                    velocityV = Math.max(totalV, 0.0D);
-                }
-
-                if (velocityV < 0.0001) {
-                    velocityV = 0.0D;
-                    velocityVSustain = 0.0D;
-                }
-
-                if (velocityH < 0.0001) {
-                    velocityH = 0.0D;
-                    velocityHSustain = 0.0D;
-                }
 
                 explosionKnockback.multiply(0.95D);
 
@@ -167,11 +146,15 @@ public class VelocityData implements Data {
             Vector3d v = wrapper.getVelocity();
             Vector packetVelocity = new Vector(v.getX(), v.getY(), v.getZ());
 
+            entityVelocityPacketTicks = 0;
+            pendingEntityVelocity = copy(packetVelocity);
+            entityVelocitySequence = entityVelocitySequence == Integer.MAX_VALUE ? 1 : entityVelocitySequence + 1;
+
             /*
              * Do NOT apply velocity here.
              * Only store it as pending and apply it when the transaction confirms.
              */
-            add(Actions.VELOCITY, packetVelocity);
+            event.getTasksAfterSend().add(() -> add(Actions.VELOCITY, packetVelocity));
 
         } else if (event.getPacketType() == PacketType.Play.Server.EXPLOSION) {
             WrapperPlayServerExplosion explosion = new WrapperPlayServerExplosion(event);
@@ -187,11 +170,13 @@ public class VelocityData implements Data {
 
             Vector packetExplosion = new Vector(knockback.getX(), knockback.getY(), knockback.getZ());
 
+            explosionVelocityPacketTicks = 0;
+
             /*
              * Do NOT apply explosion here.
              * Only store it as pending and apply it when the transaction confirms.
              */
-            add(Actions.EXPLOSION, packetExplosion);
+            event.getTasksAfterSend().add(() -> add(Actions.EXPLOSION, packetExplosion));
         }
     }
 
@@ -218,6 +203,7 @@ public class VelocityData implements Data {
 
         if (wrappedData.getAction() == Actions.VELOCITY) {
             setVelocityTicks(0);
+            setEntityVelocityTicks(0);
 
             /*
              * Transaction-confirmed normal velocity.
@@ -250,22 +236,26 @@ public class VelocityData implements Data {
 
         } else if (wrappedData.getAction() == Actions.EXPLOSION) {
             setVelocityTicks(0);
+            boolean stackedBeforeMovement = getExplosionVelocityTicks() == 0;
+            setExplosionVelocityTicks(0);
 
             /*
              * Transaction-confirmed normal explosion velocity.
              */
             setExplosionKnockbackPacket(copy(vector));
-            setExplosionKnockback(copy(vector));
+            setExplosionKnockback(copy(explosionKnockback).add(copy(vector)));
 
             /*
              * Transaction-confirmed FVC explosion velocity.
              */
-            setExplosionKnockbackfvc(copy(vector));
+            setExplosionKnockbackfvc(stackedBeforeMovement
+                    ? copy(explosionKnockbackfvc).add(copy(vector))
+                    : copy(vector));
 
             /*
              * Transaction-confirmed sustain explosion velocity.
              */
-            setExplosionKnockbackSustain(copy(vector));
+            setExplosionKnockbackSustain(copy(explosionKnockbackSustain).add(copy(vector)));
 
             addStackedVelocity(copy(vector));
         }
@@ -419,6 +409,10 @@ public class VelocityData implements Data {
 
     private static Vector copy(Vector vector) {
         return vector == null ? new Vector(0.0D, 0.0D, 0.0D) : vector.clone();
+    }
+
+    private static int incrementTicks(int ticks) {
+        return ticks < 1_000_000 ? ticks + 1 : ticks;
     }
 
     private static boolean isZero(Vector vector) {

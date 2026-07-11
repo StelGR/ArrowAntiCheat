@@ -79,6 +79,7 @@ public class FlyC extends Check {
                     || movementData.isNearGhast()
                     || movementData.isNearWebs()
                     || profile.getActionData().hasRecentConfirmedUnderPlace(5 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || movementData.isNearBed()
                     || movementData.isNearLava()
                     || movementData.getSinceNearWaterTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)

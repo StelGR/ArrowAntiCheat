@@ -7,9 +7,23 @@ import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PEMaterials {
+
+    private static final Method BLOCK_COLLISION_SHAPE = findNoArgMethod(Block.class, "getCollisionShape");
+    private static final Method VOXEL_BOUNDING_BOXES = findNoArgMethod("org.bukkit.util.VoxelShape", "getBoundingBoxes");
+    private static volatile Method shapeBoundingBoxes;
+    private static volatile Class<?> boundingBoxClass;
+    private static volatile Method boxMinX, boxMinY, boxMinZ, boxMaxX, boxMaxY, boxMaxZ;
+    private static final Map<Material, Boolean> NON_FULL_COLLISION_CACHE = new ConcurrentHashMap<>();
 
     private PEMaterials() {
     }
@@ -79,11 +93,17 @@ public class PEMaterials {
     public static boolean isNonFullCollision(Material material) {
         if (material == null || !material.isBlock()) return false;
 
+        Boolean cached = NON_FULL_COLLISION_CACHE.get(material);
+
+        if (cached != null) return cached;
+
         String name = normalize(material.name());
 
         if (isAirLike(name) || isFluidLike(name)) return false;
 
-        return isKnownCollisionNonFull(name);
+        boolean result = isKnownCollisionNonFull(name);
+        NON_FULL_COLLISION_CACHE.put(material, result);
+        return result;
     }
 
     public static boolean isNonFullShape(WrappedBlockState state, boolean includePassableVisualShapes) {
@@ -163,6 +183,331 @@ public class PEMaterials {
         return state != null && normalize(state.getType().getName()).endsWith("_CHAIN");
     }
 
+    /**
+     * Returns world-space collision boxes. Modern servers use Bukkit's exact
+     * voxel shape; legacy servers use state-aware approximations for the common
+     * non-full blocks that affect movement support.
+     */
+    public static List<CollisionBounds> getCollisionBounds(Block block) {
+        if (block == null) return Collections.emptyList();
+
+        List<CollisionBounds> modern = getModernCollisionBounds(block);
+
+        if (modern != null) {
+            return modern;
+        }
+
+        return getLegacyCollisionBounds(block);
+    }
+
+    private static List<CollisionBounds> getModernCollisionBounds(Block block) {
+        if (BLOCK_COLLISION_SHAPE == null) return null;
+
+        try {
+            Object shape = BLOCK_COLLISION_SHAPE.invoke(block);
+
+            if (shape == null) return Collections.emptyList();
+
+            Method boxesMethod = VOXEL_BOUNDING_BOXES != null ? VOXEL_BOUNDING_BOXES : shapeBoundingBoxes;
+
+            if (boxesMethod == null || !boxesMethod.getDeclaringClass().isInstance(shape)) {
+                boxesMethod = shape.getClass().getMethod("getBoundingBoxes");
+                shapeBoundingBoxes = boxesMethod;
+            }
+
+            Object rawBoxes = boxesMethod.invoke(shape);
+
+            if (!(rawBoxes instanceof Collection<?> boxes) || boxes.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<CollisionBounds> result = new ArrayList<>(boxes.size());
+
+            for (Object rawBox : boxes) {
+                CollisionBounds bounds = readBoundingBox(block, rawBox);
+
+                if (bounds != null) {
+                    result.add(bounds);
+                }
+            }
+
+            return result;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static CollisionBounds readBoundingBox(Block block, Object rawBox) throws Exception {
+        if (rawBox == null) return null;
+
+        Class<?> type = rawBox.getClass();
+
+        if (boundingBoxClass != type) {
+            boxMinX = type.getMethod("getMinX");
+            boxMinY = type.getMethod("getMinY");
+            boxMinZ = type.getMethod("getMinZ");
+            boxMaxX = type.getMethod("getMaxX");
+            boxMaxY = type.getMethod("getMaxY");
+            boxMaxZ = type.getMethod("getMaxZ");
+            boundingBoxClass = type;
+        }
+
+        double minX = ((Number) boxMinX.invoke(rawBox)).doubleValue();
+        double minY = ((Number) boxMinY.invoke(rawBox)).doubleValue();
+        double minZ = ((Number) boxMinZ.invoke(rawBox)).doubleValue();
+        double maxX = ((Number) boxMaxX.invoke(rawBox)).doubleValue();
+        double maxY = ((Number) boxMaxY.invoke(rawBox)).doubleValue();
+        double maxZ = ((Number) boxMaxZ.invoke(rawBox)).doubleValue();
+
+        boolean localCoordinates = minX >= -1.0E-6D && maxX <= 1.000001D
+                && minZ >= -1.0E-6D && maxZ <= 1.000001D;
+
+        if (localCoordinates) {
+            minX += block.getX();
+            maxX += block.getX();
+            minY += block.getY();
+            maxY += block.getY();
+            minZ += block.getZ();
+            maxZ += block.getZ();
+        }
+
+        return new CollisionBounds(minX, minY, minZ, maxX, maxY, maxZ);
+    }
+
+    private static List<CollisionBounds> getLegacyCollisionBounds(Block block) {
+        Material material = block.getType();
+        String name = normalize(material.name());
+        int data = getLegacyData(block);
+
+        if (isAirLike(name) || isFluidLike(name)) return Collections.emptyList();
+
+        if (isSlabName(name)) {
+            if (name.contains("DOUBLE")) return single(block, 0, 0, 0, 1, 1, 1);
+            boolean top = (data & 0x8) != 0;
+            return single(block, 0, top ? 0.5D : 0, 0, 1, top ? 1 : 0.5D, 1);
+        }
+
+        if (isStairName(name)) {
+            boolean upsideDown = (data & 0x4) != 0;
+            int direction = data & 0x3;
+            List<CollisionBounds> boxes = new ArrayList<>(2);
+
+            if (upsideDown) {
+                boxes.add(bounds(block, 0, 0.5D, 0, 1, 1, 1));
+            } else {
+                boxes.add(bounds(block, 0, 0, 0, 1, 0.5D, 1));
+            }
+
+            double minY = upsideDown ? 0 : 0.5D;
+            double maxY = upsideDown ? 0.5D : 1;
+
+            switch (direction) {
+                case 0 -> boxes.add(bounds(block, 0.5D, minY, 0, 1, maxY, 1));
+                case 1 -> boxes.add(bounds(block, 0, minY, 0, 0.5D, maxY, 1));
+                case 2 -> boxes.add(bounds(block, 0, minY, 0.5D, 1, maxY, 1));
+                default -> boxes.add(bounds(block, 0, minY, 0, 1, maxY, 0.5D));
+            }
+
+            return boxes;
+        }
+
+        if (name.endsWith("_PANE") || name.contains("BARS") || name.equals("THIN_GLASS") || name.equals("IRON_FENCE")) {
+            return getLegacyPaneBounds(block);
+        }
+
+        if (isFenceName(name)) {
+            return cross(block, 0.375D, 0.625D, 1.5D);
+        }
+
+        if (isWallName(name)) {
+            return cross(block, 0.25D, 0.75D, 1.5D);
+        }
+
+        if (isFenceGateName(name)) {
+            if ((data & 0x4) != 0) return Collections.emptyList();
+            return (data & 0x1) == 0
+                    ? single(block, 0, 0, 0.375D, 1, 1.5D, 0.625D)
+                    : single(block, 0.375D, 0, 0, 0.625D, 1.5D, 1);
+        }
+
+        if (name.equals("TRAP_DOOR") || name.endsWith("_TRAPDOOR")) {
+            boolean open = (data & 0x4) != 0;
+
+            if (!open) {
+                boolean top = (data & 0x8) != 0;
+                return single(block, 0, top ? 0.8125D : 0, 0, 1, top ? 1 : 0.1875D, 1);
+            }
+
+            return switch (data & 0x3) {
+                case 0 -> single(block, 0, 0, 0.8125D, 1, 1, 1);
+                case 1 -> single(block, 0, 0, 0, 1, 1, 0.1875D);
+                case 2 -> single(block, 0.8125D, 0, 0, 1, 1, 1);
+                default -> single(block, 0, 0, 0, 0.1875D, 1, 1);
+            };
+        }
+
+        if (name.endsWith("_CARPET") || name.equals("CARPET")) {
+            return single(block, 0, 0, 0, 1, 0.0625D, 1);
+        }
+
+        if (name.endsWith("_PRESSURE_PLATE") || name.endsWith("_PLATE")) {
+            return single(block, 0.0625D, 0, 0.0625D, 0.9375D, 0.0625D, 0.9375D);
+        }
+
+        if (name.equals("SNOW") || name.equals("SNOW_LAYER")) {
+            return single(block, 0, 0, 0, 1, Math.max(0.125D, ((data & 0x7) + 1) / 8.0D), 1);
+        }
+
+        if (name.equals("CAULDRON") || name.endsWith("_CAULDRON")) {
+            List<CollisionBounds> boxes = new ArrayList<>(5);
+            boxes.add(bounds(block, 0, 0, 0, 1, 0.3125D, 1));
+            boxes.add(bounds(block, 0, 0.3125D, 0, 0.125D, 1, 1));
+            boxes.add(bounds(block, 0.875D, 0.3125D, 0, 1, 1, 1));
+            boxes.add(bounds(block, 0.125D, 0.3125D, 0, 0.875D, 1, 0.125D));
+            boxes.add(bounds(block, 0.125D, 0.3125D, 0.875D, 0.875D, 1, 1));
+            return boxes;
+        }
+
+        if (name.contains("CHEST")) return single(block, 0.0625D, 0, 0.0625D, 0.9375D, 0.875D, 0.9375D);
+        if (name.equals("MUD")) return single(block, 0, 0, 0, 1, 0.875D, 1);
+        if (name.equals("HONEY_BLOCK")) return single(block, 0, 0, 0, 1, 0.9375D, 1);
+        if (name.equals("DRIED_GHAST")) return single(block, 0.0625D, 0, 0.0625D, 0.9375D, 0.5D, 0.9375D);
+        if (name.equals("HEAVY_CORE")) return single(block, 0.25D, 0, 0.25D, 0.75D, 0.5D, 0.75D);
+        if (name.contains("ENCHANT")) return single(block, 0, 0, 0, 1, 0.75D, 1);
+        if (name.contains("PORTAL_FRAME")) return single(block, 0, 0, 0, 1, 0.8125D, 1);
+        if (name.contains("DAYLIGHT")) return single(block, 0, 0, 0, 1, 0.375D, 1);
+        if (name.equals("FARMLAND") || name.equals("SOIL")) return single(block, 0, 0, 0, 1, 0.9375D, 1);
+        if (name.equals("SOUL_SAND")) return single(block, 0, 0, 0, 1, 0.875D, 1);
+        if (name.equals("CAKE") || name.equals("CAKE_BLOCK")) return single(block, 0.0625D, 0, 0.0625D, 0.9375D, 0.5D, 0.9375D);
+        if (name.equals("BED") || name.endsWith("_BED")) return single(block, 0, 0, 0, 1, 0.5625D, 1);
+        if (name.contains("FLOWER_POT") || name.startsWith("POTTED_")) return single(block, 0.3125D, 0, 0.3125D, 0.6875D, 0.375D, 0.6875D);
+        if (name.equals("CACTUS")) return single(block, 0.0625D, 0, 0.0625D, 0.9375D, 0.9375D, 0.9375D);
+
+        if (name.equals("BIG_DRIPLEAF")) {
+            List<CollisionBounds> boxes = new ArrayList<>(2);
+            boxes.add(bounds(block, 0, 0.6875D, 0, 1, 0.9375D, 1));
+            boxes.add(bounds(block, 0.375D, 0, 0.375D, 0.625D, 0.6875D, 0.625D));
+            return boxes;
+        }
+
+        if (name.contains("ANVIL")) {
+            return (data & 0x1) == 0
+                    ? single(block, 0.125D, 0, 0, 0.875D, 1, 1)
+                    : single(block, 0, 0, 0.125D, 1, 1, 0.875D);
+        }
+
+        if (!material.isSolid() && !isKnownCollisionNonFull(name)) {
+            return Collections.emptyList();
+        }
+
+        return single(block, 0, 0, 0, 1, 1, 1);
+    }
+
+    private static List<CollisionBounds> cross(Block block, double min, double max, double height) {
+        List<CollisionBounds> boxes = new ArrayList<>(2);
+        boxes.add(bounds(block, 0, 0, min, 1, height, max));
+        boxes.add(bounds(block, min, 0, 0, max, height, 1));
+        return boxes;
+    }
+
+    private static List<CollisionBounds> getLegacyPaneBounds(Block block) {
+        final double min = 0.4375D;
+        final double max = 0.5625D;
+
+        boolean west = connectsPane(block.getRelative(-1, 0, 0));
+        boolean east = connectsPane(block.getRelative(1, 0, 0));
+        boolean north = connectsPane(block.getRelative(0, 0, -1));
+        boolean south = connectsPane(block.getRelative(0, 0, 1));
+
+        List<CollisionBounds> boxes = new ArrayList<>(3);
+
+        if (west || east) {
+            boxes.add(bounds(block, west ? 0.0D : min, 0, min, east ? 1.0D : max, 1, max));
+        }
+
+        if (north || south) {
+            boxes.add(bounds(block, min, 0, north ? 0.0D : min, max, 1, south ? 1.0D : max));
+        }
+
+        if (boxes.isEmpty()) {
+            boxes.add(bounds(block, min, 0, min, max, 1, max));
+        }
+
+        return boxes;
+    }
+
+    private static boolean connectsPane(Block neighbor) {
+        if (neighbor == null || neighbor.getType() == null) return false;
+
+        Material material = neighbor.getType();
+        String name = normalize(material.name());
+
+        return material.isSolid()
+                || name.endsWith("_PANE")
+                || name.contains("BARS")
+                || name.equals("THIN_GLASS")
+                || name.equals("IRON_FENCE");
+    }
+
+    private static List<CollisionBounds> single(Block block,
+                                                double minX, double minY, double minZ,
+                                                double maxX, double maxY, double maxZ) {
+        return Collections.singletonList(bounds(block, minX, minY, minZ, maxX, maxY, maxZ));
+    }
+
+    private static CollisionBounds bounds(Block block,
+                                          double minX, double minY, double minZ,
+                                          double maxX, double maxY, double maxZ) {
+        return new CollisionBounds(
+                block.getX() + minX,
+                block.getY() + minY,
+                block.getZ() + minZ,
+                block.getX() + maxX,
+                block.getY() + maxY,
+                block.getZ() + maxZ
+        );
+    }
+
+    private static int getLegacyData(Block block) {
+        try {
+            Method method = block.getClass().getMethod("getData");
+            Object value = method.invoke(block);
+            return value instanceof Number ? ((Number) value).intValue() & 0xFF : 0;
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
+    private static Method findNoArgMethod(Class<?> type, String name) {
+        try {
+            return type.getMethod(name);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Method findNoArgMethod(String className, String name) {
+        try {
+            return findNoArgMethod(Class.forName(className), name);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    public static final class CollisionBounds {
+        public final double minX, minY, minZ, maxX, maxY, maxZ;
+
+        public CollisionBounds(double minX, double minY, double minZ,
+                               double maxX, double maxY, double maxZ) {
+            this.minX = minX;
+            this.minY = minY;
+            this.minZ = minZ;
+            this.maxX = maxX;
+            this.maxY = maxY;
+            this.maxZ = maxZ;
+        }
+    }
+
     private static boolean isKnownCollisionNonFull(String name) {
         if (name == null) return false;
 
@@ -196,9 +541,11 @@ public class PEMaterials {
                 || name.equals("CAULDRON")
                 || name.endsWith("_CAULDRON")
                 || name.equals("COMPOSTER")
-                || name.equals("CHEST")
-                || name.equals("ENDER_CHEST")
-                || name.equals("TRAPPED_CHEST")
+                || name.contains("CHEST")
+                || name.equals("MUD")
+                || name.equals("HONEY_BLOCK")
+                || name.equals("DRIED_GHAST")
+                || name.equals("HEAVY_CORE")
                 || name.equals("ENCHANTING_TABLE")
                 || name.equals("ENCHANTMENT_TABLE")
                 || name.equals("END_PORTAL_FRAME")
@@ -232,6 +579,8 @@ public class PEMaterials {
                 || name.startsWith("POTTED_")
                 || name.equals("CAKE")
                 || name.equals("CAKE_BLOCK")
+                || name.equals("CACTUS")
+                || name.equals("BIG_DRIPLEAF")
                 || name.equals("BED")
                 || name.endsWith("_BED");
     }
@@ -280,6 +629,7 @@ public class PEMaterials {
                 || name.equals("STONE_SLAB2")
                 || name.equals("DOUBLE_STONE_SLAB")
                 || name.equals("DOUBLE_STONE_SLAB2")
+                || name.equals("WOOD_STEP")
                 || name.equals("WOODEN_SLAB")
                 || name.equals("WOOD_DOUBLE_STEP"));
     }

@@ -40,6 +40,9 @@ public class ProfileListener implements Listener {
 
         if (Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean()
                 && player.hasPermission(Permissions.ALERTS.getPermission())) {
+            if (profile != null) {
+                profile.setAlerts(true);
+            }
             this.plugin.getAlertManager().addPlayerToAlerts(player.getUniqueId());
         }
     }

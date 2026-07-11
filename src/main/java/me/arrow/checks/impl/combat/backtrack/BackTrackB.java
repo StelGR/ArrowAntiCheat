@@ -218,7 +218,7 @@ public class BackTrackB extends Check {
     }
 
     private boolean isExempt() {
-        if (profile.getTick() < 100) {
+        if (profile.getTick() < 20) {
             return true;
         }
 

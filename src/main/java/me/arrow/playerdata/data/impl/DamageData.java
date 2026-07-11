@@ -4,8 +4,13 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
+import org.bukkit.entity.Arrow;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 
+import java.lang.reflect.Method;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
@@ -19,6 +24,9 @@ public class DamageData implements Data {
 
     private volatile EntityDamageEvent.DamageCause lastCause;
     private volatile int lastTick = STALE_TICK;
+    private volatile int lastSelfProjectileTick = STALE_TICK;
+    private volatile int lastSelfBowTick = STALE_TICK;
+    private volatile int lastSelfBowPunchLevel;
 
     public DamageData(Profile profile) {
         this.profile = profile;
@@ -38,6 +46,56 @@ public class DamageData implements Data {
         this.damageTicks.set(cause.ordinal(), tick);
         this.lastCause = cause;
         this.lastTick = tick;
+    }
+
+    public void record(EntityDamageEvent event) {
+        if (event == null) {
+            return;
+        }
+
+        record(event.getCause());
+
+        if (event.getCause() != EntityDamageEvent.DamageCause.PROJECTILE
+                || !(event instanceof EntityDamageByEntityEvent damageByEntity)
+                || !(damageByEntity.getDamager() instanceof Projectile projectile)) {
+            return;
+        }
+
+        Object shooter = projectile.getShooter();
+
+        if (shooter instanceof Player shooterPlayer
+                && profile.getPlayer() != null
+                && shooterPlayer.getUniqueId().equals(profile.getPlayer().getUniqueId())) {
+            this.lastSelfProjectileTick = profile.getTick();
+
+            if (projectile instanceof Arrow arrow) {
+                this.lastSelfBowTick = profile.getTick();
+                this.lastSelfBowPunchLevel = getArrowKnockbackStrength(arrow);
+            }
+        }
+    }
+
+    public boolean hasSelfProjectile(int ticks) {
+        return hasNotPassed(this.lastSelfProjectileTick, ticks);
+    }
+
+    public boolean hasSelfBowBoost(int ticks) {
+        return hasNotPassed(this.lastSelfBowTick, ticks);
+    }
+
+    public int getSelfBowPunchLevel(int ticks) {
+        return hasSelfBowBoost(ticks) ? this.lastSelfBowPunchLevel : -1;
+    }
+
+    private static int getArrowKnockbackStrength(Arrow arrow) {
+        try {
+            Method method = arrow.getClass().getMethod("getKnockbackStrength");
+            Object value = method.invoke(arrow);
+            int level = value instanceof Number ? ((Number) value).intValue() : 0;
+            return Math.max(0, Math.min(2, level));
+        } catch (Throwable ignored) {
+            return 0;
+        }
     }
 
     public boolean hasCause(EntityDamageEvent.DamageCause cause) {

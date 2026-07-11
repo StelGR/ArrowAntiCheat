@@ -51,7 +51,7 @@ public class BackTrackA extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)) {
             if (SAFE_MODE) {
-                if (profile.getTick() < 60) {
+                if (profile.getTick() < 20) {
                     return;
                 }
 

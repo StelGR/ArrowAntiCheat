@@ -112,6 +112,12 @@ public class Checks implements Initializer {
         AIM_G_PUNiSH_MODE("AimG.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         AIM_G_MAX_VL("AimG.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        AIM_H("AimH.enabled", true, "Should we enable this module?"),
+        AIM_H_PUNISH("AimH.punish", "", "Punishment settings"),
+        AIM_H_PUNiSH_ENABLED("AimH.punish.enabled", false, "Should punishments be enabled for this check?"),
+        AIM_H_PUNiSH_MODE("AimH.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AIM_H_MAX_VL("AimH.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
+
         REACH_A("ReachA.enabled", true, "Should we enable this module?"),
         REACH_A_MAX_SAMPLES("ReachA.maxSamples", 40, "Do not touch this if you don't know what you are doing."),
         REACH_A_FLAG_SAMPLES("ReachA.flagSamples", 16, "Do not touch this if you don't know what you are doing."),
@@ -121,21 +127,18 @@ public class Checks implements Initializer {
         REACH_A_MAX_LAG_BOX_EXPAND("ReachA.maxLagBoxExpand", 0.13, "Do not touch this if you don't know what you are doing."),
         REACH_A_MAX_FORGIVING_HORIZONTAL_BOX_EXPAND("ReachA.maxForgivingHorizontalBoxExpand", 0.22, "Do not touch this if you don't know what you are doing."),
         REACH_A_MAX_FORGIVING_VERTICAL_BOX_EXPAND("ReachA.maxForgivingVerticalBoxExpand", 0.18, "Do not touch this if you don't know what you are doing."),
-        REACH_A_MAX_REACH_TOLERANCE("ReachA.maxForgivingVerticalBoxExpand", 0.16, "Do not touch this if you don't know what you are doing."),
+        REACH_A_MAX_REACH_TOLERANCE("ReachA.maxReachTolerance", 0.03, "Maximum extra reach tolerance after position compensation."),
         REACH_A_RAY("ReachA.requireRayForReach", false, "Do not touch this if you don't know what you are doing."),
         REACH_A_PUNISH("ReachA.punish", "", "Punishment settings"),
         REACH_A_PUNiSH_ENABLED("ReachA.punish.enabled", true, "Should punishments be enabled for this check?"),
         REACH_A_PUNiSH_MODE("ReachA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         REACH_A_MAX_VL("ReachA.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        REACH_B("ReachB.enabled", true, "Should we enable this module?"),
-        REACH_B_PUNISH("ReachB.punish", "", "Punishment settings"),
-        REACH_B_THRESHOLD("ReachB.threshold", 0.0005, "Hitbox expansion threshold for uncertainty"),
-        REACH_B_CANCEL_IMPOSSIBLE("ReachB.cancelImpossibleHits", true, "Should we cancel impossible hits in real-time?"),
-        REACH_B_MAX_REACH("ReachB.maxReach", 3.0005, "Maximum allowed reach distance in blocks"),
-        REACH_B_PUNiSH_ENABLED("ReachB.punish.enabled", false, "Should punishments be enabled for this check?"),
-        REACH_B_PUNiSH_MODE("ReachB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        REACH_B_MAX_VL("ReachB.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
+        HITBOX_A("HitboxA.enabled", true, "Should we enable this module?"),
+        HITBOX_A_PUNISH("HitboxA.punish", "", "Punishment settings"),
+        HITBOX_A_PUNiSH_ENABLED("HitboxA.punish.enabled", false, "Should punishments be enabled for this check?"),
+        HITBOX_A_PUNiSH_MODE("HitboxA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        HITBOX_A_MAX_VL("HitboxA.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
 
 
         BACKTRACK_A("BackTrackA.enabled", true, "Should we enable this module?"),
@@ -235,6 +238,12 @@ public class Checks implements Initializer {
         INTERACT_C_PUNiSH_ENABLED("InteractC.punish.enabled", true, "Should punishments be enabled for this check?"),
         INTERACT_C_PUNiSH_MODE("InteractC.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         INTERACT_C_MAX_VL("InteractC.punish.vl", 5, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        INTERACT_D("InteractD.enabled", true, "Should we enable this module?"),
+        INTERACT_D_PUNISH("InteractD.punish", "", "Punishment settings"),
+        INTERACT_D_PUNiSH_ENABLED("InteractD.punish.enabled", true, "Should punishments be enabled for this check?"),
+        INTERACT_D_PUNiSH_MODE("InteractD.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        INTERACT_D_MAX_VL("InteractD.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
         INVENTORY_A("InventoryA.enabled", true, "Should we enable this module?"),
         INVENTORY_A_PUNISH("InventoryA.punish", "", "Punishment settings"),

@@ -73,7 +73,7 @@ public class TransactionProcessor implements Runnable {
     @Override
     public void run() {
         if (profile == null) return;
-        if (profile.getTick() < 60) return;
+        if (profile.getTick() < 20) return;
         if (kickedForTransaction) return;
         if (profile.getPlayer() == null || !profile.getPlayer().isOnline()) {
             stopTransaction();

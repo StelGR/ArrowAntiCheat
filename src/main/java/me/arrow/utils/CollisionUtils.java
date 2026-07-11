@@ -5,6 +5,7 @@ import me.arrow.Arrow;
 import me.arrow.nms.NmsInstance;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.MaterialType;
+import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 
@@ -33,15 +34,24 @@ public class CollisionUtils {
     public static final double SERVER_GROUND_DIVISOR = .015625D;
 
     /*
-    The exact horizontal expansion we need in order to get all the blocks near the player.
+     * Scan slightly past the support grace. At an exact boundary, flooring an
+     * inward sample selects the air block and misses the edge block entirely.
      */
-    private static final double EXPAND_HORIZONTAL = .75D;
+    private static final double EXPAND_HORIZONTAL = .80001D;
+
+    /*
+     * Ground support must use the player's real footprint, not the wider nearby
+     * block scan. Keeping these separate prevents a side wall from being treated
+     * as a block under the player while still detecting genuine edge landings.
+     */
+    private static final double PLAYER_HALF_WIDTH = .300001D;
+    private static final double GROUND_TRANSITION_HALF_WIDTH = .80001D;
 
     /*
     The exact additional expansion we need in order to correctly account for blocks on top and below.
      */
     //private static final double EXPAND_ADDITIONAL = 2.000000000002E-6;
-    private static final double EXPAND_ADDITIONAL = 0;
+    private static final double EXPAND_ADDITIONAL = 2.000000000002E-6;
 
     /*
     The modulo values for full blocks in order to get if the player is at the edge of a block.
@@ -528,6 +538,12 @@ public class CollisionUtils {
     }
 
     public static NearbyBlocksResult getNearbyBlocks(final CustomLocation location, final boolean async) {
+        return getNearbyBlocks(location, async, location.getY());
+    }
+
+    public static NearbyBlocksResult getNearbyBlocks(final CustomLocation location,
+                                                     final boolean async,
+                                                     final double playerFeetY) {
 
         NearbyBlocksResult result = new NearbyBlocksResult();
 
@@ -581,7 +597,7 @@ public class CollisionUtils {
 
                     if (!blockPositions.contains(above)) {
 
-                        result.handle(above, BlockPosition.ABOVE, nms);
+                        result.handle(above, BlockPosition.ABOVE, nms, false);
 
                         blockPositions.add(above);
                     }
@@ -598,7 +614,12 @@ public class CollisionUtils {
 
                     if (!blockPositions.contains(under)) {
 
-                        result.handle(under, BlockPosition.UNDER, nms);
+                        result.handle(
+                                under,
+                                BlockPosition.UNDER,
+                                nms,
+                                isSupportingPlayer(locationX, playerFeetY, locationZ, under, nms)
+                        );
 
                         blockPositions.add(under);
                     }
@@ -621,7 +642,7 @@ public class CollisionUtils {
 
                     if (!blockPositions.contains(middle)) {
 
-                        result.handle(middle, BlockPosition.MIDDLE, nms);
+                        result.handle(middle, BlockPosition.MIDDLE, nms, false);
 
                         blockPositions.add(middle);
                     }
@@ -638,7 +659,7 @@ public class CollisionUtils {
 
                     if (!blockPositions.contains(below)) {
 
-                        result.handle(below, BlockPosition.BELOW, nms);
+                        result.handle(below, BlockPosition.BELOW, nms, false);
 
                         blockPositions.add(below);
                     }
@@ -647,6 +668,140 @@ public class CollisionUtils {
         }
 
         return result;
+    }
+
+    private static boolean isSupportingPlayer(double playerX,
+                                              double playerY,
+                                              double playerZ,
+                                              Block block,
+                                              NmsInstance nms) {
+        if (block == null) {
+            return false;
+        }
+
+        Material supportType = nms.getType(block);
+        boolean nonFullSupport = PEMaterials.isNonFullCollision(supportType);
+
+        if (supportType == null || (!supportType.isSolid() && !nonFullSupport)) {
+            return false;
+        }
+
+        boolean strictSupport = false;
+        boolean transitionSupport = false;
+
+        if (nonFullSupport) {
+            for (PEMaterials.CollisionBounds bounds : PEMaterials.getCollisionBounds(block)) {
+                if (!isSupportingSurface(playerY, bounds.maxY)) continue;
+
+                if (overlapsPlayerFootprint(playerX, playerZ, bounds, PLAYER_HALF_WIDTH)) {
+                    strictSupport = true;
+                    break;
+                }
+
+                if (overlapsPlayerFootprint(playerX, playerZ, bounds, GROUND_TRANSITION_HALF_WIDTH)) {
+                    transitionSupport = true;
+                }
+            }
+        } else {
+            double top = block.getY() + 1.0D;
+
+            if (!isSupportingSurface(playerY, top)) {
+                return false;
+            }
+
+            strictSupport = overlapsPlayerFootprint(playerX, playerZ, block, PLAYER_HALF_WIDTH);
+            transitionSupport = overlapsPlayerFootprint(playerX, playerZ, block, GROUND_TRANSITION_HALF_WIDTH);
+        }
+
+        if (strictSupport) return true;
+        if (!transitionSupport) return false;
+
+        /*
+         * Preserve the wider ground transition used by the existing movement
+         * processors so walking or sneaking off a platform does not instantly
+         * become custom air. Only accept that wider support when the same column
+         * is open at body level. A vertical wall has a solid block there and is
+         * therefore not mistaken for ground.
+         */
+        return !hasBodyCollision(playerX, playerY, playerZ, block, nms);
+    }
+
+    private static boolean isSupportingSurface(double playerY, double surfaceY) {
+        double distance = playerY - surfaceY;
+        return distance >= -0.001D && distance <= 0.500001D;
+    }
+
+    private static boolean hasBodyCollision(double playerX,
+                                            double playerY,
+                                            double playerZ,
+                                            Block supportBlock,
+                                            NmsInstance nms) {
+        int bodyY = (int) Math.floor(playerY + 0.001D);
+        Block bodyBlock = supportBlock.getWorld().getBlockAt(supportBlock.getX(), bodyY, supportBlock.getZ());
+        Material bodyType = nms.getType(bodyBlock);
+
+        boolean nonFullBody = PEMaterials.isNonFullCollision(bodyType);
+
+        if (bodyType == null || (!bodyType.isSolid() && !nonFullBody)) {
+            return false;
+        }
+
+        double halfWidth = bodyBlock.getX() == supportBlock.getX()
+                && bodyBlock.getY() == supportBlock.getY()
+                && bodyBlock.getZ() == supportBlock.getZ()
+                ? PLAYER_HALF_WIDTH
+                : GROUND_TRANSITION_HALF_WIDTH;
+
+        if (!nonFullBody) {
+            return bodyBlock.getY() + 1.0D > playerY + 0.001D
+                    && bodyBlock.getY() < playerY + 1.0D
+                    && overlapsPlayerFootprint(playerX, playerZ, bodyBlock, halfWidth);
+        }
+
+        for (PEMaterials.CollisionBounds bounds : PEMaterials.getCollisionBounds(bodyBlock)) {
+            if (bounds.maxY > playerY + 0.001D
+                    && bounds.minY < playerY + 1.0D
+                    && overlapsPlayerFootprint(playerX, playerZ, bounds, halfWidth)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean overlapsPlayerFootprint(double playerX,
+                                                   double playerZ,
+                                                   Block block,
+                                                   double halfWidth) {
+        double playerMinX = playerX - halfWidth;
+        double playerMaxX = playerX + halfWidth;
+        double playerMinZ = playerZ - halfWidth;
+        double playerMaxZ = playerZ + halfWidth;
+
+        double blockMinX = block.getX();
+        double blockMaxX = blockMinX + 1.0D;
+        double blockMinZ = block.getZ();
+        double blockMaxZ = blockMinZ + 1.0D;
+
+        return blockMaxX > playerMinX
+                && blockMinX < playerMaxX
+                && blockMaxZ > playerMinZ
+                && blockMinZ < playerMaxZ;
+    }
+
+    private static boolean overlapsPlayerFootprint(double playerX,
+                                                   double playerZ,
+                                                   PEMaterials.CollisionBounds bounds,
+                                                   double halfWidth) {
+        double playerMinX = playerX - halfWidth;
+        double playerMaxX = playerX + halfWidth;
+        double playerMinZ = playerZ - halfWidth;
+        double playerMaxZ = playerZ + halfWidth;
+
+        return bounds.maxX > playerMinX
+                && bounds.minX < playerMaxX
+                && bounds.maxZ > playerMinZ
+                && bounds.minZ < playerMaxZ;
     }
 
     private enum BlockPosition {
@@ -663,7 +818,10 @@ public class CollisionUtils {
 
         private boolean nearGround, blockAbove, nearWaterLogged;
 
-        private void handle(Block block, BlockPosition blockPosition, NmsInstance nms) {
+        private void handle(Block block,
+                            BlockPosition blockPosition,
+                            NmsInstance nms,
+                            boolean supportingPlayer) {
 
             /*
             Get the material type.
@@ -693,7 +851,7 @@ public class CollisionUtils {
 
                     case UNDER:
 
-                        if (!this.nearGround) this.nearGround = true;
+                        if (supportingPlayer && !this.nearGround) this.nearGround = true;
 
                         break;
                 }

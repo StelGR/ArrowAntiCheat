@@ -20,10 +20,6 @@ import me.arrow.utils.customutils.animationSystem.Animation;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-
 // this is the main check interface, where you can get the check info from, bypass permissions do not exist as i don't support servers that give bypass  to Youtubers
 
 public abstract class AbstractCheck {
@@ -287,55 +283,30 @@ public abstract class AbstractCheck {
 
 
     private void sendPunishWebhook(String player, String reason) {
-        try {
-            String webhookUrl = Config.Setting.WEBHOOK_LINK.getString();
+        String title = "";
+        String description = "";
 
-            if (webhookUrl == null || webhookUrl.trim().isEmpty()) {
-                System.out.println("Invalid webhook URL, failed to send punishment message. please check your configuration");
-                return;
-            }
-
-            URL url;
-            try {
-                url = new URL(webhookUrl);
-            } catch (Exception e) {
-                System.out.println("Invalid webhook URL, failed to send punishment message. please check your configuration");
-                return;
-            }
-
-            String title = "";
-            String description = "";
-
-            if (reason.equalsIgnoreCase("BAN")) {
-                title = "Player punished | " + player;
-                description = "**" + player + "** has been punished for cheating";
-            } else if (reason.equalsIgnoreCase("KICK")) {
-                title = "Player kicked | " + player;
-                description = "**" + player + "** has been kicked/timed out.";
-            }
-
-            String json = "{"
-                    + "\"embeds\": [{"
-                    + "\"title\": \"" + title + "\","
-                    + "\"description\": \"" + description + "\","
-                    + "\"color\": 16711680"
-                    + "}]"
-                    + "}";
-
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setDoOutput(true);
-
-            try (OutputStream os = conn.getOutputStream()) {
-                os.write(json.getBytes());
-            }
-
-            conn.getInputStream().close();
-            conn.disconnect();
-        } catch (Exception ignored) {
-            System.out.println("Invalid webhook URL, failed to send punishment message. please check your configuration");
+        if (reason.equalsIgnoreCase("BAN")) {
+            title = "Player punished | " + player;
+            description = "**" + player + "** has been punished for cheating";
+        } else if (reason.equalsIgnoreCase("KICK")) {
+            title = "Player kicked | " + player;
+            description = "**" + player + "** has been kicked/timed out.";
         }
+
+        String json = "{"
+                + "\"embeds\": [{"
+                + "\"title\": \"" + title + "\","
+                + "\"description\": \"" + description + "\","
+                + "\"color\": 16711680"
+                + "}]"
+                + "}";
+
+        Arrow.getInstance().getAlertManager().queueWebhook(
+                Config.Setting.WEBHOOK_LINK.getString(),
+                json,
+                "Invalid webhook URL, failed to send punishment message. please check your configuration"
+        );
     }
 
 }

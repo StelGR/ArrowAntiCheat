@@ -22,18 +22,15 @@ import me.arrow.utils.customutils.OtherUtility;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,266 +39,33 @@ import static me.arrow.utils.ChatUtils.format;
 import static me.arrow.utils.customutils.OtherUtility.calculatePercentage;
 import static me.arrow.utils.customutils.OtherUtility.translate;
 
-// this is our violation listener, here we run the alerts, and the verbose, verbose can be seen by anyone that has Permissions.VERBOSE
-// idk, what else do you want me to say? that alerts have a basic mode that has a total alert VL combined from all checks to show each as a category instead?
-
+// This listener keeps alert creation and fan-out away from packet/player threads.
 public class ViolationListener implements Listener {
 
     private static final LegacyComponentSerializer LEGACY_SERIALIZER =
             LegacyComponentSerializer.legacySection();
 
     private final Arrow plugin;
+    private final boolean systemChatPackets;
 
     private final Map<UUID, Map<String, Integer>> basicAlertVLs = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastReset = new ConcurrentHashMap<>();
 
     public ViolationListener(Arrow plugin) {
         this.plugin = plugin;
+
+        ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
+        this.systemChatPackets = serverVersion.isNewerThanOrEquals(ServerVersion.V_1_19);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onViolation(AnticheatViolationEvent event) {
-
-        this.plugin.getAlertManager().getAlertExecutor().execute(() -> {
-
-            final Player punishedPlayer = event.getPlayer();
-
-            if (punishedPlayer == null || !punishedPlayer.isOnline()) {
-                return;
-            }
-
-            final Profile punishedProfile = this.plugin.getProfileManager().getProfile(punishedPlayer);
-
-            if (punishedProfile == null) {
-                return;
-            }
-
-            final String tps = String.valueOf(TickTask.getTPS());
-
-            final String checkType = event.getType() != null ? event.getType() : "";
-            final String checkName = event.getCheck() != null ? event.getCheck() : "";
-            final String checkCategory = String.valueOf(event.getCheckCategory());
-
-            punishedProfile.setLastFlaggedCheck(checkName);
-
-            final String checkPlusCheckType;
-
-            if (checkType.isEmpty() || checkName.equals(" ")) {
-                checkPlusCheckType = checkName;
-            } else {
-                checkPlusCheckType = checkName + " (" + checkType + ")";
-            }
-
-            final boolean experimental = event.isExperimental();
-            final String experimentalCheck = experimental ? MsgType.EXPERIMENTAL_SYMBOL.getMessage() + " " : " ";
-            final String experimentalFormat = experimental ? MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "";
-
-            final String description = event.getDescription() != null ? event.getDescription() : "";
-
-            final String rawInformationTitle =
-                    event.getInformationTitle() != null ? event.getInformationTitle() : "";
-
-            String rawInformation = event.getInformation() != null ? event.getInformation() : "";
-
-            final String informationTitle =
-                    MsgType.MAIN_THEME_COLOR.getMessage() + rawInformationTitle;
-
-            final String informationTitleFormatted =
-                    MsgType.MAIN_THEME_COLOR.getMessage()
-                            + MsgType.HOVER_SYMBOL.getMessage()
-                            + " "
-                            + rawInformationTitle;
-
-            String informationFormatted = rawInformation;
-
-            final String[] lines = informationFormatted.split("\\n");
-
-            final String prefixFormatted =
-                    MsgType.SECOND_THEME_COLOR.getMessage()
-                            + " "
-                            + MsgType.HOVER_SYMBOL.getMessage()
-                            + " ";
-
-            StringBuilder formattedInfoBuilder = new StringBuilder();
-
-            for (int i = 0; i < lines.length; i++) {
-                formattedInfoBuilder.append(prefixFormatted).append(lines[i]);
-
-                if (i < lines.length - 1) {
-                    formattedInfoBuilder.append('\n');
-                }
-            }
-
-            informationFormatted = formattedInfoBuilder.toString();
-
-            final String prefix = MsgType.PREFIX.getMessage();
-
-            StringBuilder normalInfoBuilder = new StringBuilder();
-
-            for (int i = 0; i < lines.length; i++) {
-                normalInfoBuilder.append(prefix).append(lines[i]);
-
-                if (i < lines.length - 1) {
-                    normalInfoBuilder.append('\n');
-                }
-            }
-
-            final String information = normalInfoBuilder.toString();
-
-            final String playerName = punishedPlayer.getName();
-            final int vl = event.getVl();
-            final int maxvl = event.getMaxVl();
-
-            String composedCheck = checkPlusCheckType + (experimental ? " " + MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "");
-
-            if (vl >= event.getMaxVl()) composedCheck = "&c"+checkPlusCheckType + (experimental ? " " + MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "");
-
-            this.plugin.getLogManager().addLogToQueue(new PlayerLog(
-                    playerName,
-                    punishedPlayer.getUniqueId().toString(),
-                    composedCheck,
-                    sanitizeForLog(informationTitleFormatted + "\n" + informationFormatted)
-            ));
-
-            final String hoverMessage = MsgType.ALERT_HOVER.getMessage()
-                    .replace("%description%", description)
-                    .replace("%informationtitleformatted%", informationTitleFormatted)
-                    .replace("%informationformatted%", informationFormatted)
-                    .replace("%informationtitle%", informationTitle)
-                    .replace("%information%", information)
-                    .replace("%ping%", String.valueOf(punishedProfile.getConnectionData().getTransPing()))
-                    .replace("%tps%", tps);
-
-            final Component hoverComponent = legacy(format(hoverMessage));
-
-            final String alertMessage = MsgType.ALERT_MESSAGE.getMessage();
-
-            final String formattedDebugString =
-                    MsgType.SECOND_THEME_COLOR.getMessage() + "x"
-                            + MsgType.MAIN_THEME_COLOR.getMessage() + "%vl%"
-                            + MsgType.SECOND_THEME_COLOR.getMessage() + ", "
-                            + MsgType.SECOND_THEME_COLOR.getMessage() + "Ping: "
-                            + MsgType.MAIN_THEME_COLOR.getMessage() + "%ping%"
-                            + MsgType.SECOND_THEME_COLOR.getMessage() + ", "
-                            + MsgType.SECOND_THEME_COLOR.getMessage() + "TPS: "
-                            + MsgType.MAIN_THEME_COLOR.getMessage() + "%tps%";
-
-            for (Player staff : Bukkit.getOnlinePlayers()) {
-
-                final Profile staffProfile = this.plugin.getProfileManager().getProfile(staff);
-
-                if (staffProfile == null || !staffProfile.isAlerts()) {
-                    continue;
-                }
-
-                if (!staff.hasPermission(Permissions.ALERTS.getPermission())) {
-                    continue;
-                }
-
-                final boolean debug = staff.hasPermission(Permissions.DEBUG.getPermission());
-                final boolean hover = staff.hasPermission(Permissions.HOVER.getPermission());
-
-                String displayCheck = checkPlusCheckType + experimentalCheck;
-
-                if (staff.hasPermission(Permissions.BASIC_ALERTS.getPermission()) && !debug) {
-                    String category = getCategory(checkName);
-
-                    if (category != null) {
-                        addCategoryVL(staff, category);
-
-                        int catVL = getCategoryVL(staff, category);
-
-                        displayCheck = category
-                                + ChatColor.DARK_GRAY + " ["
-                                + ChatColor.GRAY + "x"
-                                + MsgType.MAIN_THEME_COLOR.getMessage() + catVL
-                                + ChatColor.DARK_GRAY + "]";
-                    }
-                }
-
-                final String messageToSend;
-
-                if (debug) {
-                    messageToSend = alertMessage
-                            .replace("%debug%", formattedDebugString)
-                            .replace("%player%", playerName)
-                            .replace("%check%", displayCheck)
-                            .replace("%vl%", String.valueOf(vl))
-                            .replace("%tps%", tps)
-                            .replace("%checkname%", checkName)
-                            .replace("%checktype%", checkType)
-                            .replace("%maxvl%", String.valueOf(maxvl))
-                            .replace("%checkcategory%", checkCategory)
-                            .replace("%checknameandtype%", checkPlusCheckType)
-                            .replace("%experimental%", experimentalFormat)
-                            .replace("%ping%", String.valueOf(punishedProfile.getConnectionData().getTransPing()));
-                } else {
-                    messageToSend = alertMessage
-                            .replace("%debug%", "")
-                            .replace("%player%", playerName)
-                            .replace("%check%", displayCheck)
-                            .replace("%vl%", String.valueOf(vl))
-                            .replace("%tps%", tps)
-                            .replace("%maxvl%", String.valueOf(maxvl))
-                            .replace("%checkname%", checkName)
-                            .replace("%checktype%", checkType)
-                            .replace("%checkcategory%", checkCategory)
-                            .replace("%checknameandtype%", checkPlusCheckType)
-                            .replace("%experimental%", experimentalFormat)
-                            .replace("%ping%", String.valueOf(punishedProfile.getConnectionData().getTransPing()));
-                }
-
-                Component messageComponent = legacy(format(messageToSend))
-                        .clickEvent(ClickEvent.runCommand("/tp " + playerName));
-
-                if (hover) {
-                    messageComponent = messageComponent.hoverEvent(HoverEvent.showText(hoverComponent));
-                }
-
-                sendChatPacket(staff, messageComponent);
-            }
-
-            int frequency;
-
-            try {
-                frequency = Config.Setting.WEBHOOK_FREQUENCY.getInt();
-            } catch (Exception e) {
-                System.out.println("Webhook Frequency from the config seems to be an invalid number or empty");
-                return;
-            }
-
-            if (frequency < 5) {
-                frequency = 5;
-            }
-
-            if (Config.Setting.WEBHOOK_ENABLED.getBoolean() && vl % frequency == 0) {
-                TaskUtils.taskAsync(() ->
-                        sendWebhook(playerName, checkName, checkType, experimental, vl)
-                );
-            }
-
-            if (Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean()) {
-                OtherUtility.log(translate(
-                        MsgType.PREFIX.getMessage()
-                                + MsgType.MAIN_THEME_COLOR.getMessage()
-                                + playerName
-                                + MsgType.SECOND_THEME_COLOR.getMessage()
-                                + " failed "
-                                + MsgType.MAIN_THEME_COLOR.getMessage()
-                                + checkPlusCheckType
-                                + experimentalCheck
-                                + MsgType.SECOND_THEME_COLOR.getMessage()
-                                + "x"
-                                + vl
-                ));
-            }
-        });
+        ViolationAlert alert = ViolationAlert.from(event);
+        this.plugin.getAlertManager().queueAlert(() -> processViolation(alert));
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onVerbose(VerboseEvent event) {
-
-        final Player punishedPlayer = event.getPlayer();
+    private void processViolation(ViolationAlert alert) {
+        final Player punishedPlayer = alert.player;
 
         if (punishedPlayer == null || !punishedPlayer.isOnline()) {
             return;
@@ -314,36 +78,229 @@ public class ViolationListener implements Listener {
         }
 
         final String tps = String.valueOf(TickTask.getTPS());
+        final String ping = String.valueOf(punishedProfile.getConnectionData().getTransPing());
+        final String checkType = alert.checkType;
+        final String checkName = alert.checkName;
+        final String checkCategory = alert.checkCategory;
 
-        final String checkType = event.getType() != null ? event.getType() : "";
-        final String checkName = event.getCheckName() != null ? event.getCheckName() : "";
+        punishedProfile.setLastFlaggedCheck(checkName);
 
-        final String checkPlusCheckType = checkName + " (" + checkType + ")";
+        final String checkPlusCheckType;
 
-        final String information = event.getInformation() != null ? event.getInformation() : "";
+        if (checkType.isEmpty() || checkName.equals(" ")) {
+            checkPlusCheckType = checkName;
+        } else {
+            checkPlusCheckType = checkName + " (" + checkType + ")";
+        }
 
+        final boolean experimental = alert.experimental;
+        final String experimentalCheck = experimental ? MsgType.EXPERIMENTAL_SYMBOL.getMessage() + " " : " ";
+        final String experimentalFormat = experimental ? MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "";
+        final String informationTitle = MsgType.MAIN_THEME_COLOR.getMessage() + alert.informationTitle;
+        final String informationTitleFormatted =
+                MsgType.MAIN_THEME_COLOR.getMessage()
+                        + MsgType.HOVER_SYMBOL.getMessage()
+                        + " "
+                        + alert.informationTitle;
+
+        final String prefixFormatted =
+                MsgType.SECOND_THEME_COLOR.getMessage()
+                        + " "
+                        + MsgType.HOVER_SYMBOL.getMessage()
+                        + " ";
+
+        final String informationFormatted = prefixLines(alert.information, prefixFormatted);
+        final String information = prefixLines(alert.information, MsgType.PREFIX.getMessage());
+        final String playerName = punishedPlayer.getName();
+        final int vl = alert.vl;
+        final int maxvl = alert.maxVl;
+
+        String composedCheck = checkPlusCheckType
+                + (experimental ? " " + MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "");
+
+        if (vl >= maxvl) {
+            composedCheck = "&c" + checkPlusCheckType
+                    + (experimental ? " " + MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "");
+        }
+
+        this.plugin.getLogManager().addLogToQueue(new PlayerLog(
+                playerName,
+                punishedPlayer.getUniqueId().toString(),
+                composedCheck,
+                sanitizeForLog(informationTitleFormatted + "\n" + informationFormatted)
+        ));
+
+        final String hoverMessage = MsgType.ALERT_HOVER.getMessage()
+                .replace("%description%", alert.description)
+                .replace("%informationtitleformatted%", informationTitleFormatted)
+                .replace("%informationformatted%", informationFormatted)
+                .replace("%informationtitle%", informationTitle)
+                .replace("%information%", information)
+                .replace("%ping%", ping)
+                .replace("%tps%", tps);
+
+        final Component hoverComponent = legacy(format(hoverMessage));
+        final String alertMessage = MsgType.ALERT_MESSAGE.getMessage();
+        final String formattedDebugString =
+                MsgType.SECOND_THEME_COLOR.getMessage() + "x"
+                        + MsgType.MAIN_THEME_COLOR.getMessage() + "%vl%"
+                        + MsgType.SECOND_THEME_COLOR.getMessage() + ", "
+                        + MsgType.SECOND_THEME_COLOR.getMessage() + "Ping: "
+                        + MsgType.MAIN_THEME_COLOR.getMessage() + "%ping%"
+                        + MsgType.SECOND_THEME_COLOR.getMessage() + ", "
+                        + MsgType.SECOND_THEME_COLOR.getMessage() + "TPS: "
+                        + MsgType.MAIN_THEME_COLOR.getMessage() + "%tps%";
+
+        final String fullDisplayCheck = checkPlusCheckType + experimentalCheck;
+        final String basicCategory = getCategory(checkName);
+        final Map<String, String> basicMessages = new HashMap<>();
+        final Map<String, Component> components = new HashMap<>();
+        final Map<String, Component> componentsWithHover = new HashMap<>();
+        String normalMessage = null;
+        String debugMessage = null;
+
+        for (UUID staffId : this.plugin.getAlertManager().getPlayersWithAlerts()) {
+            final Profile staffProfile = this.plugin.getProfileManager().getProfile(staffId);
+
+            if (staffProfile == null || !staffProfile.isAlerts()) {
+                continue;
+            }
+
+            final Player staff = staffProfile.getPlayer();
+
+            if (staff == null || !staff.isOnline()
+                    || !staff.hasPermission(Permissions.ALERTS.getPermission())) {
+                continue;
+            }
+
+            final boolean debug = staff.hasPermission(Permissions.DEBUG.getPermission());
+            final boolean hover = staff.hasPermission(Permissions.HOVER.getPermission());
+            String messageToSend;
+
+            if (debug) {
+                if (debugMessage == null) {
+                    debugMessage = buildAlertMessage(
+                            alertMessage, formattedDebugString, true, playerName, fullDisplayCheck, vl, tps,
+                            checkName, checkType, maxvl, checkCategory, checkPlusCheckType, experimentalFormat, ping
+                    );
+                }
+
+                messageToSend = debugMessage;
+            } else if (basicCategory != null
+                    && staff.hasPermission(Permissions.BASIC_ALERTS.getPermission())) {
+                int categoryVL = incrementCategoryVL(staffId, basicCategory);
+                String displayCheck = basicCategory
+                        + ChatColor.DARK_GRAY + " ["
+                        + ChatColor.GRAY + "x"
+                        + MsgType.MAIN_THEME_COLOR.getMessage() + categoryVL
+                        + ChatColor.DARK_GRAY + "]";
+
+                messageToSend = basicMessages.get(displayCheck);
+
+                if (messageToSend == null) {
+                    messageToSend = buildAlertMessage(
+                            alertMessage, "", false, playerName, displayCheck, vl, tps, checkName,
+                            checkType, maxvl, checkCategory, checkPlusCheckType, experimentalFormat, ping
+                    );
+                    basicMessages.put(displayCheck, messageToSend);
+                }
+            } else {
+                if (normalMessage == null) {
+                    normalMessage = buildAlertMessage(
+                            alertMessage, "", false, playerName, fullDisplayCheck, vl, tps,
+                            checkName, checkType, maxvl, checkCategory, checkPlusCheckType, experimentalFormat, ping
+                    );
+                }
+
+                messageToSend = normalMessage;
+            }
+
+            Component messageComponent = getOrCreateComponent(
+                    messageToSend,
+                    playerName,
+                    hover,
+                    hoverComponent,
+                    components,
+                    componentsWithHover
+            );
+
+            sendChatPacket(staff, messageComponent);
+        }
+
+        int frequency;
+
+        try {
+            frequency = Config.Setting.WEBHOOK_FREQUENCY.getInt();
+        } catch (Exception e) {
+            System.out.println("Webhook Frequency from the config seems to be an invalid number or empty");
+            return;
+        }
+
+        if (frequency < 5) {
+            frequency = 5;
+        }
+
+        if (Config.Setting.WEBHOOK_ENABLED.getBoolean() && vl % frequency == 0) {
+            queueViolationWebhook(playerName, checkName, checkType, experimental, vl);
+        }
+
+        if (Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean()) {
+            OtherUtility.log(translate(
+                    MsgType.PREFIX.getMessage()
+                            + MsgType.MAIN_THEME_COLOR.getMessage()
+                            + playerName
+                            + MsgType.SECOND_THEME_COLOR.getMessage()
+                            + " failed "
+                            + MsgType.MAIN_THEME_COLOR.getMessage()
+                            + checkPlusCheckType
+                            + experimentalCheck
+                            + MsgType.SECOND_THEME_COLOR.getMessage()
+                            + "x"
+                            + vl
+            ));
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onVerbose(VerboseEvent event) {
+        VerboseAlert alert = VerboseAlert.from(event);
+        this.plugin.getAlertManager().queueVerbose(() -> processVerbose(alert));
+    }
+
+    private void processVerbose(VerboseAlert alert) {
+        final Player punishedPlayer = alert.player;
+
+        if (punishedPlayer == null || !punishedPlayer.isOnline()) {
+            return;
+        }
+
+        final Profile punishedProfile = this.plugin.getProfileManager().getProfile(punishedPlayer);
+
+        if (punishedProfile == null) {
+            return;
+        }
+
+        final String tps = String.valueOf(TickTask.getTPS());
+        final String checkPlusCheckType = alert.checkName + " (" + alert.checkType + ")";
         final String playerName = punishedPlayer.getName();
 
-        final double vl = event.getVl();
-        final double maxVL = event.getMaxVl();
-
         final String hoverMessage = "%information%\n Ping: %ping%, TPS: %tps%"
-                .replace("%information%", information)
+                .replace("%information%", alert.information)
                 .replace("%ping%", String.valueOf(punishedProfile.getConnectionData().getTransPing()))
                 .replace("%tps%", tps);
 
         final String formattedDebugString =
                 ChatColor.DARK_GRAY + " ("
                         + MsgType.MAIN_THEME_COLOR.getMessage()
-                        + calculatePercentage(vl, maxVL)
+                        + calculatePercentage(alert.vl, alert.maxVl)
                         + ChatColor.DARK_GRAY + ") "
                         + ChatColor.DARK_GRAY + "("
                         + MsgType.MAIN_THEME_COLOR.getMessage()
-                        + vl
+                        + alert.vl
                         + MsgType.SECOND_THEME_COLOR.getMessage()
                         + "/"
                         + MsgType.MAIN_THEME_COLOR.getMessage()
-                        + maxVL
+                        + alert.maxVl
                         + ChatColor.DARK_GRAY + ")";
 
         final String alertMessage = "&6%player% &7verbosed &6%check%%debug%"
@@ -352,25 +309,98 @@ public class ViolationListener implements Listener {
                 .replace("%check%", checkPlusCheckType);
 
         final Component hoverComponent = legacy(format(hoverMessage));
-
         final Component messageComponent = legacy(format(alertMessage))
                 .hoverEvent(HoverEvent.showText(hoverComponent))
                 .clickEvent(ClickEvent.runCommand("/tp " + playerName));
 
-        for (Player staff : Bukkit.getOnlinePlayers()) {
-
-            final Profile staffProfile = this.plugin.getProfileManager().getProfile(staff);
+        for (UUID staffId : this.plugin.getAlertManager().getPlayersWithAlerts()) {
+            final Profile staffProfile = this.plugin.getProfileManager().getProfile(staffId);
 
             if (staffProfile == null || !staffProfile.isAlerts()) {
                 continue;
             }
 
-            if (!staff.hasPermission(Permissions.VERBOSE.getPermission())) {
+            final Player staff = staffProfile.getPlayer();
+
+            if (staff == null || !staff.isOnline()
+                    || !staff.hasPermission(Permissions.VERBOSE.getPermission())) {
                 continue;
             }
 
             sendChatPacket(staff, messageComponent);
         }
+    }
+
+    private String buildAlertMessage(
+            String alertMessage,
+            String debug,
+            boolean debugMessage,
+            String playerName,
+            String displayCheck,
+            int vl,
+            String tps,
+            String checkName,
+            String checkType,
+            int maxvl,
+            String checkCategory,
+            String checkPlusCheckType,
+            String experimentalFormat,
+            String ping
+    ) {
+        String message = alertMessage
+                .replace("%debug%", debug)
+                .replace("%player%", playerName)
+                .replace("%check%", displayCheck)
+                .replace("%vl%", String.valueOf(vl))
+                .replace("%tps%", tps);
+
+        if (debugMessage) {
+            message = message
+                    .replace("%checkname%", checkName)
+                    .replace("%checktype%", checkType)
+                    .replace("%maxvl%", String.valueOf(maxvl));
+        } else {
+            message = message
+                    .replace("%maxvl%", String.valueOf(maxvl))
+                    .replace("%checkname%", checkName)
+                    .replace("%checktype%", checkType);
+        }
+
+        return message
+                .replace("%checkcategory%", checkCategory)
+                .replace("%checknameandtype%", checkPlusCheckType)
+                .replace("%experimental%", experimentalFormat)
+                .replace("%ping%", ping);
+    }
+
+    private Component getOrCreateComponent(
+            String message,
+            String playerName,
+            boolean hover,
+            Component hoverComponent,
+            Map<String, Component> components,
+            Map<String, Component> componentsWithHover
+    ) {
+        Component component = components.get(message);
+
+        if (component == null) {
+            component = legacy(format(message))
+                    .clickEvent(ClickEvent.runCommand("/tp " + playerName));
+            components.put(message, component);
+        }
+
+        if (!hover) {
+            return component;
+        }
+
+        Component componentWithHover = componentsWithHover.get(message);
+
+        if (componentWithHover == null) {
+            componentWithHover = component.hoverEvent(HoverEvent.showText(hoverComponent));
+            componentsWithHover.put(message, componentWithHover);
+        }
+
+        return componentWithHover;
     }
 
     private void sendChatPacket(Player player, Component component) {
@@ -381,9 +411,7 @@ public class ViolationListener implements Listener {
         try {
             PacketWrapper<?> packet;
 
-            ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
-
-            if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_19)) {
+            if (systemChatPackets) {
                 packet = new WrapperPlayServerSystemChatMessage(false, component);
             } else {
                 packet = new WrapperPlayServerChatMessage(
@@ -391,14 +419,17 @@ public class ViolationListener implements Listener {
                 );
             }
 
-            PacketEvents.getAPI().getPlayerManager().sendPacket(player, packet);
+            // Alert packets do not need to re-enter Arrow's outgoing packet listener.
+            // A normal send would run every recipient through all data processors and
+            // the full check holder again, multiplying work during alert bursts.
+            PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, packet);
         } catch (Throwable throwable) {
-            TaskUtils.task(() -> {
+            String legacyMessage = LEGACY_SERIALIZER.serialize(component);
+
+            TaskUtils.player(player, () -> {
                 if (player.isOnline()) {
                     player.spigot().sendMessage(
-                            net.md_5.bungee.api.chat.TextComponent.fromLegacyText(
-                                    LEGACY_SERIALIZER.serialize(component)
-                            )
+                            net.md_5.bungee.api.chat.TextComponent.fromLegacyText(legacyMessage)
                     );
                 }
             });
@@ -413,12 +444,27 @@ public class ViolationListener implements Listener {
         return LEGACY_SERIALIZER.deserialize(input);
     }
 
+    private String prefixLines(String input, String prefix) {
+        String[] lines = input.split("\\n");
+        StringBuilder builder = new StringBuilder(input.length() + (prefix.length() * lines.length));
+
+        for (int i = 0; i < lines.length; i++) {
+            builder.append(prefix).append(lines[i]);
+
+            if (i < lines.length - 1) {
+                builder.append('\n');
+            }
+        }
+
+        return builder.toString();
+    }
+
     private String getCategory(String checkName) {
         if (checkName == null || checkName.isEmpty()) {
             return null;
         }
 
-        String lower = checkName.toLowerCase();
+        String lower = checkName.toLowerCase(Locale.ROOT);
 
         if (lower.startsWith("killaura")
                 || lower.startsWith("aim")
@@ -451,83 +497,48 @@ public class ViolationListener implements Listener {
         return null;
     }
 
-    private void sendWebhook(String player, String check, String type, boolean experimental, int vl) {
-        try {
-            String webhookUrl = Config.Setting.WEBHOOK_LINK.getString();
+    private void queueViolationWebhook(String player, String check, String type, boolean experimental, int vl) {
+        String safePlayer = escapeJson(player);
+        String safeCheck = escapeJson(check);
+        String safeType = escapeJson(type);
+        String title = "Player failed " + safeCheck + " | " + safePlayer;
 
-            if (webhookUrl == null || webhookUrl.trim().isEmpty()) {
-                System.out.println("Invalid webhook URL, failed to send alert message. please check your configuration");
-                return;
+        String json = "{"
+                + "\"embeds\": [{"
+                + "\"title\": \"" + title + "\","
+                + "\"description\": \"**" + safePlayer + "** failed **" + safeCheck + " " + safeType
+                + (experimental ? " " + OtherUtility.stripColorCodes(OtherUtility.translate(MsgType.EXPERIMENTAL_SYMBOL.getMessage())) : "")
+                + "** x" + vl + "\","
+                + "\"color\": 16711680"
+                + "}]"
+                + "}";
+
+        this.plugin.getAlertManager().queueWebhook(
+                Config.Setting.WEBHOOK_LINK.getString(),
+                json,
+                "Invalid webhook URL, failed to send alert message. please check your configuration"
+        );
+    }
+
+    private int incrementCategoryVL(UUID uuid, String category) {
+        long now = System.currentTimeMillis();
+
+        lastReset.compute(uuid, (key, resetAt) -> {
+            if (resetAt == null || now - resetAt >= 60000L) {
+                basicAlertVLs.put(key, new ConcurrentHashMap<>());
+                return now;
             }
 
-            URL url;
+            return resetAt;
+        });
 
-            try {
-                url = new URL(webhookUrl);
-            } catch (Exception e) {
-                System.out.println("Invalid webhook URL, failed to send alert message. please check your configuration");
-                return;
-            }
-
-            String safePlayer = escapeJson(player);
-            String safeCheck = escapeJson(check);
-            String safeType = escapeJson(type);
-
-            String title = "Player failed " + safeCheck + " | " + safePlayer;
-
-            String json = "{"
-                    + "\"embeds\": [{"
-                    + "\"title\": \"" + title + "\","
-                    + "\"description\": \"**" + safePlayer + "** failed **" + safeCheck + " " + safeType
-                    + (experimental ? " " + OtherUtility.stripColorCodes(OtherUtility.translate(MsgType.EXPERIMENTAL_SYMBOL.getMessage())) : "")
-                    + "** x" + vl + "\","
-                    + "\"color\": 16711680"
-                    + "}]"
-                    + "}";
-
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setConnectTimeout(3000);
-            conn.setReadTimeout(3000);
-            conn.setDoOutput(true);
-
-            try (OutputStream os = conn.getOutputStream()) {
-                os.write(json.getBytes(StandardCharsets.UTF_8));
-            }
-
-            try {
-                conn.getInputStream().close();
-            } catch (Exception ignored) {
-                if (conn.getErrorStream() != null) {
-                    conn.getErrorStream().close();
-                }
-            }
-
-            conn.disconnect();
-        } catch (Exception ignored) {
-            System.out.println("Invalid webhook URL, failed to send alert message. please check your configuration");
-        }
+        return basicAlertVLs
+                .computeIfAbsent(uuid, ignored -> new ConcurrentHashMap<>())
+                .merge(category, 1, Integer::sum);
     }
 
     public void addCategoryVL(Player player, String category) {
-        UUID uuid = player.getUniqueId();
-
-        long now = System.currentTimeMillis();
-
-        lastReset.putIfAbsent(uuid, now);
-
-        if (now - lastReset.get(uuid) >= 60000L) {
-            basicAlertVLs.put(uuid, new ConcurrentHashMap<>());
-            lastReset.put(uuid, now);
-        }
-
-        basicAlertVLs.putIfAbsent(uuid, new ConcurrentHashMap<>());
-
-        Map<String, Integer> vlMap = basicAlertVLs.get(uuid);
-
-        vlMap.put(category, vlMap.getOrDefault(category, 0) + 1);
+        incrementCategoryVL(player.getUniqueId(), category);
     }
 
     public int getCategoryVL(Player player, String category) {
@@ -542,9 +553,7 @@ public class ViolationListener implements Listener {
         }
 
         String out = ChatColor.stripColor(input);
-
-        out = out.replace("\r", "");
-        out = out.trim();
+        out = out.replace("\r", "").trim();
 
         final int max = 1500;
 
@@ -565,5 +574,93 @@ public class ViolationListener implements Listener {
                 .replace("\"", "\\\"")
                 .replace("\r", "")
                 .replace("\n", "\\n");
+    }
+
+    private static final class ViolationAlert {
+        private final Player player;
+        private final String checkName;
+        private final String description;
+        private final String checkCategory;
+        private final String checkType;
+        private final String information;
+        private final String informationTitle;
+        private final int vl;
+        private final int maxVl;
+        private final boolean experimental;
+
+        private ViolationAlert(
+                Player player,
+                String checkName,
+                String description,
+                String checkCategory,
+                String checkType,
+                String information,
+                String informationTitle,
+                int vl,
+                int maxVl,
+                boolean experimental
+        ) {
+            this.player = player;
+            this.checkName = checkName;
+            this.description = description;
+            this.checkCategory = checkCategory;
+            this.checkType = checkType;
+            this.information = information;
+            this.informationTitle = informationTitle;
+            this.vl = vl;
+            this.maxVl = maxVl;
+            this.experimental = experimental;
+        }
+
+        private static ViolationAlert from(AnticheatViolationEvent event) {
+            return new ViolationAlert(
+                    event.getPlayer(),
+                    event.getCheck() == null ? "" : event.getCheck(),
+                    event.getDescription() == null ? "" : event.getDescription(),
+                    String.valueOf(event.getCheckCategory()),
+                    event.getType() == null ? "" : event.getType(),
+                    event.getInformation() == null ? "" : event.getInformation(),
+                    event.getInformationTitle() == null ? "" : event.getInformationTitle(),
+                    event.getVl(),
+                    event.getMaxVl(),
+                    event.isExperimental()
+            );
+        }
+    }
+
+    private static final class VerboseAlert {
+        private final Player player;
+        private final String checkName;
+        private final String checkType;
+        private final String information;
+        private final double vl;
+        private final double maxVl;
+
+        private VerboseAlert(
+                Player player,
+                String checkName,
+                String checkType,
+                String information,
+                double vl,
+                double maxVl
+        ) {
+            this.player = player;
+            this.checkName = checkName;
+            this.checkType = checkType;
+            this.information = information;
+            this.vl = vl;
+            this.maxVl = maxVl;
+        }
+
+        private static VerboseAlert from(VerboseEvent event) {
+            return new VerboseAlert(
+                    event.getPlayer(),
+                    event.getCheckName() == null ? "" : event.getCheckName(),
+                    event.getType() == null ? "" : event.getType(),
+                    event.getInformation() == null ? "" : event.getInformation(),
+                    event.getVl(),
+                    event.getMaxVl()
+            );
+        }
     }
 }
