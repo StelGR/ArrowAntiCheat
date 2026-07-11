@@ -87,6 +87,12 @@ public class Config implements Initializer {
         CHECK_SETTINGS_ALERT_CONSOLE("check_settings.alert_console", false, "Should we also send alerts in console?"),
         CHECK_SETTINGS_VIOLATION_RESET_INTERVAL("check_settings.violation_reset_interval", 10, "How often should we clear the player violations? (In minutes)"),
 
+        GHOST_BLOCK_FIX(
+                "fix_ghost_blocks",
+                false,
+                "Should we fix ghostblocks in real time? only enable this if your server has a really good cpu, as it can destroy performance above 40ish players."
+        ),
+
         LOGS("logs", "", "Log Settings"),
         LOGS_ENABLED("logs.enabled", true, "Should we enable logging?"),
         //LOGS_TYPE("logs.type", "YAML", "What type of Database should we use for logging?"),
@@ -120,7 +126,7 @@ public class Config implements Initializer {
         private final Object defaultValue;
         private boolean excluded;
         private final String[] comments;
-        private Object value = null;
+        private volatile Object value = null;
 
         Setting(String key, Object defaultValue, String... comments) {
             this.key = key;

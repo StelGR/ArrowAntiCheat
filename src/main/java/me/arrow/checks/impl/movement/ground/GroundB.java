@@ -4,7 +4,6 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -28,6 +27,10 @@ public class GroundB extends Check {
     public void handle(PacketSendEvent event) {
     }
 
+    final double AIR_ICE_INCREMENT_PER_TICK = 0.1225;
+    final double AIR_ICE_INCREMENT_PER_TICK_SMALLER = 0.0625;
+    final double AIR_MAX_ICE_SPEED_BOOST = 6.25;
+
     @Override
     public void handle(PacketReceiveEvent event) {
         if (!isMovementPacket(event.getPacketType())) {
@@ -42,10 +45,14 @@ public class GroundB extends Check {
                 || profile.isBouncingOnSlime()
                 || profile.getVehicleData().getSinceVehicleTicks() < 5
                 || movementData.isInsideLiquid()
+                || movementData.isNearShulker()
+                || movementData.isNearShulkerBox()
                 || movementData.isNearLava()
-                || movementData.isNearWater()) return;
+                || movementData.isNearWater()
+                || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
         if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+//                || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))
+        ) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground B: is Exempting (Block Update/Piston Update)");
             return;
         }
@@ -96,16 +103,26 @@ public class GroundB extends Check {
         boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
         if (nearEdge && movementData.getLastDeltaY() != 0 && deltaY == 0 && movementData.getClientAirTicks() == 0) invalid = false;
 
+        float movingIceTicks = movementData.getMovingOnIceTicks();
+
+        double air_iceSpeedBoost;
+        if (movingIceTicks < 15) air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
+        else air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK_SMALLER * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
+
+        double speedlimit = 0.89 + profile.getVelocityData().getTotalHorizontalVelocity();
+        speedlimit += air_iceSpeedBoost;
+
         boolean invalid2 = (
                 (clientGround && serverGround && inAir)
                 || (inAir && airTicks > 3 && clientAirTicks == 0)
                 || (inAir && clientAirTicks > 6 && serverYGround)
                 || (!clientGround && serverGround && inAir)
         )
-                && movementData.getDeltaXZ() >= (0.9 + profile.getVelocityData().getTotalHorizontalVelocity())
-                && !profile.getVelocityData().isTakingVelocity()
+                && movementData.getDeltaXZ() > (speedlimit)
                 && movementData.getSinceRiptidingTicks() > 40 + profile.getConnectionData().getClientTickTrans()
                 && movementData.elytraMomentum() == 0;
+
+
 
 
 
@@ -200,9 +217,6 @@ public class GroundB extends Check {
         return Math.min(10, ticks);
     }
 
-    private int getBlockPlaceLimit() {
-        return 3 + getLagTicks();
-    }
 
     private int getJumpBoostLevel() {
         try {
@@ -218,28 +232,6 @@ public class GroundB extends Check {
 
     private double getExpectedJumpMotion() {
         return 0.42D + (getJumpBoostLevel() * 0.1D);
-    }
-
-    private boolean isHoldingBlock() {
-        try {
-            boolean blockInHand = Arrow.getInstance()
-                    .getNmsManager()
-                    .getNmsInstance()
-                    .getItemInMainHand(profile.getPlayer())
-                    .getType()
-                    .isBlock();
-
-            boolean blockInOffHand = Arrow.getInstance()
-                    .getNmsManager()
-                    .getNmsInstance()
-                    .getItemInOffHand(profile.getPlayer())
-                    .getType()
-                    .isBlock();
-
-            return blockInHand || blockInOffHand;
-        } catch (Throwable ignored) {
-            return false;
-        }
     }
 
     private boolean isMovementPacket(PacketTypeCommon packetType) {

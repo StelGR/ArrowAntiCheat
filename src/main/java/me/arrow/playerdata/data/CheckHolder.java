@@ -9,14 +9,15 @@ import me.arrow.checks.impl.combat.autoclicker.*;
 import me.arrow.checks.impl.combat.backtrack.BackTrackA;
 import me.arrow.checks.impl.combat.backtrack.BackTrackB;
 import me.arrow.checks.impl.combat.killaura.KillauraA;
+import me.arrow.checks.impl.combat.hitbox.HitboxA;
 import me.arrow.checks.impl.combat.reach.ReachA;
-import me.arrow.checks.impl.combat.reach.ReachB;
 import me.arrow.checks.impl.combat.velocity.VelocityA;
 import me.arrow.checks.impl.combat.velocity.VelocityB;
 import me.arrow.checks.impl.misc.badpackets.*;
 import me.arrow.checks.impl.misc.interact.InteractA;
 import me.arrow.checks.impl.misc.interact.InteractB;
 import me.arrow.checks.impl.misc.interact.InteractC;
+import me.arrow.checks.impl.misc.interact.InteractD;
 import me.arrow.checks.impl.misc.inventory.InventoryA;
 import me.arrow.checks.impl.misc.inventory.InventoryB;
 import me.arrow.checks.impl.misc.phase.PhaseA;
@@ -83,6 +84,7 @@ public class CheckHolder {
                 new AimE(this.profile),
                 new AimF(this.profile),
                 new AimG(this.profile),
+                new AimH(this.profile),
 
                 new AutoClickerA(this.profile),
                 new AutoClickerB(this.profile),
@@ -99,7 +101,7 @@ public class CheckHolder {
                 new BackTrackB(this.profile),
 
                 new ReachA(this.profile),
-                new ReachB(this.profile),
+                new HitboxA(this.profile),
 
                 new VelocityA(this.profile),
                 new VelocityB(this.profile),
@@ -107,6 +109,7 @@ public class CheckHolder {
                 new InteractA(this.profile),
                 new InteractB(this.profile),
                 new InteractC(this.profile),
+                new InteractD(this.profile),
 
                 new InventoryA(this.profile),
                 new InventoryB(this.profile),

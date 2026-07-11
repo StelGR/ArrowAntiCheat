@@ -151,7 +151,7 @@ public class IllegalMoveB extends Check {
         //temporeraly exempt ice until I fix it
         if (movingIceTicks > 0 || movingSlimeTicks > 0) return;
 
-        int extraTicks = getExtraTicks();
+        //int extraTicks = getExtraTicks();
 
         int clientTickTrans = profile.getConnectionData().getClientTickTrans();
         int transPing = profile.getConnectionData().getTransPing();
@@ -161,7 +161,6 @@ public class IllegalMoveB extends Check {
 
         int blockPlaceLimit = clientTickTrans == 0 ? 3 : Math.min(3 + transPing / clientTickTrans, 20);
         boolean recentlyPlaced = profile.getActionData().hasRecentConfirmedUnderPlace(blockPlaceLimit);
-
 
         final double predictedX = lastDeltaX * 0.9100000262260437;
         final double predictedZ = lastDeltaZ * 0.9100000262260437;
@@ -180,7 +179,7 @@ public class IllegalMoveB extends Check {
             limit += 0.2;
         }
 
-        if (profile.getVelocityData().isTakingVelocity()) airticklimit += extraTicks;
+        if (profile.getVelocityData().isTakingVelocity()) return;
 
         final boolean invalid = difference > 0.00747 && deltaXZ > limit && airTicks > airticklimit ;
 
@@ -217,18 +216,24 @@ public class IllegalMoveB extends Check {
         this.wasSprinting = sprinting;
     }
 
-    private int getExtraTicks() {
-        double horizontal =  profile.getVelocityData().getTotalHorizontalVelocity();
-        double vertical = profile.getVelocityData().getTotalVerticalVelocity();
-
-        double velMag = horizontal + vertical;
-
-        double baseTicksVel = 2;
-        double baseVelocity = 0.000001;
-        double scale = 13;
-
-        double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
-        return (int) Math.ceil(extraFromVel);
-    }
+//    private int getExtraTicks() {
+//        double vel = Math.max(
+//                profile.getVelocityData().getTotalVerticalVelocitySustain(),
+//                profile.getVelocityData().getStackedVerticalVelocity()
+//        );
+//
+//        double velMag = Math.max(
+//                vel,
+//                profile.getVelocityData().getTotalVerticalVelocity()
+//        );
+//
+//
+//        double baseTicksVel = 2;
+//        double baseVelocity = 0.000001;
+//        double scale = 13;
+//
+//        double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
+//        return (int) Math.ceil(extraFromVel);
+//    }
 }
 

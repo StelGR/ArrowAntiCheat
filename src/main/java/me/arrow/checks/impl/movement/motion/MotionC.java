@@ -9,6 +9,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.customutils.OtherUtility;
@@ -56,6 +57,17 @@ public class MotionC extends Check {
                 return;
             }
 
+            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+            if (world.shouldExemptMovementChecks()
+                    || world.physicsMismatch
+                    || world.onGhostBlock
+                    || world.nearGhostBlock
+                    || world.insideGhostBlock
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
+            }
+
             int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
             if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
@@ -87,6 +99,12 @@ public class MotionC extends Check {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (Bouncing Slime)");
                 return;
             }
+
+            if (movementData.getSincePowderSnowTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                return;
+            }
+
+
 
             boolean hasJumpBoost = profile.getPotionData().isHasJump();
             double jumpLevel = hasJumpBoost
@@ -127,10 +145,10 @@ public class MotionC extends Check {
             if (movementData.isNearFence()) airTickLimit += 4;
 
             //temporary piston fix
-            if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    && deltaY > MoveUtils.getJumpMotion(profile)
-                    && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (movementData.getSinceNearSlimeTicks() <= (40 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    && movementData.getSinceNearPistonTicks() <= (40 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 airTickLimit += 8;
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Extending PistonSlimeTicks");
             }
 
             boolean invalid = serverAirTicks > airTickLimit

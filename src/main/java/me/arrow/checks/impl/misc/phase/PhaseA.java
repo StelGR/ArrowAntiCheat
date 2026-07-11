@@ -66,7 +66,7 @@ public class PhaseA extends Check {
             return;
         }
 
-        if (profile.getTick() < 120 || profile.shouldCancel()) {
+        if (profile.getTick() < 20 || profile.shouldCancel()) {
             decay();
             return;
         }

@@ -3,272 +3,286 @@ package me.arrow.playerdata.processors.impl;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.PotionData;
-import me.arrow.utils.custom.PotionType;
+import me.arrow.utils.custom.CustomLocation;
+import me.arrow.utils.custom.materials.MaterialType;
+import org.bukkit.World;
+import org.bukkit.block.Block;
 
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
-// this is completely made by Chat GPT, cry all you want this is better than most simulations for the server side, the only issue it has, is if the piston moves the slime block while it pushes you, it has no world compensasion so there for it will not detect it as proper slime jump, otherwise it's perfect
-// maybe vulcan can learn something from this, can't wait to see him sell this for 50$ and pull a verus
 
 /**
- * Per-instanced slime-bounce tracker. Create one instance and call isBouncing(...) per packet for each player.
- * - Non-mutating: reads MovementData / PotionData only.
- * - Keeps an internal map of active BounceSessions keyed by player UUID (or fallback synthetic key).
+ * Tracks a real fall-to-slime collision and validates the resulting ascent.
+ * One processor instance belongs to one profile.
  */
 public class SlimeProcessor {
 
-    Profile profile;
+    private static final double FALL_EPSILON = 0.03D;
+    private static final double RISE_EPSILON = 0.01D;
+    private static final double MIN_TRACKED_FALL = 0.10D;
+    private static final double PLAYER_HALF_WIDTH = 0.300001D;
+    private static final double VANILLA_GRAVITY = 0.08D;
+    private static final double VANILLA_DRAG = 0.98D;
+    private static final int MAX_APEX_TICKS = 200;
 
-    public SlimeProcessor(Profile profile){
+    private final Profile profile;
+
+    private BounceSession session;
+    private CustomLocation lastDescendingLocation;
+    private double trackedFallDistance;
+    private double lastDescendingDeltaY;
+    private int descendingTicks;
+    private int descentGraceTicks;
+
+    public SlimeProcessor(Profile profile) {
         this.profile = profile;
     }
 
-    // ---- Tunables (adjust to taste) ----
-    double BOUNCE_HEIGHT_RATIO = 0.60;      // vanilla-ish small-fall ratio
-    double BOUNCE_VELOCITY_FACTOR = Math.sqrt(BOUNCE_HEIGHT_RATIO);
-    double EPS_FALL = 0.03;                 // lastDeltaY < -EPS_FALL considered falling
-    double EPS_UP = 0.01;                   // deltaY > EPS_UP considered moving up
-    float MIN_MEANINGFUL_FALL = 0.01f;      // ignore tiny falls
-    float MIN_FALLDIST_FOR_FALL = 0.2f;     // lastFallDistance > this => considered falling
-    float MAX_JUMP_FALL_DISTANCE = 0.15f;   // small fall => probably normal jump
-    double VELOCITY_ALLOWANCE = 0.02;       // tolerance for numeric noise in velocities
-    double RISE_ALLOWANCE = 0.05;           // tolerance (meters/blocks) for predicted rise
-    private final int MAX_SIM_TICKS = 200;                // safety cap for apex simulation
-
-    // Vanilla-ish per-tick constants used for short simulation to predict apex / rise.
-    // These are approximations (minecraft motionY changes per tick roughly by gravity and drag).
-    private final double VANILLA_GRAVITY = 0.08;
-    double VANILLA_DRAG = 0.98;
-
-    // Per-instance sessions map (not static).
-    private final Map<UUID, BounceSession> sessions = new ConcurrentHashMap<>();
-
-    private static final class BounceSession {
-        final double expectedBounceVel; // predicted initial upward velocity (positive)
-        final double predictedMaxRise;  // predicted total rise (blocks/meters) from start
-        int remainingTicks;             // predicted ticks until apex (or tolerance)
-        double accumulatedRise;         // actual observed upward motion accumulated (sum of positive deltaY)
-        boolean startedRising;          // we have observed upward deltaY at least once
-        boolean pistonPush;
-
-        BounceSession(double expectedBounceVel, double predictedMaxRise, int remainingTicks, boolean pistonPush) {
-            this.expectedBounceVel = expectedBounceVel;
-            this.predictedMaxRise = predictedMaxRise;
-            this.remainingTicks = remainingTicks;
-            this.accumulatedRise = 0.0;
-            this.startedRising = false;
-            this.pistonPush = pistonPush;
+    /**
+     * Returns true only for a position-tracked slime impact and its valid
+     * upward phase. PotionData remains in the signature for compatibility.
+     */
+    public boolean isBouncing(MovementData movementData, PotionData ignoredPotionData) {
+        if (movementData == null || movementData.getLocation() == null) {
+            resetAll();
+            return false;
         }
+
+        double deltaY = movementData.getDeltaY();
+
+        if (!Double.isFinite(deltaY)) {
+            resetAll();
+            return false;
+        }
+
+        if (session != null) {
+            return updateBounce(deltaY);
+        }
+
+        if (deltaY < -FALL_EPSILON) {
+            trackDescent(movementData, deltaY);
+            return false;
+        }
+
+        if (deltaY > RISE_EPSILON && canStartBounce(movementData, deltaY)) {
+            startBounce(deltaY);
+            resetDescent();
+            return true;
+        }
+
+        if (trackedFallDistance > 0.0D) {
+            if (Math.abs(deltaY) <= RISE_EPSILON && descentGraceTicks++ < 1) {
+                return false;
+            }
+
+            resetDescent();
+        }
+
+        return false;
     }
 
-    /**
-     * Call this every packet / movement update.
-     * Returns true while the player is considered to be in a proper slime bounce (from the initial
-     * rising tick until apex/stop-climbing), subject to the checks described above.
-     * This method does not mutate MovementData or PotionData.
-     */
-    public boolean isBouncing(MovementData md, PotionData pd) {
-        if (md == null) return false;
+    private void trackDescent(MovementData movementData, double deltaY) {
+        if (movementData.getLastDeltaY() >= -FALL_EPSILON || descentGraceTicks > 0) {
+            resetDescent();
+        }
 
-        // Determine key (prefer player UUID)
-        UUID uuid = profile.getUUID();
-        // fallback synthetic UUID derived from hashcode to keep key stable across calls for same object
-        UUID key = (uuid != null) ? uuid : syntheticUuidFromObject(md);
+        trackedFallDistance += -deltaY;
+        lastDescendingDeltaY = deltaY;
+        lastDescendingLocation = movementData.getLocation().clone();
+        descendingTicks++;
+        descentGraceTicks = 0;
+    }
 
-//        // quick: if player is sneaking now, cancel any session and return false (vanilla cancels bounce)
-//        Player player = profile.getPlayer();
-//        if (player != null && player.isSneaking()) {
-//            sessions.remove(key);
-//            return false;
-//        }
-
-        // read movement fields (non-mutating)
-        double deltaY = md.getDeltaY();
-        double lastDeltaY = md.getLastDeltaY();
-        float lastFallDistance = md.getLastFallDistance();
-        boolean lastOnGround = md.isLastOnGround();
-
-        // If there is an active session, update it
-        BounceSession session = sessions.get(key);
-        if (session != null) {
-            // Reject if player's actual upward motion ever exceeds expected bounce velocity + allowance
-            if (!session.pistonPush) {
-                if (deltaY - (session.expectedBounceVel + VELOCITY_ALLOWANCE) > 0.0) {
-                    sessions.remove(key);
-                    return false;
-                }
-            }
-
-            // accumulate positive upward motion to track actual rise since session started
-            if (deltaY > 0.0) {
-                session.accumulatedRise += deltaY;
-                session.startedRising = true;
-            }
-
-            // If accumulated rise exceeds predicted max rise + allowance => invalid bounce
-            if (!session.pistonPush) {
-                if (session.accumulatedRise - (session.predictedMaxRise + RISE_ALLOWANCE) > 0.0) {
-                    sessions.remove(key);
-                    return false;
-                }
-            }
-
-            // If currently moving up, decrement remaining ticks (we assume per-packet == per-tick)
-            if (deltaY > EPS_UP) {
-                session.remainingTicks = Math.max(0, session.remainingTicks - 1);
-                // still rising -> still bouncing (even if remainingTicks reaches 0 we keep one final tick tolerance)
-                sessions.put(key, session);
-                return true;
-            }
-
-            // Not currently moving up:
-            // - if we had started rising earlier, allow the session to linger for remainingTicks (tolerance)
-            if (session.startedRising && session.remainingTicks > 0) {
-                session.remainingTicks = Math.max(0, session.remainingTicks - 1);
-                if (session.remainingTicks == 0) {
-                    sessions.remove(key);
-                    return false;
-                } else {
-                    sessions.put(key, session);
-                    return true;
-                }
-            }
-
-            // Otherwise, session finished
-            sessions.remove(key);
+    private boolean canStartBounce(MovementData movementData, double deltaY) {
+        if (descendingTicks <= 0
+                || trackedFallDistance < MIN_TRACKED_FALL
+                || lastDescendingDeltaY >= -FALL_EPSILON
+                || lastDescendingLocation == null
+                || !hasSweptSlimeContact(movementData)) {
             return false;
         }
 
-        // No session: test for initial bounce tick using conservative rules
-        // Must be on slime block now
-        if (!md.isOnExtendedHitboxSlime()) {
-            return false;
-        }
+        double incomingVelocity = Math.abs(nextVerticalVelocity(lastDescendingDeltaY));
+        double launchAllowance = Math.max(0.35D, incomingVelocity * 0.10D);
 
-        boolean wasFalling =
-                lastDeltaY < -EPS_FALL
-                        || lastFallDistance > MIN_FALLDIST_FOR_FALL;
+        return deltaY <= incomingVelocity + launchAllowance;
+    }
 
-        boolean pistonSlimePush = md.isNearPiston() && deltaY >= 0.75D;
+    private void startBounce(double firstRise) {
+        double incomingVelocity = Math.abs(nextVerticalVelocity(lastDescendingDeltaY));
+        double maximumLaunch = Math.max(firstRise, incomingVelocity) + Math.max(0.25D, incomingVelocity * 0.08D);
+        SimulationResult simulation = simulateApexAndRise(maximumLaunch);
 
-        boolean nowMovingUp = deltaY > EPS_UP;
-
-        if ((!wasFalling && !pistonSlimePush) || !nowMovingUp) {
-            return false;
-        }
-
-        if (!pistonSlimePush && lastFallDistance <= MIN_MEANINGFUL_FALL) {
-            return false;
-        }
-
-        // Exclude normal player jump started on ground (including tiny step-ups)
-        if (!pistonSlimePush) {
-            if (lastOnGround && lastFallDistance <= MAX_JUMP_FALL_DISTANCE) {
-                return false;
-            }
-        }
-
-        // exclude canonical jump initial (jump boost aware)
-        int jumpLevel = 0;
-        if (pd != null) {
-            try { jumpLevel = pd.getPotionEffectLevel(PotionType.JUMP_BOOST); } catch (Exception ignored) {}
-        }
-        double expectedJumpInit = 0.42 + 0.1 * Math.max(0, jumpLevel);
-        if (!pistonSlimePush) {
-            if (lastOnGround && deltaY >= expectedJumpInit * 0.85) {
-                return false;
-            }
-        }
-
-        // compute expected bounce velocity from lastDeltaY (preferred) or approximate from lastFallDistance
-        double expectedBounceVel;
-        if (lastDeltaY < 0.0) {
-            expectedBounceVel = -lastDeltaY * BOUNCE_VELOCITY_FACTOR;
-        } else {
-            // fallback conversion: v ~= sqrt(2 * g * h) with g scaled per second; used only rarely.
-            final double gPerSec = VANILLA_GRAVITY * 20.0;
-            double h = Math.max(0.0f, lastFallDistance);
-            double v = Math.sqrt(2.0 * gPerSec * h);
-            expectedBounceVel = v * BOUNCE_VELOCITY_FACTOR;
-        }
-
-        if (!(expectedBounceVel > 0.0)) return false;
-
-        // Reject if actual upward motion already exceeds expected bounce + allowance
-        if (deltaY - (expectedBounceVel + VELOCITY_ALLOWANCE) > 0.0) return false;
-
-        // Predict apex ticks and predicted max rise (bounded loop; fast).
-        SimulationResult sim = simulateApexAndRise(expectedBounceVel);
-        int ticksToApex = sim.ticksToApex;
-        double predictedRise = sim.predictedRise;
-
-        // create session and mark startedRising
-        // clamp ticks for safety
-        if (ticksToApex < 1) ticksToApex = 1;
-        if (ticksToApex > MAX_SIM_TICKS) ticksToApex = MAX_SIM_TICKS;
-
-        BounceSession newSession = new BounceSession(
-                expectedBounceVel,
-                predictedRise,
-                ticksToApex,
-                pistonSlimePush
+        session = new BounceSession(
+                maximumLaunch,
+                simulation.predictedRise + 0.75D,
+                Math.min(MAX_APEX_TICKS, simulation.ticksToApex + 2),
+                Math.max(0.0D, firstRise)
         );
-        // we've observed first rising tick now: start accumulatedRise with this positive deltaY
-        newSession.startedRising = true;
-        newSession.accumulatedRise = Math.max(0.0, deltaY);
+    }
 
-        sessions.put(key, newSession);
+    private boolean updateBounce(double deltaY) {
+        BounceSession active = session;
+
+        if (deltaY <= RISE_EPSILON
+                || active.remainingTicks <= 0
+                || deltaY > active.maximumLaunchVelocity) {
+            session = null;
+            return false;
+        }
+
+        /*
+         * The first bounce position packet contains a partial collision tick,
+         * so use the following rising sample to calibrate the clean trajectory.
+         */
+        if (Double.isFinite(active.expectedNextVelocity)) {
+            double tolerance = Math.max(0.085D, Math.abs(active.expectedNextVelocity) * 0.08D + 0.02D);
+
+            if (Math.abs(deltaY - active.expectedNextVelocity) > tolerance) {
+                session = null;
+                return false;
+            }
+        }
+
+        active.accumulatedRise += deltaY;
+
+        if (active.accumulatedRise > active.maximumRise) {
+            session = null;
+            return false;
+        }
+
+        active.expectedNextVelocity = nextVerticalVelocity(deltaY);
+        active.remainingTicks--;
         return true;
     }
 
-    /** Clears session for a specific player (useful on logout). */
-    public void clearSession(UUID playerUuid) {
-        if (playerUuid == null) return;
-        sessions.remove(playerUuid);
-    }
-
-    /** Clear all sessions (useful for tests/world unload). */
-    public void clearAll() {
-        sessions.clear();
-    }
-
-    // ---- Helpers ----
-
-    // Small result object for simulation
-    private static class SimulationResult {
-        int ticksToApex;
-        double predictedRise;
-        SimulationResult(int ticksToApex, double predictedRise) {
-            this.ticksToApex = ticksToApex;
-            this.predictedRise = predictedRise;
+    private boolean hasSweptSlimeContact(MovementData movementData) {
+        if (movementData.isOnSlime()) {
+            return true;
         }
+
+        CustomLocation current = movementData.getLocation();
+        CustomLocation from = lastDescendingLocation;
+
+        if (from == null
+                || current == null
+                || from.getWorld() == null
+                || current.getWorld() != from.getWorld()) {
+            return false;
+        }
+
+        World world = from.getWorld();
+        double projectedEndY = from.getY() + nextVerticalVelocity(lastDescendingDeltaY);
+        double minimumSurfaceY = Math.min(projectedEndY, from.getY()) - 0.35D;
+        double maximumSurfaceY = Math.max(projectedEndY, from.getY()) + 0.25D;
+        int minimumBlockY = (int) Math.floor(minimumSurfaceY) - 1;
+        int maximumBlockY = (int) Math.floor(maximumSurfaceY);
+
+        // Player terminal velocity limits this to a handful of blocks, but cap
+        // the scan defensively for modified or corrupt movement.
+        minimumBlockY = Math.max(minimumBlockY, maximumBlockY - 8);
+
+        for (int step = 0; step <= 4; step++) {
+            double progress = step / 4.0D;
+            double x = from.getX() + ((current.getX() - from.getX()) * progress);
+            double z = from.getZ() + ((current.getZ() - from.getZ()) * progress);
+
+            for (double offsetX : FOOTPRINT_OFFSETS) {
+                for (double offsetZ : FOOTPRINT_OFFSETS) {
+                    int blockX = (int) Math.floor(x + offsetX);
+                    int blockZ = (int) Math.floor(z + offsetZ);
+
+                    for (int blockY = minimumBlockY; blockY <= maximumBlockY; blockY++) {
+                        Block block = world.getBlockAt(blockX, blockY, blockZ);
+
+                        if (!MaterialType.isMaterial(block.getType().name(), MaterialType.SLIME)) {
+                            continue;
+                        }
+
+                        double surfaceY = blockY + 1.0D;
+
+                        if (surfaceY >= minimumSurfaceY && surfaceY <= maximumSurfaceY) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
-    /**
-     * Simulate per-tick motion to compute ticks until upward velocity becomes <= 0 and predicted rise.
-     * Bounded by MAX_SIM_TICKS; uses VANILLA_GRAVITY and VANILLA_DRAG.
-     */
-    private SimulationResult simulateApexAndRise(double initialUpVel) {
-        double v = initialUpVel;
-        double rise = 0.0;
+    private double nextVerticalVelocity(double velocity) {
+        return (velocity - VANILLA_GRAVITY) * VANILLA_DRAG;
+    }
+
+    private SimulationResult simulateApexAndRise(double initialVelocity) {
+        double velocity = Math.max(0.0D, initialVelocity);
+        double rise = 0.0D;
         int ticks = 0;
-        int cap = Math.min(MAX_SIM_TICKS, 200);
-        while (v > 0.0 && ticks < cap) {
-            rise += v;                    // approximate per-tick displacement (motionY units)
-            v = (v - VANILLA_GRAVITY) * VANILLA_DRAG;
+
+        while (velocity > 0.0D && ticks < MAX_APEX_TICKS) {
+            rise += velocity;
+            velocity = nextVerticalVelocity(velocity);
             ticks++;
         }
+
         return new SimulationResult(ticks, rise);
     }
 
-    // Create a synthetic stable UUID from an object's identity/hashcode for fallback keys.
-    private static UUID syntheticUuidFromObject(Object o) {
-        int h = System.identityHashCode(o);
-        // combine with a constant so it's a valid UUID but stable for object identity during lifetime
-        long msb = 0x2f4a5c3b00000000L | ((long) h & 0xffffffffL);
-        long lsb = 0x7f3d9b2e00000000L | (((long) h << 16) & 0xffffffffL);
-        return new UUID(msb, lsb);
+    public void clearSession(UUID playerUuid) {
+        if (playerUuid != null && (profile.getUUID() == null || playerUuid.equals(profile.getUUID()))) {
+            resetAll();
+        }
+    }
+
+    public void clearAll() {
+        resetAll();
+    }
+
+    private void resetAll() {
+        session = null;
+        resetDescent();
+    }
+
+    private void resetDescent() {
+        lastDescendingLocation = null;
+        trackedFallDistance = 0.0D;
+        lastDescendingDeltaY = 0.0D;
+        descendingTicks = 0;
+        descentGraceTicks = 0;
+    }
+
+    private static final double[] FOOTPRINT_OFFSETS = {
+            -PLAYER_HALF_WIDTH,
+            0.0D,
+            PLAYER_HALF_WIDTH
+    };
+
+    private static final class BounceSession {
+        private final double maximumLaunchVelocity;
+        private final double maximumRise;
+        private int remainingTicks;
+        private double accumulatedRise;
+        private double expectedNextVelocity = Double.NaN;
+
+        private BounceSession(double maximumLaunchVelocity,
+                              double maximumRise,
+                              int remainingTicks,
+                              double accumulatedRise) {
+            this.maximumLaunchVelocity = maximumLaunchVelocity;
+            this.maximumRise = maximumRise;
+            this.remainingTicks = remainingTicks;
+            this.accumulatedRise = accumulatedRise;
+        }
+    }
+
+    private static final class SimulationResult {
+        private final int ticksToApex;
+        private final double predictedRise;
+
+        private SimulationResult(int ticksToApex, double predictedRise) {
+            this.ticksToApex = ticksToApex;
+            this.predictedRise = predictedRise;
+        }
     }
 }

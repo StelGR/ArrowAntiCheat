@@ -203,7 +203,7 @@ public class ScaffoldB extends Check {
             return false;
         }
 
-        if (profile.getTick() < 100 || profile.shouldCancel()) {
+        if (profile.getTick() < 20 || profile.shouldCancel()) {
             return false;
         }
 

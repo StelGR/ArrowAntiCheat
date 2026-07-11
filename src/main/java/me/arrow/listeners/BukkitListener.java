@@ -293,7 +293,7 @@ public class BukkitListener implements Listener {
             Profile user = Arrow.getInstance().getProfileManager().getProfile((Player) damageEvent.getEntity());
 
             if (user != null) {
-                user.getDamageData().record(damageEvent.getCause());
+                user.getDamageData().record(damageEvent);
 
                 if (damageEvent.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
                     user.getLastShotByArrowTimer().reset();
@@ -311,6 +311,7 @@ public class BukkitListener implements Listener {
                 }
 
             }
+
         }
 
         if (event instanceof PlayerRespawnEvent) {
@@ -593,6 +594,11 @@ public class BukkitListener implements Listener {
                 itemStack.addUnsafeEnchantment(enchantment, level);
             }
         }
+
+        // Re-apply after every metadata/enchantment mutation. Modern item
+        // components may otherwise lose the unbreakable component when meta is
+        // replaced by another plugin/API implementation.
+        itemStack = ensureUnbreakableItem(itemStack);
 
         player.getInventory().addItem(itemStack);
     }

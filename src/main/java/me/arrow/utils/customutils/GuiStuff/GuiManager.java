@@ -364,6 +364,20 @@ public class GuiManager {
                         translate(guiLine())
                 )));
 
+        ItemStack ghostBlockSyncItem = createToggleWool(
+                Config.Setting.GHOST_BLOCK_FIX.getBoolean(),
+                serverVersion
+        );
+        gui.setItem(22, generateItem(ghostBlockSyncItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ghost-Block Sync"),
+                Arrays.asList(
+                        translate(guiLine()),
+                        translate("&7&oShould we fix ghostblock desyncs (Live)"),
+                        "",
+                        translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage()
+                                + Config.Setting.GHOST_BLOCK_FIX.getBoolean()),
+                        translate(guiLine())
+                )));
+
         ItemStack testModeItem = createToggleWool(Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean(), serverVersion);
         gui.setItem(28, generateItem(testModeItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Test Server Mode"),
                 Arrays.asList(

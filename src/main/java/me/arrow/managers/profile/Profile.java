@@ -138,7 +138,7 @@ public class Profile {
     private final Map<Integer, Long> iSentTransactions = new EvictingMap<>(100);
     private final Map<Short, Long> sSentTransactions = new EvictingMap<>(100);
 
-    boolean verbose = false, alerts = true, banned = false, setbackDebug = false;
+    boolean verbose = false, alerts = false, banned = false, setbackDebug = false;
     String verbosingClass = "None";
     //---------------------------
 
@@ -273,7 +273,7 @@ public class Profile {
                 || getLastFlightToggleTimer().hasNotPassed(40)
                 || player.getGameMode() == GameMode.CREATIVE
                 || player.getGameMode() == GameMode.SPECTATOR
-                || getTick() < 120
+                || getTick() < 20
                 //|| !Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(movementData.getLocation().getWorld(), (int) movementData.getLocation().getX(), (int) movementData.getLocation().getZ())
                 //|| isExempt().isSetback()
                 ;

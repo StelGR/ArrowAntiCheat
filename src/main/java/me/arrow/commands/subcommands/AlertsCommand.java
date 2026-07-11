@@ -56,15 +56,15 @@ public class AlertsCommand extends SubCommand {
 
         if (this.plugin.getAlertManager().hasAlerts(uuid)) {
 
-            this.plugin.getAlertManager().removePlayerFromAlerts(uuid);
             this.plugin.getProfileManager().getProfile(((Player) sender).getUniqueId()).setAlerts(false);
+            this.plugin.getAlertManager().removePlayerFromAlerts(uuid);
 
             sender.sendMessage(translate(MsgType.PREFIX.getMessage() + "&cYou have disabled the Alerts"));
 
         } else {
 
-            this.plugin.getAlertManager().addPlayerToAlerts(uuid);
             this.plugin.getProfileManager().getProfile(((Player) sender).getUniqueId()).setAlerts(true);
+            this.plugin.getAlertManager().addPlayerToAlerts(uuid);
 
             sender.sendMessage(translate(MsgType.PREFIX.getMessage() + "&aYou have enabled the Alerts"));
         }

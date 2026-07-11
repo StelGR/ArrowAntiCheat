@@ -79,10 +79,10 @@ public class FlyB extends Check {
                 return;
             }
 
-            if (profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - block update under");
-                movementData.setCustomAirTicks(0);
-            }
+//            if (profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+//                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - block update under");
+//                return;
+//            }
 
 
             if (profile.isBouncingOnSlime()) {
@@ -100,10 +100,11 @@ public class FlyB extends Check {
                 return;
             }
 
-            int ghostPhysicsTicks = 6 + (profile.getConnectionData().getClientTickTrans() * 4);
+            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
             if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (ghostblock liquid/web/pending physics place)");
+                movementData.setCustomAirTicks(0);
                 return;
             }
 
@@ -124,6 +125,7 @@ public class FlyB extends Check {
 
             if (profile.isExempt().isTeleports()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (teleports)");
+                movementData.setCustomAirTicks(0);
                 return;
             }
 
@@ -132,7 +134,8 @@ public class FlyB extends Check {
                 return;
             }
 
-            if (movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
+            if (movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()
+                    || movementData.getSinceNearWaterTicks() < 8 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (inside water)");
                 return;
             }
@@ -194,7 +197,7 @@ public class FlyB extends Check {
 
             CustomLocation loc = movementData.getLocation();
 
-            if (!CollisionUtils.isChunkLoaded(movementData.getLocation())) {
+            if (!CollisionUtils.isChunkLoaded(loc)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (unloaded chunk)");
                 return;
             }
@@ -264,9 +267,9 @@ public class FlyB extends Check {
 
             velMag += (horizo / 2);
 
-            double baseTicksVel = 8;
+            double baseTicksVel = 6;
             double baseVelocity = 0.000001;
-            double scale = 16;
+            double scale = 18;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
             airTickLimit += Math.ceil(extraFromVel);
@@ -274,10 +277,10 @@ public class FlyB extends Check {
             if (movementData.isNearFence()) airTickLimit += 4;
 
             //temporary piston fix
-            if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    && deltaY > MoveUtils.getJumpMotion(profile)
-                    && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (movementData.getSinceNearSlimeTicks() <= (40 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    && movementData.getSinceNearPistonTicks() <= (40 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 airTickLimit += 8;
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Extending PistonSlimeTicks");
             }
 
             airTickLimit = Math.max(airTickLimit, 12);

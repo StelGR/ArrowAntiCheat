@@ -78,17 +78,23 @@ public class GroundC extends Check {
 
             int trans = profile.getConnectionData().getClientTickTrans();
 
-            if (profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2))
-//                    || profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
-//                    || profile.getActionData().hasRecentTowerBlockPlace(20 + (trans * 2), 2 + trans)
-                    ) {
+            /*
+             * A real support block can appear or disappear before every ground
+             * source (collision cache, client world and Bukkit world) agrees.
+             * The place support helper verifies that the block actually exists,
+             * so cancelled/ghost tower attempts do not receive this exemption.
+             */
+            if (profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
+                    || profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2))
+                    || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (trans * 2))
+            ) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground c: is Exempting (Block Update/Piston Update/Block Place/Block Break)");
                 return;
             }
 
             if (serverPositionGround && serverYGround && movementData.isCustomInAir() && ground) {
 
-                fail("On Ghostblock?", verboseInfo);
+                fail("On Ghostblock? (1)", verboseInfo);
 
                 if (Config.Setting.DEBUG.getBoolean()) {
                     OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
@@ -100,7 +106,7 @@ public class GroundC extends Check {
 
                 if (movementData.getFallDistance() > 1.3 || movementData.getLastFallDistance() > 1.3) return;
 
-                fail("On Ghostblock?", verboseInfo);
+                fail("On Ghostblock? (2)", verboseInfo);
 
                 if (Config.Setting.DEBUG.getBoolean()) {
                     OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");

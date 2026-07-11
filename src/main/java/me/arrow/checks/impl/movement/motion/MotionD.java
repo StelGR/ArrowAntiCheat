@@ -61,8 +61,10 @@ public class MotionD extends Check {
                     || movementData.isNearLava()
                     || movementData.isNearClimbable()
                     || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || (profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 10)
                     || profile.getPlayer().isInsideVehicle()) {
+                buffer = 0;
                 return;
             }
 

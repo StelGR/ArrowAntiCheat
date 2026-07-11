@@ -4,11 +4,15 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPosition;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPositionAndRotation;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerRotation;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
@@ -108,6 +112,11 @@ public class MovementData implements Data {
 
     boolean packetMoving;
 
+    /** Authoritative fall-flying flag from the player's own metadata packet. */
+    private volatile boolean metadataGliding;
+    private volatile float elytraMomentumBonus;
+    private int glideStartTransitionTicks;
+
     @Getter
     CollisionUtils.NearbyBlocksResult nearbyBlocksResult;
 
@@ -140,6 +149,12 @@ public class MovementData implements Data {
     @Override
     public void processReceive(PacketReceiveEvent event) {
         final long currentTime = event.getTimestamp();
+
+        if (event.getPacketType().equals(ENTITY_ACTION)) {
+            handleElytraStartAction(event);
+            return;
+        }
+
         if (event.getPacketType().equals(PLAYER_FLYING)) {
             WrapperPlayClientPlayerFlying move = new WrapperPlayClientPlayerFlying(event);
 
@@ -229,7 +244,43 @@ public class MovementData implements Data {
 
     @Override
     public void processSend(PacketSendEvent event) {
+        if (!event.getPacketType().equals(PacketType.Play.Server.ENTITY_METADATA)
+                || profile.getPlayer() == null) {
+            return;
+        }
 
+        WrapperPlayServerEntityMetadata metadata;
+
+        try {
+            metadata = new WrapperPlayServerEntityMetadata(event);
+        } catch (Throwable ignored) {
+            return;
+        }
+
+        if (metadata.getEntityId() != profile.getPlayer().getEntityId()) {
+            return;
+        }
+
+        try {
+            for (EntityData<?> entry : metadata.getEntityMetadata()) {
+                if (entry.getIndex() != 0 || !(entry.getValue() instanceof Byte flags)) {
+                    continue;
+                }
+
+                metadataGliding = (flags & 0x80) == 0x80;
+
+                if (metadataGliding) {
+                    // Preserve the transition even if Bukkit's pose changes
+                    // back before the next movement packet is processed.
+                    sinceGlidingTicks = 0;
+                    glideStartTransitionTicks = Math.max(glideStartTransitionTicks, getGlideTransitionTicks());
+                    captureElytraMomentum();
+                }
+
+                break;
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     float bedrockDeltaY, bedrockLastDeltaY;
@@ -321,6 +372,11 @@ public class MovementData implements Data {
         processPlayerData();
         processBlocks();
 
+        profile.setBouncingOnSlime(getSlimeProcessor().isBouncing(this, profile.getPotionData()));
+        if (Config.Setting.DEBUG.getBoolean()) {
+            profile.getPlayer().sendMessage(OtherUtility.translate("Bouncing on Slime: &c" + profile.isBouncingOnSlime()));
+        }
+
         if (profile.getPlayer().getAllowFlight()) {
             profile.getLastFlightToggleTimer().reset();
         }
@@ -369,7 +425,11 @@ public class MovementData implements Data {
         For a production server, DO NOT use spigot's api. It's slow. (Especially for Blocks, Chunks, Materials)
          */
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation().clone(), !TaskUtils.isFoliaServer());
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(getLocation().clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(
+                getLocation().clone().add(0, 1, 0),
+                !TaskUtils.isFoliaServer(),
+                getLocation().getY()
+        );
 
         this.nearbyBlocksResult = nearbyBlocksResult;
 
@@ -386,9 +446,6 @@ public class MovementData implements Data {
         intersecting = false
                 //((isPlayerIntersectingBlocks(profile) || profile.getBlockData().collideSlime || isPhasing(profile)) && (deltaXZ > 20 || deltaY > 60 || deltaY < -60) || isPhasing(profile))
         ;
-
-        profile.setBouncingOnSlime(getSlimeProcessor().isBouncing(profile.getMovementData(), profile.getPotionData()));
-        if (Config.Setting.DEBUG.getBoolean()) profile.getPlayer().sendMessage(OtherUtility.translate( "Bouncing on Slime: &c" + profile.isBouncingOnSlime()));
 
         nearStepMaterial = nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
@@ -1124,10 +1181,20 @@ public class MovementData implements Data {
             sinceCollideTicks = 0;
         } else sinceCollideTicks++;
 
-        if (Arrow.getInstance().getNmsManager().getNmsInstance().isGliding(profile.getPlayer()) ) {
+        boolean glidingNow = metadataGliding
+                || glideStartTransitionTicks > 0
+                || isGliding(profile.getPlayer());
+
+        if (glidingNow) {
             sinceGlidingTicks = 0;
         }
         else sinceGlidingTicks++;
+
+        updateElytraMomentum(glidingNow);
+
+        if (glideStartTransitionTicks > 0) {
+            glideStartTransitionTicks--;
+        }
 
         if (profile.isWearingFunctionalElytra()) {
             sinceElytraEquipTicks = 0;
@@ -1308,20 +1375,78 @@ public class MovementData implements Data {
     }
 
     public float elytraMomentum() {
-        int ping = Math.max(0, profile.getConnectionData().getTransPing());
-        float START = 0.9f + (Math.max(0f, ping - 50f) / 50f) * 0.3f;
-        float STEP  = 0.05f;
-        int TICKS_PER_STEP = 4;
-        int MAX_STEPS = 300;    // 6 * 2 = 12 ticks
-        int ZERO_AT_TICK = 120;
+        return Math.max(0.0F, elytraMomentumBonus);
+    }
 
-        if (sinceGlidingTicks == 0 && getSinceElytraEquipTicks() == 0) return 0.65F;
-        if (profile.getTick() > 120 && sinceGlidingTicks == 1) return START;
-        if (sinceGlidingTicks >= ZERO_AT_TICK) return 0f;
+    private void handleElytraStartAction(PacketReceiveEvent event) {
+        WrapperPlayClientEntityAction action;
 
-        int steps = Math.min(sinceGlidingTicks / TICKS_PER_STEP, MAX_STEPS);
-        float value = START - steps * STEP;
-        return Math.abs(value);
+        try {
+            action = new WrapperPlayClientEntityAction(event);
+        } catch (Throwable ignored) {
+            return;
+        }
+
+        if (action.getAction() != WrapperPlayClientEntityAction.Action.START_FLYING_WITH_ELYTRA
+                || !profile.isWearingFunctionalElytra()
+                || profile.getPlayer().isInsideVehicle()
+                || isOnGround()
+                || getClientAirTicks() <= 0
+                || getDeltaY() >= 0.0D
+                || isInsideWater()
+                || isNearWebs()
+                || isNearClimbable()) {
+            return;
+        }
+
+        /*
+         * This packet is the earliest reliable indication of a real client
+         * glide. A jump-glide can land and clear Bukkit pose before the next
+         * movement packet, especially with transaction delay.
+         */
+        glideStartTransitionTicks = Math.max(glideStartTransitionTicks, getGlideTransitionTicks());
+        sinceGlidingTicks = 0;
+        captureElytraMomentum();
+    }
+
+    private int getGlideTransitionTicks() {
+        int transactionTicks = 0;
+        int pingTicks = 0;
+
+        try {
+            transactionTicks = Math.max(0, profile.getConnectionData().getClientTickTrans());
+            pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
+        } catch (Throwable ignored) {
+        }
+
+        return Math.max(3, Math.min(12, 3 + Math.max(transactionTicks, pingTicks)));
+    }
+
+    private void captureElytraMomentum() {
+        // Speed A adds this value on top of its normal movement allowance, so
+        // retain only the velocity above ordinary air movement.
+        float carried = (float) Math.max(0.0D, Math.min(4.0D, deltaXZ - 0.30D));
+        elytraMomentumBonus = Math.max(elytraMomentumBonus, carried);
+    }
+
+    private void updateElytraMomentum(boolean gliding) {
+        if (gliding) {
+            captureElytraMomentum();
+            return;
+        }
+
+        if ((isOnGround() || isServerGround()) && sinceGlidingTicks > 2) {
+            elytraMomentumBonus = 0.0F;
+            return;
+        }
+
+        // Preserve post-glide/unequip velocity, then smoothly decay it instead
+        // of replacing it with a ping-derived constant.
+        elytraMomentumBonus *= 0.98F;
+
+        if (elytraMomentumBonus < 0.005F || sinceGlidingTicks > 160) {
+            elytraMomentumBonus = 0.0F;
+        }
     }
 
     private float dolphinGraceMomentum;

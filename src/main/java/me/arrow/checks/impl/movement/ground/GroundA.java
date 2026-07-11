@@ -76,7 +76,9 @@ public class GroundA extends Check {
                     && movementData.getSincePredictUpwardsTicks() < 10
                     && !profile.isBedrockPlayer();
 
-            if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    || profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
+                    || profile.getActionData().hasRecentTowerBlockPlace(10 + (trans * 2), 2 + trans)) {
                 return;
             }
 
