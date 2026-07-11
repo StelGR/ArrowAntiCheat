@@ -3,6 +3,7 @@ package me.arrow.checks.impl.combat.reach;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
 import me.arrow.Arrow;
@@ -47,7 +48,6 @@ public class ReachA extends Check {
     double MAX_FORGIVING_VERTICAL_EXPAND;
     double MAX_REACH_TOLERANCE;
 
-    boolean REQUIRE_RAY_INTERSECTION_FOR_REACH;
     boolean VERBOSE_RAY_HITBOX_STATE = true;
 
     int ROTATION_HISTORY_SIZE = 20;
@@ -59,13 +59,7 @@ public class ReachA extends Check {
 
     double CLEAN_MISS_MIN_CENTER_ANGLE = 8.5D;
 
-    double HITBOX_BUFFER_REQUIRED = 3.0D;
-
-
-
     final List<RotationSnapshot> rotationHistory = new ArrayList<>(ROTATION_HISTORY_SIZE);
-
-    private double hitboxBuffer;
 
     public ReachA(Profile profile) {
         super(profile, CheckType.REACH, "A", "Checks for entity reach");
@@ -78,8 +72,6 @@ public class ReachA extends Check {
         MAX_FORGIVING_HORIZONTAL_BOX_EXPAND = Checks.Setting.REACH_A_MAX_FORGIVING_HORIZONTAL_BOX_EXPAND.getDouble();
         MAX_FORGIVING_VERTICAL_EXPAND = Checks.Setting.REACH_A_MAX_FORGIVING_VERTICAL_BOX_EXPAND.getDouble();
         MAX_REACH_TOLERANCE = Checks.Setting.REACH_A_MAX_REACH_TOLERANCE.getDouble();
-        REQUIRE_RAY_INTERSECTION_FOR_REACH = Checks.Setting.REACH_A_RAY.getBoolean();
-        
     }
 
     @Override
@@ -112,7 +104,6 @@ public class ReachA extends Check {
 
         if (isBadAttackerState(profile)) {
             decreaseBufferBy(0.15D);
-            hitboxBuffer -= Math.min(hitboxBuffer, 0.25D);
             return;
         }
 
@@ -160,13 +151,12 @@ public class ReachA extends Check {
 
         if (isBadTargetState(targetProfile)) {
             decreaseBufferBy(0.15D);
-            hitboxBuffer -= Math.min(hitboxBuffer, 0.25D);
             return;
         }
 
         SampleList<CustomLocation> targetPastLocations = targetProfile.getMovementData().getPastLocations();
 
-        if (targetPastLocations == null || targetPastLocations.size() < MIN_HISTORY_SAMPLES) {
+        if (targetPastLocations == null || targetPastLocations.size() < 4) {
             return;
         }
 
@@ -179,8 +169,8 @@ public class ReachA extends Check {
         int attackerPingTicks = getPingTicks(profile);
         int targetPingTicks = getPingTicks(targetProfile);
 
-        int historyAmount = getHistoryAmount(samples.size(), attackerPingTicks, targetPingTicks);
-        List<CustomLocation> compensatedSamples = getLastSamples(samples, historyAmount);
+        List<CustomLocation> compensatedSamples = getCompensatedSamples(samples, attackerPingTicks);
+        int historyAmount = compensatedSamples.size();
 
         if (compensatedSamples.size() < MIN_HISTORY_SAMPLES) {
             return;
@@ -322,34 +312,9 @@ public class ReachA extends Check {
                 );
             }
 
-            if (cleanMiss) {
-                hitboxBuffer += laggy ? 0.35D : 1.0D;
-
-                if (hitboxBuffer > HITBOX_BUFFER_REQUIRED) {
-                    fail(
-                            "Expanded Hitbox",
-                            "centerDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestCenterDistance)
-                                    + "\ncenterRayDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestCenterRayDistance)
-                                    + "\ncenterAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestCenterAngle)
-                                    + "\nrecentFlick " + MsgType.MAIN_THEME_COLOR.getMessage() + recentFlick
-                                    + "\nlaggy " + MsgType.MAIN_THEME_COLOR.getMessage() + laggy
-                                    + "\nforgivingRayHit " + MsgType.MAIN_THEME_COLOR.getMessage() + forgivingRayHitBox
-                                    + "\nsamples " + MsgType.MAIN_THEME_COLOR.getMessage() + compensatedSamples.size()
-                                    + "\nhistory " + MsgType.MAIN_THEME_COLOR.getMessage() + historyAmount
-                    );
-
-                    hitboxBuffer *= 0.5D;
-                }
-            } else {
-                hitboxBuffer -= Math.min(hitboxBuffer, recentFlick || laggy ? 0.5D : 0.2D);
-            }
-
-            if (REQUIRE_RAY_INTERSECTION_FOR_REACH) {
-                decreaseBufferBy(0.05D);
-                return;
-            }
-        } else {
-            hitboxBuffer -= Math.min(hitboxBuffer, 0.35D);
+            // Reach is only a distance check. Hitbox A owns clean ray misses.
+            decreaseBufferBy(cleanMiss ? 0.02D : 0.05D);
+            return;
         }
 
         double allowedReach = BASE_REACH_LIMIT + reachTolerance;
@@ -613,6 +578,70 @@ public class ReachA extends Check {
         return new ArrayList<>(samples.subList(from, samples.size()));
     }
 
+    /**
+     * Approximate the transaction-compensated render window used by precise
+     * reach checks. Living entities interpolate over three client ticks. We
+     * include one packet-ordering tick before the expected RTT rewind and the
+     * complete interpolation path, rather than accepting every recent server
+     * position as a possible hit location.
+     */
+    private List<CustomLocation> getCompensatedSamples(List<CustomLocation> history, int attackerPingTicks) {
+        if (history == null || history.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        int newest = history.size() - 1;
+        int expectedAge = Math.min(newest, Math.max(0, attackerPingTicks + 1));
+        int youngestAge = Math.max(0, expectedAge - 1);
+        int oldestAge = Math.min(newest, expectedAge + 3);
+        List<CustomLocation> positions = new ArrayList<>();
+
+        for (int age = youngestAge; age <= oldestAge; age++) {
+            CustomLocation location = history.get(newest - age);
+
+            if (location != null) {
+                positions.add(location);
+            }
+        }
+
+        if (positions.size() < 2) {
+            return positions;
+        }
+
+        List<CustomLocation> interpolated = new ArrayList<>(positions.size() * 3);
+
+        for (int i = 0; i < positions.size(); i++) {
+            CustomLocation current = positions.get(i);
+            interpolated.add(current);
+
+            if (i + 1 >= positions.size()) {
+                continue;
+            }
+
+            CustomLocation next = positions.get(i + 1);
+
+            if (current.getWorld() != next.getWorld()) {
+                continue;
+            }
+
+            interpolated.add(interpolate(current, next, 1.0D / 3.0D));
+            interpolated.add(interpolate(current, next, 2.0D / 3.0D));
+        }
+
+        return interpolated;
+    }
+
+    private CustomLocation interpolate(CustomLocation from, CustomLocation to, double amount) {
+        return new CustomLocation(
+                from.getWorld(),
+                from.getX() + (to.getX() - from.getX()) * amount,
+                from.getY() + (to.getY() - from.getY()) * amount,
+                from.getZ() + (to.getZ() - from.getZ()) * amount,
+                from.getYaw(),
+                from.getPitch()
+        );
+    }
+
     private int getHistoryAmount(int sampleSize, int attackerPingTicks, int targetPingTicks) {
         int amount = 8 + attackerPingTicks + Math.max(0, targetPingTicks / 2);
 
@@ -652,61 +681,26 @@ public class ReachA extends Check {
 
     private double getReachTolerance(Profile attacker, Profile target) {
         int attackerPingTicks = getPingTicks(attacker);
-        int targetPingTicks = getPingTicks(target);
-
-        double tolerance = 0.0025D;
-
-        tolerance += Math.min(0.025D, attackerPingTicks * 0.0015D);
-        tolerance += Math.min(0.015D, targetPingTicks * 0.0010D);
-
-        if (attacker.isBedrockPlayer() || target.isBedrockPlayer()) {
-            tolerance += 0.015D;
-        }
+        double tolerance = Math.max(0, attackerPingTicks - 6) * 0.001D;
 
         return Math.min(MAX_REACH_TOLERANCE, tolerance);
     }
 
     private double getHorizontalBoxExpand(Profile target) {
-        double expand = BASE_BOX_EXPAND_HORIZONTAL;
-
-        if (target != null && target.getMovementData() != null) {
-            MovementData movement = target.getMovementData();
-
-            expand += Math.min(0.065D, movement.getDeltaXZ() * 0.45D);
-            expand += Math.min(0.04D, getPingTicks(target) * 0.002D);
-
-            if (movement.isNearWall()
-                    || movement.isNearFence()
-                    || movement.isOnIce()
-                    || movement.isOnSlime()
-                    || movement.isNearWebs()
-                    || movement.isInsideWater()
-                    || movement.isNearWater()) {
-                expand += 0.025D;
-            }
-        }
-
-        return Math.min(MAX_LAG_BOX_EXPAND, expand);
+        double configured = Math.min(0.01D, Math.max(0.0D, BASE_BOX_EXPAND_HORIZONTAL));
+        double protocolMargin = isLegacyClient() ? 0.10D : 0.03D;
+        return Math.min(MAX_LAG_BOX_EXPAND, configured + protocolMargin);
     }
 
     private double getVerticalBoxExpand(Profile target) {
-        double expand = BASE_BOX_EXPAND_VERTICAL;
+        double configured = Math.min(0.01D, Math.max(0.0D, BASE_BOX_EXPAND_VERTICAL));
+        double protocolMargin = isLegacyClient() ? 0.10D : 0.03D;
+        return Math.min(0.12D, configured + protocolMargin);
+    }
 
-        if (target != null && target.getMovementData() != null) {
-            MovementData movement = target.getMovementData();
-
-            expand += Math.min(0.05D, Math.abs(movement.getDeltaY()) * 0.35D);
-
-            if (movement.isNearClimbable()
-                    || movement.isNearWebs()
-                    || movement.isInsideWater()
-                    || movement.isNearWater()
-                    || movement.isNearBubble()) {
-                expand += 0.025D;
-            }
-        }
-
-        return Math.min(0.12D, expand);
+    private boolean isLegacyClient() {
+        return profile.getVersion() != null
+                && profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8);
     }
 
     private boolean isBadAttackerState(Profile profile) {
