@@ -123,7 +123,14 @@ public class OtherUtility {
     }
 
     public static ItemStack createUnbreakableItem(Material material) {
-        ItemStack itemStack = new ItemStack(material, 1);
+        return ensureUnbreakableItem(new ItemStack(material, 1));
+    }
+
+    public static ItemStack ensureUnbreakableItem(ItemStack itemStack) {
+        if (itemStack == null) {
+            return null;
+        }
+
         ItemMeta itemMeta = itemStack.getItemMeta();
 
         if (itemMeta == null) {
@@ -171,9 +178,26 @@ public class OtherUtility {
 
     private static boolean trySetUnbreakableCompat(ItemMeta meta, boolean unbreakable) {
         try {
+            // Use the Bukkit API directly on modern servers. Reflection against
+            // CraftMeta implementations became unreliable after item data was
+            // migrated to components.
+            meta.setUnbreakable(unbreakable);
+            return meta.isUnbreakable() == unbreakable;
+        } catch (Throwable ignored) {
+            // The direct methods do not exist on legacy 1.8 APIs.
+        }
+
+        try {
             Method modern = meta.getClass().getMethod("setUnbreakable", boolean.class);
             modern.invoke(meta, unbreakable);
-            return true;
+
+            try {
+                Method getter = meta.getClass().getMethod("isUnbreakable");
+                Object value = getter.invoke(meta);
+                return value instanceof Boolean && (Boolean) value == unbreakable;
+            } catch (Throwable ignored) {
+                return true;
+            }
         } catch (NoSuchMethodException ignored) {
             // try legacy below
         } catch (Throwable ignored) {

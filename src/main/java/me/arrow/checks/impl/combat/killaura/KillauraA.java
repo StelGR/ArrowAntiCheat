@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -28,6 +29,7 @@ public class KillauraA extends Check {
     private boolean lastAttackTargetPlayer;
     private boolean sprintingOnAttack;
     private boolean inferredSprintOnAttack;
+    private boolean attackEvaluated;
 
     public KillauraA(Profile profile) {
         super(profile, CheckType.KILLAURA, "A", "Checks for keep sprint (Credits: MrCloudMan)");
@@ -48,7 +50,7 @@ public class KillauraA extends Check {
         }
 
         if (isMovement(packetType)) {
-            handleMovement();
+            handleMovement(packetType);
         }
     }
 
@@ -68,7 +70,8 @@ public class KillauraA extends Check {
          * Do not return early because target tracking failed.
          */
         lastAttackMillis = System.currentTimeMillis();
-        attackTicks = 6;
+        attackTicks = 4;
+        attackEvaluated = false;
 
         sprintingOnAttack =
                 actionData.isSprinting()
@@ -93,7 +96,7 @@ public class KillauraA extends Check {
         }
     }
 
-    private void handleMovement() {
+    private void handleMovement(PacketTypeCommon packetType) {
 
         if (profile.shouldCancel()) {
             reset();
@@ -102,6 +105,16 @@ public class KillauraA extends Check {
 
         MovementData movementData = profile.getMovementData();
         ActionData actionData = profile.getActionData();
+
+        /*
+         * Rotation/on-ground-only packets reuse the last positional delta.
+         * Treating them as a knockback response creates an artificial 0.0
+         * acceleration and was the primary modern false positive.
+         */
+        if (!hasPositionUpdate(packetType)) {
+            if (attackTicks > 0) attackTicks--;
+            return;
+        }
 
         double deltaXZ = movementData.getDeltaXZ();
         double acceleration = Math.abs(deltaXZ - lastDeltaXZ);
@@ -119,6 +132,11 @@ public class KillauraA extends Check {
 
         attackTicks--;
 
+        if (attackEvaluated) {
+            lastDeltaXZ = deltaXZ;
+            return;
+        }
+
         if (hardExempt(movementData)) {
             lastDeltaXZ = deltaXZ;
             attackTicks = 0;
@@ -135,6 +153,10 @@ public class KillauraA extends Check {
                         || actionData.isLastLastSprinting();
 
         boolean inferredSprinting = isMovingLikeSprint(movementData);
+        boolean legacyClient = profile.getVersion() != null
+                && profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8);
+        double lateralRatio = getLateralMovementRatio(movementData);
+        boolean pureLegacyStrafe = legacyClient && lateralRatio >= 0.82D;
 
         /*
          * NoPackets can hide packet sprinting.
@@ -157,25 +179,32 @@ public class KillauraA extends Check {
          * Legit sprint hits usually create a visible motion disturbance.
          * KeepSprint stays smooth.
          */
-        boolean invalid =
-                lastAttackTargetPlayer
-                        && swingDelay < 180L
-                        && sprinting
-                        && deltaXZ > 0.22D
-                        && acceleration < 0.0035D;
+        boolean invalid = lastAttackTargetPlayer
+                && swingDelay < 180L
+                && sprinting
+                && packetSprinting
+                && !pureLegacyStrafe
+                && lastDeltaXZ > (legacyClient ? 0.205D : 0.245D)
+                && deltaXZ > (legacyClient ? 0.220D : 0.255D)
+                && acceleration < (legacyClient ? 0.0025D : 0.0015D);
 
         /*
          * Extra confirmation:
          * If packet sprint is false but movement still looks sprint-like,
          * that is suspicious with NoPackets-style sprint spoofing.
          */
-        boolean noPacketSprintSuspicious =
-                lastAttackTargetPlayer
-                        && swingDelay < 180L
-                        && !packetSprinting
-                        && inferredSprinting
-                        && deltaXZ > 0.22D
-                        && acceleration < 0.006D;
+        boolean noPacketSprintSuspicious = legacyClient
+                && lastAttackTargetPlayer
+                && swingDelay < 180L
+                && !pureLegacyStrafe
+                && !packetSprinting
+                && inferredSprinting
+                && lastDeltaXZ > 0.215D
+                && deltaXZ > 0.225D
+                && acceleration < 0.0035D;
+
+        attackEvaluated = true;
+        attackTicks = 0;
 
         verbose(this.getClass().getSimpleName(), getBuffer(), 5.0D,
                 "* KeepSprint Simple"
@@ -184,6 +213,9 @@ public class KillauraA extends Check {
                         + "\n §f* deltaXZ: §b" + deltaXZ
                         + "\n §f* lastDeltaXZ: §b" + lastDeltaXZ
                         + "\n §f* acceleration: §b" + acceleration
+                        + "\n §f* legacyClient: §b" + legacyClient
+                        + "\n §f* lateralRatio: §b" + lateralRatio
+                        + "\n §f* pureLegacyStrafe: §b" + pureLegacyStrafe
                         + "\n §f* swingDelay: §b" + swingDelay
                         + "\n §f* packetSprinting: §b" + packetSprinting
                         + "\n §f* inferredSprinting: §b" + inferredSprinting
@@ -195,7 +227,7 @@ public class KillauraA extends Check {
         );
 
         if (invalid || noPacketSprintSuspicious) {
-            double add = invalid ? 1.0D : 0.65D;
+            double add = invalid ? (legacyClient ? 0.85D : 0.65D) : 0.55D;
 
             if (noPacketSprintSuspicious) {
                 add += 0.35D;
@@ -203,11 +235,15 @@ public class KillauraA extends Check {
 
             keepSprintBuffer += add;
 
-            if (increaseBufferBy(add) > 5.0D || keepSprintBuffer > 5.0D) {
+            double required = legacyClient ? 5.0D : 7.0D;
+
+            if (increaseBufferBy(add) > required || keepSprintBuffer > required) {
                 fail("KeepSprint",
                         "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                                 + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ
                                 + "\nacceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
+                                + "\nlegacyClient " + MsgType.MAIN_THEME_COLOR.getMessage() + legacyClient
+                                + "\nlateralRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + lateralRatio
                                 + "\nswingDelay " + MsgType.MAIN_THEME_COLOR.getMessage() + swingDelay
                                 + "\npacketSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + packetSprinting
                                 + "\ninferredSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + inferredSprinting
@@ -294,6 +330,26 @@ public class KillauraA extends Check {
                 || packetType.equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
+    private boolean hasPositionUpdate(PacketTypeCommon packetType) {
+        return packetType != null
+                && (packetType.equals(PacketType.Play.Client.PLAYER_POSITION)
+                || packetType.equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION));
+    }
+
+    private double getLateralMovementRatio(MovementData movementData) {
+        double horizontal = movementData.getDeltaXZ();
+
+        if (horizontal <= 1.0E-6D || profile.getRotationData() == null) {
+            return 0.0D;
+        }
+
+        double yaw = Math.toRadians(profile.getRotationData().getYaw());
+        double rightX = Math.cos(yaw);
+        double rightZ = Math.sin(yaw);
+        double lateral = Math.abs(movementData.getDeltaX() * rightX + movementData.getDeltaZ() * rightZ);
+        return Math.min(1.0D, lateral / horizontal);
+    }
+
     private void reset() {
         attackTicks = 0;
         lastAttackMillis = 0L;
@@ -301,6 +357,7 @@ public class KillauraA extends Check {
         sprintingOnAttack = false;
         inferredSprintOnAttack = false;
         lastAttackTargetPlayer = false;
+        attackEvaluated = false;
 
         lastDeltaXZ = 0.0D;
         keepSprintBuffer = 0.0D;
