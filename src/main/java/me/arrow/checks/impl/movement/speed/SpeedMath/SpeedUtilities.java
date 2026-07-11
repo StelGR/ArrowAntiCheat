@@ -36,7 +36,7 @@ public class SpeedUtilities {
         groundLimit += iceBoost;
 
         if (velocityData != null) {
-            groundLimit += Math.max(0.0D, velocityData.getTotalHorizontalVelocity());
+            groundLimit += Math.max(0.0D, (profile.getMovementData().isOnGround() ? (velocityData.getTotalHorizontalVelocity() * 2) : velocityData.getTotalHorizontalVelocity()));
         }
 
         return groundLimit;

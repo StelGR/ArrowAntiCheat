@@ -281,7 +281,7 @@ public class SpeedB extends Check {
                         } catch (Throwable ignored) {
                         }
                         limit += currentlyRiptiding ? (1.5 * riptideLevel) : 0;
-                        limit += profile.getVelocityData().getTotalHorizontalVelocity();
+                        limit += (clientGround ? (profile.getVelocityData().getTotalHorizontalVelocity() * 2) : profile.getVelocityData().getTotalHorizontalVelocity());
                         limit += movementData.elytraMomentum();
                         if (movementData.isLastOnGround() && !clientGround && deltaY >= 0.0D) {
                             limit += SpeedUtilities.getAirAttributeBonus(profile) * 0.45D;
@@ -304,7 +304,7 @@ public class SpeedB extends Check {
 
                         if (invalid) {
                             double excess = closest - limit;
-                            bufferAddition = Math.min(5, Math.max(7.5D, excess * 27.5D));
+                            bufferAddition = Math.min(2, Math.max(3D, excess * 30D));
 
                             if ((vlBuffer += bufferAddition) >= required) {
                                 fail("Invalid acceleration",

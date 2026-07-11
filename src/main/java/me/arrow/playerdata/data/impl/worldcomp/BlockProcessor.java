@@ -17,6 +17,7 @@ import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.EventTimer;
 import me.arrow.utils.customutils.EvictingList;
+import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -63,6 +64,18 @@ public class BlockProcessor implements Data {
     int PHYSICS_PLACE_AREA_RADIUS = 1;
     int PHYSICS_PLACE_AREA_BELOW = 1;
     int PHYSICS_PLACE_AREA_ABOVE = 2;
+
+    /*
+     * Solid/collision block attempts use their own wider body area. This is
+     * intentionally separate from water/lava/powder-snow physics contexts.
+     */
+    int NORMAL_PLACE_AREA_RADIUS_XZ = 2;
+    int NORMAL_PLACE_AREA_BELOW = 2;
+    int NORMAL_PLACE_AREA_ABOVE = 4;
+
+    int MIN_NORMAL_PLACE_CONFIRMATION_TICKS = 2;
+    int MAX_NORMAL_PLACE_CONFIRMATION_TICKS = 12;
+
     double CANCELLED_PHYSICS_GHOST_RANGE_XZ = 3.0D;
     double CANCELLED_PHYSICS_GHOST_RANGE_Y = 3.0D;
 
@@ -74,20 +87,24 @@ public class BlockProcessor implements Data {
     int GHOST_SYNC_COOLDOWN_TICKS = 8;
     int GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS = 4;
     int AREA_SYNC_COOLDOWN_TICKS = 1;
-    int MAX_AREA_SYNC_BLOCKS = 32;
-    int MAX_SYNC_BLOCKS_PER_FLUSH = 4;
+    int MAX_AREA_SYNC_BLOCKS = 256;
+    int MAX_SYNC_BLOCKS_PER_FLUSH = 64;
     int SELF_SYNC_IGNORE_TICKS = 3;
     int CANCELLED_PHYSICS_CONTEXT_TICKS = PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS;
-    int RECENT_CANCELLED_BLOCK_CONTEXT_TICKS = 20;
-    int NORMAL_BLOCK_PLACE_PENDING_CONTEXT_TICKS = PLACE_CONFIRMATION_GRACE_TICKS + 3;
+    int MAX_NORMAL_CANCELLED_CONTEXT_TICKS = 60;
+    int RECENT_CANCELLED_BLOCK_CONTEXT_TICKS = MAX_NORMAL_CANCELLED_CONTEXT_TICKS;
+    int NORMAL_BLOCK_PLACE_PENDING_CONTEXT_TICKS = MAX_NORMAL_CANCELLED_CONTEXT_TICKS;
 
     int recentCancelledBlockTicks = CLEARED_GHOST_CONTEXT_TICK;
     Vector recentCancelledBlockVector;
     Material recentCancelledBlockMaterial;
 
     int pendingNormalBlockPlaceTicks = CLEARED_GHOST_CONTEXT_TICK;
+    int pendingNormalBlockGraceTicks = PLACE_CONFIRMATION_GRACE_TICKS;
     Vector pendingNormalBlockPlaceVector;
     Material pendingNormalBlockPlaceMaterial;
+
+    double learnedNormalPlaceConfirmationTicks = PLACE_CONFIRMATION_GRACE_TICKS;
 
 
     int lastGhostInteractionAreaSyncTick = 100;
@@ -273,12 +290,22 @@ public class BlockProcessor implements Data {
         this.pendingPlacementTicks = 0;
         this.placeTicks++;
 
-        if (!isCancelledPhysicsContextMaterial(attemptedMaterial)
-                && isPhysicsPlacementInPlayerArea(clickedVector, placedVector)) {
-            markPendingNormalBlockPlacementContext(selectPhysicsPlaceVector(clickedVector, placedVector), attemptedMaterial);
+        boolean physicsPlacement = isCancelledPhysicsContextMaterial(attemptedMaterial);
+
+        if (!physicsPlacement
+                && isCollisionPlacementMaterial(attemptedMaterial)
+                && isNormalPlacementInPlayerArea(clickedVector, placedVector)) {
+            /*
+             * Start immediately. Checks can now exempt the very first movement
+             * packet after a client-predicted solid/slab/stair placement.
+             */
+            markPendingNormalBlockPlacementContext(
+                    selectNormalPlaceVector(clickedVector, placedVector),
+                    attemptedMaterial
+            );
         }
 
-        if (isCancelledPhysicsContextMaterial(attemptedMaterial)
+        if (physicsPlacement
                 && isPhysicsPlacementInPlayerArea(clickedVector, placedVector)) {
             // Start the simple WorldGuard/protection physics grace only after interaction-only clicks
             // have been filtered out. Lever/button/chest clicks must not reach this point.
@@ -338,20 +365,26 @@ public class BlockProcessor implements Data {
                 Vector placeVector = this.currentBlockCords;
                 Vector clickedVector = this.lastClickedBlockVector;
                 Material attempted = this.blockPlaceMaterial;
-                Material confirmedMaterial = findConfirmedPlacedMaterial(placeVector, clickedVector, attempted);
+                boolean physicsPlacement = isCancelledPhysicsContextMaterial(attempted);
+                Material confirmedMaterial = physicsPlacement
+                        ? findConfirmedPlacedMaterial(placeVector, clickedVector, attempted)
+                        : findConfirmedNormalPlacedMaterial(placeVector, attempted);
 
                 if (confirmedMaterial != null) {
-                    this.main = confirmedMaterial;
+                    if (!physicsPlacement) {
+                        recordNormalPlacementConfirmation(this.pendingPlacementTicks);
+                    }
 
+                    this.main = confirmedMaterial;
                     clearConfirmedPlacementGhostContext(placeVector, attempted, confirmedMaterial);
 
                     this.blockPlaceMaterial = null;
                     return;
                 }
 
-                int requiredGrace = isCancelledPhysicsContextMaterial(attempted)
+                int requiredGrace = physicsPlacement
                         ? PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS
-                        : PLACE_CONFIRMATION_GRACE_TICKS;
+                        : this.pendingNormalBlockGraceTicks;
 
                 if (this.pendingPlacementTicks < requiredGrace) {
                     return;
@@ -383,9 +416,16 @@ public class BlockProcessor implements Data {
 
             Material attempted = this.lastAttemptedPlaceMaterial;
             Vector vector = this.currentBlockCords;
-            Material confirmedMaterial = findConfirmedPlacedMaterial(vector, this.lastClickedBlockVector, attempted);
+            boolean physicsPlacement = isCancelledPhysicsContextMaterial(attempted);
+            Material confirmedMaterial = physicsPlacement
+                    ? findConfirmedPlacedMaterial(vector, this.lastClickedBlockVector, attempted)
+                    : findConfirmedNormalPlacedMaterial(vector, attempted);
 
             if (confirmedMaterial != null) {
+                if (!physicsPlacement) {
+                    recordNormalPlacementConfirmation(this.pendingPlacementTicks);
+                }
+
                 clearConfirmedPlacementGhostContext(vector, attempted, confirmedMaterial);
 
                 this.lastConfirmedBlockPlaceTimer.reset();
@@ -403,21 +443,23 @@ public class BlockProcessor implements Data {
                 this.lastConfirmedCancelPlaceTimer.reset();
 
                 boolean physicsContext = isCancelledPhysicsContextMaterial(attempted);
-                boolean nearCancelledPlacement = isBlockInPlayerCancelledPlaceArea(vector);
+                boolean nearCancelledPlacement = physicsContext
+                        ? isPhysicsPlacementInPlayerArea(this.lastClickedBlockVector, vector)
+                        : isNormalPlacementInPlayerArea(this.lastClickedBlockVector, vector);
+
+                Vector contextVector = physicsContext
+                        ? selectPhysicsPlaceVector(this.lastClickedBlockVector, vector)
+                        : selectNormalPlaceVector(this.lastClickedBlockVector, vector);
 
                 if (nearCancelledPlacement) {
                     if (physicsContext) {
-                        beginCancelledPhysicsPlacementContext(vector, attempted);
+                        beginCancelledPhysicsPlacementContext(contextVector, attempted);
                     } else {
-                        beginCancelledBlockPlacementContext(vector, attempted);
+                        beginCancelledBlockPlacementContext(contextVector, attempted);
                     }
                 }
 
                 if (!isTrackableGhostMaterial(attempted) && !physicsContext) {
-                    if (autoCorrectGhostBlocks && nearCancelledPlacement) {
-                        syncCancelledPlacementArea(vector);
-                    }
-
                     this.lastAttemptedPlaceMaterial = null;
                     this.currentBlockCords = null;
                     this.pendingPlacementTicks = 0;
@@ -442,9 +484,6 @@ public class BlockProcessor implements Data {
                     this.underGhostBlock = this.underGhostBlock || under;
                 }
 
-                if (autoCorrectGhostBlocks && nearCancelledPlacement) {
-                    syncCancelledPlacementArea(vector);
-                }
             }
 
             this.lastAttemptedPlaceMaterial = null;
@@ -455,12 +494,19 @@ public class BlockProcessor implements Data {
 
 
     void beginCancelledBlockPlacementContext(Vector vector, Material material) {
-        if (vector == null || !isBlockInPlayerCancelledPlaceArea(vector)) {
+        if (vector == null
+                || material == null
+                || !isCollisionPlacementMaterial(material)
+                || !isBlockInPlayerCancelledPlaceArea(vector)) {
             return;
         }
 
-        clearPendingNormalBlockPlacementContext(vector);
+        clearPendingNormalBlockPlacementContext(null);
 
+        /*
+         * This is the actual "cancelled/unconfirmed solid placement" timer.
+         * It starts at zero only after the server failed to create the block.
+         */
         this.recentCancelledBlockTicks = 0;
         this.recentCancelledBlockVector = vector.clone();
         this.recentCancelledBlockMaterial = material;
@@ -469,36 +515,40 @@ public class BlockProcessor implements Data {
         this.nearGhostBlock = true;
         this.interactingGhostBlock = true;
 
-        addGhostBlock(vector, material, "normal-placement-cancelled", MAX_CANCELLED_PLACE_GHOST_TICKS);
+        addGhostBlock(
+                vector,
+                material,
+                "normal-placement-cancelled",
+                MAX_CANCELLED_PLACE_GHOST_TICKS
+        );
 
         if (autoCorrectGhostBlocks) {
             syncCancelledPlacementArea(vector);
         }
 
-        try {
-            if (data.getClientWorldTracker() != null) {
-                data.getClientWorldTracker().requestActiveWorldRepair();
-            }
-        } catch (Throwable ignored) {
-        }
     }
 
     void markPendingNormalBlockPlacementContext(Vector vector, Material material) {
-        if (vector == null || material == null || !isBlockInPlayerCancelledPlaceArea(vector)) {
+        if (vector == null
+                || material == null
+                || !isCollisionPlacementMaterial(material)
+                || !isBlockInPlayerCancelledPlaceArea(vector)) {
             return;
         }
 
+        /*
+         * Starts on the placement packet itself. A successful placement clears
+         * this as soon as the authoritative server state appears. A failed
+         * placement is converted into recentCancelledBlockTicks = 0.
+         */
         this.pendingNormalBlockPlaceTicks = 0;
+        this.pendingNormalBlockGraceTicks = getNormalPlacementConfirmationGraceTicks();
         this.pendingNormalBlockPlaceVector = vector.clone();
         this.pendingNormalBlockPlaceMaterial = material;
 
         this.lastGhostBlockTick = 0;
         this.nearGhostBlock = true;
         this.interactingGhostBlock = true;
-
-        if (autoCorrectGhostBlocks) {
-            syncCancelledPlacementArea(vector);
-        }
     }
 
     void refreshPendingNormalBlockPlacementContext() {
@@ -512,32 +562,23 @@ public class BlockProcessor implements Data {
     }
 
     boolean hasPendingNormalBlockPlacementContext(int maxTicks) {
-        int allowedTicks = Math.max(1, Math.min(maxTicks, NORMAL_BLOCK_PLACE_PENDING_CONTEXT_TICKS));
+        int allowedTicks = Math.max(1, maxTicks);
 
         if (this.pendingNormalBlockPlaceTicks >= allowedTicks) {
             return false;
         }
 
-        if (this.pendingNormalBlockPlaceVector == null || this.pendingNormalBlockPlaceMaterial == null) {
+        if (this.pendingNormalBlockPlaceVector == null
+                || this.pendingNormalBlockPlaceMaterial == null
+                || !isCollisionPlacementMaterial(this.pendingNormalBlockPlaceMaterial)) {
             return false;
         }
 
-        if (!isBlockInPlayerCancelledPlaceArea(this.pendingNormalBlockPlaceVector)) {
-            return false;
-        }
-
-        Material confirmed = findConfirmedPlacedMaterial(
-                this.pendingNormalBlockPlaceVector,
-                this.lastClickedBlockVector,
-                this.pendingNormalBlockPlaceMaterial
-        );
-
-        if (confirmed != null) {
-            clearPendingNormalBlockPlacementContext(this.pendingNormalBlockPlaceVector);
-            return false;
-        }
-
-        return true;
+        /*
+         * Keep this getter pure. World reads/confirmation happen in
+         * handleMovementPacket on the player-region task.
+         */
+        return isBlockInPlayerCancelledPlaceArea(this.pendingNormalBlockPlaceVector);
     }
 
     void clearPendingNormalBlockPlacementContext(Vector vector) {
@@ -547,6 +588,7 @@ public class BlockProcessor implements Data {
 
         if (vector == null || sameBlockVector(this.pendingNormalBlockPlaceVector, vector)) {
             this.pendingNormalBlockPlaceTicks = CLEARED_GHOST_CONTEXT_TICK;
+            this.pendingNormalBlockGraceTicks = PLACE_CONFIRMATION_GRACE_TICKS;
             this.pendingNormalBlockPlaceVector = null;
             this.pendingNormalBlockPlaceMaterial = null;
         }
@@ -565,30 +607,60 @@ public class BlockProcessor implements Data {
     }
 
     boolean isBlockInPlayerCancelledPlaceArea(Vector block) {
-        return isBlockInPlayerPhysicsPlaceArea(block);
-    }
-
-    public boolean hasRecentCancelledBlockPlacement(int maxTicks) {
-        int allowedTicks = Math.max(1, maxTicks);
-
-        if (this.recentCancelledBlockTicks >= allowedTicks) {
+        if (block == null || data.getMovementData() == null) {
             return false;
         }
 
-        if (this.recentCancelledBlockVector == null) {
+        if (isBlockInNormalPlacementArea(block, data.getMovementData().getLocation())) {
             return true;
+        }
+
+        return isBlockInNormalPlacementArea(block, data.getMovementData().getLastLocation())
+                || isBlockInNormalPlacementArea(block, data.getMovementData().getLastLastLocation());
+    }
+
+    boolean isBlockInNormalPlacementArea(Vector block, CustomLocation location) {
+        if (block == null || location == null) {
+            return false;
+        }
+
+        int playerX = (int) Math.floor(location.getX());
+        int playerY = (int) Math.floor(location.getY());
+        int playerZ = (int) Math.floor(location.getZ());
+
+        return Math.abs(block.getBlockX() - playerX) <= NORMAL_PLACE_AREA_RADIUS_XZ
+                && Math.abs(block.getBlockZ() - playerZ) <= NORMAL_PLACE_AREA_RADIUS_XZ
+                && block.getBlockY() >= playerY - NORMAL_PLACE_AREA_BELOW
+                && block.getBlockY() <= playerY + NORMAL_PLACE_AREA_ABOVE;
+    }
+
+    public boolean hasRecentCancelledBlockPlacement(int maxTicks) {
+        int allowedTicks = Math.max(
+                1,
+                Math.min(maxTicks, RECENT_CANCELLED_BLOCK_CONTEXT_TICKS)
+        );
+
+        if (this.recentCancelledBlockTicks >= allowedTicks
+                || this.recentCancelledBlockVector == null
+                || this.recentCancelledBlockMaterial == null
+                || !isCollisionPlacementMaterial(this.recentCancelledBlockMaterial)) {
+            return false;
         }
 
         return isBlockInPlayerCancelledPlaceArea(this.recentCancelledBlockVector);
     }
 
     public boolean isCancelledBlockPlacementExempt(int maxTicks) {
+        /*
+         * Solid/collision placements only.
+         *
+         * Water, lava, powder snow, webs and other movement-physics placements
+         * are handled by isGhostPhysicsPlacementExempt instead.
+         */
         int allowedTicks = Math.max(1, maxTicks);
 
-        return hasRecentCancelledBlockPlacement(allowedTicks)
-                || hasPendingNormalBlockPlacementContext(allowedTicks)
-                || hasPendingPhysicsPlacementContextForTicks(allowedTicks)
-                || hasCancelledPhysicsPlacementContext(allowedTicks);
+        return hasPendingNormalBlockPlacementContext(allowedTicks)
+                || hasRecentCancelledBlockPlacement(allowedTicks);
     }
 
     Vector selectPhysicsPlaceVector(Vector clickedVector, Vector placedVector) {
@@ -602,6 +674,80 @@ public class BlockProcessor implements Data {
 
         return placedVector != null ? placedVector : clickedVector;
     }
+
+    boolean isNormalPlacementInPlayerArea(Vector clickedVector, Vector placedVector) {
+        return isBlockInPlayerCancelledPlaceArea(placedVector)
+                || isBlockInPlayerCancelledPlaceArea(clickedVector);
+    }
+
+    Vector selectNormalPlaceVector(Vector clickedVector, Vector placedVector) {
+        if (isBlockInPlayerCancelledPlaceArea(placedVector)) {
+            return placedVector;
+        }
+
+        if (isBlockInPlayerCancelledPlaceArea(clickedVector)) {
+            return clickedVector;
+        }
+
+        return placedVector != null ? placedVector : clickedVector;
+    }
+
+    boolean isCollisionPlacementMaterial(Material material) {
+        if (material == null
+                || material == Material.AIR
+                || isCancelledPhysicsContextMaterial(material)) {
+            return false;
+        }
+
+        try {
+            return PEMaterials.hasCollision(material, data.getVersion());
+        } catch (Throwable ignored) {
+            return hasUsefulCollisionShapeFallback(material);
+        }
+    }
+
+    int getNormalPlacementConfirmationGraceTicks() {
+        int clientTransactionTicks = 0;
+        int networkTicks = 0;
+
+        try {
+            clientTransactionTicks = Math.max(
+                    0,
+                    data.getConnectionData().getClientTickTrans()
+            );
+
+            int ping = Math.max(
+                    Math.max(0, data.getConnectionData().getPing()),
+                    Math.max(0, data.getConnectionData().getTransPing())
+            );
+
+            networkTicks = (int) Math.ceil(ping / 50.0D);
+        } catch (Throwable ignored) {
+        }
+
+        int learnedTicks = (int) Math.ceil(this.learnedNormalPlaceConfirmationTicks) + 1;
+        int grace = Math.max(
+                PLACE_CONFIRMATION_GRACE_TICKS,
+                Math.max(learnedTicks, Math.max(clientTransactionTicks + 1, networkTicks + 1))
+        );
+
+        return Math.max(
+                MIN_NORMAL_PLACE_CONFIRMATION_TICKS,
+                Math.min(MAX_NORMAL_PLACE_CONFIRMATION_TICKS, grace)
+        );
+    }
+
+    void recordNormalPlacementConfirmation(int ticks) {
+        int sample = Math.max(
+                MIN_NORMAL_PLACE_CONFIRMATION_TICKS,
+                Math.min(MAX_NORMAL_PLACE_CONFIRMATION_TICKS, ticks)
+        );
+
+        this.learnedNormalPlaceConfirmationTicks =
+                (this.learnedNormalPlaceConfirmationTicks * 0.80D)
+                        + (sample * 0.20D);
+    }
+
 
     boolean sameBlockVector(Vector first, Vector second) {
         return first != null
@@ -691,13 +837,6 @@ public class BlockProcessor implements Data {
                 syncCancelledPlacementArea(vector);
             }
         }
-
-        try {
-            if (data.getClientWorldTracker() != null) {
-                data.getClientWorldTracker().requestActiveWorldRepair();
-            }
-        } catch (Throwable ignored) {
-        }
     }
 
     void refreshCancelledPhysicsPlacementContext() {
@@ -755,7 +894,7 @@ public class BlockProcessor implements Data {
             removeGhostBlock(vector);
         }
 
-        clearPendingNormalBlockPlacementContext(vector);
+        clearPendingNormalBlockPlacementContext(null);
         clearRecentCancelledBlockPlacementContext(vector);
 
         this.cancelledPhysicsContextTicks = 0;
@@ -998,6 +1137,16 @@ public class BlockProcessor implements Data {
         return null;
     }
 
+    Material findConfirmedNormalPlacedMaterial(Vector placeVector, Material attempted) {
+        if (placeVector == null || attempted == null) {
+            return null;
+        }
+
+        Material direct = getServerMaterial(placeVector);
+        return isSamePlacedMaterial(direct, attempted) ? direct : null;
+    }
+
+
     void handleMultiBlockChange(PacketSendEvent event) {
         // Processes multi-block server updates and queues tiny repairs for relevant nearby changes.
         WrapperPlayServerMultiBlockChange multiBlockChange = new WrapperPlayServerMultiBlockChange(event);
@@ -1038,6 +1187,8 @@ public class BlockProcessor implements Data {
                 packetMaterial = materialFromStateName(type.getName());
             } catch (Throwable ignored) {
             }
+
+            handleAuthoritativeNormalPlacementUpdate(vector, packetMaterial);
 
             if (packetMaterial != null && distanceXZ < 3.0D && isWebMaterial(packetMaterial)) {
                 this.lastWebUpdateTick = 0;
@@ -1086,6 +1237,8 @@ public class BlockProcessor implements Data {
         } catch (Throwable ignored) {
         }
 
+        handleAuthoritativeNormalPlacementUpdate(vector, packetMaterial);
+
         if (packetMaterial != null && distanceXZ < 3.0D && isWebMaterial(packetMaterial)) {
             this.lastWebUpdateTick = 0;
         }
@@ -1095,6 +1248,44 @@ public class BlockProcessor implements Data {
         if (shouldRepairServerBlockUpdate(packetMaterial, distanceXZ, dy)) {
             syncBlockUpdatePatch(x, y, z, packetMaterial);
         }
+    }
+
+    void handleAuthoritativeNormalPlacementUpdate(Vector updateVector, Material packetMaterial) {
+        if (updateVector == null || packetMaterial == null) {
+            return;
+        }
+
+        Vector pendingVector = this.pendingNormalBlockPlaceVector != null
+                ? this.pendingNormalBlockPlaceVector
+                : this.currentBlockCords;
+        Material attempted = this.pendingNormalBlockPlaceMaterial != null
+                ? this.pendingNormalBlockPlaceMaterial
+                : this.lastAttemptedPlaceMaterial;
+
+        if (pendingVector == null
+                || attempted == null
+                || !isCollisionPlacementMaterial(attempted)
+                || !sameBlockVector(updateVector, pendingVector)) {
+            return;
+        }
+
+        if (isSamePlacedMaterial(packetMaterial, attempted)) {
+            recordNormalPlacementConfirmation(Math.max(
+                    this.pendingPlacementTicks,
+                    this.pendingNormalBlockPlaceTicks
+            ));
+            clearPendingNormalBlockPlacementContext(null);
+            clearRecentCancelledBlockPlacementContext(updateVector);
+            return;
+        }
+
+        /*
+         * Protection plugins normally correct the predicted client block by
+         * sending the authoritative old state (often AIR). Start the cancelled
+         * timer immediately when that exact target update is observed instead
+         * of waiting for the fallback confirmation timeout.
+         */
+        beginCancelledBlockPlacementContext(updateVector, attempted);
     }
 
     boolean shouldRepairServerBlockUpdate(Material packetMaterial, double distanceXZ, double deltaY) {
@@ -2121,44 +2312,31 @@ public class BlockProcessor implements Data {
                 && Math.abs(loc.getY() - by) <= vertical;
     }
     boolean hasUsefulCollisionShape(Material material) {
-        // Cheaply filters materials that have useful collision for ghost tracking.
-        if (material == null || material == Material.AIR) {
-            return false;
-        }
-
-        if (isIgnoredNoHitboxGhostMaterial(material) || isInteractiveBlock(material)) {
+        if (material == null
+                || material == Material.AIR
+                || isIgnoredNoHitboxGhostMaterial(material)
+                || isInteractiveBlock(material)
+                || isCancelledPhysicsContextMaterial(material)) {
             return false;
         }
 
         try {
-            if (material.isSolid()) {
-                return true;
-            }
+            return PEMaterials.hasCollision(material, data.getVersion());
         } catch (Throwable ignored) {
+            return hasUsefulCollisionShapeFallback(material);
+        }
+    }
+
+    boolean hasUsefulCollisionShapeFallback(Material material) {
+        if (material == null || material == Material.AIR) {
+            return false;
         }
 
-        String name = material.name();
-
-        return name.contains("SLAB")
-                || name.contains("STEP")
-                || name.contains("STAIRS")
-                || name.contains("FENCE")
-                || name.contains("WALL")
-                || name.contains("PANE")
-                || name.contains("BARS")
-                || name.contains("DOOR")
-                || name.contains("TRAPDOOR")
-                || name.contains("GATE")
-                || name.contains("CHEST")
-                || name.contains("BED")
-                || name.contains("ANVIL")
-                || name.contains("CACTUS")
-                || name.contains("CARPET")
-                || name.contains("SNOW")
-                || name.contains("SCAFFOLDING")
-                || name.contains("VINE")
-                || name.contains("LADDER")
-                || name.contains("SHULKER");
+        try {
+            return material.isBlock() && material.isSolid();
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     boolean isIgnoredNoHitboxGhostMaterial(Material material) {
@@ -2379,11 +2557,19 @@ public class BlockProcessor implements Data {
             return false;
         }
 
-        String name = clickedMaterial.name();
-
         if (isLiquidMaterial(clickedMaterial)) {
             return false;
         }
+
+        try {
+            if (PEMaterials.isReplaceable(clickedMaterial, data.getVersion())) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        // Legacy fallback only when the PacketEvents state cannot be resolved.
+        String name = clickedMaterial.name();
 
         return name.contains("TALL_GRASS")
                 || name.contains("LONG_GRASS")

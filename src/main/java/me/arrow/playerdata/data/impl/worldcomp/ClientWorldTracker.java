@@ -5,19 +5,17 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
-import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
+import lombok.Getter;
+import lombok.Setter;
 import me.arrow.Arrow;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.MaterialType;
-import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -26,9 +24,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -44,8 +39,7 @@ public class ClientWorldTracker implements Data {
     int MAX_RECENT_PHYSICS_UPDATE_TICKS = 20 * 4;
 
     int AUTO_SYNC_COOLDOWN_TICKS = 10;
-    int CLIENT_MIRROR_REPAIR_EVERY_TICKS = 10;
-    int ACTIVE_CLIENT_MIRROR_REPAIR_EVERY_TICKS = 2;
+    int CLIENT_MIRROR_REPAIR_EVERY_TICKS = 2;
     int CLIENT_MIRROR_REPAIR_RADIUS_XZ = 3;
     int CLIENT_MIRROR_REPAIR_DOWN = 2;
     int CLIENT_MIRROR_REPAIR_UP = 3;
@@ -60,13 +54,16 @@ public class ClientWorldTracker implements Data {
     volatile boolean modernLookupDone;
     volatile boolean legacyLookupDone;
 
-    int CANCELLED_BLOCK_AREA_SYNC_EVERY_TICKS = 6;
+    int CANCELLED_BLOCK_AREA_SYNC_EVERY_TICKS = 1;
     int CANCELLED_BLOCK_AREA_SYNC_RADIUS_XZ = 2;
     int CANCELLED_BLOCK_AREA_SYNC_DOWN = 2;
     int CANCELLED_BLOCK_AREA_SYNC_UP = 4;
     int MAX_FULL_AREA_SYNC_BLOCKS = 256;
     int CANCELLED_BLOCK_AREA_REQUEST_TICKS = 6;
 
+    @Getter
+    @Setter
+    private boolean periodicCancelledBlockAreaSyncEnabled = true;
     private int requestedCancelledBlockAreaSyncTicks;
 
     Profile profile;
@@ -82,20 +79,11 @@ public class ClientWorldTracker implements Data {
     private int tick;
     private int lastCollisionScanTick = -1;
     private int lastAutoSyncTick = 100;
-    private int lastPeriodicCancelledBlockSyncTick;
     private int activeWorldRepairTicks;
 
     public ClientWorldTracker(Profile profile) {
         this.profile = profile;
 
-    }
-
-    public boolean isPeriodicCancelledBlockAreaSyncEnabled() {
-        return Config.Setting.GHOST_BLOCK_FIX.getBoolean();
-    }
-
-    public void setPeriodicCancelledBlockAreaSyncEnabled(boolean enabled) {
-        Config.Setting.GHOST_BLOCK_FIX.setValue(enabled);
     }
 
     @Override
@@ -341,9 +329,10 @@ public class ClientWorldTracker implements Data {
         for (int x = blockMinX - 2; x <= blockMaxX + 2; x++) {
             for (int y = blockMinY - 2; y <= blockMaxY + 2; y++) {
                 for (int z = blockMinZ - 2; z <= blockMaxZ + 2; z++) {
-                    ClientChunk clientChunk = chunks.get(chunkKey(x >> 4, z >> 4));
+                    Material client = getClientMaterial(x, y, z);
+                    Material server = getServerMaterial(x, y, z);
 
-                    if (clientChunk == null) {
+                    if (client == null) {
                         result.unknownClientChunk = true;
                         markUnknownChunk(x >> 4, z >> 4);
                         continue;
@@ -351,19 +340,6 @@ public class ClientWorldTracker implements Data {
 
                     if (hasPendingNear(x, y, z)) {
                         result.pendingLagCompensated = true;
-                        continue;
-                    }
-
-                    Material server = getServerMaterial(x, y, z);
-                    Material client = clientChunk.get(x & 15, y, z & 15);
-
-                    if (client == null) {
-                        client = server;
-                    }
-
-                    if (client == null) {
-                        result.unknownClientChunk = true;
-                        markUnknownChunk(x >> 4, z >> 4);
                         continue;
                     }
 
@@ -501,20 +477,17 @@ public class ClientWorldTracker implements Data {
             }
 
             World world = player.getWorld();
-            List<Block> updates = new ArrayList<>();
 
             for (int x = baseX - radiusXZ; x <= baseX + radiusXZ; x++) {
                 for (int y = baseY - down; y <= baseY + up; y++) {
                     for (int z = baseZ - radiusXZ; z <= baseZ + radiusXZ; z++) {
                         Block block = world.getBlockAt(x, y, z);
-                        updates.add(block);
-                        clearClientMaterialOverride(x, y, z);
+                        sendBlockChangeCompat(player, block);
+                        setClientMaterial(x, y, z, block.getType());
                         clearHistoryAt(x, y, z);
                     }
                 }
             }
-
-            sendBlockChangesCompat(player, updates);
         });
     }
 
@@ -541,22 +514,16 @@ public class ClientWorldTracker implements Data {
         int baseX = floor(loc.getX());
         int baseY = floor(loc.getY());
         int baseZ = floor(loc.getZ());
-        List<Block> updates = new ArrayList<>();
+        int sent = 0;
 
-        repairScan:
         for (int x = baseX - radiusXZ; x <= baseX + radiusXZ; x++) {
             for (int y = baseY - down; y <= baseY + up; y++) {
                 for (int z = baseZ - radiusXZ; z <= baseZ + radiusXZ; z++) {
-                    if (updates.size() >= maxUpdates) {
-                        break repairScan;
+                    if (sent >= maxUpdates) {
+                        return;
                     }
 
-                    Material client = getCachedClientMaterial(x, y, z);
-
-                    if (client == null) {
-                        continue;
-                    }
-
+                    Material client = getClientMaterial(x, y, z);
                     Material server = getServerMaterial(x, y, z);
 
                     if (!shouldRepairClientMirror(client, server)) {
@@ -564,14 +531,13 @@ public class ClientWorldTracker implements Data {
                     }
 
                     Block block = world.getBlockAt(x, y, z);
-                    updates.add(block);
-                    clearClientMaterialOverride(x, y, z);
+                    sendBlockChangeCompat(profile.getPlayer(), block);
+                    setClientMaterial(x, y, z, block.getType());
                     clearHistoryAt(x, y, z);
+                    sent++;
                 }
             }
         }
-
-        sendBlockChangesCompat(profile.getPlayer(), updates);
     }
 
     private boolean shouldRepairClientMirror(Material client, Material server) {
@@ -664,31 +630,12 @@ public class ClientWorldTracker implements Data {
         int chunkZ = z >> 4;
 
         long key = chunkKey(chunkX, chunkZ);
-        ClientChunk chunk = chunks.get(key);
+        World world = profile.getPlayer() != null ? profile.getPlayer().getWorld() : null;
+        int minY = world != null ? getWorldMinY(world) : DEFAULT_MIN_Y;
+        int maxY = world != null ? getWorldMaxY(world) : DEFAULT_MAX_Y_NEW;
 
-        if (chunk == null) {
-            World world = profile.getPlayer() != null ? profile.getPlayer().getWorld() : null;
-            int minY = world != null ? getWorldMinY(world) : DEFAULT_MIN_Y;
-            int maxY = world != null ? getWorldMaxY(world) : DEFAULT_MAX_Y_NEW;
-            ClientChunk newChunk = new ClientChunk(chunkX, chunkZ, minY, maxY);
-            ClientChunk existing = chunks.putIfAbsent(key, newChunk);
-            chunk = existing != null ? existing : newChunk;
-        }
-
+        ClientChunk chunk = chunks.computeIfAbsent(key, ignored -> new ClientChunk(chunkX, chunkZ, minY, maxY));
         chunk.set(x & 15, y, z & 15, material);
-    }
-
-    private Material getCachedClientMaterial(int x, int y, int z) {
-        ClientChunk chunk = chunks.get(chunkKey(x >> 4, z >> 4));
-        return chunk != null ? chunk.get(x & 15, y, z & 15) : null;
-    }
-
-    private void clearClientMaterialOverride(int x, int y, int z) {
-        ClientChunk chunk = chunks.get(chunkKey(x >> 4, z >> 4));
-
-        if (chunk != null) {
-            chunk.clear(x & 15, y, z & 15);
-        }
     }
 
     private Material getClientMaterial(int x, int y, int z) {
@@ -732,81 +679,9 @@ public class ClientWorldTracker implements Data {
         }
     }
 
-    private void sendBlockChangesCompat(Player player, List<Block> blocks) {
-        if (player == null || !player.isOnline() || blocks == null || blocks.isEmpty()) {
-            return;
-        }
-
-        ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
-        boolean sectionPackets = serverVersion.isNewerThanOrEquals(ServerVersion.V_1_16);
-        Map<Long, BlockChangeBatch> batches = new LinkedHashMap<>();
-        List<Block> individualFallback = new ArrayList<>();
-
-        for (Block block : blocks) {
-            if (block == null) {
-                continue;
-            }
-
-            WrappedBlockState state = PEMaterials.fromBukkitBlock(block);
-
-            if (state == null) {
-                individualFallback.add(block);
-                continue;
-            }
-
-            int chunkX = block.getX() >> 4;
-            int sectionY = sectionPackets ? block.getY() >> 4 : 0;
-            int chunkZ = block.getZ() >> 4;
-            long key = sectionKey(chunkX, sectionY, chunkZ);
-            BlockChangeBatch batch = batches.computeIfAbsent(
-                    key,
-                    ignored -> new BlockChangeBatch(chunkX, sectionY, chunkZ)
-            );
-
-            batch.blocks.add(new WrapperPlayServerMultiBlockChange.EncodedBlock(
-                    state,
-                    block.getX(),
-                    block.getY(),
-                    block.getZ()
-            ));
-            batch.fallbackBlocks.add(block);
-        }
-
-        for (BlockChangeBatch batch : batches.values()) {
-            try {
-                WrapperPlayServerMultiBlockChange packet = new WrapperPlayServerMultiBlockChange(
-                        new Vector3i(batch.chunkX, batch.sectionY, batch.chunkZ),
-                        false,
-                        batch.blocks.toArray(new WrapperPlayServerMultiBlockChange.EncodedBlock[0])
-                );
-                PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, packet);
-            } catch (Throwable ignored) {
-                individualFallback.addAll(batch.fallbackBlocks);
-            }
-        }
-
-        for (Block block : individualFallback) {
-            sendBlockChangeCompat(player, block);
-        }
-    }
-
     private void sendBlockChangeCompat(Player player, Block block) {
         if (player == null || block == null || !player.isOnline()) {
             return;
-        }
-
-        try {
-            WrappedBlockState state = PEMaterials.fromBukkitBlock(block);
-
-            if (state != null) {
-                WrapperPlayServerBlockChange packet = new WrapperPlayServerBlockChange(
-                        new Vector3i(block.getX(), block.getY(), block.getZ()),
-                        state
-                );
-                PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, packet);
-                return;
-            }
-        } catch (Throwable ignored) {
         }
 
         Location location = block.getLocation();
@@ -1020,21 +895,6 @@ public class ClientWorldTracker implements Data {
         recentDesyncs.remove(key);
         recentPhysicsUpdates.remove(key);
         pendingAreas.entrySet().removeIf(entry -> entry.getValue().affects(x, y, z, 0));
-    }
-
-    private void clearPendingAreasInBox(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
-        pendingAreas.entrySet().removeIf(entry -> {
-            PendingArea pending = entry.getValue();
-            AffectedArea area = pending != null ? pending.area : null;
-
-            return area != null
-                    && area.maxX >= minX
-                    && area.minX <= maxX
-                    && area.maxY >= minY
-                    && area.minY <= maxY
-                    && area.maxZ >= minZ
-                    && area.minZ <= maxZ;
-        });
     }
 
     private void age() {
@@ -1550,12 +1410,6 @@ public class ClientWorldTracker implements Data {
         return (((long) chunkX) << 32) ^ (chunkZ & 0xffffffffL);
     }
 
-    private long sectionKey(int chunkX, int sectionY, int chunkZ) {
-        return ((long) chunkX & 0x3fffffL) << 42
-                | ((long) chunkZ & 0x3fffffL) << 20
-                | ((long) sectionY & 0xfffffL);
-    }
-
     private long blockKey(int x, int y, int z) {
         long key = 1469598103934665603L;
         key = (key ^ x) * 1099511628211L;
@@ -1747,20 +1601,6 @@ public class ClientWorldTracker implements Data {
         }
     }
 
-    static class BlockChangeBatch {
-        int chunkX;
-        int sectionY;
-        int chunkZ;
-        List<WrapperPlayServerMultiBlockChange.EncodedBlock> blocks = new ArrayList<>();
-        List<Block> fallbackBlocks = new ArrayList<>();
-
-        private BlockChangeBatch(int chunkX, int sectionY, int chunkZ) {
-            this.chunkX = chunkX;
-            this.sectionY = sectionY;
-            this.chunkZ = chunkZ;
-        }
-    }
-
     static class ClientChunk {
         int chunkX;
         int chunkZ;
@@ -1799,14 +1639,6 @@ public class ClientWorldTracker implements Data {
             }
 
             overrides.put(index, encode(material));
-        }
-
-        private void clear(int x, int y, int z) {
-            int index = index(x, y, z);
-
-            if (index >= 0) {
-                overrides.remove(index);
-            }
         }
 
         private int index(int x, int y, int z) {
@@ -1873,12 +1705,13 @@ public class ClientWorldTracker implements Data {
     }
 
     private void processWorldTick() {
-        boolean periodicFullAreaSync =
-                isPeriodicCancelledBlockAreaSyncEnabled()
-                        && tick - lastPeriodicCancelledBlockSyncTick >= CANCELLED_BLOCK_AREA_SYNC_EVERY_TICKS;
+        ensurePlayerChunksKnown(1);
 
-        boolean requestedFullAreaSync = requestedCancelledBlockAreaSyncTicks == CANCELLED_BLOCK_AREA_REQUEST_TICKS
-                || requestedCancelledBlockAreaSyncTicks == 1;
+        boolean periodicFullAreaSync =
+                periodicCancelledBlockAreaSyncEnabled
+                        && tick % CANCELLED_BLOCK_AREA_SYNC_EVERY_TICKS == 0;
+
+        boolean requestedFullAreaSync = requestedCancelledBlockAreaSyncTicks > 0;
 
         if (periodicFullAreaSync || requestedFullAreaSync) {
             forceSyncPlayerAreaToClient(
@@ -1888,21 +1721,12 @@ public class ClientWorldTracker implements Data {
                     MAX_FULL_AREA_SYNC_BLOCKS
             );
 
-            if (periodicFullAreaSync) {
-                lastPeriodicCancelledBlockSyncTick = tick;
+            if (requestedCancelledBlockAreaSyncTicks > 0) {
+                requestedCancelledBlockAreaSyncTicks--;
             }
         }
 
-        if (requestedCancelledBlockAreaSyncTicks > 0) {
-            requestedCancelledBlockAreaSyncTicks--;
-        }
-
-        boolean activeRepair = activeWorldRepairTicks > 0;
-        int repairInterval = activeRepair
-                ? ACTIVE_CLIENT_MIRROR_REPAIR_EVERY_TICKS
-                : CLIENT_MIRROR_REPAIR_EVERY_TICKS;
-
-        if (tick % repairInterval == 0) {
+        if (activeWorldRepairTicks > 0 || tick % CLIENT_MIRROR_REPAIR_EVERY_TICKS == 0) {
             repairClientMirrorAroundPlayer(
                     CLIENT_MIRROR_REPAIR_RADIUS_XZ,
                     CLIENT_MIRROR_REPAIR_DOWN,
@@ -1910,10 +1734,9 @@ public class ClientWorldTracker implements Data {
                     MAX_REPAIR_UPDATES_PER_TICK
             );
 
-        }
-
-        if (activeWorldRepairTicks > 0) {
-            activeWorldRepairTicks--;
+            if (activeWorldRepairTicks > 0) {
+                activeWorldRepairTicks--;
+            }
         }
 
         preCheckScan();
@@ -1953,37 +1776,28 @@ public class ClientWorldTracker implements Data {
         }
 
         int boxVolume = ((maxX - minX) + 1) * ((maxY - minY) + 1) * ((maxZ - minZ) + 1);
-        int effectiveMax = Math.min(Math.max(maxUpdates, 0), boxVolume);
+        int effectiveMax = Math.max(maxUpdates, boxVolume);
         int sent = 0;
-        List<Block> updates = new ArrayList<>(effectiveMax);
 
         /*
          * Force authoritative server state to the client.
          * This intentionally sends every block in the local player box, not only
          * blocks where our client mirror thinks there is a mismatch.
          */
-        fullSync:
         for (int y = minY; y <= maxY; y++) {
             for (int x = minX; x <= maxX; x++) {
                 for (int z = minZ; z <= maxZ; z++) {
                     if (sent >= effectiveMax) {
-                        break fullSync;
+                        return;
                     }
 
                     Block block = world.getBlockAt(x, y, z);
-                    updates.add(block);
-                    clearClientMaterialOverride(x, y, z);
-                    recentDesyncs.remove(blockKey(x, y, z));
-                    recentPhysicsUpdates.remove(blockKey(x, y, z));
+                    sendBlockChangeCompat(player, block);
+                    setClientMaterial(x, y, z, block.getType());
+                    clearHistoryAt(x, y, z);
                     sent++;
                 }
             }
-        }
-
-        sendBlockChangesCompat(player, updates);
-
-        if (sent == boxVolume) {
-            clearPendingAreasInBox(minX, minY, minZ, maxX, maxY, maxZ);
         }
     }
 

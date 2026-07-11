@@ -113,9 +113,9 @@ public class MovementData implements Data {
     boolean packetMoving;
 
     /** Authoritative fall-flying flag from the player's own metadata packet. */
-    private volatile boolean metadataGliding;
-    private volatile float elytraMomentumBonus;
-    private int glideStartTransitionTicks;
+    boolean metadataGliding;
+    float elytraMomentumBonus;
+    int glideStartTransitionTicks;
 
     @Getter
     CollisionUtils.NearbyBlocksResult nearbyBlocksResult;
@@ -427,8 +427,7 @@ public class MovementData implements Data {
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation().clone(), !TaskUtils.isFoliaServer());
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(
                 getLocation().clone().add(0, 1, 0),
-                !TaskUtils.isFoliaServer(),
-                getLocation().getY()
+                !TaskUtils.isFoliaServer()
         );
 
         this.nearbyBlocksResult = nearbyBlocksResult;
@@ -453,6 +452,7 @@ public class MovementData implements Data {
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(PEMaterials::isNonFullShape)
+                || nearbyBlocksResult.isNearNonFullCollision()
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isStair)
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall);
 
