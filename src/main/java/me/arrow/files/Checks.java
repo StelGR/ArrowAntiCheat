@@ -112,7 +112,7 @@ public class Checks implements Initializer {
         AIM_G_PUNiSH_MODE("AimG.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         AIM_G_MAX_VL("AimG.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        AIM_H("AimH.enabled", true, "Should we enable this module?"),
+        AIM_H("AimH.enabled", false, "Should we enable this module?"),
         AIM_H_PUNISH("AimH.punish", "", "Punishment settings"),
         AIM_H_PUNiSH_ENABLED("AimH.punish.enabled", false, "Should punishments be enabled for this check?"),
         AIM_H_PUNiSH_MODE("AimH.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
@@ -163,13 +163,13 @@ public class Checks implements Initializer {
 
         AUTOCLICKER_B("AutoClickerB.enabled", true, "Should we enable this module?"),
         AUTOCLICKER_B_PUNISH("AutoClickerB.punish", "", "Punishment settings"),
-        AUTOCLICKER_B_PUNiSH_ENABLED("AutoClickerB.punish.enabled", false, "Should punishments be enabled for this check?"),
+        AUTOCLICKER_B_PUNiSH_ENABLED("AutoClickerB.punish.enabled", true, "Should punishments be enabled for this check?"),
         AUTOCLICKER_B_PUNiSH_MODE("AutoClickerB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         AUTOCLICKER_B_MAX_VL("AutoClickerB.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
 
         AUTOCLICKER_C("AutoClickerC.enabled", true, "Should we enable this module?"),
         AUTOCLICKER_C_PUNISH("AutoClickerC.punish", "", "Punishment settings"),
-        AUTOCLICKER_C_PUNiSH_ENABLED("AutoClickerC.punish.enabled", false, "Should punishments be enabled for this check?"),
+        AUTOCLICKER_C_PUNiSH_ENABLED("AutoClickerC.punish.enabled", true, "Should punishments be enabled for this check?"),
         AUTOCLICKER_C_PUNiSH_MODE("AutoClickerC.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         AUTOCLICKER_C_MAX_VL("AutoClickerC.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
 
@@ -188,13 +188,13 @@ public class Checks implements Initializer {
         AUTOCLICKER_F("AutoClickerF.enabled", true, "Should we enable this module?"),
         AUTOCLICKER_F_PUNISH("AutoClickerF.punish", "", "Punishment settings"),
         AUTOCLICKER_F_PUNiSH_ENABLED("AutoClickerF.punish.enabled", true, "Should punishments be enabled for this check?"),
-        AUTOCLICKER_F_PUNiSH_MODE("AutoClickerF.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AUTOCLICKER_F_PUNiSH_MODE("AutoClickerF.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         AUTOCLICKER_F_MAX_VL("AutoClickerF.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
 
         AUTOCLICKER_G("AutoClickerG.enabled", true, "Should we enable this module?"),
         AUTOCLICKER_G_PUNISH("AutoClickerG.punish", "", "Punishment settings"),
-        AUTOCLICKER_G_PUNiSH_ENABLED("AutoClickerG.punish.enabled", false, "Should punishments be enabled for this check?"),
-        AUTOCLICKER_G_PUNiSH_MODE("AutoClickerG.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AUTOCLICKER_G_PUNiSH_ENABLED("AutoClickerG.punish.enabled", true, "Should punishments be enabled for this check?"),
+        AUTOCLICKER_G_PUNiSH_MODE("AutoClickerG.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         AUTOCLICKER_G_MAX_VL("AutoClickerG.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
 
         MACRO_A("MacroA.enabled", true, "Should we enable this module?"),
@@ -242,7 +242,7 @@ public class Checks implements Initializer {
         INTERACT_D("InteractD.enabled", true, "Should we enable this module?"),
         INTERACT_D_PUNISH("InteractD.punish", "", "Punishment settings"),
         INTERACT_D_PUNiSH_ENABLED("InteractD.punish.enabled", true, "Should punishments be enabled for this check?"),
-        INTERACT_D_PUNiSH_MODE("InteractD.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        INTERACT_D_PUNiSH_MODE("InteractD.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         INTERACT_D_MAX_VL("InteractD.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
         INVENTORY_A("InventoryA.enabled", true, "Should we enable this module?"),
