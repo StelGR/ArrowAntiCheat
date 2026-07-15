@@ -218,6 +218,7 @@ public class FlyA extends Check {
                     || movementData.isNearWater()
                     || movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2)
                     || movementData.getSinceBubbleTicks() < 25 + (profile.getConnectionData().getClientTickTrans() * 2)
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))
                     || profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 return;
             }

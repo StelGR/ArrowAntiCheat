@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
  * Serializes Discord webhook requests so alert bursts never create a burst of
  * HTTP connections or run network I/O on an anticheat/player thread.
  */
-public final class DiscordWebhookQueue {
+public class DiscordWebhookQueue {
 
     private static final long MINIMUM_SEND_INTERVAL_MILLIS = 500L;
     private static final int MAX_SERVER_ERROR_RETRIES = 3;
@@ -199,10 +199,10 @@ public final class DiscordWebhookQueue {
         }
     }
 
-    private static final class WebhookRequest {
-        private final String webhookUrl;
-        private final String payload;
-        private final String failureMessage;
+    private static class WebhookRequest {
+        String webhookUrl;
+        String payload;
+        String failureMessage;
 
         private WebhookRequest(String webhookUrl, String payload, String failureMessage) {
             this.webhookUrl = webhookUrl;
@@ -213,9 +213,9 @@ public final class DiscordWebhookQueue {
         }
     }
 
-    private static final class DeliveryResult {
-        private final int statusCode;
-        private final long retryAfterMillis;
+    private static class DeliveryResult {
+        int statusCode;
+        long retryAfterMillis;
 
         private DeliveryResult(int statusCode, long retryAfterMillis) {
             this.statusCode = statusCode;

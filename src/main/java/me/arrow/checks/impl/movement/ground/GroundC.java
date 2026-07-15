@@ -88,6 +88,7 @@ public class GroundC extends Check {
             if (profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
                     || profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2))
                     || profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans)
+                    || profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2))
 
             ) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground c: is Exempting (Block Update/Piston Update/Block Place/Block Break)");
