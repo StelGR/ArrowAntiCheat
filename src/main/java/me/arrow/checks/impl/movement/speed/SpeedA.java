@@ -176,6 +176,8 @@ public class SpeedA extends Check {
         double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
         if (movementData.isInsideWater()) allowedLimit += depthStriderBoost; // apply always if in water
 
+
+
         allowedLimit += movementData.getDolphinGraceBoost();
 
         if (movementData.getSinceCollideTicks() < 12 + profile.getConnectionData().getClientTickTrans() ) {
@@ -185,6 +187,8 @@ public class SpeedA extends Check {
         allowedLimit += movementData.elytraMomentum();
         allowedLimit += movementData.getDolphinGraceBoost();
         allowedLimit += movementData.isColliding() ? 0.05 : 0;
+
+        if (profile.isSwimming() && movementData.isNearWater()) allowedLimit += 0.137;
 
         int ghostLiquidWebTicks = Math.min(
                 profile.getBlockProcessor().getLastGhostLiquidWebTick(),

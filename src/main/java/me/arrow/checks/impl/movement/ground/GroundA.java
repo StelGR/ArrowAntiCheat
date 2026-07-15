@@ -43,6 +43,7 @@ public class GroundA extends Check {
             }
 
             if (profile.shouldCancel()
+                    || profile.getTick() < 60
                     || profile.getMovementData().isOnBoat()
                     || profile.getMovementData().isNearBoat()
                     || profile.isExempt().isTeleports()

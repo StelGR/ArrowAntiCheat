@@ -8,9 +8,8 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
-import lombok.Getter;
-import lombok.Setter;
 import me.arrow.Arrow;
+import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.TaskUtils;
@@ -54,16 +53,12 @@ public class ClientWorldTracker implements Data {
     volatile boolean modernLookupDone;
     volatile boolean legacyLookupDone;
 
-    int CANCELLED_BLOCK_AREA_SYNC_EVERY_TICKS = 1;
+    int CANCELLED_BLOCK_AREA_SYNC_EVERY_TICKS = 2;
     int CANCELLED_BLOCK_AREA_SYNC_RADIUS_XZ = 2;
     int CANCELLED_BLOCK_AREA_SYNC_DOWN = 2;
     int CANCELLED_BLOCK_AREA_SYNC_UP = 4;
-    int MAX_FULL_AREA_SYNC_BLOCKS = 256;
-    int CANCELLED_BLOCK_AREA_REQUEST_TICKS = 6;
+    int MAX_FULL_AREA_SYNC_BLOCKS = 420;
 
-    @Getter
-    @Setter
-    private boolean periodicCancelledBlockAreaSyncEnabled = true;
     private int requestedCancelledBlockAreaSyncTicks;
 
     Profile profile;
@@ -83,7 +78,6 @@ public class ClientWorldTracker implements Data {
 
     public ClientWorldTracker(Profile profile) {
         this.profile = profile;
-
     }
 
     @Override
@@ -229,21 +223,6 @@ public class ClientWorldTracker implements Data {
         if (trackableArea) {
             requestActiveWorldRepair();
         }
-    }
-
-
-    public void requestCancelledBlockAreaSync() {
-        /*
-         * Used by BlockProcessor when a placement gets cancelled or is still pending.
-         * Keep it alive for a few movement ticks because WorldGuard/protection plugins
-         * can send their correction after the original placement packet.
-         */
-        this.requestedCancelledBlockAreaSyncTicks = Math.max(
-                this.requestedCancelledBlockAreaSyncTicks,
-                CANCELLED_BLOCK_AREA_REQUEST_TICKS
-        );
-
-        requestActiveWorldRepair();
     }
 
     private void handleChunkData(PacketSendEvent event) {
@@ -1708,7 +1687,7 @@ public class ClientWorldTracker implements Data {
         ensurePlayerChunksKnown(1);
 
         boolean periodicFullAreaSync =
-                periodicCancelledBlockAreaSyncEnabled
+                Config.Setting.GHOST_BLOCK_FIX.getBoolean()
                         && tick % CANCELLED_BLOCK_AREA_SYNC_EVERY_TICKS == 0;
 
         boolean requestedFullAreaSync = requestedCancelledBlockAreaSyncTicks > 0;

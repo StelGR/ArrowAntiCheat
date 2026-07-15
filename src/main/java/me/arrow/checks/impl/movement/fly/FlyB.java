@@ -3,48 +3,54 @@ package me.arrow.checks.impl.movement.fly;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import me.arrow.Arrow;
+import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
+import me.arrow.playerdata.data.impl.VelocityData;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
-import me.arrow.utils.custom.CustomLocation;
-import me.arrow.utils.custom.PotionType;
-import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
 
-import static me.arrow.utils.customutils.Math.MathUtil.getAverage;
-import static me.arrow.utils.customutils.Math.MathUtil.getDevation;
+import java.util.EnumSet;
+import java.util.Set;
 
-// my completely custom Fly B check, i don't know if anyone else already does this, but i came up with the idea
-// by my self, to have an air time check, because.. yk. it makes sense?
-// it does not use client air ticks, although they are in the code in here, cus they work differently
-// but i do plan in the future to start using them as well in cases where you can completely bypass the air tick limit
-// from the server side, but so far that hasn't been an issue
+// simple acceleration limit check
 
+@Experimental
 public class FlyB extends Check {
 
     public FlyB(Profile profile) {
-        super(profile, CheckType.FLY, "B", "Checks for improbable air time by using world material");
+        super(profile, CheckType.FLY, "B", "Checks for impossible vertical acceleration while a player is airborne.");
     }
 
-    double airTickLimit;
-    double clientAirTickLimit;
-
-    SampleList<Double> samples = new SampleList<>(40);
-
-
-    SampleList<Double> underBlockSamples = new SampleList<>(20);
+    private static final double JUMP_TOL = 0.06; // tolerance for matching jump-start
 
     @Override
     public void handle(PacketSendEvent event) {
 
+    }
+
+    private static final Set<EntityDamageEvent.DamageCause> IGNORED_CAUSES = buildIgnoredCauses();
+
+    private static Set<EntityDamageEvent.DamageCause> buildIgnoredCauses() {
+        EnumSet<EntityDamageEvent.DamageCause> set = EnumSet.noneOf(EntityDamageEvent.DamageCause.class);
+        addCauseIfPresent(set, "VOID");
+        addCauseIfPresent(set, "SUFFOCATION");
+        addCauseIfPresent(set, "LIGHTNING");
+        addCauseIfPresent(set, "CONTACT");
+        return set;
+    }
+
+    private static void addCauseIfPresent(Set<EntityDamageEvent.DamageCause> set, String name) {
+        try {
+            set.add(EntityDamageEvent.DamageCause.valueOf(name));
+        } catch (IllegalArgumentException ignored) {
+        }
     }
 
     @Override
@@ -55,48 +61,56 @@ public class FlyB extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
 
             MovementData movementData = profile.getMovementData();
-            int serverAirTicks = movementData.getCustomAirTicks();
 
-            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-
-            if (world.shouldExemptMovementChecks()
-                    || world.physicsMismatch
-                    || world.onGhostBlock
-                    || world.nearGhostBlock
-                    || world.insideGhostBlock
-                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 return;
             }
 
-            if (profile.shouldCancel()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (shouldCancel)");
+            if (profile.isExempt().isTeleports()) {
+                resetBuffer();
+                return;
+            }
+
+            if (profile.shouldCancel()
+                    || profile.isExempt().isVehicle()
+                    || profile.isBouncingOnSlime()
+                    || movementData.isOnBoat()
+                    || movementData.isNearBoat()
+                    || movementData.isNearGhast()
+                    || movementData.isNearWebs()
+                    || profile.getActionData().hasRecentConfirmedUnderPlace(5 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
+                    || movementData.isNearBed()
+                    || movementData.isNearLava()
+                    || movementData.getSinceNearWaterTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)
+                    || movementData.isNearClimbable()
+                    || movementData.isOnSlime()
+                    || !CollisionUtils.isChunkLoaded(movementData.getLocation())
+                    || movementData.isMovingUp()
+                    || movementData.isMovingDown()
+                    || movementData.getSinceRiptidingTicks() < 30
+                    || movementData.getSinceBubbleTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                    || profile.getPotionData().isHasLevitation()) {
                 return;
             }
 
             if (profile.getGeysersTracker().isBeingPushed()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - geysers (26.2+)");
-                movementData.setCustomAirTicks(0);
                 return;
             }
 
-//            if (profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-//                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - block update under");
-//                return;
-//            }
-
-
-            if (profile.isBouncingOnSlime()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (bouncing on slime)");
+            if (movementData.getSinceTeleportTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (SinceTeleports)");
                 return;
             }
 
-            if (movementData.isOnBoat()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (on boat)");
+            if (movementData.getSinceGlidingTicks() < 20) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (Gliding)");
                 return;
             }
 
-            if (movementData.isNearBoat()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (near boat)");
+            if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - vehicle");
                 return;
             }
 
@@ -104,275 +118,120 @@ public class FlyB extends Check {
 
             if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (ghostblock liquid/web/pending physics place)");
-                movementData.setCustomAirTicks(0);
                 return;
             }
 
-            if (movementData.isNearShulkerBox()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (near shulker box)");
+            if (profile.getMovementData().getSinceOnGhostBlock() < 15 + profile.getConnectionData().getClientTickTrans()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (ghostblock)");
                 return;
             }
 
-            if (movementData.isNearGhast()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (near ghast)");
-                return;
-            }
-
-            if (movementData.isNearShulker()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (near shulker)");
-                return;
-            }
-
-            if (profile.isExempt().isTeleports()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (teleports)");
-                movementData.setCustomAirTicks(0);
-                return;
-            }
-
-            if (!profile.isExempt().isRespawned()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (not respawned)");
-                return;
-            }
-
-            if (movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()
-                    || movementData.getSinceNearWaterTicks() < 8 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (inside water)");
-                return;
-            }
-
-            if (profile.getPlayer().isDead()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (player dead)");
-                return;
-            }
-
-            if (profile.isExempt().vehicle()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (vehicle exempt)");
-                return;
-            }
-
-            if (profile.getMovementData().getSinceOnGhostBlock() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (ghost block)");
+            if (movementData.getSinceInsideWaterTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (sinceInsideWater)");
                 return;
             }
 
             if (profile.getExempt().isReelingIn()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (reeling in)");
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (fishingRod)");
                 return;
             }
 
-            if (profile.getMovementData().getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (elytra glide)");
-                return;
-            }
+            final int serverAirTicks = movementData.getServerAirTicks();
+            final int clientAirTicks = movementData.getClientAirTicks();
 
-            if (profile.getMovementData().isNearHoney()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (honey)");
-                return;
-            }
+            final double deltaY = movementData.getDeltaY();
+            final double lastDeltaY = movementData.getLastDeltaY();
 
-            if (profile.getMovementData().isNearShulkerBox()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (shulker box)");
-                return;
-            }
+            double acceleration = deltaY - lastDeltaY;
 
-            if (movementData.getSincePowderSnowTicks() < 10) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (powder snow)");
-                return;
-            }
+//            acceleration = Math.abs(acceleration);
 
-            if (movementData.getSinceNearGhastTicks() < 10) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: was Near Ghast");
-                return;
-            }
+            double jumpStart = MoveUtils.getJumpMotion(profile);
+            double totalVerticalVelocity = profile.getVelocityData().getTotalVerticalVelocity();
 
-            if (movementData.elytraMomentum() > 0) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: elytraMomentum");
-                return;
-            }
 
-            if (profile.getPotionData().isHasSlowFalling()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (slow falling)");
-                return;
-            }
+            final boolean isNotJumpStart = Math.abs(deltaY - jumpStart) > JUMP_TOL;
 
-            CustomLocation loc = movementData.getLocation();
+            VelocityData vd = profile.getVelocityData();
 
-            if (!CollisionUtils.isChunkLoaded(loc)) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (unloaded chunk)");
-                return;
-            }
+            double expectedY = 1.01D + jumpStart;
 
-            int clientAirTicks = movementData.getCustomAirTicks();
+            expectedY += movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans() ? 4.15 : 0;
 
-            double deltaY = movementData.getDeltaY();
-            double fallDistance = profile.getPlayer().getFallDistance();
-            double deltaXZ = movementData.getDeltaXZ();
-            boolean inAir = movementData.isCustomInAir();
-            boolean serverGround = movementData.isServerGround();
-            boolean clientGround = movementData.isOnGround();
 
-            if (movementData.getSinceLevitationEffectTicks() < 10
-                    || movementData.isNearShulker()
-                    || movementData.isNearShulkerBox()
-                    || movementData.isNearLava()
-                    || movementData.isNearWater()
-                    || movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2)
-                    || movementData.getSinceBubbleTicks() < 25 + (profile.getConnectionData().getClientTickTrans() * 2)
-                    || profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                return;
-            }
+            final boolean invalidY =
+                    deltaY > expectedY
+                            && (movementData.isLastOnGround() || serverAirTicks > 0 || clientAirTicks > 0)
+                            && isNotJumpStart
+                            && !vd.isTakingVelocity();
 
-            boolean hasJumpBoost = profile.getPotionData().isHasJump();
-            double jumpLevel = hasJumpBoost
-                    ? profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST)
-                    + (4 + (profile.getPotionData().getJumpAmplifier()))
-                    : 0;
+            final boolean invalidNegativeY = acceleration < -expectedY && (clientAirTicks == 1 || movementData.isServerGround())
+                    && !vd.isTakingVelocity()
+                    && !movementData.isUnderblock()
+                    && movementData.getMovingUnderblockTicks() == 0;
 
-            int clientTickTrans = profile.getConnectionData().getClientTickTrans();
+            final boolean invalid = (acceleration > 0.0 && !vd.isTakingVelocity()) && (serverAirTicks > 8 || clientAirTicks > 8) && !profile.getPotionData().isHasSlowFalling();
 
-            boolean recentlyPlaced = profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5 + (clientTickTrans * 2);
+            //final boolean invalidY2 = deltaY > (profile.getVelocityData().getTotalVerticalVelocity() * 2.5) && serverAirTicks > 8;
 
-            if (hasJumpBoost) {
-                if (recentlyPlaced) {
-                    airTickLimit = (16 + clientTickTrans) + jumpLevel;
-                    clientAirTickLimit = (18 + clientTickTrans) + jumpLevel;
-                } else {
-                    airTickLimit = 8 + jumpLevel;
-                    clientAirTickLimit = 12 + jumpLevel;
+            String verboseInfo = "acceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
+                    + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                    + "\n+expected " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedY
+                    + "\n-expected " + MsgType.MAIN_THEME_COLOR.getMessage() + (-expectedY)
+                    + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
+                    + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
+                    + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
+                    + "\njumpStart " + MsgType.MAIN_THEME_COLOR.getMessage() + jumpStart
+                    + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + totalVerticalVelocity;
+            if ((invalid
+             && (!movementData.isNearWater()
+                || !movementData.isInsideLiquid()))
+                    || invalidY) {
+                if (increaseBuffer() > 2 || invalidY) {
+                    fail("Impossible vertical speed " + (invalid ? "(1)" : "(2)"),
+                            verboseInfo);
+                    setBuffer(getBuffer() > 6 ? 6 : getBuffer());
                 }
             } else {
-                airTickLimit = recentlyPlaced ? 16 + clientTickTrans : 8;
-                clientAirTickLimit = recentlyPlaced ? 20 + clientTickTrans : 12;
+                decreaseBufferBy(0.25);
             }
 
-            if (deltaXZ != 0) airTickLimit += recentlyPlaced ? 6 + clientTickTrans : 2;
-
-            clientAirTickLimit = 4 + jumpLevel;
-
-            boolean exempt = movementData.isInsideLiquid()
-                    || movementData.isNearWebs()
-                    || (profile.getMovementData().getSinceGlidingTicks() < 10);
-
-            double vel = Math.max(
-                    profile.getVelocityData().getTotalVerticalVelocitySustain(),
-                    profile.getVelocityData().getStackedVerticalVelocity()
-            );
-
-            double velMag = Math.max(
-                    vel,
-                    profile.getVelocityData().getTotalVerticalVelocity()
-            );
-
-            double horizo = profile.getVelocityData().getTotalHorizontalVelocity();
-
-            velMag += (horizo / 2);
-
-            double baseTicksVel = 6;
-            double baseVelocity = 0.000001;
-            double scale = 18;
-
-            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
-            airTickLimit += Math.ceil(extraFromVel);
-
-            if (movementData.isNearFence()) airTickLimit += 4;
-
-            //temporary piston fix
-            if (movementData.getSinceNearSlimeTicks() <= (40 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    && movementData.getSinceNearPistonTicks() <= (40 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                airTickLimit += 8;
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Extending PistonSlimeTicks");
+            if (invalidNegativeY) {
+                fail("Impossible negative vertical speed",
+                        verboseInfo);
             }
 
-            airTickLimit = Math.max(airTickLimit, 12);
+            final double deltaXZ = movementData.getDeltaXZ();
+            final double lastDeltaXZ = movementData.getLastDeltaXZ();
 
-            boolean invalidNormal =
-                    serverAirTicks > airTickLimit
-                    && deltaY > -0.37
-                    && inAir;
+            final double accelerationXZ = deltaXZ - lastDeltaXZ;
 
-            verbose(this.getClass().getSimpleName(), serverAirTicks, airTickLimit, MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                    + "\n * clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                    + "\n * serverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerYGround()
-                    + "\n * serverPositionYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPositionYGround()
-                    + "\n * inAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
+            final boolean invalid2 = accelerationXZ > 8;
+
+            if (invalid2) {
+                if (increaseBuffer() > 2) {
+                    fail("Impossible horizontal speed",
+                            "accelerationXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + accelerationXZ
+                                    + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage()+ deltaXZ
+                                    + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage()+ lastDeltaXZ
+                                    + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage()+ serverAirTicks
+                                    + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks);
+                    setBuffer(getBuffer() > 6 ? 6 : getBuffer());
+                }
+
+            } else {
+                decreaseBufferBy(0.25);
+            }
+
+            verbose(this.getClass().getSimpleName(), accelerationXZ, acceleration, "* Verbose\n * acceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
+                    + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                    + "\n * lastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
+                    + "\n * accelerationXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + accelerationXZ
+                    + "\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage()+ deltaXZ
+                    + "\n * lastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage()+ lastDeltaXZ
                     + "\n * serverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
                     + "\n * clientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
-                    + "\n * deltaY&b " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                    + "\n * fallDistance&b " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDistance
-                    + "\n * underBlock&b " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock()
-                    + "\n * sAirTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit
-                    + "\n * cAirTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTickLimit
-                    + "\n * extraTicksVel " + MsgType.MAIN_THEME_COLOR.getMessage() + extraFromVel
-                    + "\n * sinceNearSlimeTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSinceNearSlimeTicks()
-                    + "\n * velMag " + MsgType.MAIN_THEME_COLOR.getMessage() + velMag
-                    + "\n * velocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalHorizontalVelocity()
-                    + "\n * velocityV " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalVerticalVelocity()
-                    + "\n * velocityH Sustain " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalHorizontalVelocitySustain()
-                    + "\n * velocityV Sustain " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalVerticalVelocitySustain()
-                    + "\n * jumpAmplifierMath " + MsgType.MAIN_THEME_COLOR.getMessage() + (0.42 + ((profile.getPotionData().getJumpAmplifier() + 1) * 0.1)));
-
-            int maxTicks = Math.min(15, profile.getConnectionData().getClientTickTrans() == 0 ? 15 : 10 + (profile.getConnectionData().getTransPing() / 20) / profile.getConnectionData().getClientTickTrans());
-
-            if (inAir
-                    && !profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    && movementData.getCustomAirTicks() > maxTicks
-                    && !movementData.isNearWater()
-                    && !movementData.isNearWebs()
-                    && !movementData.isInsideLiquid()) {
-                if (deltaY == movementData.getLastDeltaY()) {
-                    samples.add(deltaY);
-
-                    if (movementData.isNearWater()) samples.clear();
-
-                    if (samples.isCollected()) {
-                        final double deviation = getDevation(this.samples);
-
-                        if (deviation == 0) fail("Not falling (1)",
-                                "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + true
-                                        + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + true
-                                        + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + true
-                                        + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                        + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLastDeltaY()
-                                        + "\ndeviation " + MsgType.MAIN_THEME_COLOR.getMessage() + deviation);
-                    }
-                }
-            }
-
-
-            if (!serverGround && !clientGround && inAir && profile.getMovementData().isUnderblock()) {
-                if (serverAirTicks > 10) {
-                    underBlockSamples.add((double) clientAirTicks);
-
-                    if (underBlockSamples.isCollected()) {
-                        final double average = getAverage(this.underBlockSamples);
-
-                        //debug(average);
-
-                        if (average > 0.05 && average < 2)
-                            fail("Not falling (2)",
-                                    "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + false
-                                            + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + false
-                                            + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + true
-                                            + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                            + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLastDeltaY()
-                                            + "\naverage " + MsgType.MAIN_THEME_COLOR.getMessage() + average);
-                    }
-                }
-            }
-
-            //if (profile.getVelocityData().getVelocityTicks() < velocityTickExempt) return;
-
-            if (invalidNormal && !exempt) {
-                fail("Improbable air time (" + serverAirTicks + "/" + airTickLimit+")",
-                        "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + "true\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
-                                + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
-                                + "\nairTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit + " / " + clientAirTickLimit
-                                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                + "\nfallDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDistance
-                                + "\nunderBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
-            }
+                    + "\n * jumpStart " + MsgType.MAIN_THEME_COLOR.getMessage() + jumpStart);
         }
     }
 }

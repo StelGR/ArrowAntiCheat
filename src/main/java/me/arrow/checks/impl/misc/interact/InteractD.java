@@ -191,34 +191,39 @@ public class InteractD extends Check {
             return;
         }
 
-        Vector eye = new Vector(
-                attackerLocation.getX(),
-                attackerLocation.getY() + getEyeHeight(profile.getPlayer()),
-                attackerLocation.getZ()
-        );
         Vector direction = getDirection(attackerRotation.getYaw(), attackerRotation.getPitch());
-        EntityBounds attackerBody = createPlayerBody(attackerLocation, profile.getPlayer());
+        List<AttackerSnapshot> attackers = getAttackerSnapshots(attackerMovement, profile.getPlayer());
 
         List<TargetSnapshot> targets = getTargetSnapshots(target, targetProfile, ping);
         RayResult closestBlocked = null;
         boolean intersectedTarget = false;
 
-        for (TargetSnapshot snapshot : targets) {
-            RayResult result = traceTarget(world, eye, direction, attackerBody, target, snapshot, ping);
+        for (AttackerSnapshot attacker : attackers) {
+            for (TargetSnapshot snapshot : targets) {
+                RayResult result = traceTarget(
+                        world,
+                        attacker.eye,
+                        direction,
+                        attacker.body,
+                        target,
+                        snapshot,
+                        ping
+                );
 
-            if (!result.intersectedTarget) {
-                continue;
-            }
+                if (!result.intersectedTarget) {
+                    continue;
+                }
 
-            intersectedTarget = true;
+                intersectedTarget = true;
 
-            if (!result.blocked) {
-                wallHitBuffer = Math.max(0.0D, wallHitBuffer - 0.6D);
-                return;
-            }
+                if (!result.blocked) {
+                    wallHitBuffer = Math.max(0.0D, wallHitBuffer - 0.6D);
+                    return;
+                }
 
-            if (closestBlocked == null || result.blockDistance < closestBlocked.blockDistance) {
-                closestBlocked = result;
+                if (closestBlocked == null || result.blockDistance < closestBlocked.blockDistance) {
+                    closestBlocked = result;
+                }
             }
         }
 
@@ -364,6 +369,55 @@ public class InteractD extends Check {
                 location.getY() + height,
                 location.getZ() + 0.3D
         );
+    }
+
+    private List<AttackerSnapshot> getAttackerSnapshots(MovementData movement, Player player) {
+        CustomLocation current = movement.getLocation();
+        List<AttackerSnapshot> result = new ArrayList<>(3);
+
+        addAttackerSnapshot(result, current, current.getY(), player);
+
+        /*
+         * While jumping into a low ceiling, the attack and movement packets can
+         * disagree by one vertical state. Test the two immediately preceding eye
+         * heights only in that confined vertical-motion case. X/Z stay current,
+         * so this cannot compensate an attacker horizontally through a wall.
+         */
+        if (movement.isUnderblock()
+                && (Math.abs(movement.getDeltaY()) > 1.0E-6D
+                || Math.abs(movement.getLastDeltaY()) > 1.0E-6D)) {
+            CustomLocation last = movement.getLastLocation();
+            CustomLocation lastLast = movement.getLastLastLocation();
+
+            if (last != null) {
+                addAttackerSnapshot(result, current, last.getY(), player);
+            }
+
+            if (lastLast != null) {
+                addAttackerSnapshot(result, current, lastLast.getY(), player);
+            }
+        }
+
+        return result;
+    }
+
+    private void addAttackerSnapshot(List<AttackerSnapshot> snapshots,
+                                     CustomLocation current,
+                                     double feetY,
+                                     Player player) {
+        for (AttackerSnapshot snapshot : snapshots) {
+            if (Math.abs(snapshot.feetY - feetY) <= 1.0E-6D) {
+                return;
+            }
+        }
+
+        CustomLocation bodyLocation = current.clone();
+        bodyLocation.setY(feetY);
+        snapshots.add(new AttackerSnapshot(
+                feetY,
+                new Vector(current.getX(), feetY + getEyeHeight(player), current.getZ()),
+                createPlayerBody(bodyLocation, player)
+        ));
     }
 
     private boolean overlaps(EntityBounds body, PEMaterials.CollisionBounds block) {
@@ -685,6 +739,18 @@ public class InteractD extends Check {
         private TargetSnapshot(CustomLocation location, long rewindMillis) {
             this.location = location;
             this.rewindMillis = rewindMillis;
+        }
+    }
+
+    private static final class AttackerSnapshot {
+        double feetY;
+        Vector eye;
+        EntityBounds body;
+
+        private AttackerSnapshot(double feetY, Vector eye, EntityBounds body) {
+            this.feetY = feetY;
+            this.eye = eye;
+            this.body = body;
         }
     }
 

@@ -11,6 +11,7 @@ public enum CheckType {
     AUTOCLICKER("AutoClicker", CheckCategory.COMBAT),
     BADPACKETS("BadPackets", CheckCategory.WORLD),
     FLY("Fly", CheckCategory.MOVEMENT),
+    GRAVITY("Gravity", CheckCategory.MOVEMENT),
     KILLAURA("Killaura", CheckCategory.COMBAT),
     SCAFFOLD("Scaffold", CheckCategory.WORLD),
     SPEED("Speed", CheckCategory.MOVEMENT),

@@ -48,6 +48,7 @@ public class GroundC extends Check {
                     || movementData.isNearBed()
                     || profile.isExempt().vehicle()
                     || movementData.isNearGhast()
+                    || profile.getTick() < 120
                     || movementData.isNearBoat()) {
                 return;
             }
@@ -86,7 +87,8 @@ public class GroundC extends Check {
              */
             if (profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
                     || profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2))
-                    || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (trans * 2))
+                    || profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans)
+
             ) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground c: is Exempting (Block Update/Piston Update/Block Place/Block Break)");
                 return;
@@ -125,14 +127,14 @@ public class GroundC extends Check {
                 }
             }
 
-            if (profile.getBlockProcessor().isOnGhostBlock()) {
-                fail("BlockProcessor: On Ghostblock?", verboseInfo);
-
-                //movementData.setCustomAirTicks(0);
-                if (Config.Setting.DEBUG.getBoolean()) {
-                    OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
-                }
-            }
+//            if (profile.getBlockProcessor().isOnGhostBlock()) {
+//                fail("BlockProcessor: On Ghostblock?", verboseInfo);
+//
+//                //movementData.setCustomAirTicks(0);
+//                if (Config.Setting.DEBUG.getBoolean()) {
+//                    OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
+//                }
+//            }
 
             verbose(this.getClass().getSimpleName(), movementData.getCustomAirTicks(), 2 ,verboseInfo);
 

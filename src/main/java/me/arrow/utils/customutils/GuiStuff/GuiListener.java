@@ -408,8 +408,9 @@ public class GuiListener implements Listener {
 
         String checkType = target.getClass().getSimpleName().replaceFirst("[A-Z]$", "");
         String uiName = extractUiName(plainTitle);
+        String groupedCheckType = "Fly".equalsIgnoreCase(uiName) ? "Fly" : checkType;
 
-        openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, checkType, uiName));
+        openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, groupedCheckType, uiName));
     }
 
     private void handleBackButtons(InventoryClickEvent event, Player player, String inventoryTitle, ItemStack clickedItem, int rawSlot, int topSize) {
