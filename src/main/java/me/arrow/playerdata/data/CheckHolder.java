@@ -120,10 +120,8 @@ public class CheckHolder {
                 new ScaffoldB(this.profile),
                 new ScaffoldC(this.profile),
 
-
                 new SpeedA(this.profile),
                 new SpeedB(this.profile),
-                new IllegalMoveC(this.profile),
 
                 new NoSlowdown(this.profile),
                 new OmniSprintA(this.profile),
@@ -153,6 +151,7 @@ public class CheckHolder {
 
                 new IllegalMoveA(this.profile),
                 new IllegalMoveB(this.profile),
+                new IllegalMoveC(this.profile),
 
                 new PhaseA(this.profile),
 

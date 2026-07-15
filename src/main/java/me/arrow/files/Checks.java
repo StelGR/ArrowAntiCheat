@@ -334,12 +334,7 @@ public class Checks implements Initializer {
         SPEED_B_PUNiSH_MODE("SpeedB.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         SPEED_B_MAX_VL("SpeedB.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        ILLEGALMOVE_C("IllegalMoveC.enabled", true, "Should we enable this module?"),
-        ILLEGALMOVE_C_MODE("IllegalMoveC.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
-        ILLEGALMOVE_C_PUNISH("IllegalMoveC.punish", "", "Punishment settings"),
-        ILLEGALMOVE_C_PUNiSH_ENABLED("IllegalMoveC.punish.enabled", true, "Should punishments be enabled for this check?"),
-        ILLEGALMOVE_C_PUNiSH_MODE("IllegalMoveC.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
-        ILLEGALMOVE_C_MAX_VL("IllegalMoveC.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
 
         OMNISPRINT_A("OmniSprintA.enabled", true, "Should we enable this module?"),
         OMNISPRINT_A_MODE("OmniSprintA.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
@@ -473,6 +468,13 @@ public class Checks implements Initializer {
         ILLEGALMOVE_B_PUNiSH_ENABLED("IllegalMoveB.punish.enabled", true, "Should punishments be enabled for this check?"),
         ILLEGALMOVE_B_PUNiSH_MODE("IllegalMoveB.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         ILLEGALMOVE_B_MAX_VL("IllegalMoveB.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        ILLEGALMOVE_C("IllegalMoveC.enabled", true, "Should we enable this module?"),
+        ILLEGALMOVE_C_MODE("IllegalMoveC.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
+        ILLEGALMOVE_C_PUNISH("IllegalMoveC.punish", "", "Punishment settings"),
+        ILLEGALMOVE_C_PUNiSH_ENABLED("IllegalMoveC.punish.enabled", true, "Should punishments be enabled for this check?"),
+        ILLEGALMOVE_C_PUNiSH_MODE("IllegalMoveC.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        ILLEGALMOVE_C_MAX_VL("IllegalMoveC.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
         TIMER_A("TimerA.enabled", true, "Should we enable this module?"),
         TIMER_A_MODE("TimerA.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
