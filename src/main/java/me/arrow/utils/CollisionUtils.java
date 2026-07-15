@@ -44,10 +44,16 @@ public class CollisionUtils {
     private static final double PLAYER_HALF_WIDTH = .300001D;
 
     /*
+     * Extended player footprint used only for floor support. It is independent
+     * of deltaY; walls and ceilings continue using the real 0.6-wide body.
+     */
+    private static final double SUPPORT_PLAYER_HALF_WIDTH = 0.75D;
+
+    /*
     The exact additional expansion we need in order to correctly account for blocks on top and below.
      */
     //private static final double EXPAND_ADDITIONAL = 2.000000000002E-6;
-    private static final double EXPAND_ADDITIONAL = 0;
+    private static final double EXPAND_ADDITIONAL = 2.000000000002E-6;
 
     /*
     The modulo values for full blocks in order to get if the player is at the edge of a block.
@@ -349,15 +355,6 @@ public class CollisionUtils {
         return false;
     }
 
-
-    /**
-     * Core implementation: checks a 3x3 candidate grid below the provided location (keeps your hasBlockUnder semantics).
-     * Falls back to nearby.getBlockTypes() check if candidate blocks are null (chunk not loaded).
-     * - loc: the player location to check (tests blocks at y - 1).
-     * - nearby: the precomputed NearbyBlocksResult for that location (can be null).
-     * - async: pass true if you want getBlock(..., true) behavior (matches your usage).
-     * - predicate: a predicate to test a Block's Material.
-     */
     public static boolean isStandingOnMaterial(final CustomLocation loc,
                                                final CollisionUtils.NearbyBlocksResult nearby,
                                                final boolean async,
@@ -485,7 +482,8 @@ public class CollisionUtils {
 
         final double aboveY = locationY + 1.9D;
         final double middleY = locationY + 1D;
-        final double underY = locationY - .5000001D;
+        /* Probe the block cell directly beneath the feet, including partial supports. */
+        final double underY = locationY - 1.0E-6D;
 
         CustomLocation cloned = location.clone();
 
@@ -550,7 +548,12 @@ public class CollisionUtils {
 
         final double aboveY = locationY + 1.9D;
         final double middleY = locationY + 1D;
-        final double underY = locationY - .5000001D;
+        /*
+         * The original -0.5 probe skips bottom slabs because their top is at
+         * Y + 0.5. Sampling immediately below the feet works for every support
+         * height while PEMaterials still decides whether the block can collide.
+         */
+        final double underY = locationY - 1.0E-6D;
 
         CustomLocation cloned = location.clone();
 
@@ -725,10 +728,21 @@ public class CollisionUtils {
             }
 
             /*
-             * Do not set nearGround/blockAbove from these broad sample points.
-             * Their horizontal range intentionally includes nearby walls. The
-             * exact player-box pass below owns both collision flags.
+             * Preserve the base's authoritative UNDER sample. The exact shape
+             * pass below improves partial blocks, but must not be the only path
+             * capable of recognizing ordinary support at an overhanging edge.
              */
+            if (blockPosition == BlockPosition.UNDER) {
+                try {
+                    if (PEMaterials.hasCollision(block)) {
+                        this.nearGround = true;
+                    }
+                } catch (Throwable ignored) {
+                    if (type.isSolid()) {
+                        this.nearGround = true;
+                    }
+                }
+            }
 
             /*
             Handle waterlogged.
@@ -755,9 +769,13 @@ public class CollisionUtils {
             double playerMaxX = location.getX() + PLAYER_HALF_WIDTH;
             double playerMinZ = location.getZ() - PLAYER_HALF_WIDTH;
             double playerMaxZ = location.getZ() + PLAYER_HALF_WIDTH;
+            double supportMinX = location.getX() - SUPPORT_PLAYER_HALF_WIDTH;
+            double supportMaxX = location.getX() + SUPPORT_PLAYER_HALF_WIDTH;
+            double supportMinZ = location.getZ() - SUPPORT_PLAYER_HALF_WIDTH;
+            double supportMaxZ = location.getZ() + SUPPORT_PLAYER_HALF_WIDTH;
             double feetY = location.getY();
 
-            /* Same support grace as the old under sample, but shape-aware. */
+            /* Shape-aware vertical support band; edge grace is horizontal only. */
             double supportMinY = feetY - 0.625001D;
             double supportMaxY = feetY + 0.050001D;
 
@@ -765,10 +783,10 @@ public class CollisionUtils {
             double headMinY = feetY + 1.425D;
             double headMaxY = feetY + 1.950001D;
 
-            int minX = floor(playerMinX);
-            int maxX = floor(playerMaxX);
-            int minZ = floor(playerMinZ);
-            int maxZ = floor(playerMaxZ);
+            int minX = floor(supportMinX);
+            int maxX = floor(supportMaxX);
+            int minZ = floor(supportMinZ);
+            int maxZ = floor(supportMaxZ);
             int minY = floor(supportMinY);
             int maxY = floor(headMaxY);
 
@@ -808,18 +826,8 @@ public class CollisionUtils {
                         }
 
                         for (PEMaterials.CollisionBounds box : boxes) {
-                            /*
-                             * A support is a collision TOP below/at the feet.
-                             * A vertical wall can overlap the old support band,
-                             * but its top is above the feet, so it must not keep
-                             * custom air ticks at zero.
-                             */
                             if (!this.nearGround
-                                    && overlapsHorizontally(
-                                    box,
-                                    playerMinX, playerMinZ,
-                                    playerMaxX, playerMaxZ
-                            )
+                                    && overlapsSupportFootprint(box, location)
                                     && box.maxY >= supportMinY
                                     && box.maxY <= supportMaxY) {
                                 this.nearGround = true;
@@ -843,6 +851,17 @@ public class CollisionUtils {
                     && box.minX < maxX - 1.0E-7D
                     && box.maxZ > minZ + 1.0E-7D
                     && box.minZ < maxZ - 1.0E-7D;
+        }
+
+        private boolean overlapsSupportFootprint(PEMaterials.CollisionBounds box,
+                                                 CustomLocation center) {
+            return overlapsHorizontally(
+                    box,
+                    center.getX() - SUPPORT_PLAYER_HALF_WIDTH,
+                    center.getZ() - SUPPORT_PLAYER_HALF_WIDTH,
+                    center.getX() + SUPPORT_PLAYER_HALF_WIDTH,
+                    center.getZ() + SUPPORT_PLAYER_HALF_WIDTH
+            );
         }
 
         public boolean hasBlockAbove() {

@@ -83,7 +83,7 @@ public class HitboxA extends Check {
         int pingTicks = getPingTicks(profile);
         List<CustomLocation> positions = getRenderedPositions(history, pingTicks);
 
-        if (positions.size() < 2) {
+        if (positions.size() < 16) {
             return;
         }
 
@@ -163,7 +163,7 @@ public class HitboxA extends Check {
         double evidence = pingTicks >= 5 ? 0.45D : recentFlick ? 0.60D : 1.0D;
         missBuffer = Math.min(8.0D, missBuffer + evidence);
 
-        if (increaseBufferBy(evidence) > 3.0D && missBuffer > 3.0D) {
+        if (increaseBufferBy(evidence) > 3.0D && missBuffer > 3.0D && bestCenterAngle > 26) {
             fail("Invalid Hitbox Interaction",
                     "centerLine " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestCenterLine)
                             + "\ncenterAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestCenterAngle)

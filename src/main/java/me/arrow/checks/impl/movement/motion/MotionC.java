@@ -199,7 +199,7 @@ public class MotionC extends Check {
 
         double baseTicksVel = 8;
         double baseVelocity = 0.0005;
-        double scale = 14;
+        double scale = 20;
 
         return velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
     }

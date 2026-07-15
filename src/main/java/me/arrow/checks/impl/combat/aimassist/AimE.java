@@ -64,6 +64,15 @@ public class AimE extends Check {
                 return;
             }
 
+            if (!targetProfile.getMovementData().isMoving()
+                    || (targetProfile.getMovementData().isUnderblock()
+                    && targetProfile.getMovementData().isNearWall())) {
+                heuristics.reset();
+                rotationHistory.clear();
+                decreaseBufferBy(0.25D);
+                return;
+            }
+
             float deltaYaw = data.getDeltaYaw();
             heuristics.process(deltaYaw);
             rotationHistory.add((double) deltaYaw);

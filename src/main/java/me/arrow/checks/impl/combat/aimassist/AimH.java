@@ -236,6 +236,9 @@ public class AimH extends Check {
         return target != null
                 && target.getMovementData() != null
                 && target.getMovementData().getLocation() != null
+                && target.getMovementData().isMoving()
+                && !(target.getMovementData().isUnderblock()
+                && target.getMovementData().isNearWall())
                 && !target.shouldCancel()
                 && !target.isBedrockPlayer()
                 && !target.isSwimming()

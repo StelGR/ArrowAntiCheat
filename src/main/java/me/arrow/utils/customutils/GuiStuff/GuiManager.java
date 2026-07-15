@@ -751,7 +751,9 @@ public class GuiManager {
         int slot = 0;
 
         for (Check check : Arrow.getInstance().getProfileManager().getProfile(player).getCheckHolder().getChecks()) {
-            if (check.getClass().getSimpleName().startsWith(checkType)) {
+            String className = check.getClass().getSimpleName();
+            if (className.startsWith(checkType)
+                    || ("Fly".equals(checkType) && className.startsWith("Gravity"))) {
                 String enabledStatus = check.isEnabled() ? "§a✓" : "§c✗";
                 String punishableStatus = check.isCanPunish() ? "§a✓" : "§c✗";
 

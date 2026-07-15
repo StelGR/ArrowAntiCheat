@@ -1,4 +1,4 @@
-package me.arrow.checks.impl.movement.speed;
+package me.arrow.checks.impl.movement.illegalmove;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
@@ -20,10 +20,10 @@ import me.arrow.utils.customutils.OtherUtility;
 // I need more feedback to ensure this has 0 falses, if that is the case, experimental tag will be removed
 
 @Experimental
-public class SpeedC extends Check {
+public class IllegalMoveC extends Check {
 
-    public SpeedC(Profile profile) {
-        super(profile, CheckType.SPEED, "C", "Checks for correct non sprint motion");
+    public IllegalMoveC(Profile profile) {
+        super(profile, CheckType.ILLEGALMOVE, "C", "Checks for correct non sprint motion");
     }
 
     double buffer1;

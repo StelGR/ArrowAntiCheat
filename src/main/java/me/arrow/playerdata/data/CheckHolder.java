@@ -31,6 +31,7 @@ import me.arrow.checks.impl.movement.ground.GroundB;
 import me.arrow.checks.impl.movement.ground.GroundC;
 import me.arrow.checks.impl.movement.illegalmove.IllegalMoveA;
 import me.arrow.checks.impl.movement.illegalmove.IllegalMoveB;
+import me.arrow.checks.impl.movement.illegalmove.IllegalMoveC;
 import me.arrow.checks.impl.movement.motion.*;
 import me.arrow.checks.impl.movement.speed.*;
 import me.arrow.checks.types.Check;
@@ -122,7 +123,7 @@ public class CheckHolder {
 
                 new SpeedA(this.profile),
                 new SpeedB(this.profile),
-                new SpeedC(this.profile),
+                new IllegalMoveC(this.profile),
 
                 new NoSlowdown(this.profile),
                 new OmniSprintA(this.profile),
@@ -132,9 +133,12 @@ public class CheckHolder {
                 new GroundC(this.profile),
 
                 new ElytraA(this.profile),
+                new GravityA(this.profile),
+                new GravityB(this.profile),
+                new GravityC(this.profile),
+                new GravityD(this.profile),
                 new FlyA(this.profile),
                 new FlyB(this.profile),
-                new FlyC(this.profile),
 
                 new MotionA(this.profile),
                 new MotionB(this.profile),

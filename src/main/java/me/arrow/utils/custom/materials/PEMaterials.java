@@ -8,7 +8,10 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.material.MaterialData;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -49,6 +52,16 @@ public class PEMaterials {
     private static volatile Method boxMaxX;
     private static volatile Method boxMaxY;
     private static volatile Method boxMaxZ;
+
+    /* Legacy CraftBukkit/NMS collision access (1.8-1.12). */
+    private static volatile Class<?> legacyWorldClass;
+    private static volatile Method legacyWorldGetState;
+    private static volatile Constructor<?> legacyBlockPositionConstructor;
+    private static volatile Method legacyStateGetBlock;
+    private static volatile Method legacyUpdateShape;
+    private static volatile Method legacyGetCollisionBox;
+    private static volatile Field[] legacyBoxFields;
+    private static volatile boolean legacyCollisionUnavailable;
 
     private static final Map<Material, WrappedBlockState> SERVER_STATE_CACHE =
             new ConcurrentHashMap<>();
@@ -287,9 +300,27 @@ public class PEMaterials {
         String name = normalize(material.name());
         boolean result;
 
-        if (isAirLike(name) || isFluidLike(name) || isDefinitelyNoCollisionName(name)) {
+        if (isAirLike(name) || isFluidLike(name)) {
             result = false;
         } else {
+            /*
+             * Some legacy names are ambiguous. GRASS is a solid grass block on
+             * 1.8, but denotes vegetation on later mappings. Trust the live
+             * server Material before applying name-family exclusions.
+             */
+            try {
+                if (material.isSolid()) {
+                    POTENTIAL_COLLISION_CACHE.put(material, true);
+                    return true;
+                }
+            } catch (Throwable ignored) {
+            }
+
+            if (isDefinitelyNoCollisionName(name)) {
+                POTENTIAL_COLLISION_CACHE.put(material, false);
+                return false;
+            }
+
             WrappedBlockState state = fromBukkitMaterial(material);
             result = hasCollision(state);
 
@@ -486,9 +517,19 @@ public class PEMaterials {
             return modern;
         }
 
+        if (!hasPotentialCollision(block.getType())) {
+            return Collections.emptyList();
+        }
+
+        List<CollisionBounds> legacy = getLegacyNmsCollisionBounds(block);
+
+        if (legacy != null) {
+            return legacy;
+        }
+
         Boolean passable = isPassable(block);
 
-        if ((passable != null && passable) || !hasPotentialCollision(block.getType())) {
+        if (passable != null && passable) {
             return Collections.emptyList();
         }
 
@@ -570,6 +611,291 @@ public class PEMaterials {
         } catch (Throwable ignored) {
             return getModernSingleBoundingBox(block);
         }
+    }
+
+    /**
+     * Bukkit did not expose collision boxes before the voxel-shape API. Obtain
+     * the live server block state's own collision AABB instead of maintaining a
+     * material hitbox table. A null return means the server internals could not
+     * be resolved and the conservative generic fallback should be used.
+     */
+    private static List<CollisionBounds> getLegacyNmsCollisionBounds(Block block) {
+        if (block == null
+                || BLOCK_GET_COLLISION_SHAPE != null
+                || BLOCK_GET_BOUNDING_BOX != null
+                || legacyCollisionUnavailable) {
+            return null;
+        }
+
+        try {
+            Object worldHandle = block.getWorld().getClass().getMethod("getHandle").invoke(block.getWorld());
+            ensureLegacyCollisionAccess(worldHandle);
+
+            if (legacyCollisionUnavailable
+                    || legacyWorldGetState == null
+                    || legacyBlockPositionConstructor == null
+                    || legacyStateGetBlock == null
+                    || legacyGetCollisionBox == null) {
+                return null;
+            }
+
+            Object position = legacyBlockPositionConstructor.newInstance(
+                    block.getX(), block.getY(), block.getZ()
+            );
+            Object state = legacyWorldGetState.invoke(worldHandle, position);
+
+            if (state == null) {
+                return Collections.emptyList();
+            }
+
+            Object nmsBlock = legacyStateGetBlock.invoke(state);
+
+            if (nmsBlock == null) {
+                return Collections.emptyList();
+            }
+
+            Object rawBox;
+
+            /* Legacy block bounds are mutable singletons; keep shape update + read atomic. */
+            synchronized (nmsBlock) {
+                if (legacyUpdateShape != null) {
+                    legacyUpdateShape.invoke(nmsBlock, argumentsFor(
+                            legacyUpdateShape.getParameterTypes(),
+                            worldHandle, position, state
+                    ));
+                }
+
+                rawBox = legacyGetCollisionBox.invoke(nmsBlock, argumentsFor(
+                        legacyGetCollisionBox.getParameterTypes(),
+                        worldHandle, position, state
+                ));
+            }
+
+            if (rawBox == null) {
+                return Collections.emptyList();
+            }
+
+            CollisionBounds bounds = readLegacyNmsBox(rawBox);
+            return bounds == null
+                    ? null
+                    : Collections.singletonList(bounds);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static synchronized void ensureLegacyCollisionAccess(Object worldHandle) {
+        if (worldHandle == null
+                || legacyCollisionUnavailable
+                || (legacyWorldClass != null && legacyWorldClass == worldHandle.getClass())) {
+            return;
+        }
+
+        try {
+            Method stateMethod = null;
+
+            for (Method method : allMethods(worldHandle.getClass())) {
+                if (method.getParameterCount() != 1) {
+                    continue;
+                }
+
+                String parameter = method.getParameterTypes()[0].getSimpleName();
+                String returned = method.getReturnType().getSimpleName();
+
+                if ((parameter.equals("BlockPosition") || parameter.endsWith("BlockPos"))
+                        && (returned.contains("IBlockData") || returned.contains("BlockState"))) {
+                    stateMethod = accessible(method);
+                    break;
+                }
+            }
+
+            if (stateMethod == null) {
+                legacyCollisionUnavailable = true;
+                return;
+            }
+
+            Class<?> positionClass = stateMethod.getParameterTypes()[0];
+            Constructor<?> positionConstructor = positionClass.getDeclaredConstructor(
+                    int.class, int.class, int.class
+            );
+            positionConstructor.setAccessible(true);
+
+            Object probePosition = positionConstructor.newInstance(0, 0, 0);
+            Object probeState = stateMethod.invoke(worldHandle, probePosition);
+
+            if (probeState == null) {
+                legacyCollisionUnavailable = true;
+                return;
+            }
+
+            Method getBlock = null;
+
+            for (Method method : allMethods(probeState.getClass())) {
+                if (method.getParameterCount() == 0
+                        && method.getReturnType().getSimpleName().equals("Block")) {
+                    getBlock = accessible(method);
+                    break;
+                }
+            }
+
+            if (getBlock == null) {
+                legacyCollisionUnavailable = true;
+                return;
+            }
+
+            Object nmsBlock = getBlock.invoke(probeState);
+            Method updateShape = null;
+            Method collisionBox = null;
+            int collisionScore = -1;
+
+            for (Method method : allMethods(nmsBlock.getClass())) {
+                Class<?>[] parameters = method.getParameterTypes();
+
+                if ((method.getName().equals("updateShape") || method.getName().equals("updateState"))
+                        && method.getReturnType() == void.class
+                        && canSupply(parameters, worldHandle, probePosition, probeState)) {
+                    updateShape = accessible(method);
+                }
+
+                if (method.getReturnType().getSimpleName().equals("AxisAlignedBB")
+                        && canSupply(parameters, worldHandle, probePosition, probeState)) {
+                    int score = parameters.length;
+
+                    if (score > collisionScore) {
+                        collisionBox = accessible(method);
+                        collisionScore = score;
+                    }
+                }
+            }
+
+            if (collisionBox == null) {
+                legacyCollisionUnavailable = true;
+                return;
+            }
+
+            legacyWorldClass = worldHandle.getClass();
+            legacyWorldGetState = stateMethod;
+            legacyBlockPositionConstructor = positionConstructor;
+            legacyStateGetBlock = getBlock;
+            legacyUpdateShape = updateShape;
+            legacyGetCollisionBox = collisionBox;
+            legacyBoxFields = null;
+        } catch (Throwable ignored) {
+            legacyCollisionUnavailable = true;
+        }
+    }
+
+    private static CollisionBounds readLegacyNmsBox(Object rawBox) throws Exception {
+        Field[] fields = legacyBoxFields;
+
+        if (fields == null || fields.length != 6 || !fields[0].getDeclaringClass().isInstance(rawBox)) {
+            fields = findCoordinateFields(rawBox.getClass());
+            legacyBoxFields = fields;
+        }
+
+        if (fields == null || fields.length != 6) {
+            return null;
+        }
+
+        double minX = fields[0].getDouble(rawBox);
+        double minY = fields[1].getDouble(rawBox);
+        double minZ = fields[2].getDouble(rawBox);
+        double maxX = fields[3].getDouble(rawBox);
+        double maxY = fields[4].getDouble(rawBox);
+        double maxZ = fields[5].getDouble(rawBox);
+
+        if (maxX < minX || maxY < minY || maxZ < minZ) {
+            return null;
+        }
+
+        return new CollisionBounds(minX, minY, minZ, maxX, maxY, maxZ);
+    }
+
+    private static Field[] findCoordinateFields(Class<?> type) {
+        String[][] knownNames = {
+                {"minX", "minY", "minZ", "maxX", "maxY", "maxZ"},
+                {"a", "b", "c", "d", "e", "f"}
+        };
+
+        for (String[] names : knownNames) {
+            Field[] result = new Field[6];
+            boolean valid = true;
+
+            for (int i = 0; i < names.length; i++) {
+                try {
+                    Field field = type.getDeclaredField(names[i]);
+                    field.setAccessible(true);
+                    result[i] = field;
+                } catch (Throwable ignored) {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if (valid) {
+                return result;
+            }
+        }
+
+        List<Field> doubles = new ArrayList<>(6);
+
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            for (Field field : current.getDeclaredFields()) {
+                if (field.getType() == double.class && !Modifier.isStatic(field.getModifiers())) {
+                    field.setAccessible(true);
+                    doubles.add(field);
+                }
+            }
+        }
+
+        return doubles.size() == 6 ? doubles.toArray(new Field[0]) : null;
+    }
+
+    private static boolean canSupply(Class<?>[] parameters, Object... candidates) {
+        try {
+            argumentsFor(parameters, candidates);
+            return true;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    private static Object[] argumentsFor(Class<?>[] parameters, Object... candidates) {
+        Object[] result = new Object[parameters.length];
+
+        for (int i = 0; i < parameters.length; i++) {
+            Object match = null;
+
+            for (Object candidate : candidates) {
+                if (candidate != null && parameters[i].isInstance(candidate)) {
+                    match = candidate;
+                    break;
+                }
+            }
+
+            if (match == null) {
+                throw new IllegalArgumentException("Unsupported legacy collision parameter");
+            }
+
+            result[i] = match;
+        }
+
+        return result;
+    }
+
+    private static List<Method> allMethods(Class<?> type) {
+        List<Method> result = new ArrayList<>();
+
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            Collections.addAll(result, current.getDeclaredMethods());
+        }
+
+        return result;
+    }
+
+    private static Method accessible(Method method) {
+        method.setAccessible(true);
+        return method;
     }
 
     private static List<CollisionBounds> getModernSingleBoundingBox(Block block) {
