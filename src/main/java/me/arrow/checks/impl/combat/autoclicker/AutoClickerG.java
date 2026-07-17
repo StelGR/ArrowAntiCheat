@@ -40,11 +40,6 @@ public class AutoClickerG extends Check {
                 return;
             }
 
-            if (!profile.getMovementData().isMoving()) {
-                movements = 20;
-                return;
-            }
-
             if (profile.shouldCancel()) {
                 movements = 20;
                 return;

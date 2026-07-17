@@ -3,6 +3,7 @@ package me.arrow.checks.impl.movement.fly;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -22,6 +23,8 @@ import org.bukkit.inventory.ItemStack;
 import java.util.EnumSet;
 import java.util.Set;
 
+
+@Experimental
 public class GravityA extends Check {
 
     Set<EntityDamageEvent.DamageCause> IGNORED_CAUSES = buildIgnoredCauses();

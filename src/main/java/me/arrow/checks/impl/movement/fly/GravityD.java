@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -23,6 +24,8 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import java.util.EnumSet;
 import java.util.Set;
 
+
+@Experimental
 public class GravityD extends Check {
 
     public GravityD(Profile profile) {
@@ -225,6 +228,8 @@ public class GravityD extends Check {
         final boolean trustedClientGround = isTrustedClientGround(data);
         final int airTicks = getAirTicks(data);
         final boolean slowFalling = profile.getPotionData().isHasSlowFalling();
+
+        if (slowFalling) return;
 
         if (lastGravityDSampleTick == Integer.MIN_VALUE || !Double.isFinite(lastGravityDObservedDY)) {
             lastGravityDSampleTick = movementTick;

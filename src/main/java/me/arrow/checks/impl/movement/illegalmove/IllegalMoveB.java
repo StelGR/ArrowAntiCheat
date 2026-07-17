@@ -181,6 +181,8 @@ public class IllegalMoveB extends Check {
 
         if (profile.getVelocityData().isTakingVelocity()) return;
 
+        if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) limit += 0.05;
+
         final boolean invalid = difference > 0.00747 && deltaXZ > limit && airTicks > airticklimit ;
 
         String data = MsgType.MAIN_THEME_COLOR.getMessage()+"* Verbose (Strafe)\n * deltaXZ "+MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ

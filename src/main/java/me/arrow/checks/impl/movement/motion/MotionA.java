@@ -81,8 +81,6 @@ public class MotionA extends Check {
                 return;
             }
 
-
-
             int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
             if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {

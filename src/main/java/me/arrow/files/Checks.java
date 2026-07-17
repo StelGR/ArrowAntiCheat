@@ -165,7 +165,7 @@ public class Checks implements Initializer {
         REACH_A("ReachA.enabled", true, "Should we enable this module?"),
         REACH_A_MAX_SAMPLES("ReachA.maxSamples", 40, "Do not touch this if you don't know what you are doing."),
         REACH_A_FLAG_SAMPLES("ReachA.flagSamples", 16, "Do not touch this if you don't know what you are doing."),
-        REACH_A_MINIMUM_REACH("ReachA.minimumReach", 3.0005, "Do not touch this if you don't know what you are doing."),
+        REACH_A_MINIMUM_REACH("ReachA.minimumReach", 3.0005, "The measured reach distance at which Reach A starts flagging."),
         REACH_A_BOX_EXPAND_HORIZONTAL("ReachA.boxExpandHorizontal", 0.035, "Do not touch this if you don't know what you are doing."),
         REACH_A_BOX_EXPAND_VERTICAL("ReachA.boxExpandVertical", 0.035, "Do not touch this if you don't know what you are doing."),
         REACH_A_MAX_LAG_BOX_EXPAND("ReachA.maxLagBoxExpand", 0.13, "Do not touch this if you don't know what you are doing."),
@@ -321,7 +321,7 @@ public class Checks implements Initializer {
         SCAFFOLD_C_MAX_VL("ScaffoldC.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
         SPEED_A("SpeedA.enabled", true, "Should we enable this module?"),
-        SPEED_A_MODE("SpeedA.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
+        SPEED_A_MODE("SpeedA.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
         SPEED_A_PUNISH("SpeedA.punish", "", "Punishment settings"),
         SPEED_A_PUNiSH_ENABLED("SpeedA.punish.enabled", true, "Should punishments be enabled for this check?"),
         SPEED_A_PUNiSH_MODE("SpeedA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),

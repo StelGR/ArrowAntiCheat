@@ -61,6 +61,7 @@ public class Profile {
     private final VehicleData vehicleData;
     private final PredictionData predictionData;
     private final PotionData potionData;
+    private final ReachEntityTracker reachEntityTracker;
     //private final LocationData locationData;
     private final ClientBrandListener clientBrandListener;
     private final BlockProcessor blockProcessor;
@@ -167,6 +168,7 @@ public class Profile {
         this.rodData = new RodData(this);
         this.predictionData = new PredictionData(this);
         this.potionData = new PotionData(this);
+        this.reachEntityTracker = new ReachEntityTracker(this);
         this.vehicleData = new VehicleData(this);
         //this.locationData = new LocationData(this);
         this.nmsProcessor = new NMSProcessor(this);
@@ -217,6 +219,7 @@ public class Profile {
         this.exempt.handleExempts(event.getTimestamp());
 
         this.checkHolder.runChecks(event);
+        this.reachEntityTracker.processReceive(event);
     }
 
     public void handleSend(PacketSendEvent event) {
@@ -224,6 +227,7 @@ public class Profile {
         if (this.player == null) return;
 
         this.connectionData.processSend(event);
+        this.reachEntityTracker.processSend(event);
         this.velocityData.processSend(event);
         this.actionData.processSend(event);
         this.movementData.processSend(event);

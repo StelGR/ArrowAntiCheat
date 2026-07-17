@@ -305,7 +305,11 @@ public class GuiManager {
                 return;
             }
 
-            if (!player.getOpenInventory().getTopInventory().equals(gui)) {
+            // InventoryView is an interface on modern Bukkit but a class on
+            // legacy Bukkit. Calling it directly produces an ICCE on 1.8.
+            // The inventory's viewer list identifies the open GUI without
+            // linking against InventoryView at all.
+            if (!gui.getViewers().contains(player)) {
                 TaskUtils.CancellableTask currentTask = infoGuiTasks.remove(viewerUuid);
                 if (currentTask != null) currentTask.cancel();
                 return;

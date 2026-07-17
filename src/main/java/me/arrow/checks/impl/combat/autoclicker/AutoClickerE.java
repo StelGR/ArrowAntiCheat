@@ -8,6 +8,7 @@ import me.arrow.checks.impl.combat.autoclicker.autoclickerUtil.Stats;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.playerdata.data.impl.CombatData;
 import me.arrow.utils.custom.SampleList;
 
 public class AutoClickerE extends Check {
@@ -21,7 +22,7 @@ public class AutoClickerE extends Check {
 
     }
 
-    private double averageCps;
+    double cps;
 
     @Override
     public void handle(PacketReceiveEvent event) {
@@ -30,18 +31,15 @@ public class AutoClickerE extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
 
-            if (!profile.getMovementData().isMoving()) {
-                averageCps = 0;
-                return;
-            }
-            averageCps = profile.getCombatData().getCurrentCps();
+            CombatData combatData = profile.getCombatData();
+
+            cps = combatData.getCurrentCps();
         }
 
-
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
-            if (profile.getPredictionData().isDigging() || averageCps < 11 || !profile.getMovementData().isMoving()) return;
+            if (profile.getPredictionData().isDigging() || cps < 11) return;
 
-            clickSamples.add(averageCps);
+            clickSamples.add(cps);
 
             if (!clickSamples.isCollected()) return;
 
@@ -61,21 +59,21 @@ public class AutoClickerE extends Check {
                     .filter(i -> i == 0)
                     .count();
 
-            if (kur <= 0 && averageCps > 13) {
+            if (kur <= 0 && cps > 13) {
                 fail("Invalid Kurtosis", "Kurtosis " + MsgType.MAIN_THEME_COLOR.getMessage() + kur
-                        + "\nCPS "+ MsgType.MAIN_THEME_COLOR.getMessage() + averageCps);
+                        + "\nCPS "+ MsgType.MAIN_THEME_COLOR.getMessage() + cps);
                 return;
             }
 
-            boolean invalidSt = st < 0.5 || st > 1 && averageCps > 11;
-            boolean invalidSkew = skew > 1.2 && averageCps > 11;
-            boolean invalidKur = kur > 3.3 && averageCps > 11;
-            boolean invalidMean = mean < 2 && averageCps > 11;
-            boolean invalidVar = variance > 1 && averageCps > 11;
-            boolean invalidEntropy = entropy > 1.8 && averageCps > 11;
-            boolean invalidZeros = zeros > 3 && averageCps > 11;
-            boolean invalidRange = range > 6 && averageCps > 11;
-            boolean invalidOutliers = outliers > 20 && averageCps > 11;
+            boolean invalidSt = st < 0.5 || st > 1 && cps > 11;
+            boolean invalidSkew = skew > 1.2 && cps > 11;
+            boolean invalidKur = kur > 3.3 && cps > 11;
+            boolean invalidMean = mean < 2 && cps > 11;
+            boolean invalidVar = variance > 1 && cps > 11;
+            boolean invalidEntropy = entropy > 1.8 && cps > 11;
+            boolean invalidZeros = zeros > 3 && cps > 11;
+            boolean invalidRange = range > 6 && cps > 11;
+            boolean invalidOutliers = outliers > 20 && cps > 11;
 
             if (invalidSt
                     || invalidSkew
@@ -87,7 +85,7 @@ public class AutoClickerE extends Check {
                     || invalidRange
                     || invalidOutliers) {
 
-                fail("Suspicious clicking", "cps " + MsgType.MAIN_THEME_COLOR.getMessage() + averageCps
+                fail("Suspicious clicking", "cps " + MsgType.MAIN_THEME_COLOR.getMessage() + cps
                         + "\nstd " + MsgType.MAIN_THEME_COLOR.getMessage() + st + " | " + invalidSt
                         + "\nskewness " + MsgType.MAIN_THEME_COLOR.getMessage() + skew + " | " + invalidSkew
                         + "\nkurtosis " + MsgType.MAIN_THEME_COLOR.getMessage() + kur + " | " + invalidKur

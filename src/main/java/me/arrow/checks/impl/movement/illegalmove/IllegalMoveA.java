@@ -58,7 +58,9 @@ public class IllegalMoveA extends Check {
                 return;
             }
 
-
+            if (movementData.getSinceTeleportTicks() < 5) {
+                return;
+            }
 
             double deltaY = movementData.getDeltaY();
             double deltaXZ = movementData.getDeltaXZ();
