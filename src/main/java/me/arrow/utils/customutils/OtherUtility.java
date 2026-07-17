@@ -161,7 +161,20 @@ public class OtherUtility {
             Method asNmsCopy = craftItemStackClass.getMethod("asNMSCopy", ItemStack.class);
             Object nmsItemStack = asNmsCopy.invoke(null, itemStack);
 
-            Object tag = nbtTagCompoundClass.getConstructor().newInstance();
+            // Reuse the item's existing tag. Creating a new compound here
+            // deletes legacy enchantments (for example Infinity on 1.8 bows)
+            // when setTag replaces the complete NBT payload.
+            Object tag = null;
+
+            try {
+                Method getTag = nmsItemStack.getClass().getMethod("getTag");
+                tag = getTag.invoke(nmsItemStack);
+            } catch (Throwable ignored) {
+            }
+
+            if (tag == null) {
+                tag = nbtTagCompoundClass.getConstructor().newInstance();
+            }
 
             Method setBoolean = nbtTagCompoundClass.getMethod("setBoolean", String.class, boolean.class);
             setBoolean.invoke(tag, "Unbreakable", true);

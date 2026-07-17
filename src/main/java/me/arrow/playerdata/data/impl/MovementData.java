@@ -40,6 +40,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
+import java.util.concurrent.TimeUnit;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
 
@@ -78,7 +79,17 @@ public class MovementData implements Data {
 
     @Getter
     @Setter
-    SampleList<CustomLocation> pastLocations = new SampleList<>(40);
+    SampleList<CustomLocation> pastLocations = new SampleList<>(40, true);
+
+    /*
+     * Precision-only timeline for reach render-time reconstruction. This is
+     * intentionally separate from the configured Reach A sample window: 100
+     * references cover five seconds at 20 Hz (including 2000 ms RTT, entity
+     * interpolation and jitter) without making every other history consumer
+     * scan a larger list.
+     */
+    @Getter
+    SampleList<CustomLocation> reachPastLocations = new SampleList<>(100, true);
 
     @Getter
     @Setter
@@ -148,7 +159,7 @@ public class MovementData implements Data {
 
     @Override
     public void processReceive(PacketReceiveEvent event) {
-        final long currentTime = event.getTimestamp();
+        final long currentTime = normalizePacketTimestamp(event.getTimestamp());
 
         if (event.getPacketType().equals(ENTITY_ACTION)) {
             handleElytraStartAction(event);
@@ -281,6 +292,26 @@ public class MovementData implements Data {
             }
         } catch (Throwable ignored) {
         }
+    }
+
+    private long normalizePacketTimestamp(long timestamp) {
+        long nowMillis = System.currentTimeMillis();
+
+        if (timestamp <= 0L) {
+            return nowMillis;
+        }
+
+        if (Math.abs(nowMillis - timestamp) <= 60_000L) {
+            return timestamp;
+        }
+
+        long nanoAge = System.nanoTime() - timestamp;
+
+        if (nanoAge >= 0L && nanoAge <= TimeUnit.SECONDS.toNanos(60L)) {
+            return nowMillis - TimeUnit.NANOSECONDS.toMillis(nanoAge);
+        }
+
+        return nowMillis;
     }
 
     float bedrockDeltaY, bedrockLastDeltaY;
@@ -778,6 +809,7 @@ public class MovementData implements Data {
         this.baseAirSpeed = MoveUtils.getBaseAirSpeed(profile);
 
         this.pastLocations.add(getLocation());
+        this.reachPastLocations.add(getLocation());
 
         moving = (deltaXZ != 0.0D && deltaXZ != lastDeltaXZ) || (deltaY != 0.0D && deltaY != lastDeltaY);
 

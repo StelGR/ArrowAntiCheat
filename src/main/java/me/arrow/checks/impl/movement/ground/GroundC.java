@@ -95,7 +95,7 @@ public class GroundC extends Check {
                 return;
             }
 
-            if (serverPositionGround && serverYGround && movementData.isCustomInAir() && ground) {
+            if (serverPositionGround && serverYGround && movementData.isCustomInAir() && ground && movementData.getCustomAirTicks() >= 2) {
 
                 fail("On Ghostblock? (1)", verboseInfo);
 

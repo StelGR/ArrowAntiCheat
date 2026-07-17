@@ -7,6 +7,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWi
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
+import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.logs.PlayerLog;
@@ -237,7 +238,7 @@ public class TransactionProcessor implements Runnable {
                         continue;
                     }
 
-                    staff.sendMessage(OtherUtility.translate("&8[&6Arrow&8] &c" + profile.getPlayer().getDisplayName() + " was kicked due to transaction timeout."));
+                    staff.sendMessage(OtherUtility.translate(MsgType.PREFIX.getMessage() + profile.getPlayer().getDisplayName() + MsgType.MAIN_THEME_COLOR.getMessage() + " was kicked due to transaction timeout."));
                 }
             }
         } catch (Exception e) {

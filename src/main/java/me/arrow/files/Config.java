@@ -69,6 +69,8 @@ public class Config implements Initializer {
     }
 
     public enum Setting {
+        SERVER_NAME("server_name", "Server", "The name to use for discord embeds and velocity."),
+
         THEME("theme", "default", "The theme that the anticheat is going to use"),
 
         TOGGLE_ALERTS_ON_JOIN("toggle_alerts_on_join", true, "Should we enable alerts for admins when they join?"),

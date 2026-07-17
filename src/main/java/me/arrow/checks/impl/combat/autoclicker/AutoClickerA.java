@@ -30,22 +30,15 @@ public class AutoClickerA extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
 
-            if (!profile.getMovementData().isMoving()) {
-                cps = 0;
-                return;
-            }
             cps = profile.getCombatData().getCurrentCps();
-
 
         }
 
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
-            if (profile.getMovementData().isMoving()) {
-                if (cps >= maxCPS) {
-                    fail("CPS Limit",
-                            "CPS " + MsgType.MAIN_THEME_COLOR.getMessage() + cps +
-                                    "\nMax CPS " + MsgType.MAIN_THEME_COLOR.getMessage() + maxCPS);
-                }
+            if (cps >= maxCPS) {
+                fail("CPS Limit",
+                        "CPS " + MsgType.MAIN_THEME_COLOR.getMessage() + cps +
+                                "\nMax CPS " + MsgType.MAIN_THEME_COLOR.getMessage() + maxCPS);
             }
         }
     }

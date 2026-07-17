@@ -167,6 +167,10 @@ public class GravityC extends Check {
             return;
         }
 
+        final boolean slowFalling = profile.getPotionData().isHasSlowFalling();
+
+        if (slowFalling) return;
+
         double jumpAmplifier = profile.getPotionData().getJumpAmplifier();
         double jumpStart = MoveUtils.getJumpMotion(profile);
         final double JUMP_TOL = 0.046D;
@@ -195,6 +199,8 @@ public class GravityC extends Check {
             lastOffset = 0.0D;
             return;
         }
+
+
 
         final double G = 0.08D;
         final double DRAG = 0.9800000190734863D;

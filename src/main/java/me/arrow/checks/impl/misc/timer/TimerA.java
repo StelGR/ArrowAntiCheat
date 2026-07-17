@@ -7,6 +7,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.tasks.TickTask;
 import me.arrow.utils.CollisionUtils;
 
 public class TimerA extends Check {
@@ -16,12 +17,20 @@ public class TimerA extends Check {
     private static final long NEGATIVE_BALANCE_LIMIT = 25_000_000L;
     private static final long POSITIVE_BALANCE_LIMIT = 250_000_000L;
 
-    private static final long RECOVERY_GAP = 100_000_000L;
+    private static final long RECOVERY_GAP = 70_000_000L;
     private static final long MAX_RECOVERY_BUDGET = 300_000_000L;
     private static final long MAX_RECOVERY_WINDOW = 500_000_000L;
 
+    private static final double MIN_STABLE_TPS = 19.0D;
+    private static final long MAX_STABLE_TICK_TIME = 65L;
+    private static final long SERVER_LAG_GRACE = 2_000_000_000L;
+    private static final long SEVERE_LAG_GRACE = 3_000_000_000L;
+    private static final long MIN_NETWORK_GRACE = 750_000_000L;
+    private static final long MAX_NETWORK_GRACE = 3_000_000_000L;
+
     private static final int MAX_STABLE_PING = 800;
     private static final int MAX_PING_JITTER = 150;
+    private static final int PING_SPIKE_THRESHOLD = 100;
     private static final int MIN_STABLE_SAMPLES = 12;
     private static final double VIOLATION_DECAY_PER_SECOND = 0.10D;
 
@@ -29,6 +38,8 @@ public class TimerA extends Check {
     private long balance;
     private long recoveryBudget;
     private long recoveryUntil;
+    private long serverLagUntil;
+    private long networkLagUntil;
     private int stableSamples;
     private double violations;
 
@@ -45,20 +56,34 @@ public class TimerA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        // Keep the existing persistent-high-ping safeguard separate from timer evidence.
-        if (profile.getConnectionData().getTransPing() >= 2500 && ready()) {
-            if (increaseBuffer() > 500) {
-                profile.kick("Your ping is constantly high, do something about it.");
-            }
-        } else {
-            decreaseBufferBy(1);
-        }
-
         if (!isFlyingPacket(event)) {
             return;
         }
 
+        if (profile.getConnectionData().getTransPing() >= 1500 && ready()) {
+            if (increaseBuffer() > 750) {
+                profile.kick("Your ping is constantly high, do something about it.");
+            }
+        } else {
+            decreaseBufferBy(50);
+        }
+
+
         long now = System.nanoTime();
+
+        if (!ready()) {
+            resetTimingState();
+            return;
+        }
+
+        if (isLagCompensated(now)) {
+            // Keep following the live packet stream while laggy, but do not let
+            // packets queued by the server/network become timer evidence when
+            // the connection recovers.
+            lastFlyingPacket = now;
+            resetEvidence();
+            return;
+        }
 
         if (lastFlyingPacket == 0L) {
             lastFlyingPacket = now;
@@ -68,7 +93,7 @@ public class TimerA extends Check {
         long delta = now - lastFlyingPacket;
         lastFlyingPacket = now;
 
-        if (delta <= 0L || !ready() || !isConnectionStable()) {
+        if (delta <= 0L) {
             resetEvidence();
             return;
         }
@@ -103,6 +128,10 @@ public class TimerA extends Check {
                                 + "\ndelay " + MsgType.MAIN_THEME_COLOR.getMessage() + millis(FLYING_OFFSET - delta)
                                 + "\ndiff " + MsgType.MAIN_THEME_COLOR.getMessage() + millis(delta)
                                 + "\nstableSamples " + MsgType.MAIN_THEME_COLOR.getMessage() + stableSamples
+                                + "\ntps " + MsgType.MAIN_THEME_COLOR.getMessage() + TickTask.getTPS()
+                                + "\ntickTime " + MsgType.MAIN_THEME_COLOR.getMessage() + TickTask.getTickTime()
+                                + "\ntransPing " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getConnectionData().getTransPing()
+                                + "\npingJitter " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getConnectionData().getDropTransTime()
                                 + "\ntick " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getTick()
                 );
             }
@@ -123,13 +152,52 @@ public class TimerA extends Check {
                         + "\nrecovery " + millis(recoveryBudget)
                         + "\nstableSamples " + stableSamples
                         + "\nviolations " + violations
+                        + "\ntps " + TickTask.getTPS()
+                        + "\ntickTime " + TickTask.getTickTime()
+                        + "\ntransPing " + profile.getConnectionData().getTransPing()
+                        + "\npingJitter " + profile.getConnectionData().getDropTransTime()
                         + "\ntick " + profile.getTick()
         );
     }
 
-    private boolean isConnectionStable() {
-        return profile.getConnectionData().getTransPing() <= MAX_STABLE_PING
-                && profile.getConnectionData().getDropTransTime() <= MAX_PING_JITTER;
+    private boolean isLagCompensated(long now) {
+        updateServerLagWindow(now);
+        updateNetworkLagWindow(now);
+        return now < serverLagUntil || now < networkLagUntil;
+    }
+
+    private void updateServerLagWindow(long now) {
+        double tps = TickTask.getTPS();
+        long tickTime = TickTask.getTickTime();
+
+        if (!Double.isFinite(tps)
+                || tps < MIN_STABLE_TPS
+                || tickTime > MAX_STABLE_TICK_TIME) {
+            serverLagUntil = Math.max(serverLagUntil, now + SERVER_LAG_GRACE);
+        }
+
+        if (TickTask.getLastLagSpike() < 2_000L) {
+            serverLagUntil = Math.max(serverLagUntil, now + SEVERE_LAG_GRACE);
+        }
+    }
+
+    private void updateNetworkLagWindow(long now) {
+        int ping = Math.max(0, profile.getConnectionData().getTransPing());
+        int lastPing = Math.max(0, profile.getConnectionData().getLastTransPing());
+        int jitter = Math.max(profile.getConnectionData().getDropTransTime(), Math.abs(ping - lastPing));
+
+        boolean unstable = ping > MAX_STABLE_PING
+                || jitter > MAX_PING_JITTER
+                || (lastPing > 0 && ping > lastPing + PING_SPIKE_THRESHOLD);
+
+        if (!unstable) {
+            return;
+        }
+
+        long measuredLag = Math.max(ping, lastPing) + (long) jitter;
+        long grace = clamp(measuredLag * 2_000_000L,
+                MIN_NETWORK_GRACE, MAX_NETWORK_GRACE);
+        networkLagUntil = Math.max(networkLagUntil, now + grace);
     }
 
     private void beginRecovery(long now, long delta) {
@@ -139,7 +207,7 @@ public class TimerA extends Check {
         recoveryUntil = now + Math.min(MAX_RECOVERY_WINDOW, missingTime + FLYING_OFFSET);
         balance = 0L;
         stableSamples = 0;
-        violations = 0.0D;
+        decayViolations(delta);
     }
 
     private boolean isRecovering(long now) {
@@ -166,7 +234,6 @@ public class TimerA extends Check {
 
         balance = 0L;
         stableSamples = 0;
-        violations = 0.0D;
 
         if (now >= recoveryUntil || recoveryBudget == 0L) {
             recoveryBudget = 0L;
@@ -181,6 +248,8 @@ public class TimerA extends Check {
 
     private void resetTimingState() {
         lastFlyingPacket = 0L;
+        serverLagUntil = 0L;
+        networkLagUntil = 0L;
         resetEvidence();
     }
 

@@ -2,6 +2,7 @@ package me.arrow.utils.customutils.animationSystem;
 
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.particle.Particle;
 import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.util.Vector3f;
@@ -179,12 +180,28 @@ public class AnimationManager {
             );
 
             method.invoke(player, title, subtitle, fadeIn, stay, fadeOut);
+            return;
         } catch (Throwable ignored) {
-            player.sendMessage(title);
+        }
 
-            if (subtitle != null && !subtitle.isEmpty()) {
-                player.sendMessage(subtitle);
-            }
+        // Spigot 1.8 exposes the original two-argument title method, but not
+        // the later overload containing fade timings.
+        try {
+            Method legacyMethod = Player.class.getMethod(
+                    "sendTitle",
+                    String.class,
+                    String.class
+            );
+
+            legacyMethod.invoke(player, title, subtitle);
+            return;
+        } catch (Throwable ignored) {
+        }
+
+        player.sendMessage(title);
+
+        if (subtitle != null && !subtitle.isEmpty()) {
+            player.sendMessage(subtitle);
         }
     }
 
@@ -266,6 +283,21 @@ public class AnimationManager {
     private void playSoundCompat(Player player, Location location, float volume, float pitch, String... soundNames) {
         if (player == null || !player.isOnline()) return;
 
+        // The 1.8 Sound enum contains DOOR_OPEN/CLOSE, but several legacy
+        // forks fail to resolve those aliases correctly. Raw 1.8 sound keys
+        // are stable and bypass that server-side enum mapping.
+        if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8_8)) {
+            String legacyDoorSound = getLegacyDoorSound(soundNames);
+
+            if (legacyDoorSound != null) {
+                try {
+                    player.playSound(location, legacyDoorSound, volume, pitch);
+                    return;
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+
         for (String soundName : soundNames) {
             try {
                 Sound sound = Sound.valueOf(soundName);
@@ -290,6 +322,24 @@ public class AnimationManager {
             } catch (Throwable ignored) {
             }
         }
+    }
+
+    private String getLegacyDoorSound(String... soundNames) {
+        for (String soundName : soundNames) {
+            if (soundName == null) continue;
+
+            String normalized = soundName.toUpperCase(Locale.ROOT);
+
+            if (normalized.endsWith("DOOR_OPEN")) {
+                return "random.door_open";
+            }
+
+            if (normalized.endsWith("DOOR_CLOSE")) {
+                return "random.door_close";
+            }
+        }
+
+        return null;
     }
 
     public static class ParticlePoint {

@@ -41,11 +41,6 @@ public class AutoClickerB extends Check {
                 return;
             }
 
-            if (!profile.getMovementData().isMoving()) {
-                movements = 20;
-                cps = 0;
-                return;
-            }
 
             if (profile.shouldCancel()) {
                 movements = 20;

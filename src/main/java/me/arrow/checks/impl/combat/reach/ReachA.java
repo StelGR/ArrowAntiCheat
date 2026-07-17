@@ -15,6 +15,7 @@ import me.arrow.files.Checks;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.ReachEntityTracker;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.CustomLocation;
@@ -27,6 +28,7 @@ import org.bukkit.util.Vector;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 // fully configurable reach pastlocations check, lag compensated
 // has hitbox check in here but it does not seem to work rn
@@ -60,6 +62,7 @@ public class ReachA extends Check {
     double CLEAN_MISS_MIN_CENTER_ANGLE = 8.5D;
 
     final List<RotationSnapshot> rotationHistory = new ArrayList<>(ROTATION_HISTORY_SIZE);
+    final List<PendingAttack> pendingAttacks = new ArrayList<>(4);
 
     public ReachA(Profile profile) {
         super(profile, CheckType.REACH, "A", "Checks for entity reach");
@@ -80,8 +83,25 @@ public class ReachA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (isRotation(event)) {
-            recordRotation(event);
+        if (isMovement(event)) {
+            if (isRotation(event)) {
+                recordRotation(event);
+            }
+
+            List<PendingAttack> attacks;
+
+            synchronized (pendingAttacks) {
+                if (pendingAttacks.isEmpty()) {
+                    return;
+                }
+
+                attacks = new ArrayList<>(pendingAttacks);
+                pendingAttacks.clear();
+            }
+
+            for (PendingAttack attack : attacks) {
+                processAttack(attack.entityId, attack.timestamp);
+            }
             return;
         }
 
@@ -95,6 +115,20 @@ public class ReachA extends Check {
             return;
         }
 
+        synchronized (pendingAttacks) {
+            if (pendingAttacks.size() >= 4) {
+                pendingAttacks.remove(0);
+            }
+
+            pendingAttacks.add(new PendingAttack(
+                    interactEntity.getEntityId(),
+                    event.getTimestamp()
+            ));
+        }
+    }
+
+    private void processAttack(int entityId, long attackTimestamp) {
+
         if (profile == null
                 || profile.getPlayer() == null
                 || !profile.getPlayer().isOnline()
@@ -107,8 +141,6 @@ public class ReachA extends Check {
             return;
         }
 
-        int entityId = interactEntity.getEntityId();
-
         MovementData attackerMovement = profile.getMovementData();
         RotationData attackerRotation = profile.getRotationData();
 
@@ -118,22 +150,24 @@ public class ReachA extends Check {
             return;
         }
 
-        final double attackerX = attackerMovement.getLocation().getX();
-        final double attackerY = attackerMovement.getLocation().getY();
-        final double attackerZ = attackerMovement.getLocation().getZ();
+        // Reach is evaluated on the flying packet following the attack. The
+        // 1.8 client attacked from the previous (from) position, while the new
+        // flying packet supplies the finalized look/position for packet-order
+        // uncertainty. This is the important behavior retained from Doctor.
+        CustomLocation attackLocation = attackerMovement.getLastLocation() == null
+                ? attackerMovement.getLocation()
+                : attackerMovement.getLastLocation();
+
+        final double attackerX = attackLocation.getX();
+        final double attackerY = attackLocation.getY();
+        final double attackerZ = attackLocation.getZ();
 
         final float yaw = attackerRotation.getYaw();
         final float pitch = attackerRotation.getPitch();
 
-        final double deltaYaw = Math.abs(attackerRotation.getDeltaYaw());
-        final double deltaPitch = Math.abs(attackerRotation.getDeltaPitch());
-
         final int initialAttackerPingTicks = getPingTicks(profile);
-        final List<RotationSnapshot> rotationCandidates = getRotationCandidates(
-                yaw,
-                pitch,
-                deltaYaw,
-                deltaPitch,
+        final List<RotationSnapshot> rotationCandidates = getAttackRotationCandidates(
+                attackerRotation,
                 initialAttackerPingTicks
         );
 
@@ -154,32 +188,61 @@ public class ReachA extends Check {
             return;
         }
 
-        SampleList<CustomLocation> targetPastLocations = targetProfile.getMovementData().getPastLocations();
-
-        if (targetPastLocations == null || targetPastLocations.size() < 4) {
-            return;
-        }
-
-        List<CustomLocation> samples = snapshotSamples(targetPastLocations);
-
-        if (samples.size() < MIN_HISTORY_SAMPLES) {
-            return;
-        }
-
         int attackerPingTicks = getPingTicks(profile);
         int targetPingTicks = getPingTicks(targetProfile);
+        ReachEntityTracker.RenderSnapshot renderSnapshot = null;
 
-        List<CustomLocation> compensatedSamples = getCompensatedSamples(samples, attackerPingTicks);
-        int historyAmount = compensatedSamples.size();
+        if (!profile.isBedrockPlayer() && profile.getReachEntityTracker() != null) {
+            renderSnapshot = profile.getReachEntityTracker().getRenderSnapshot(
+                    entityId,
+                    target.getUniqueId(),
+                    target.getWorld(),
+                    attackTimestamp,
+                    getPingMillis(profile),
+                    MIN_HISTORY_SAMPLES
+            );
+        }
 
-        if (compensatedSamples.size() < MIN_HISTORY_SAMPLES) {
-            return;
+        boolean usingClientEntityTracker = renderSnapshot != null;
+        List<CustomLocation> precisionHistory = Collections.emptyList();
+        List<CustomLocation> compensatedSamples;
+        int historyAmount;
+
+        if (usingClientEntityTracker) {
+            compensatedSamples = renderSnapshot.getCandidates();
+            historyAmount = renderSnapshot.getUpdates();
+        } else {
+            SampleList<CustomLocation> targetPastLocations = targetProfile.getMovementData().getPastLocations();
+
+            if (targetPastLocations == null || targetPastLocations.size() < 4) {
+                return;
+            }
+
+            List<CustomLocation> samples = snapshotSamples(targetPastLocations);
+
+            if (samples.size() < MIN_HISTORY_SAMPLES) {
+                return;
+            }
+
+            historyAmount = getHistoryAmount(samples.size(), attackerPingTicks, targetPingTicks);
+            List<CustomLocation> historySamples = getLastSamples(samples, historyAmount);
+            precisionHistory = snapshotSamples(targetProfile.getMovementData().getReachPastLocations());
+            compensatedSamples = getCompensatedSamples(
+                    historySamples,
+                    attackerPingTicks,
+                    MIN_HISTORY_SAMPLES
+            );
+
+            if (compensatedSamples.size() < MIN_HISTORY_SAMPLES) {
+                return;
+            }
         }
 
         double eyeHeight = getAccurateEyeHeight(profile);
         Vector origin = new Vector(attackerX, attackerY + eyeHeight, attackerZ);
 
         double bestDistance = Double.MAX_VALUE;
+        double bestValidationDistance = Double.MAX_VALUE;
         double bestRawDistance = Double.MAX_VALUE;
         double bestForgivingDistance = Double.MAX_VALUE;
         double bestCenterDistance = Double.MAX_VALUE;
@@ -190,11 +253,14 @@ public class ReachA extends Check {
         boolean forgivingRayHitBox = false;
         boolean originInsideBox = false;
         boolean usedCompensatedRotation = false;
+        boolean cornerRayHit = false;
 
         boolean recentFlick = isRecentFlick(rotationCandidates);
         boolean laggy = isLaggy(profile, targetProfile, attackerPingTicks, targetPingTicks);
 
         double reachTolerance = getReachTolerance(profile, targetProfile);
+        double clientHorizontalMargin = getClientHitboxMargin();
+        double clientVerticalMargin = getClientHitboxMargin();
         double horizontalExpand = getHorizontalBoxExpand(targetProfile);
         double verticalExpand = getVerticalBoxExpand(targetProfile);
 
@@ -208,23 +274,66 @@ public class ReachA extends Check {
                 verticalExpand + getAdditionalVerticalExpand(profile, targetProfile, recentFlick, attackerPingTicks, targetPingTicks)
         );
 
+        /*
+         * This is the distance the client actually measured: one position at
+         * the estimated render time, the attacker's latest look, and only the
+         * vanilla version-specific hitbox margin. Lag/configured expansion is
+         * deliberately excluded so a 3.05 client reach reports as 3.05 rather
+         * than being shortened by the check's uncertainty allowance.
+         */
+        CustomLocation preciseSample = usingClientEntityTracker
+                ? renderSnapshot.getPrecise()
+                : getPreciseCompensatedSample(
+                        precisionHistory,
+                        attackTimestamp,
+                        profile
+                );
+        double measuredDistance = Double.MAX_VALUE;
+
+        if (preciseSample != null && preciseSample.getWorld() != null) {
+            BoundingBox measuredBox = createPlayerBox(
+                    target,
+                    preciseSample,
+                    clientHorizontalMargin,
+                    clientVerticalMargin
+            );
+            RayBoxHit measuredHit = rayTraceBox(
+                    origin,
+                    getDirection(yaw, pitch),
+                    measuredBox,
+                    MAX_VALID_DISTANCE
+            );
+            measuredDistance = measuredHit.hit ? measuredHit.distance : Double.MAX_VALUE;
+            cornerRayHit = measuredHit.hit && isHorizontalCornerHit(measuredHit.hitPosition, measuredBox);
+
+            if (isInsideBox(origin, measuredBox)) {
+                measuredDistance = 0.0D;
+            }
+        }
+
         for (CustomLocation sample : compensatedSamples) {
             if (sample == null || sample.getWorld() == null) {
                 continue;
             }
 
             BoundingBox rawBox = createPlayerBox(target, sample, 0.0D, 0.0D);
+            BoundingBox clientBox = createPlayerBox(target, sample, clientHorizontalMargin, clientVerticalMargin);
             BoundingBox expandedBox = createPlayerBox(target, sample, horizontalExpand, verticalExpand);
             BoundingBox forgivingBox = createPlayerBox(target, sample, forgivingHorizontalExpand, forgivingVerticalExpand);
 
-            if (isInsideBox(origin, expandedBox)) {
+            if (isInsideBox(origin, clientBox)) {
                 originInsideBox = true;
                 bestDistance = 0.0D;
                 bestRawDistance = 0.0D;
+                bestValidationDistance = 0.0D;
                 bestForgivingDistance = 0.0D;
                 rayHitBox = true;
                 forgivingRayHitBox = true;
                 break;
+            }
+
+            if (isInsideBox(origin, expandedBox)) {
+                bestValidationDistance = 0.0D;
             }
 
             Vector center = new Vector(sample.getX(), sample.getY() + 0.9D, sample.getZ());
@@ -239,7 +348,9 @@ public class ReachA extends Check {
                 Vector direction = getDirection(rotation.yaw, rotation.pitch);
 
                 double rawDistance = rayTraceDistanceToBox(origin, direction, rawBox, MAX_VALID_DISTANCE);
-                double expandedDistance = rayTraceDistanceToBox(origin, direction, expandedBox, MAX_VALID_DISTANCE);
+                RayBoxHit clientHit = rayTraceBox(origin, direction, clientBox, MAX_VALID_DISTANCE);
+                double clientDistance = clientHit.hit ? clientHit.distance : Double.MAX_VALUE;
+                double validationDistance = rayTraceDistanceToBox(origin, direction, expandedBox, MAX_VALID_DISTANCE);
                 double forgivingDistance = rayTraceDistanceToBox(origin, direction, forgivingBox, MAX_VALID_DISTANCE);
                 double centerRayDistance = distancePointToRay(origin, direction, center);
                 double centerAngle = angleToPoint(origin, direction, center);
@@ -248,12 +359,16 @@ public class ReachA extends Check {
                     bestRawDistance = rawDistance;
                 }
 
-                if (expandedDistance < bestDistance) {
-                    bestDistance = expandedDistance;
+                if (clientDistance < bestDistance) {
+                    bestDistance = clientDistance;
 
                     if (i > 0) {
                         usedCompensatedRotation = true;
                     }
+                }
+
+                if (validationDistance < bestValidationDistance) {
+                    bestValidationDistance = validationDistance;
                 }
 
                 if (forgivingDistance < bestForgivingDistance) {
@@ -268,8 +383,9 @@ public class ReachA extends Check {
                     bestCenterAngle = centerAngle;
                 }
 
-                if (expandedDistance != Double.MAX_VALUE) {
+                if (clientDistance != Double.MAX_VALUE) {
                     rayHitBox = true;
+                    cornerRayHit |= isHorizontalCornerHit(clientHit.hitPosition, clientBox);
 
                     if (i > 0) {
                         usedCompensatedRotation = true;
@@ -319,10 +435,16 @@ public class ReachA extends Check {
 
         double allowedReach = BASE_REACH_LIMIT + reachTolerance;
         boolean validRayHit = rayHitBox || originInsideBox;
-        boolean overLimit = bestDistance > allowedReach && bestDistance < MAX_VALID_DISTANCE;
+        double decisionDistance = cornerRayHit && bestValidationDistance != Double.MAX_VALUE
+                ? bestValidationDistance
+                : bestDistance;
+        boolean overLimit = decisionDistance > allowedReach && decisionDistance < MAX_VALID_DISTANCE;
+        double finalBestDistance = cornerRayHit
+                ? decisionDistance
+                : (measuredDistance == Double.MAX_VALUE ? bestDistance : measuredDistance);
 
         if (overLimit && validRayHit) {
-            double punishDistance = bestDistance - allowedReach;
+            double punishDistance = decisionDistance - allowedReach;
 
             if (punishDistance > 0.03D) {
                 double added = punishDistance > 0.18D ? 1.35D : 1.0D;
@@ -331,7 +453,7 @@ public class ReachA extends Check {
                     added *= 0.75D;
                 }
 
-                if (bestDistance > 3.4) {
+                if (decisionDistance > 3.4) {
                     profile.getTrustFactor().decreaseTrustBy(20);
                     increaseBufferBy(3);
                 }
@@ -345,8 +467,12 @@ public class ReachA extends Check {
                 if (increaseBufferBy(added) > (Math.max( 0, (profile.getTrustFactor().getRequiredBuffer() + 1) / 2))) {
                     fail(
                             "Increased interaction range",
-                            "distance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestDistance)
+                            "distance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(finalBestDistance)
+                                    + "\nconservativeDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestDistance)
+                                    + "\ndecisionDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(decisionDistance)
+                                    + "\nmeasuredDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(measuredDistance)
                                     + "\nrawDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestRawDistance)
+                                    + "\nvalidationDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestValidationDistance)
                                     + "\nforgivingDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestForgivingDistance)
                                     + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + format(allowedReach)
                                     + "\ntolerance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(reachTolerance)
@@ -357,10 +483,12 @@ public class ReachA extends Check {
                                     + "\nsamples " + MsgType.MAIN_THEME_COLOR.getMessage() + compensatedSamples.size()
                                     + "\nhistory " + MsgType.MAIN_THEME_COLOR.getMessage() + historyAmount
                                     + "\nrayHitBox " + MsgType.MAIN_THEME_COLOR.getMessage() + rayHitBox
+                                    + "\ncornerRayHit " + MsgType.MAIN_THEME_COLOR.getMessage() + cornerRayHit
                                     + "\ninsideBox " + MsgType.MAIN_THEME_COLOR.getMessage() + originInsideBox
                                     + "\nrecentFlick " + MsgType.MAIN_THEME_COLOR.getMessage() + recentFlick
                                     + "\nlaggy " + MsgType.MAIN_THEME_COLOR.getMessage() + laggy
                                     + "\nusedRotationHistory " + MsgType.MAIN_THEME_COLOR.getMessage() + usedCompensatedRotation
+                                    + "\nclientEntityTracker " + MsgType.MAIN_THEME_COLOR.getMessage() + usingClientEntityTracker
                                     + "\ntarget " + MsgType.MAIN_THEME_COLOR.getMessage() + target.getName()
                     );
                     profile.getTrustFactor().decreaseTrustBy(2);
@@ -371,7 +499,7 @@ public class ReachA extends Check {
             profile.getTrustFactor().increaseTrustBy(0.0025);
         }
 
-        double finalBestDistance = bestDistance;
+        double finalValidationDistance = bestValidationDistance;
         double finalBestCenterRayDistance = bestCenterRayDistance;
         double finalBestCenterAngle = bestCenterAngle;
         boolean finalRayHitBox = rayHitBox;
@@ -380,9 +508,13 @@ public class ReachA extends Check {
 
         verbose(
                 this.getClass().getSimpleName(),
-                finalBestDistance == Double.MAX_VALUE ? MAX_VALID_DISTANCE : finalBestDistance,
+                finalBestDistance,
                 allowedReach,
-                "Distance: " + format(finalBestDistance == Double.MAX_VALUE ? -1.0D : finalBestDistance)
+                "Distance: " + format(finalBestDistance)
+                        + "\nconservativeDistance " + format(decisionDistance)
+                        + "\nvalidationDistance " + format(finalValidationDistance)
+                        + "\nmeasuredDistance " + format(measuredDistance)
+                        + "\ncornerRayHit " + cornerRayHit
                         + "\nlimit " + format(allowedReach)
                         + "\nsamples " + compensatedSamples.size()
                         + "\nhistory " + historyAmount
@@ -392,12 +524,20 @@ public class ReachA extends Check {
                         + "\ncenterAngle " + format(finalBestCenterAngle)
                         + "\nrecentFlick " + recentFlick
                         + "\nlaggy " + laggy
+                        + "\nclientEntityTracker " + usingClientEntityTracker
                         + "\nusedRotationHistory " + finalUsedCompensatedRotation);
         profile.setReachDistance(finalBestDistance);
     }
 
     private boolean isRotation(PacketReceiveEvent event) {
         return event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
+    }
+
+    private boolean isMovement(PacketReceiveEvent event) {
+        return event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
@@ -422,7 +562,7 @@ public class ReachA extends Check {
                     pitch,
                     deltaYaw,
                     deltaPitch,
-                    System.currentTimeMillis()
+                    normalizePacketTimestamp(event.getTimestamp())
             );
 
             synchronized (rotationHistory) {
@@ -436,38 +576,64 @@ public class ReachA extends Check {
         }
     }
 
-    private List<RotationSnapshot> getRotationCandidates(float currentYaw,
-                                                         float currentPitch,
-                                                         double currentDeltaYaw,
-                                                         double currentDeltaPitch,
-                                                         int pingTicks) {
+    private List<RotationSnapshot> getAttackRotationCandidates(RotationData rotationData,
+                                                               int pingTicks) {
         List<RotationSnapshot> candidates = new ArrayList<>();
-
         long now = System.currentTimeMillis();
-        long maxAge = Math.min(MAX_ROTATION_LOOKBACK_MS, BASE_ROTATION_LOOKBACK_MS + (pingTicks * 50L));
-        int maxCandidates = Math.min(ROTATION_HISTORY_SIZE, Math.max(3, 3 + (pingTicks / 2)));
+        double deltaYaw = Math.abs(rotationData.getDeltaYaw());
+        double deltaPitch = Math.abs(rotationData.getDeltaPitch());
 
-        candidates.add(new RotationSnapshot(
-                currentYaw,
-                currentPitch,
-                currentDeltaYaw,
-                currentDeltaPitch,
-                now
-        ));
+        // Doctor evaluates the previous look, current look, and the mixed
+        // previous-yaw/current-pitch packet-order case. These are the only
+        // ordinary 1.8 possibilities; accepting a long rotation history made
+        // normal hits look artificially shorter.
+        addRotationCandidate(candidates, rotationData.getYaw(), rotationData.getPitch(), deltaYaw, deltaPitch, now);
+        addRotationCandidate(candidates, rotationData.getLastYaw(), rotationData.getLastPitch(), deltaYaw, deltaPitch, now);
+        addRotationCandidate(candidates, rotationData.getLastYaw(), rotationData.getPitch(), deltaYaw, deltaPitch, now);
 
-        synchronized (rotationHistory) {
-            for (int i = rotationHistory.size() - 1; i >= 0 && candidates.size() < maxCandidates; i--) {
-                RotationSnapshot snapshot = rotationHistory.get(i);
+        boolean needsLagHistory = pingTicks >= 4
+                || deltaYaw >= FLICK_YAW_DELTA
+                || deltaPitch >= FLICK_PITCH_DELTA;
 
-                if (now - snapshot.timestamp > maxAge) {
-                    continue;
+        if (needsLagHistory) {
+            long maxAge = Math.min(MAX_ROTATION_LOOKBACK_MS, BASE_ROTATION_LOOKBACK_MS + (pingTicks * 50L));
+            int maxCandidates = Math.min(ROTATION_HISTORY_SIZE, Math.max(3, 3 + (pingTicks / 2)));
+
+            synchronized (rotationHistory) {
+                for (int i = rotationHistory.size() - 1; i >= 0 && candidates.size() < maxCandidates; i--) {
+                    RotationSnapshot snapshot = rotationHistory.get(i);
+
+                    if (now - snapshot.timestamp <= maxAge) {
+                        addRotationCandidate(
+                                candidates,
+                                snapshot.yaw,
+                                snapshot.pitch,
+                                snapshot.deltaYaw,
+                                snapshot.deltaPitch,
+                                snapshot.timestamp
+                        );
+                    }
                 }
-
-                candidates.add(snapshot);
             }
         }
 
         return candidates;
+    }
+
+    private void addRotationCandidate(List<RotationSnapshot> candidates,
+                                      float yaw,
+                                      float pitch,
+                                      double deltaYaw,
+                                      double deltaPitch,
+                                      long timestamp) {
+        for (RotationSnapshot candidate : candidates) {
+            if (Math.abs(candidate.yaw - yaw) < 1.0E-4F
+                    && Math.abs(candidate.pitch - pitch) < 1.0E-4F) {
+                return;
+            }
+        }
+
+        candidates.add(new RotationSnapshot(yaw, pitch, deltaYaw, deltaPitch, timestamp));
     }
 
     private boolean isRecentFlick(List<RotationSnapshot> rotations) {
@@ -585,7 +751,9 @@ public class ReachA extends Check {
      * complete interpolation path, rather than accepting every recent server
      * position as a possible hit location.
      */
-    private List<CustomLocation> getCompensatedSamples(List<CustomLocation> history, int attackerPingTicks) {
+    private List<CustomLocation> getCompensatedSamples(List<CustomLocation> history,
+                                                       int attackerPingTicks,
+                                                       int minimumSamples) {
         if (history == null || history.isEmpty()) {
             return Collections.emptyList();
         }
@@ -593,7 +761,15 @@ public class ReachA extends Check {
         int newest = history.size() - 1;
         int expectedAge = Math.min(newest, Math.max(0, attackerPingTicks + 1));
         int youngestAge = Math.max(0, expectedAge - 1);
-        int oldestAge = Math.min(newest, expectedAge + 3);
+        int requiredPositions = Math.max(2, (int) Math.ceil((Math.max(1, minimumSamples) + 2) / 3.0D));
+        int oldestAge = youngestAge + requiredPositions - 1;
+
+        if (oldestAge > newest) {
+            int overflow = oldestAge - newest;
+            youngestAge = Math.max(0, youngestAge - overflow);
+            oldestAge = newest;
+        }
+
         List<CustomLocation> positions = new ArrayList<>();
 
         for (int age = youngestAge; age <= oldestAge; age++) {
@@ -629,6 +805,87 @@ public class ReachA extends Check {
         }
 
         return interpolated;
+    }
+
+    private CustomLocation getPreciseCompensatedSample(List<CustomLocation> history,
+                                                        long attackTimestamp,
+                                                        Profile attacker) {
+        if (history == null || history.isEmpty()) {
+            return null;
+        }
+
+        attackTimestamp = normalizePacketTimestamp(attackTimestamp);
+
+        // The attack has travelled client -> server while the entity update
+        // travelled server -> client. Rewinding by the measured RTT accounts
+        // for both halves; one ordering tick matches the entity render update.
+        long renderTimestamp = attackTimestamp - getPingMillis(attacker) - 50L;
+        CustomLocation oldest = history.get(0);
+        CustomLocation newest = history.get(history.size() - 1);
+
+        if (renderTimestamp <= oldest.getTimeStamp()) {
+            return oldest;
+        }
+
+        if (renderTimestamp >= newest.getTimeStamp()) {
+            return newest;
+        }
+
+        for (int i = history.size() - 2; i >= 0; i--) {
+            CustomLocation from = history.get(i);
+            CustomLocation to = history.get(i + 1);
+
+            if (from == null || to == null
+                    || from.getWorld() == null
+                    || from.getWorld() != to.getWorld()) {
+                continue;
+            }
+
+            long fromTime = from.getTimeStamp();
+            long toTime = to.getTimeStamp();
+
+            if (renderTimestamp < fromTime || renderTimestamp > toTime) {
+                continue;
+            }
+
+            if (toTime <= fromTime) {
+                return to;
+            }
+
+            double amount = (double) (renderTimestamp - fromTime) / (double) (toTime - fromTime);
+            return interpolate(from, to, Math.max(0.0D, Math.min(1.0D, amount)));
+        }
+
+        // Timestamp gaps can happen while a stationary client only sends
+        // ground packets. The tick-index rewind remains a safe fallback.
+        int age = Math.min(history.size() - 1, Math.max(0, getPingTicks(attacker) + 1));
+        return history.get(history.size() - 1 - age);
+    }
+
+    /**
+     * PacketEvents can be configured to expose either epoch milliseconds,
+     * monotonic nanoseconds, or no timestamp. Convert all three modes to the
+     * same epoch-millisecond clock used by CustomLocation history.
+     */
+    private long normalizePacketTimestamp(long timestamp) {
+        long nowMillis = System.currentTimeMillis();
+
+        if (timestamp <= 0L) {
+            return nowMillis;
+        }
+
+        if (Math.abs(nowMillis - timestamp) <= 60_000L) {
+            return timestamp;
+        }
+
+        long nowNanos = System.nanoTime();
+        long nanoAge = nowNanos - timestamp;
+
+        if (nanoAge >= 0L && nanoAge <= TimeUnit.SECONDS.toNanos(60L)) {
+            return nowMillis - TimeUnit.NANOSECONDS.toMillis(nanoAge);
+        }
+
+        return nowMillis;
     }
 
     private CustomLocation interpolate(CustomLocation from, CustomLocation to, double amount) {
@@ -679,6 +936,31 @@ public class ReachA extends Check {
         return Math.min(40, ticks);
     }
 
+    private int getPingMillis(Profile profile) {
+        if (profile == null) {
+            return 0;
+        }
+
+        int ping = 0;
+
+        try {
+            ConnectionData connection = profile.getConnectionData();
+
+            if (connection != null) {
+                ping = Math.max(ping, connection.getTransPing());
+                ping = Math.max(ping, connection.getPing());
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            ping = Math.max(ping, profile.getPing());
+        } catch (Throwable ignored) {
+        }
+
+        return Math.min(2_000, ping);
+    }
+
     private double getReachTolerance(Profile attacker, Profile target) {
         int attackerPingTicks = getPingTicks(attacker);
         double tolerance = Math.max(0, attackerPingTicks - 6) * 0.001D;
@@ -687,15 +969,19 @@ public class ReachA extends Check {
     }
 
     private double getHorizontalBoxExpand(Profile target) {
-        double configured = Math.min(0.01D, Math.max(0.0D, BASE_BOX_EXPAND_HORIZONTAL));
-        double protocolMargin = isLegacyClient() ? 0.10D : 0.03D;
-        return Math.min(MAX_LAG_BOX_EXPAND, configured + protocolMargin);
+        double configured = Math.max(0.0D, BASE_BOX_EXPAND_HORIZONTAL);
+        return Math.min(MAX_LAG_BOX_EXPAND, getClientHitboxMargin() + configured);
     }
 
     private double getVerticalBoxExpand(Profile target) {
-        double configured = Math.min(0.01D, Math.max(0.0D, BASE_BOX_EXPAND_VERTICAL));
-        double protocolMargin = isLegacyClient() ? 0.10D : 0.03D;
-        return Math.min(0.12D, configured + protocolMargin);
+        double configured = Math.max(0.0D, BASE_BOX_EXPAND_VERTICAL);
+        return Math.min(MAX_FORGIVING_VERTICAL_EXPAND, getClientHitboxMargin() + configured);
+    }
+
+    private double getClientHitboxMargin() {
+        // 1.7/1.8 clients expand entity hitboxes by 0.1 before performing the
+        // attack ray trace. This is vanilla client behavior, not lag leniency.
+        return isLegacyClient() ? 0.10D : 0.0D;
     }
 
     private boolean isLegacyClient() {
@@ -916,6 +1202,27 @@ public class ReachA extends Check {
                 && origin.getZ() <= box.maxZ;
     }
 
+    private boolean isHorizontalCornerHit(Vector hit, BoundingBox box) {
+        if (hit == null || box == null) {
+            return false;
+        }
+
+        // A client ray landing on a vertical corner is sensitive to both X and
+        // Z interpolation error at once. Apply the configured compensated box
+        // only for that geometry instead of weakening ordinary face hits.
+        final double epsilon = 0.03D;
+        boolean nearXFace = Math.min(
+                Math.abs(hit.getX() - box.minX),
+                Math.abs(hit.getX() - box.maxX)
+        ) <= epsilon;
+        boolean nearZFace = Math.min(
+                Math.abs(hit.getZ() - box.minZ),
+                Math.abs(hit.getZ() - box.maxZ)
+        ) <= epsilon;
+
+        return nearXFace && nearZFace;
+    }
+
     private double distancePointToRay(Vector origin, Vector direction, Vector point) {
         Vector toPoint = point.clone().subtract(origin);
         double projection = toPoint.dot(direction);
@@ -1102,6 +1409,16 @@ public class ReachA extends Check {
             this.pitch = pitch;
             this.deltaYaw = deltaYaw;
             this.deltaPitch = deltaPitch;
+            this.timestamp = timestamp;
+        }
+    }
+
+    private static class PendingAttack {
+        int entityId;
+        long timestamp;
+
+        private PendingAttack(int entityId, long timestamp) {
+            this.entityId = entityId;
             this.timestamp = timestamp;
         }
     }
