@@ -13,6 +13,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.CombatData;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.utils.customutils.Math.MathUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -75,8 +76,7 @@ public class KillauraA extends Check {
 
         sprintingOnAttack =
                 actionData.isSprinting()
-                        || actionData.isLastSprinting()
-                        || actionData.isLastLastSprinting();
+                        || actionData.isLastSprinting();
 
         inferredSprintOnAttack = isMovingLikeSprint(movementData);
 
@@ -168,40 +168,49 @@ public class KillauraA extends Check {
                         || sprintingOnAttack
                         || inferredSprintOnAttack;
 
+        double slipperiness = movementData.getLastFrictionFactor();
+
+        if (!Double.isFinite(slipperiness) || slipperiness <= 0.0D) {
+            slipperiness = 0.6D;
+        }
+
+        double carryFriction = movementData.isLastLastOnGround()
+                ? Math.min(1.0D, slipperiness) * 0.91D
+                : 0.91D;
+        double expectedPostHitX = movementData.getLastDeltaX() * carryFriction * 0.6D;
+        double expectedPostHitZ = movementData.getLastDeltaZ() * carryFriction * 0.6D;
+        double expectedPostHitXZ = Math.hypot(expectedPostHitX, expectedPostHitZ);
+        double attackMotionError = Math.abs(deltaXZ - expectedPostHitXZ);
+        double movementAllowance = Math.max(0.13D, MathUtil.getAttributeSpeed(profile, true));
+
         /*
-         * This follows the Ness-style KeepSprint logic:
-         * - recent hit
-         * - valid player target
-         * - fast horizontal speed
-         * - still sprinting / sprint-like
-         * - extremely low acceleration change
-         *
-         * Legit sprint hits usually create a visible motion disturbance.
-         * KeepSprint stays smooth.
+         * A 1.8 sprint hit multiplies the attacker's carried X/Z motion by
+         * 0.6. Karhu compares the following movement against that result; it
+         * does not assume that any smooth forward sprint is KeepSprint.
          */
-        boolean invalid = lastAttackTargetPlayer
+        boolean legacyInvalid = legacyClient
+                && lastAttackTargetPlayer
+                && swingDelay < 180L
+                && sprintingOnAttack
+                && !pureLegacyStrafe
+                && deltaXZ > 0.1D
+                && attackMotionError > movementAllowance
+                && acceleration < 0.005D;
+
+        boolean modernInvalid = !legacyClient
+                && lastAttackTargetPlayer
                 && swingDelay < 180L
                 && sprinting
                 && packetSprinting
-                && !pureLegacyStrafe
-                && lastDeltaXZ > (legacyClient ? 0.205D : 0.245D)
-                && deltaXZ > (legacyClient ? 0.220D : 0.255D)
-                && acceleration < (legacyClient ? 0.0025D : 0.0015D);
+                && lastDeltaXZ > 0.245D
+                && deltaXZ > 0.255D
+                && acceleration < 0.0015D;
 
-        /*
-         * Extra confirmation:
-         * If packet sprint is false but movement still looks sprint-like,
-         * that is suspicious with NoPackets-style sprint spoofing.
-         */
-        boolean noPacketSprintSuspicious = legacyClient
-                && lastAttackTargetPlayer
-                && swingDelay < 180L
-                && !pureLegacyStrafe
-                && !packetSprinting
-                && inferredSprinting
-                && lastDeltaXZ > 0.215D
-                && deltaXZ > 0.225D
-                && acceleration < 0.0035D;
+        boolean invalid = legacyInvalid || modernInvalid;
+
+        // A spoofed stop-sprint packet is extra evidence only after the same
+        // post-hit motion prediction has already failed.
+        boolean noPacketSprintSuspicious = legacyInvalid && !packetSprinting;
 
         attackEvaluated = true;
         attackTicks = 0;
@@ -213,6 +222,9 @@ public class KillauraA extends Check {
                         + "\n §f* deltaXZ: §b" + deltaXZ
                         + "\n §f* lastDeltaXZ: §b" + lastDeltaXZ
                         + "\n §f* acceleration: §b" + acceleration
+                        + "\n §f* expectedPostHitXZ: §b" + expectedPostHitXZ
+                        + "\n §f* attackMotionError: §b" + attackMotionError
+                        + "\n §f* movementAllowance: §b" + movementAllowance
                         + "\n §f* legacyClient: §b" + legacyClient
                         + "\n §f* lateralRatio: §b" + lateralRatio
                         + "\n §f* pureLegacyStrafe: §b" + pureLegacyStrafe
@@ -241,7 +253,10 @@ public class KillauraA extends Check {
                 fail("KeepSprint",
                         "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                                 + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ
-                                + "\nacceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
+                                 + "\nacceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
+                                + "\nexpectedPostHitXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedPostHitXZ
+                                + "\nattackMotionError " + MsgType.MAIN_THEME_COLOR.getMessage() + attackMotionError
+                                + "\nmovementAllowance " + MsgType.MAIN_THEME_COLOR.getMessage() + movementAllowance
                                 + "\nlegacyClient " + MsgType.MAIN_THEME_COLOR.getMessage() + legacyClient
                                 + "\nlateralRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + lateralRatio
                                 + "\nswingDelay " + MsgType.MAIN_THEME_COLOR.getMessage() + swingDelay
@@ -319,6 +334,7 @@ public class KillauraA extends Check {
                 || movementData.isNearClimbable()
                 || movementData.isOnSlime()
                 || movementData.isOnHoney()
+                || movementData.isOnIce()
                 || movementData.isColliding()
                 || profile.isBouncingOnSlime();
     }

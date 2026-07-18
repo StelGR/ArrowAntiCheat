@@ -20,17 +20,12 @@ public class TimerA extends Check {
     private static final long RECOVERY_GAP = 70_000_000L;
     private static final long MAX_RECOVERY_BUDGET = 300_000_000L;
     private static final long MAX_RECOVERY_WINDOW = 500_000_000L;
+    private static final long BUNCHED_PACKET_GAP = 5_000_000L;
 
     private static final double MIN_STABLE_TPS = 19.0D;
     private static final long MAX_STABLE_TICK_TIME = 65L;
-    private static final long SERVER_LAG_GRACE = 2_000_000_000L;
-    private static final long SEVERE_LAG_GRACE = 3_000_000_000L;
-    private static final long MIN_NETWORK_GRACE = 750_000_000L;
-    private static final long MAX_NETWORK_GRACE = 3_000_000_000L;
 
-    private static final int MAX_STABLE_PING = 800;
     private static final int MAX_PING_JITTER = 150;
-    private static final int PING_SPIKE_THRESHOLD = 100;
     private static final int MIN_STABLE_SAMPLES = 12;
     private static final double VIOLATION_DECAY_PER_SECOND = 0.10D;
 
@@ -38,8 +33,8 @@ public class TimerA extends Check {
     private long balance;
     private long recoveryBudget;
     private long recoveryUntil;
-    private long serverLagUntil;
-    private long networkLagUntil;
+    private int observedServerTick = -1;
+    private int observedTransactionCount = -1;
     private int stableSamples;
     private double violations;
 
@@ -76,15 +71,6 @@ public class TimerA extends Check {
             return;
         }
 
-        if (isLagCompensated(now)) {
-            // Keep following the live packet stream while laggy, but do not let
-            // packets queued by the server/network become timer evidence when
-            // the connection recovers.
-            lastFlyingPacket = now;
-            resetEvidence();
-            return;
-        }
-
         if (lastFlyingPacket == 0L) {
             lastFlyingPacket = now;
             return;
@@ -94,7 +80,7 @@ public class TimerA extends Check {
         lastFlyingPacket = now;
 
         if (delta <= 0L) {
-            resetEvidence();
+            clearTimingWindow();
             return;
         }
 
@@ -105,6 +91,20 @@ public class TimerA extends Check {
 
         if (isRecovering(now)) {
             consumeRecovery(now, delta);
+            return;
+        }
+
+        boolean serverLagSignal = pollServerLagSignal();
+        boolean networkLagSignal = pollNetworkLagSignal();
+
+        /*
+         * Only discard an interval when a fresh lag signal coincides with an
+         * actual queued-packet burst. Static low TPS/high ping cannot renew a
+         * full exemption, and previous timer evidence is deliberately kept.
+         */
+        if ((serverLagSignal || networkLagSignal) && delta < BUNCHED_PACKET_GAP) {
+            clearTimingWindow();
+            decayViolations(delta);
             return;
         }
 
@@ -160,44 +160,36 @@ public class TimerA extends Check {
         );
     }
 
-    private boolean isLagCompensated(long now) {
-        updateServerLagWindow(now);
-        updateNetworkLagWindow(now);
-        return now < serverLagUntil || now < networkLagUntil;
-    }
+    private boolean pollServerLagSignal() {
+        int currentTick = TickTask.getCurrentTick();
 
-    private void updateServerLagWindow(long now) {
+        if (currentTick == observedServerTick) {
+            return false;
+        }
+
+        observedServerTick = currentTick;
         double tps = TickTask.getTPS();
         long tickTime = TickTask.getTickTime();
 
-        if (!Double.isFinite(tps)
+        return !Double.isFinite(tps)
                 || tps < MIN_STABLE_TPS
-                || tickTime > MAX_STABLE_TICK_TIME) {
-            serverLagUntil = Math.max(serverLagUntil, now + SERVER_LAG_GRACE);
-        }
-
-        if (TickTask.getLastLagSpike() < 2_000L) {
-            serverLagUntil = Math.max(serverLagUntil, now + SEVERE_LAG_GRACE);
-        }
+                || tickTime > MAX_STABLE_TICK_TIME
+                || TickTask.getLastLagSpike() < 2_000L;
     }
 
-    private void updateNetworkLagWindow(long now) {
+    private boolean pollNetworkLagSignal() {
+        int transactionCount = profile.getConnectionData().getLastFlyingReceived();
+
+        if (transactionCount == observedTransactionCount) {
+            return false;
+        }
+
+        observedTransactionCount = transactionCount;
         int ping = Math.max(0, profile.getConnectionData().getTransPing());
         int lastPing = Math.max(0, profile.getConnectionData().getLastTransPing());
         int jitter = Math.max(profile.getConnectionData().getDropTransTime(), Math.abs(ping - lastPing));
 
-        boolean unstable = ping > MAX_STABLE_PING
-                || jitter > MAX_PING_JITTER
-                || (lastPing > 0 && ping > lastPing + PING_SPIKE_THRESHOLD);
-
-        if (!unstable) {
-            return;
-        }
-
-        long measuredLag = Math.max(ping, lastPing) + (long) jitter;
-        long grace = clamp(measuredLag * 2_000_000L,
-                MIN_NETWORK_GRACE, MAX_NETWORK_GRACE);
-        networkLagUntil = Math.max(networkLagUntil, now + grace);
+        return lastPing > 0 && jitter > MAX_PING_JITTER;
     }
 
     private void beginRecovery(long now, long delta) {
@@ -248,17 +240,21 @@ public class TimerA extends Check {
 
     private void resetTimingState() {
         lastFlyingPacket = 0L;
-        serverLagUntil = 0L;
-        networkLagUntil = 0L;
+        observedServerTick = TickTask.getCurrentTick();
+        observedTransactionCount = profile.getConnectionData().getLastFlyingReceived();
         resetEvidence();
     }
 
     private void resetEvidence() {
+        clearTimingWindow();
+        violations = 0.0D;
+    }
+
+    private void clearTimingWindow() {
         balance = 0L;
         recoveryBudget = 0L;
         recoveryUntil = 0L;
         stableSamples = 0;
-        violations = 0.0D;
     }
 
     private static long clamp(long value, long min, long max) {

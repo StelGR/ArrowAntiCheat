@@ -22,9 +22,7 @@ import org.bukkit.block.Block;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Experimental
 public class VelocityB extends Check {
@@ -56,6 +54,35 @@ public class VelocityB extends Check {
     @Override
     public void handle(PacketSendEvent event) {
 
+    }
+
+    private static final Set<EntityDamageEvent.DamageCause> IGNORED_CAUSES = buildIgnoredCauses();
+
+    private static Set<EntityDamageEvent.DamageCause> buildIgnoredCauses() {
+        EnumSet<EntityDamageEvent.DamageCause> set = EnumSet.noneOf(EntityDamageEvent.DamageCause.class);
+        addCauseIfPresent(set, "VOID");
+        addCauseIfPresent(set, "POISON");
+        addCauseIfPresent(set, "WITHER");
+        addCauseIfPresent(set, "FALL");
+        addCauseIfPresent(set, "MAGIC");
+        addCauseIfPresent(set, "FIRE");
+        addCauseIfPresent(set, "FIRE_TICK");
+        addCauseIfPresent(set, "CAMPFIRE");
+        addCauseIfPresent(set, "SUFFOCATION");
+        addCauseIfPresent(set, "LIGHTNING");
+        addCauseIfPresent(set, "CONTACT");
+        addCauseIfPresent(set, "THORNS");
+        addCauseIfPresent(set, "FLY_INTO_WALL");
+        addCauseIfPresent(set, "CRAMMING");
+        addCauseIfPresent(set, "WORLD_BORDER");
+        return set;
+    }
+
+    private static void addCauseIfPresent(Set<EntityDamageEvent.DamageCause> set, String name) {
+        try {
+            set.add(EntityDamageEvent.DamageCause.valueOf(name));
+        } catch (Throwable ignored) {
+        }
     }
 
     @Override
@@ -97,8 +124,12 @@ public class VelocityB extends Check {
             resetVelocityState();
             return;
         }
+        int damageWindow = 4 + (transition * 2);
 
-
+        if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, damageWindow)) {
+            resetVelocityState();
+            return;
+        }
 
         ClientWorldTracker.CollisionResult clientWorld = profile.getClientWorldTracker().getCollisionResult();
 

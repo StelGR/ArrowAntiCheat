@@ -395,9 +395,9 @@ public class ElytraA extends Check {
          * If falling fast, allow a bit more horizontal because a dive can be fast.
          */
         if (deltaY < -0.65D) {
-            allowed += 0.55D;
+            allowed += 0.80D;
         } else if (deltaY < -0.35D) {
-            allowed += 0.30D;
+            allowed += 0.50D;
         }
 
         return allowed + 0.20D; // general tolerance
@@ -410,18 +410,18 @@ public class ElytraA extends Check {
          * catches sustained impossible gain.
          */
         if (pitch < -55.0D) {
-            return 0.95D;
+            return 1.05D;
         }
 
         if (pitch < -30.0D) {
-            return 0.75D;
+            return 0.85D;
         }
 
         if (pitch < -10.0D) {
-            return 0.55D;
+            return 0.65D;
         }
 
-        return 0.35D;
+        return 0.45D;
     }
 
     private void handlePossibleFireworkUse() {

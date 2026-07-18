@@ -1,7 +1,9 @@
 package me.arrow.playerdata.data.impl;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.entity.EntityPositionData;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
@@ -113,7 +115,12 @@ public class ReachEntityTracker implements Data {
                 return;
             }
 
-            if (event.getPacketType().equals(PacketType.Play.Server.SPAWN_ENTITY)) {
+            // Player spawning moved to the generic entity packet in 1.20.2.
+            // Never wrap legacy generic spawns: some 1.8 death-drop object IDs
+            // have no PacketEvents EntityType mapping and are then re-encoded
+            // with a null type, disconnecting every receiving client.
+            if (event.getPacketType().equals(PacketType.Play.Server.SPAWN_ENTITY)
+                    && usesGenericPlayerSpawnPacket()) {
                 WrapperPlayServerSpawnEntity wrapper = new WrapperPlayServerSpawnEntity(event);
 
                 if (wrapper.getEntityType() == EntityTypes.PLAYER && wrapper.getUUID().isPresent()) {
@@ -161,6 +168,15 @@ public class ReachEntityTracker implements Data {
             // Packet availability differs across the supported 1.7-modern range.
             // A malformed/unsupported wrapper must only disable this sample;
             // Reach A retains its target movement-history fallback.
+        }
+    }
+
+    private boolean usesGenericPlayerSpawnPacket() {
+        try {
+            return PacketEvents.getAPI().getServerManager().getVersion()
+                    .isNewerThanOrEquals(ServerVersion.V_1_20_2);
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 

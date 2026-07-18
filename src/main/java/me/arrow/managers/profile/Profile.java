@@ -3,6 +3,7 @@ package me.arrow.managers.profile;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerParticle;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
@@ -410,9 +411,18 @@ public class Profile {
     }
 
     public boolean isWearingFunctionalElytra() {
-        ItemStack chestplate = getPlayer().getInventory().getChestplate();
-        return chestplate != null &&
-                chestplate.getType() == Material.ELYTRA;
+        try {
+            ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
+            if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_9)) {
+                ItemStack chestplate = getPlayer().getInventory().getChestplate();
+
+                return chestplate != null &&
+                        chestplate.getType() == Material.ELYTRA;
+            }
+            return false;
+        } catch (NoSuchFieldError ignored) {
+            return false;
+        }
     }
 
     public boolean isBedrockPlayer() {

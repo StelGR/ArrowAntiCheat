@@ -123,7 +123,7 @@ public class FlyA extends Check {
                 return;
             }
 
-            if (profile.isExempt().isTeleports()) {
+            if (profile.getMovementData().getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4) ) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: is Exempting (teleports)");
                 movementData.setCustomAirTicks(0);
                 return;

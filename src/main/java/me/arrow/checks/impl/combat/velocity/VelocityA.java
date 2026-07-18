@@ -72,8 +72,6 @@ public class VelocityA extends Check {
             return;
         }
 
-
-
         MovementData movementData = profile.getMovementData();
         VelocityData velocityData = profile.getVelocityData();
         int transition = Math.max(0, profile.getConnectionData().getClientTickTrans());
