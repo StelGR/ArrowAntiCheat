@@ -58,7 +58,7 @@ public class IllegalMoveA extends Check {
                 return;
             }
 
-            if (movementData.getSinceTeleportTicks() < 5) {
+            if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4) ) {
                 return;
             }
 
