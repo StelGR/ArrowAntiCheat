@@ -524,10 +524,10 @@ public class SpeedA extends Check {
                 && !serverGround) {
 
             double difference = deltaXZ - expectedSpeed;
-            double bufferAmount = 3;
-
-            if (difference > 0.7) bufferAmount = 1;
-            if (++airBuffer > bufferAmount) {
+//            double bufferAmount = 3;
+//
+//            if (difference > 0.7) bufferAmount = 1;
+            if (++airBuffer > 0) {
                 fail("Speed limit exceeded (Air)",
                         "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                                 + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedSpeed

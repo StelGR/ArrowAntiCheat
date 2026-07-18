@@ -594,7 +594,10 @@ public class GravityD extends Check {
     private boolean isGravityDExempt(MovementData data, int transTicks) {
         if (profile.shouldCancel()) { resetGravityD("shouldCancel"); return true; }
         if (profile.isBouncingOnSlime()) { resetGravityD("bouncingOnSlime"); return true; }
-        if (profile.isExempt().isTeleports()) { resetGravityD("teleport"); return true; }
+        if (profile.getMovementData().getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4) ) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("GravityD : Exempt - teleporting");
+            return true;
+        }
         if (profile.isExempt().vehicle()) { resetGravityD("vehicle"); return true; }
         if (profile.getMovementData().getSinceOnGhostBlock() <= 10 + transTicks) { resetGravityD("ghostBlock"); return true; }
 

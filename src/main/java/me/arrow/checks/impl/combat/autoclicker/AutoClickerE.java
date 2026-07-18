@@ -12,7 +12,7 @@ import me.arrow.playerdata.data.impl.CombatData;
 import me.arrow.utils.custom.SampleList;
 
 public class AutoClickerE extends Check {
-    SampleList<Double> clickSamples = new SampleList<>(250);
+    SampleList<Double> clickSamples = new SampleList<>(300);
 
     public AutoClickerE(Profile profile) {
         super(profile, CheckType.AUTOCLICKER, "E", "Sample based autoclicker check (Credits: MrPlugin | MTR)");
