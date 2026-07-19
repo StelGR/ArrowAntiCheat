@@ -26,12 +26,12 @@ public class IllegalMoveC extends Check {
         super(profile, CheckType.ILLEGALMOVE, "C", "Checks for correct non sprint motion");
     }
 
-    double buffer1;
+    double airBuffer, groundBuffer;
 
     double airLimit;
     double groundLimit;
 
-    final double maxBuffer1 = 13;
+    final double maxBuffer = 13;
     final double resetRate1 = 0.4;
 
     @Override
@@ -58,7 +58,8 @@ public class IllegalMoveC extends Check {
                 || movementData.isNearBoat()
                 || movementData.isNearWater()
                 || movementData.isInsideLiquid()) {
-            buffer1 = 0;
+            airBuffer = 0;
+            groundBuffer = 0;
             return;
         }
 
@@ -129,18 +130,7 @@ public class IllegalMoveC extends Check {
                 && !profile.getPlayer().isInsideVehicle()
                 && actionData.getSinceLastSprintingTicks() > 20;
 
-        if (isGround && isLastGround && deltaXZWF > groundLimit && basicInvalidState) {
-            if (++buffer1 > maxBuffer1) {
-                fail("Incorrect sprint (ground)",
-                        "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
-                                + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
-                                + "\nblockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                                + "\nattributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
-                                + "\npotionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
-                                + "\ncomboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile));
-                buffer1 = Math.max( maxBuffer1 + 2, buffer1);
-            }
-
+        if (isGround) {
             verbose(this.getClass().getSimpleName(), deltaXZWF, groundLimit,
                     MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Ground)\n * predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
                             + "\n * expected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
@@ -155,8 +145,41 @@ public class IllegalMoveC extends Check {
                             + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
                             + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)
                             + "\n * serverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerGroundTicks());
-        } else if (!isGround && !isLastGround && deltaXZWF > airLimit && basicInvalidState && fallDistance < 1) {
-            if (++buffer1 > maxBuffer1) {
+        }
+        else {
+            verbose(this.getClass().getSimpleName(), deltaXZWF, groundLimit,
+                    MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n * predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
+                            + "\n * expected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
+                            + "\n * expected deltaXZ (No Friction) " + MsgType.MAIN_THEME_COLOR.getMessage() + (groundLimit / Math.max(0.0001, frictionMultiplier))
+                            + "\n * blockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
+                            + "\n * frictionMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + frictionMultiplier
+                            + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaY()
+                            + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
+                            + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
+                            + "\n * attributeValue " + MsgType.MAIN_THEME_COLOR.getMessage() + MathUtil.getAttributeSpeed(profile, isSprinting)
+                            + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
+                            + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
+                            + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)
+                            + "\n * serverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerGroundTicks());
+        }
+
+        if (isGround && isLastGround && deltaXZWF > groundLimit && basicInvalidState) {
+            if (++groundBuffer > maxBuffer) {
+                fail("Incorrect sprint (ground)",
+                        "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
+                                + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
+                                + "\nblockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
+                                + "\nattributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
+                                + "\npotionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
+                                + "\ncomboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile));
+                groundBuffer = Math.max( maxBuffer + 2, groundBuffer);
+            }
+        }
+        else {
+            groundBuffer -= Math.min(groundBuffer, resetRate1);
+        }
+        if (!isGround && !isLastGround && deltaXZWF > airLimit && basicInvalidState && fallDistance < 1) {
+            if (++airBuffer > maxBuffer) {
                 fail("Incorrect sprint (air)",
                         "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
                                 + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + airLimit
@@ -165,25 +188,10 @@ public class IllegalMoveC extends Check {
                                 + "\npotionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirPotionBonus(profile)
                                 + "\ncomboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributePotionBonus(profile));
 
-                buffer1 = Math.max(maxBuffer1 + 2, buffer1);
+                airBuffer = Math.max(maxBuffer + 2, airBuffer);
             }
-
-            verbose(this.getClass().getSimpleName(), deltaXZWF, airLimit,
-                    MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n * predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
-                            + "\n * expected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + airLimit
-                            + "\n * expected deltaXZ (No Friction) " + MsgType.MAIN_THEME_COLOR.getMessage() + (airLimit / Math.max(0.0001, frictionMultiplier))
-                            + "\n * blockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                            + "\n * frictionMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + frictionMultiplier
-                            + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaY()
-                            + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
-                            + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
-                            + "\n * attributeValue " + MsgType.MAIN_THEME_COLOR.getMessage() + MathUtil.getAttributeSpeed(profile, isSprinting)
-                            + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributeBonus(profile)
-                            + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirPotionBonus(profile)
-                            + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributePotionBonus(profile)
-                            + "\n * serverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerGroundTicks());
         } else {
-            buffer1 -= Math.min(buffer1, resetRate1);
+            airBuffer -= Math.min(airBuffer, resetRate1);
         }
     }
 

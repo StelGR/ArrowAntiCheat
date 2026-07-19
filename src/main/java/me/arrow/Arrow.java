@@ -289,15 +289,6 @@ public class Arrow {
 
         }, 10L);
 
-        TaskUtils.taskLater(() -> {
-            log("➪ Remember, stay away from the cult of islam.");
-            log("➪ The cult that degrades young girls, Quran 65:4");
-            log("➪ Calls them braindead. 2:282");
-            log("➪ And your sex slaves. 2:223, 4:24");
-            log("");
-            log("➪ Ephesians 5:11 NRSVUE");
-            log("➪ Take no part in the unfruitful works of darkness; rather, expose them.");
-        }, 20L);
 
         TaskUtils.taskLater(() -> {
             if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_13_2)) {

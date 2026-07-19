@@ -142,7 +142,6 @@ public class GravityC extends Check {
         if (md.isNearContact()) { debugExempt("contact"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isNearWater()) { debugExempt("nearWater"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.elytraMomentum() > 0) { debugExempt("elytraMomentum"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.getSincePredictDownwardsTicks() < 5) { debugExempt("predictDownwards"); lastOffset = 0.0D; bufferC = 0.0D; return; }
 
         if (md.isNearHoney()) {
             debugExempt("nearHoney");
@@ -175,8 +174,7 @@ public class GravityC extends Check {
         double jumpStart = MoveUtils.getJumpMotion(profile);
         final double JUMP_TOL = 0.046D;
 
-        if (md.isMovingUp() || md.isMovingDown()
-                || md.getSincePredictUpwardsTicks() < 10 || md.getSincePredictDownwardsTicks() < 10) {
+        if (md.getSincePredictUpwardsTicks() < 5 || md.getSincePredictDownwardsTicks() < 5) {
             lastOffset = 0.0D;
             return;
         }

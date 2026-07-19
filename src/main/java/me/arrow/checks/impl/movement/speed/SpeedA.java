@@ -157,11 +157,10 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (movementData.isMovingUp() || movementData.getSinceMovingUpTicks() < 10) {
+        if (movementData.getSincePredictUpwardsTicks() < 10) {
             groundBuffer = 0;
             return;
         }
-
 
         double predicted = deltaXZ * blockFriction;
 
@@ -263,7 +262,7 @@ public class SpeedA extends Check {
 
     final double AIR_MAX_SLIME_SPEED_BOOST = 2.4;
     final double AIR_MAX_ICE_SPEED_BOOST = 6.25;
-    final double AIR_MAX_UNDER_BLOCK_SPEED_BOOST = 0.95;
+    final double AIR_MAX_UNDER_BLOCK_SPEED_BOOST = 1.2;
     final double AIR_MAX_HONEY_SPEED_BOOST = 1.1;
 
     private long lastDecayTick = -1L;
@@ -339,7 +338,7 @@ public class SpeedA extends Check {
 
         double expected = -0.0784000015258789D;
         if (Math.abs(deltaY - expected) < 1E-6 && clientAirTicks == 1) {
-            expectedSpeed += speedLevel > 0 ? (0.05325 + (0.008D * speedLevel)) : 0.052525D;
+            expectedSpeed += speedLevel > 0 ? (0.0575 + (0.008D * speedLevel)) : 0.0575;
         }
 
         double expected2 = 0.33319999363422426D;

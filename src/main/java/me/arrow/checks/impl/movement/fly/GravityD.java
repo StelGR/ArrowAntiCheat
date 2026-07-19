@@ -79,6 +79,21 @@ public class GravityD extends Check {
                 return;
             }
 
+            final int transTicks = getLagCompensationTicks();
+
+            if (refreshMovementAttributes(movementData)) {
+                resetStrictGravityInvariant();
+                resetGravityD("movementAttributeChange");
+                return;
+            }
+
+            // Keep one high-confidence physics invariant independent from the broad
+            // compatibility exemptions below. Nearby non-full blocks or a client
+            // ground bit cannot make a clean ascent lose velocity instantly.
+            if (handleStrictNegativeGravityInvariant(movementData, transTicks)) {
+                return;
+            }
+
             if (movementData.isOnBoat()
                     || movementData.isNearBoat()
                     || movementData.isNearShulker()
@@ -87,7 +102,7 @@ public class GravityD extends Check {
                     || movementData.isNearWater()
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
-                    || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
+                    || movementData.getSinceGlidingTicks() < 30 + (transTicks * 2)
                     || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                     || movementData.getSinceLevitationEffectTicks() < 10) {
                 resetGravityD("globalMovementExempt");
@@ -102,7 +117,7 @@ public class GravityD extends Check {
                     || world.onGhostBlock
                     || world.insideGhostBlock
                     || world.underGhostBlock
-                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (transTicks * 2))) {
                 resetGravityD("clientWorldMismatch");
                 return;
             }
@@ -112,12 +127,12 @@ public class GravityD extends Check {
                 return;
             }
 
-            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + transTicks)) {
                 resetGravityD("recentDamage");
                 return;
             }
 
-            if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            if (profile.getVehicleData().getSinceVehicleTicks() < 1 + transTicks) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity D: Exempt - vehicle");
                 resetGravityD("recentVehicle");
                 return;
@@ -128,7 +143,7 @@ public class GravityD extends Check {
                     profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
             );
 
-            if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            if (ghostLiquidWebTicks < 10 + transTicks) {
                 if (Config.Setting.DEBUG.getBoolean()) {
                     OtherUtility.log("Gravity D: is Exempting (ghostblock liquid/web)");
                 }
@@ -167,9 +182,8 @@ public class GravityD extends Check {
         }
     }
 
-    private static final double GRAVITY = 0.08D;
+    private static final double DEFAULT_GRAVITY = 0.08D;
     private static final double AIR_DRAG = 0.9800000190734863D;
-    private static final double TERMINAL_VELOCITY = -3.92D;
     private static final int MAX_AGGREGATED_GRAVITY_TICKS = 4;
 
     boolean trackingFall;
@@ -182,6 +196,268 @@ public class GravityD extends Check {
     double gravityNoiseEma;
     double lastGravityDObservedDY = Double.NaN;
     int lastGravityDSampleTick = Integer.MIN_VALUE;
+    boolean lastExactGroundSupport;
+
+    double strictLastDY = Double.NaN;
+    int strictLastPositionTick = Integer.MIN_VALUE;
+    boolean strictLastExactGroundSupport;
+    boolean strictTrackingAir;
+    double strictNegativeEvidence;
+
+    double cachedGravity = DEFAULT_GRAVITY;
+    double cachedJumpStrength = Double.NaN;
+    int lastGravityAttributeTick = Integer.MIN_VALUE;
+    boolean movementAttributesInitialized;
+
+    /**
+     * Independent launch/fall invariant used only for mathematically strong
+     * negative-gravity evidence. It deliberately does not trust the packet ground
+     * bit and is not disabled merely because a non-full block exists nearby.
+     */
+    private boolean handleStrictNegativeGravityInvariant(MovementData data, int transTicks) {
+        if (isStrictGravityContextInvalid(data, transTicks)) {
+            resetStrictGravityInvariant();
+            return false;
+        }
+
+        boolean exactGroundSupport = hasExactGroundSupport(data);
+        int movementTick = data.getTick();
+
+        if (!data.isPacketMoving()) {
+            if (exactGroundSupport) {
+                primeStrictGravityGround(movementTick);
+                return false;
+            }
+
+            if (!profile.isBedrockPlayer()
+                    && strictTrackingAir
+                    && strictLastPositionTick != Integer.MIN_VALUE
+                    && Double.isFinite(strictLastDY)
+                    && strictLastDY > 0.080D) {
+                int sampleTicks = movementTick - strictLastPositionTick;
+
+                if (sampleTicks > 0 && sampleTicks <= MAX_AGGREGATED_GRAVITY_TICKS) {
+                    GravityMotion expected = simulateGravity(strictLastDY, sampleTicks);
+
+                    if (expected.displacementY > 0.0305D) {
+                        return registerStrictGravityEvidence(
+                                data,
+                                "missing-position",
+                                0.0D,
+                                strictLastDY,
+                                expected.displacementY,
+                                0.0305D,
+                                sampleTicks
+                        );
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        double currentDY = data.getDeltaY();
+
+        if (!Double.isFinite(currentDY)) {
+            resetStrictGravityInvariant();
+            return false;
+        }
+
+        // A collision probe can remain supported for the first upward packet because
+        // its vertical tolerance overlaps the block top. Only consume support as a
+        // landing/step when the packet is not moving upward; otherwise the +0.42
+        // launch anchor is lost before a YPort client forces its downward motion.
+        if (exactGroundSupport && currentDY <= 1.0E-7D) {
+            primeStrictGravityGround(movementTick);
+            return false;
+        }
+
+        if (strictLastPositionTick == Integer.MIN_VALUE || !Double.isFinite(strictLastDY)) {
+            strictLastPositionTick = movementTick;
+            strictLastDY = currentDY;
+            strictLastExactGroundSupport = false;
+            strictTrackingAir = true;
+            return false;
+        }
+
+        int sampleTicks = movementTick - strictLastPositionTick;
+
+        if (sampleTicks <= 0) {
+            return false;
+        }
+
+        boolean launch = sampleTicks == 1
+                && strictLastExactGroundSupport
+                && Math.abs(strictLastDY) < 0.035D
+                && currentDY > 0.015D;
+
+        if (launch) {
+            double expectedJump = getExpectedJumpMotion();
+            double allowed = profile.isBedrockPlayer() ? 0.120D : 0.045D;
+            double deficit = expectedJump - currentDY;
+
+            strictLastPositionTick = movementTick;
+            strictLastDY = currentDY;
+            strictLastExactGroundSupport = false;
+            strictTrackingAir = true;
+
+            if (deficit > allowed) {
+                return registerStrictGravityEvidence(
+                        data,
+                        "reduced-launch",
+                        currentDY,
+                        0.0D,
+                        deficit,
+                        allowed,
+                        sampleTicks
+                );
+            }
+
+            strictNegativeEvidence = Math.max(0.0D, strictNegativeEvidence - 0.35D);
+            return false;
+        }
+
+        if (sampleTicks > MAX_AGGREGATED_GRAVITY_TICKS || !strictTrackingAir) {
+            strictLastPositionTick = movementTick;
+            strictLastDY = currentDY;
+            strictLastExactGroundSupport = false;
+            strictTrackingAir = true;
+            strictNegativeEvidence = Math.max(0.0D, strictNegativeEvidence - 0.50D);
+            return false;
+        }
+
+        double previousStrictDY = strictLastDY;
+        GravityMotion expected = simulateGravity(previousStrictDY, sampleTicks);
+        double residual = expected.displacementY - currentDY;
+        boolean bedrock = profile.isBedrockPlayer();
+        double allowed = bedrock ? 0.155D : 0.060D;
+        boolean ascentCut = strictLastDY > (bedrock ? 0.100D : 0.055D)
+                && expected.terminalDY > (bedrock ? 0.035D : 0.015D)
+                && residual > allowed;
+        boolean excessiveDescent = expected.terminalDY <= 0.015D
+                && currentDY < expected.displacementY - (allowed * 1.65D)
+                && residual > allowed * 1.65D;
+
+        strictLastPositionTick = movementTick;
+        strictLastDY = estimateTerminalDY(
+                previousStrictDY,
+                currentDY,
+                sampleTicks,
+                false,
+                expected
+        );
+        strictLastExactGroundSupport = false;
+        strictTrackingAir = true;
+
+        if (ascentCut || excessiveDescent) {
+            return registerStrictGravityEvidence(
+                    data,
+                    ascentCut ? "ascent-cut" : "excessive-descent",
+                    currentDY,
+                    previousStrictDY,
+                    residual,
+                    allowed,
+                    sampleTicks
+            );
+        }
+
+        strictNegativeEvidence = Math.max(0.0D, strictNegativeEvidence - 0.40D);
+        return false;
+    }
+
+    private boolean registerStrictGravityEvidence(MovementData data,
+                                                  String type,
+                                                  double currentDY,
+                                                  double lastDY,
+                                                  double residual,
+                                                  double allowed,
+                                                  int sampleTicks) {
+        double ratio = residual / Math.max(1.0E-6D, allowed);
+        strictNegativeEvidence += Math.max(0.75D, Math.min(3.50D, ratio));
+        boolean bedrock = profile.isBedrockPlayer();
+        boolean mathematicallyStrong = residual > (bedrock ? 0.300D : 0.145D);
+        double required = bedrock ? 3.75D : 2.25D;
+        String information = "predictionType " + MsgType.MAIN_THEME_COLOR.getMessage() + type
+                + "\ncurrentDY " + MsgType.MAIN_THEME_COLOR.getMessage() + currentDY
+                + "\nlastDY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDY
+                + "\nresidual " + MsgType.MAIN_THEME_COLOR.getMessage() + residual
+                + "\nallowed " + MsgType.MAIN_THEME_COLOR.getMessage() + allowed
+                + "\nsampleTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + sampleTicks
+                + "\nexactGroundSupport " + MsgType.MAIN_THEME_COLOR.getMessage() + hasExactGroundSupport(data)
+                + "\nevidence " + MsgType.MAIN_THEME_COLOR.getMessage() + strictNegativeEvidence;
+
+        verbose(getClass().getSimpleName(), strictNegativeEvidence, required, information);
+
+        if (mathematicallyStrong || strictNegativeEvidence > required) {
+            fail("Negative Gravity Modification", information);
+            strictNegativeEvidence = Math.max(required, strictNegativeEvidence * 0.50D);
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean isStrictGravityContextInvalid(MovementData data, int transTicks) {
+        ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+        if (data == null
+                || profile.shouldCancel()
+                || profile.isExempt().vehicle()
+                || profile.getExempt().isVehicle()
+                || profile.isBouncingOnSlime()
+                || profile.getGeysersTracker().isBeingPushed()
+                || data.getSinceTeleportTicks() < 5 + transTicks
+                || data.getSinceGlidingTicks() < 20 + transTicks
+                || data.getSinceRiptidingTicks() < 10 + transTicks
+                || data.isUnderblock()
+                || data.isNearWater()
+                || data.isNearLava()
+                || data.isNearWebs()
+                || data.isNearClimbable()
+                || data.isInsideLiquid()
+                || data.isInsideWater()
+                || data.isOnTopOfWater()
+                || data.isBottomOfWater()
+                || data.isOnSlime()
+                || data.isOnHoney()
+                || data.getSincePowderSnowTicks() < 15 + transTicks
+                || data.getSinceOnGhostBlock() < 4 + transTicks
+                || world.onGhostBlock
+                || world.insideGhostBlock
+                || world.underGhostBlock
+                || profile.getBlockProcessor().isUnderGhostBlock()
+                || profile.getBlockProcessor().isCancelledBlockPlacementExempt(4 + transTicks)
+                || !CollisionUtils.isChunkLoaded(data.getLocation())
+                || hasRecentGravityVelocity(transTicks)
+                || hasRecentGravitySupportChange(4 + transTicks)) {
+            return true;
+        }
+
+        if (profile.getPotionData().isHasLevitation()
+                || profile.getPotionData().getLevitationTicks() > 0
+                || profile.getPotionData().isHasSlowFalling()
+                || profile.getPotionData().getSlowFallingTicks() > 0) {
+            return true;
+        }
+
+        return profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 5 + transTicks);
+    }
+
+    private void primeStrictGravityGround(int movementTick) {
+        strictLastPositionTick = movementTick;
+        strictLastDY = 0.0D;
+        strictLastExactGroundSupport = true;
+        strictTrackingAir = false;
+        strictNegativeEvidence = Math.max(0.0D, strictNegativeEvidence - 0.75D);
+    }
+
+    private void resetStrictGravityInvariant() {
+        strictLastDY = Double.NaN;
+        strictLastPositionTick = Integer.MIN_VALUE;
+        strictLastExactGroundSupport = false;
+        strictTrackingAir = false;
+        strictNegativeEvidence = 0.0D;
+    }
 
     private void GravityPredictionD(MovementData data) {
         // Rotation/ground-only flying packets do not represent another physics step.
@@ -191,11 +467,27 @@ public class GravityD extends Check {
             return;
         }
 
+        final boolean exactGroundSupport = hasExactGroundSupport(data);
+        final int transTicks = getLagCompensationTicks();
+
+        if (refreshMovementAttributes(data)) {
+            resetGravityD("movementAttributeChange");
+            return;
+        }
+
+        if (isGravityDExempt(data, transTicks)) {
+            return;
+        }
+
         if (!data.isPacketMoving()) {
+            if (!exactGroundSupport && handleAirborneNoPositionGravity(data, transTicks)) {
+                return;
+            }
+
             // A long stationary period must not turn the next jump into an
             // unmodelled packet gap. Ground-only packets are safe synchronization
             // points because their vertical displacement is known to be zero.
-            if (isActualGround(data) || isTrustedClientGround(data)) {
+            if (exactGroundSupport && (isActualGround(data) || isTrustedClientGround(data))) {
                 lastGravityDSampleTick = data.getTick();
                 lastGravityDObservedDY = 0.0D;
                 resetGravityDTrackingOnly();
@@ -207,29 +499,26 @@ public class GravityD extends Check {
                 }
             }
 
+            lastExactGroundSupport = exactGroundSupport;
+
             return;
         }
 
         final double displacementY = data.getDeltaY();
         final double fallDist = data.getFallDistance();
-        final int transTicks = profile.getConnectionData().getClientTickTrans();
 
         if (!Double.isFinite(displacementY)) {
             resetGravityD("invalidMotion");
             return;
         }
 
-        if (isGravityDExempt(data, transTicks)) {
-            return;
-        }
-
         final int movementTick = data.getTick();
+        final boolean previousExactGroundSupport = lastExactGroundSupport;
+        lastExactGroundSupport = exactGroundSupport;
         final boolean actualGround = isActualGround(data);
         final boolean trustedClientGround = isTrustedClientGround(data);
         final int airTicks = getAirTicks(data);
         final boolean slowFalling = profile.getPotionData().isHasSlowFalling();
-
-        if (slowFalling) return;
 
         if (lastGravityDSampleTick == Integer.MIN_VALUE || !Double.isFinite(lastGravityDObservedDY)) {
             lastGravityDSampleTick = movementTick;
@@ -266,7 +555,9 @@ public class GravityD extends Check {
                 && !actualGround
                 && !trustedClientGround
                 && Math.abs(lastObservedDY) < 0.035D
-                && (data.isLastOnGround() || data.getClientAirTicks() <= 2);
+                && (previousExactGroundSupport
+                || data.isLastOnGround()
+                || data.getClientAirTicks() <= 2);
 
         GravityMotion localMotion;
         PredictionResult expectedResult;
@@ -381,6 +672,11 @@ public class GravityD extends Check {
                 selectedExpectedDY - currentDY, selectedAllowedPerTick,
                 actualGround, slowFalling, transTicks
         );
+        boolean abruptMotionCut = sampleTicks == 1 && isAbruptNegativeGravityTransition(
+                data, currentDY, lastObservedDY, selectedExpectedDY,
+                selectedAllowedPerTick, launchSample, previousExactGroundSupport,
+                transTicks
+        );
 
         final double perTickExcess = selectedExpectedDY - currentDY;
         final double perTickExtraGravity = perTickExcess - selectedAllowedPerTick;
@@ -392,9 +688,9 @@ public class GravityD extends Check {
                 )
         );
 
-        if (directFastFall || lowHopMotion || impossibleFastLanding) {
+        if (directFastFall || lowHopMotion || impossibleFastLanding || abruptMotionCut) {
             int evidenceAirTicks = impossibleFastLanding ? Math.max(airTicks, predictedTicks) : airTicks;
-            boolean fastFallEvidence = directFastFall || impossibleFastLanding;
+            boolean fastFallEvidence = directFastFall || impossibleFastLanding || abruptMotionCut;
 
             if (handleGravityDFlag(data,
                     true,
@@ -412,7 +708,7 @@ public class GravityD extends Check {
                     severity,
                     accelerationExcess,
                     false,
-                    lowHopMotion,
+                    lowHopMotion || abruptMotionCut,
                     false,
                     false,
                     false,
@@ -420,7 +716,7 @@ public class GravityD extends Check {
                     trustedClientGround,
                     transTicks,
                     fastFallEvidence ? 0.75D : 1.25D,
-                    impossibleFastLanding ? 3.25D : directFastFall ? 3.00D : 2.25D)) {
+                    impossibleFastLanding ? 3.25D : abruptMotionCut ? 3.15D : directFastFall ? 3.00D : 2.25D)) {
                 return;
             }
         }
@@ -461,7 +757,7 @@ public class GravityD extends Check {
                 && accelerationExcess > Math.max(0.055D, selectedAllowedPerTick * 1.45D);
 
         boolean terminalBreak = sampleTicks == 1
-                && currentDY < TERMINAL_VELOCITY - selectedAllowedPerTick;
+                && currentDY < getTerminalVelocity(data) - selectedAllowedPerTick;
         boolean genericFastFall = selectedTooFast
                 || trajectoryEvidence
                 || cumulativeEvidence
@@ -496,7 +792,7 @@ public class GravityD extends Check {
                         + "\ncumulativeEvidence " + MsgType.MAIN_THEME_COLOR.getMessage() + cumulativeEvidence
                         + "\nterminalBreak " + MsgType.MAIN_THEME_COLOR.getMessage() + terminalBreak
                         + "\ndirectEvidence " + MsgType.MAIN_THEME_COLOR.getMessage()
-                        + (directFastFall || impossibleFastLanding || lowHopMotion)
+                        + (directFastFall || impossibleFastLanding || lowHopMotion || abruptMotionCut)
                         + "\nstreak " + MsgType.MAIN_THEME_COLOR.getMessage() + negGravStreak);
 
         if (genericFastFall) {
@@ -555,9 +851,15 @@ public class GravityD extends Check {
             decayGravityDEvidence(0.35D, 0.12D);
         }
 
+        double noiseResidual = Math.abs(selectedExpectedDisplacement - displacementY) / sampleTicks;
+        double learnableNoise = profile.isBedrockPlayer() ? 0.008D : 0.0015D;
         updateGravityDNoise(
-                Math.abs(selectedExpectedDisplacement - displacementY) / sampleTicks,
-                !genericFastFall && !actualGround && !trustedClientGround
+                noiseResidual,
+                !genericFastFall
+                        && !actualGround
+                        && !trustedClientGround
+                        && noiseResidual <= learnableNoise
+                        && selectedExcess <= learnableNoise
         );
 
         lastGravityDObservedDY = currentDY;
@@ -594,8 +896,9 @@ public class GravityD extends Check {
     private boolean isGravityDExempt(MovementData data, int transTicks) {
         if (profile.shouldCancel()) { resetGravityD("shouldCancel"); return true; }
         if (profile.isBouncingOnSlime()) { resetGravityD("bouncingOnSlime"); return true; }
-        if (profile.getMovementData().getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4) ) {
+        if (profile.getMovementData().getSinceTeleportTicks() < 5 + (transTicks * 2)) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("GravityD : Exempt - teleporting");
+            resetGravityD("teleporting");
             return true;
         }
         if (profile.isExempt().vehicle()) { resetGravityD("vehicle"); return true; }
@@ -620,12 +923,25 @@ public class GravityD extends Check {
         if (data.getMovingUnderblockTicks() > 0) { resetGravityD("movingUnderBlock"); return true; }
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return true; }
 
-        if (profile.getVelocityData().isTakingVelocity()) {
-            resetGravityD("takingVelocity");
+        if (data.getSincePredictUpwardsTicks() < 5 || data.getSincePredictDownwardsTicks() < 5) {
+            resetGravityD("predictUp/Down");
+            return true;
+        }
+        if (hasRecentGravityVelocity(transTicks)) {
+            resetGravityD("recentVelocity");
             return true;
         }
 
-        if (profile.getPotionData().isHasLevitation()) { resetGravityD("levitation"); return true; }
+        // Bukkit potion state is not transaction-confirmed to the client. Ignore the
+        // active effect and its short decay window so application/removal cannot leave
+        // a stale normal-gravity trajectory or false high-ping players.
+        if (profile.getPotionData().isHasLevitation()
+                || profile.getPotionData().getLevitationTicks() > 0
+                || profile.getPotionData().isHasSlowFalling()
+                || profile.getPotionData().getSlowFallingTicks() > 0) {
+            resetGravityD("gravityPotion");
+            return true;
+        }
 
         if (data.getSincePowderSnowTicks() < 15 + (transTicks * 2)) {
             resetGravityD("powderSnow");
@@ -636,31 +952,151 @@ public class GravityD extends Check {
     }
 
     private boolean isActualGround(MovementData data) {
-        // CollisionUtils deliberately has generous support around block edges.
-        // That is useful for ground checks, but it must not reset a gravity
-        // trajectory while the client is explicitly airborne and still moving Y.
-        if (!data.isOnGround()
-                && (Math.abs(data.getDeltaY()) > 1.0E-7D
-                || data.getClientAirTicks() > 0
-                || data.getFallDistance() > 0.0F)) {
+        if (!hasExactGroundSupport(data) || data.getDeltaY() > 1.0E-7D) {
             return false;
         }
 
-        return !data.isCustomInAir()
-                && (data.isServerGround()
+        return data.isOnGround()
+                || data.isServerGround()
                 || data.isServerYGround()
-                || data.isPositionYGround());
+                || data.isPositionYGround();
     }
 
     private boolean isTrustedClientGround(MovementData data) {
         return data.isOnGround()
-                && !data.isCustomInAir()
+                && hasExactGroundSupport(data)
+                && Math.abs(data.getDeltaY()) <= 1.0E-7D
                 && data.getServerAirTicks() <= 1
                 && data.getCustomAirTicks() <= 1;
     }
 
+    private boolean hasExactGroundSupport(MovementData data) {
+        try {
+            return data != null
+                    && data.getNearbyBlocksResult() != null
+                    && data.getNearbyBlocksResult().hasExactGroundSupport();
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private int getAirTicks(MovementData data) {
         return Math.max(data.getCustomAirTicks(), Math.max(data.getClientAirTicks(), data.getServerAirTicks()));
+    }
+
+    private int getLagCompensationTicks() {
+        try {
+            int ticks = Math.max(0, profile.getConnectionData().getClientTickTrans());
+            return Math.min(profile.isBedrockPlayer() ? 8 : 6, ticks);
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
+    /**
+     * A Java client may omit its position while the change is below the packet
+     * threshold. It cannot omit a position while a tracked jump still predicts a
+     * sizeable upward displacement. Treat that missing displacement as a gravity
+     * sample without rebasing the positional trajectory.
+     */
+    private boolean handleAirborneNoPositionGravity(MovementData data, int transTicks) {
+        if (profile.isBedrockPlayer()
+                || !trackingFall
+                || !Double.isFinite(lastGravityDObservedDY)
+                || lastGravityDObservedDY <= 0.080D
+                || lastGravityDSampleTick == Integer.MIN_VALUE
+                || hasRecentGravitySupportChange(4 + transTicks)) {
+            return false;
+        }
+
+        int sampleTicks = data.getTick() - lastGravityDSampleTick;
+
+        if (sampleTicks <= 0 || sampleTicks > MAX_AGGREGATED_GRAVITY_TICKS) {
+            return false;
+        }
+
+        GravityMotion expectedMotion = simulateGravity(lastGravityDObservedDY, sampleTicks);
+        double expectedDisplacement = expectedMotion.displacementY;
+
+        // Java reports position once displacement from its last report exceeds
+        // roughly 0.03. The epsilon covers float/packet quantization at the edge.
+        final double packetThreshold = 0.0305D;
+
+        if (expectedDisplacement <= packetThreshold) {
+            return false;
+        }
+
+        double allowed = packetThreshold;
+        double severity = expectedDisplacement / allowed;
+        double doubleGravityDY = predictGravityDY(profile, data, expectedMotion.terminalDY);
+        int airTicks = getAirTicks(data);
+        String information = ChatColor.RED + "Verbose (missing position)"
+                + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
+                + "\nsampleTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + sampleTicks
+                + "\nlastDY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGravityDObservedDY
+                + "\nexpectedDisplacement " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedDisplacement
+                + "\npacketThreshold " + MsgType.MAIN_THEME_COLOR.getMessage() + packetThreshold
+                + "\nstreak " + MsgType.MAIN_THEME_COLOR.getMessage() + negGravStreak;
+
+        verbose(getClass().getSimpleName(), expectedDisplacement, packetThreshold, information);
+
+        boolean strong = expectedDisplacement > 0.080D;
+
+        return handleGravityDFlag(
+                data,
+                true,
+                data.getFallDistance(),
+                airTicks,
+                expectedMotion.terminalDY,
+                expectedMotion.terminalDY,
+                "airborne-no-position",
+                doubleGravityDY,
+                0.0D,
+                lastGravityDObservedDY,
+                expectedDisplacement,
+                expectedDisplacement - allowed,
+                allowed,
+                severity,
+                lastGravityDObservedDY - expectedMotion.terminalDY,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                transTicks,
+                strong ? 0.75D : 1.75D,
+                strong ? 3.15D : 0.90D
+        );
+    }
+
+    private boolean hasRecentGravityVelocity(int transTicks) {
+        try {
+            int pendingWindow = 3 + transTicks;
+            int confirmedWindow = 10 + transTicks;
+
+            double pendingY = profile.getVelocityData().getPendingEntityVelocity() == null
+                    ? 0.0D
+                    : profile.getVelocityData().getPendingEntityVelocity().getY();
+            double entityY = profile.getVelocityData().getVelocityV();
+            double explosionY = profile.getVelocityData().getExplosionKnockbackPacket() == null
+                    ? 0.0D
+                    : profile.getVelocityData().getExplosionKnockbackPacket().getY();
+
+            boolean pendingEntity = profile.getVelocityData().getEntityVelocityPacketTicks() <= pendingWindow
+                    && Math.abs(pendingY) > 1.0E-5D;
+            boolean confirmedEntity = profile.getVelocityData().getEntityVelocityTicks() <= confirmedWindow
+                    && Math.abs(entityY) > 1.0E-5D;
+            boolean pendingExplosion = profile.getVelocityData().getExplosionVelocityPacketTicks() <= pendingWindow;
+            boolean confirmedExplosion = profile.getVelocityData().getExplosionVelocityTicks() <= confirmedWindow
+                    && (Math.abs(explosionY) > 1.0E-5D
+                    || Math.abs(profile.getVelocityData().getTotalVerticalVelocity()) > 1.0E-5D);
+
+            return pendingEntity || confirmedEntity || pendingExplosion || confirmedExplosion;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private boolean isDirectFastFallMotion(MovementData data,
@@ -689,7 +1125,7 @@ public class GravityD extends Check {
                 && excess > Math.max(acceleratedExcess, allowed * 1.75D);
         boolean hardMotionSet = dy < hardThreshold
                 && excess > Math.max(hardExcess, allowed * 2.00D);
-        boolean terminalBreak = dy < TERMINAL_VELOCITY - allowed;
+        boolean terminalBreak = dy < getTerminalVelocity(data) - allowed;
 
         return tickWindow
                 && (terminalBreak || hardMotionSet || (descendingPhase && acceleratedFall));
@@ -774,6 +1210,51 @@ public class GravityD extends Check {
                 || (earlyJumpTick && fromJump && expectedToKeepRising && severeRiseCut);
     }
 
+    /**
+     * A downward force is observable before the player is actually descending:
+     * vanilla must preserve most of a positive jump velocity on the next tick.
+     * Keeping this invariant independent of the reported ground bit closes y-port
+     * and low-jump variants which zero or reverse the ascent immediately.
+     */
+    private boolean isAbruptNegativeGravityTransition(MovementData data,
+                                                       double dy,
+                                                       double lastDy,
+                                                       double expectedDY,
+                                                       double allowed,
+                                                       boolean launchSample,
+                                                       boolean previousExactGroundSupport,
+                                                       int transTicks) {
+        if (data == null
+                || data.isUnderblock()
+                || data.getMovingUnderblockTicks() > 0
+                || data.isNearStepMaterial()
+                || hasRecentGravitySupportChange(4 + transTicks)) {
+            return false;
+        }
+
+        final boolean bedrock = profile.isBedrockPlayer();
+        final double residual = expectedDY - dy;
+        final double transitionTolerance = Math.max(
+                bedrock ? 0.135D : 0.070D,
+                allowed * (bedrock ? 1.35D : 1.10D)
+        );
+
+        boolean ascentWasCut = lastDy > (bedrock ? 0.075D : 0.045D)
+                && expectedDY > (bedrock ? 0.035D : 0.020D)
+                && residual > transitionTolerance;
+
+        // Java jump velocity is fixed. Bedrock receives a wider launch envelope
+        // because Geyser can expose its variable/quantized jump displacement.
+        double expectedJump = getExpectedJumpMotion();
+        double launchTolerance = bedrock ? 0.100D : 0.028D;
+        boolean reducedLaunch = launchSample
+                && previousExactGroundSupport
+                && dy > 0.015D
+                && expectedJump - dy > launchTolerance;
+
+        return ascentWasCut || reducedLaunch;
+    }
+
     private boolean hasRecentGravitySupportChange(int ticks) {
         ActionData actionData = profile.getActionData();
 
@@ -853,18 +1334,6 @@ public class GravityD extends Check {
                                        int transTicks,
                                        double required,
                                        double added) {
-        if (!directEvidence) {
-            if (data.getSincePredictUpwardsTicks() < 5 + transTicks) {
-                resetGravityD("predictUpwards");
-                return true;
-            }
-
-            if (data.getSincePredictDownwardsTicks() < 5 + transTicks) {
-                resetGravityD("predictDownwards");
-                return true;
-            }
-        }
-
         negGravStreak += added;
         double bufferAdded = Math.max(0.25D, Math.min(1.0D, added * 0.30D));
 
@@ -932,7 +1401,7 @@ public class GravityD extends Check {
         }
 
         double maximumUpward = Math.max(0.62D, getExpectedJumpMotion() + 0.30D);
-        double seed = Math.max(TERMINAL_VELOCITY, Math.min(maximumUpward, displacementY));
+        double seed = Math.max(-64.0D, Math.min(maximumUpward, displacementY));
 
         lastGravityDObservedDY = seed;
         predictedDY = seed;
@@ -1024,11 +1493,21 @@ public class GravityD extends Check {
             terminal = displacementY / ticks;
         }
 
-        return Math.max(TERMINAL_VELOCITY, Math.min(maximumUpward, terminal));
+        return Math.max(-64.0D, Math.min(maximumUpward, terminal));
     }
 
     private double getExpectedJumpMotion() {
-        double motion = MoveUtils.getJumpMotion(profile);
+        double motion;
+
+        if (!profile.isBedrockPlayer() && Double.isFinite(cachedJumpStrength)) {
+            motion = cachedJumpStrength;
+
+            if (profile.getPotionData().isHasJump()) {
+                motion += Math.max(0, profile.getPotionData().getJumpAmplifier()) * 0.10D;
+            }
+        } else {
+            motion = MoveUtils.getJumpMotion(profile);
+        }
 
         if (!Double.isFinite(motion) || motion < 0.30D || motion > 1.60D) {
             motion = 0.42D;
@@ -1039,6 +1518,113 @@ public class GravityD extends Check {
         }
 
         return motion;
+    }
+
+    /**
+     * Newer Java versions expose gravity and jump strength as attributes. Read
+     * them reflectively so the same jar still loads on legacy servers. A genuine
+     * server-side attribute change rebases the trajectory instead of looking like
+     * a client gravity modification.
+     */
+    private boolean refreshMovementAttributes(MovementData data) {
+        if (profile.isBedrockPlayer() || data == null) {
+            return false;
+        }
+
+        int tick = data.getTick();
+
+        if (lastGravityAttributeTick != Integer.MIN_VALUE
+                && tick - lastGravityAttributeTick >= 0
+                && tick - lastGravityAttributeTick < 10) {
+            return false;
+        }
+
+        lastGravityAttributeTick = tick;
+
+        double gravity = readBukkitAttribute("GRAVITY", "GENERIC_GRAVITY");
+        double jumpStrength = readBukkitAttribute("JUMP_STRENGTH", "GENERIC_JUMP_STRENGTH");
+
+        if (!Double.isFinite(gravity) || gravity < 0.0D || gravity > 4.0D) {
+            gravity = DEFAULT_GRAVITY;
+        }
+
+        if (!Double.isFinite(jumpStrength) || jumpStrength < 0.0D || jumpStrength > 4.0D) {
+            jumpStrength = Double.NaN;
+        }
+
+        boolean changed = movementAttributesInitialized
+                && (Math.abs(cachedGravity - gravity) > 1.0E-7D
+                || !sameFiniteValue(cachedJumpStrength, jumpStrength));
+
+        cachedGravity = gravity;
+        cachedJumpStrength = jumpStrength;
+        movementAttributesInitialized = true;
+        return changed;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private double readBukkitAttribute(String... names) {
+        try {
+            Class<?> attributeClass = Class.forName("org.bukkit.attribute.Attribute");
+            Object attribute = null;
+
+            for (String name : names) {
+                try {
+                    attribute = attributeClass.getField(name).get(null);
+                } catch (Throwable ignored) {
+                    if (attributeClass.isEnum()) {
+                        try {
+                            attribute = Enum.valueOf((Class<? extends Enum>) attributeClass, name);
+                        } catch (Throwable ignoredAgain) {
+                        }
+                    }
+                }
+
+                if (attribute != null) {
+                    break;
+                }
+            }
+
+            if (attribute == null || profile.getPlayer() == null) {
+                return Double.NaN;
+            }
+
+            Object instance = profile.getPlayer().getClass()
+                    .getMethod("getAttribute", attributeClass)
+                    .invoke(profile.getPlayer(), attribute);
+
+            if (instance == null) {
+                return Double.NaN;
+            }
+
+            Object value = instance.getClass().getMethod("getValue").invoke(instance);
+            return value instanceof Number ? ((Number) value).doubleValue() : Double.NaN;
+        } catch (Throwable ignored) {
+            return Double.NaN;
+        }
+    }
+
+    private boolean sameFiniteValue(double first, double second) {
+        if (Double.isFinite(first) != Double.isFinite(second)) {
+            return false;
+        }
+
+        return !Double.isFinite(first) || Math.abs(first - second) <= 1.0E-7D;
+    }
+
+    private double getGravityValue(MovementData data) {
+        refreshMovementAttributes(data);
+        return Double.isFinite(cachedGravity) ? cachedGravity : DEFAULT_GRAVITY;
+    }
+
+    private double getTerminalVelocity(MovementData data) {
+        double gravity = getGravityValue(data);
+
+        if (gravity <= 1.0E-9D) {
+            return -64.0D;
+        }
+
+        return -(gravity * AIR_DRAG) / (1.0D - AIR_DRAG);
     }
 
     private double getAggregateGravityAllowance(double perTickAllowance, int sampleTicks) {
@@ -1175,7 +1761,7 @@ public class GravityD extends Check {
             return Double.NaN;
         }
 
-        int ticks = Math.min(5 + profile.getConnectionData().getClientTickTrans(), actionData.getBlockPlacePredictionTicks());
+        int ticks = Math.min(5 + getLagCompensationTicks(), actionData.getBlockPlacePredictionTicks());
 
         if (!actionData.hasRecentConfirmedUnderPlace(ticks)) {
             return Double.NaN;
@@ -1209,7 +1795,7 @@ public class GravityD extends Check {
 
         if (!wasOnPlacedBlock
                 || data.getDeltaY() <= 0.0D
-                || data.getCustomAirTicks() > 2 + profile.getConnectionData().getClientTickTrans()) {
+                || data.getCustomAirTicks() > 2 + getLagCompensationTicks()) {
             return Double.NaN;
         }
 
@@ -1253,7 +1839,7 @@ public class GravityD extends Check {
         double tolerance = 0.03125D;
 
         try {
-            tolerance += Math.min(0.0625D, profile.getConnectionData().getClientTickTrans() * 0.004D);
+            tolerance += Math.min(0.0625D, getLagCompensationTicks() * 0.004D);
         } catch (Throwable ignored) {
         }
 
@@ -1270,18 +1856,10 @@ public class GravityD extends Check {
             previousDY = 0.0D;
         }
 
-        boolean slowFalling = profile.getPotionData().isHasSlowFalling() && previousDY <= 0.0D;
-
-        double gravity = slowFalling ? 0.01D : GRAVITY;
+        // Slow Falling and Levitation are deliberately rebased/exempted before
+        // prediction because Bukkit's current effect state is not client-confirmed.
+        double gravity = getGravityValue(data);
         double prediction = (previousDY - gravity) * AIR_DRAG;
-
-        if (slowFalling && prediction < -0.125D) {
-            prediction = -0.125D;
-        }
-
-        if (prediction < TERMINAL_VELOCITY) {
-            prediction = TERMINAL_VELOCITY;
-        }
 
         if (Math.abs(prediction) < 0.003D) {
             prediction = 0.0D;
@@ -1291,40 +1869,33 @@ public class GravityD extends Check {
     }
 
     private double getFastFallAllowed(Profile profile, MovementData data, double dy, double lastDy, double expectedDY) {
-        int pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
-        boolean slowFalling = profile.getPotionData().isHasSlowFalling() && lastDy <= 0.0D;
         boolean bedrock = profile.isBedrockPlayer();
 
-        double allowed = slowFalling ? 0.014D : 0.016D;
+        double allowed = bedrock ? 0.040D : 0.008D;
 
-        allowed += Math.min(0.025D, Math.abs(expectedDY) * 0.050D);
-        allowed += Math.min(0.020D, Math.abs(lastDy) * 0.030D);
-        allowed += Math.min(bedrock ? 0.025D : 0.012D, pingTicks * (bedrock ? 0.0025D : 0.0015D));
+        allowed += Math.min(bedrock ? 0.022D : 0.010D, Math.abs(expectedDY) * (bedrock ? 0.045D : 0.025D));
+        allowed += Math.min(bedrock ? 0.018D : 0.008D, Math.abs(lastDy) * (bedrock ? 0.030D : 0.015D));
         allowed += gravityNoiseEma;
 
         if (data.getCustomAirTicks() <= 2) {
-            allowed += bedrock ? 0.035D : 0.025D;
+            allowed += bedrock ? 0.025D : 0.012D;
         }
 
         if (Math.abs(lastDy) <= 1.0E-6D && dy < 0.0D) {
-            allowed += 0.060D;
+            allowed += bedrock ? 0.055D : 0.035D;
         }
 
-        if (data.getSinceCollideTicks() < 5 + profile.getConnectionData().getClientTickTrans()) {
+        if (data.getSinceCollideTicks() < 5 + getLagCompensationTicks()) {
             allowed += 0.025D;
         }
 
         if (bedrock) {
-            allowed += 0.030D;
+            allowed += 0.015D;
         } else if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)) {
             allowed += 0.002D;
         }
 
-        if (slowFalling) {
-            return Math.min(bedrock ? 0.105D : 0.075D, allowed);
-        }
-
-        return Math.min(bedrock ? 0.145D : 0.105D, allowed);
+        return Math.min(bedrock ? 0.120D : 0.060D, allowed);
     }
 
     private void resetGravityD(String reason) {
@@ -1340,6 +1911,7 @@ public class GravityD extends Check {
         gravityNoiseEma = 0.0D;
         lastGravityDSampleTick = Integer.MIN_VALUE;
         lastGravityDObservedDY = Double.NaN;
+        lastExactGroundSupport = false;
         resetBuffer();
         resetGravityDTrackingOnly();
     }
