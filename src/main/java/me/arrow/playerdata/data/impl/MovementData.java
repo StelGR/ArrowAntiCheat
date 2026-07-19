@@ -1275,25 +1275,15 @@ public class MovementData implements Data {
         }
         else sincePredictUpwardsTicksWithoutMaterial++;
 
-        if (isMovingDown() && nearStepMaterial) {
-            sincePredictDownwardsTicks = 0;
-        }
-        else sincePredictDownwardsTicks++;
-
-        if (isMovingUp() && nearStepMaterial) {
-            sincePredictDownwardsTicks = 0;
-        }
-        else sincePredictDownwardsTicks++;
-
         if (isMovingDown()) {
-            sincePredictDownwardsTicksWithoutMaterial = 0;
+            sincePredictUpwardsTicks = 0;
         }
-        else sincePredictDownwardsTicksWithoutMaterial++;
+        else sincePredictUpwardsTicks++;
 
         if (isMovingUp()) {
-            sincePredictUpwardsTicksWithoutMaterial = 0;
+            sincePredictDownwardsTicks = 0;
         }
-        else sincePredictUpwardsTicksWithoutMaterial++;
+        else sincePredictDownwardsTicks++;
 
         if (profile.getPotionData().isHasSpeed()) sinceSpeedPotionEffectTicks = 0;
         else sinceSpeedPotionEffectTicks += 1;

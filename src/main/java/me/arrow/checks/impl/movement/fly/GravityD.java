@@ -923,7 +923,7 @@ public class GravityD extends Check {
         if (data.getMovingUnderblockTicks() > 0) { resetGravityD("movingUnderBlock"); return true; }
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return true; }
 
-        if (data.getSincePredictUpwardsTicks() < 5 || data.getSincePredictDownwardsTicks() < 5) {
+        if (data.getSincePredictUpwardsTicks() < 10 || data.getSincePredictDownwardsTicks() < 10) {
             resetGravityD("predictUp/Down");
             return true;
         }
