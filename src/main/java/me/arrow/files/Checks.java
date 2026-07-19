@@ -247,6 +247,12 @@ public class Checks implements Initializer {
         MACRO_A_PUNiSH_MODE("MacroA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         MACRO_A_MAX_VL("MacroA.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        MACRO_B("MacroB.enabled", true, "Should we enable this module?"),
+        MACRO_B_PUNISH("MacroB.punish", "", "Punishment settings"),
+        MACRO_B_PUNiSH_ENABLED("MacroB.punish.enabled", false, "Should punishments be enabled for this check?"),
+        MACRO_B_PUNiSH_MODE("MacroB.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        MACRO_B_MAX_VL("MacroB.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
+
         KILLAURA_A("KillauraA.enabled", true, "Should we enable this module?"),
         KILLAURA_A_PUNISH("KillauraA.punish", "", "Punishment settings"),
         KILLAURA_A_PUNiSH_ENABLED("KillauraA.punish.enabled", false, "Should punishments be enabled for this check?"),
@@ -332,15 +338,6 @@ public class Checks implements Initializer {
         SPEED_B_PUNiSH_ENABLED("SpeedB.punish.enabled", false, "Should punishments be enabled for this check?"),
         SPEED_B_PUNiSH_MODE("SpeedB.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         SPEED_B_MAX_VL("SpeedB.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
-
-        SPEED_C("SpeedC.enabled", true, "Should we enable this module?"),
-        SPEED_C_MODE("SpeedC.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
-        SPEED_C_PUNISH("SpeedC.punish", "", "Punishment settings"),
-        SPEED_C_PUNiSH_ENABLED("SpeedC.punish.enabled", false, "Should punishments be enabled for this check?"),
-        SPEED_C_PUNiSH_MODE("SpeedC.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
-        SPEED_C_MAX_VL("SpeedC.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
-
-
 
         OMNISPRINT_A("OmniSprintA.enabled", true, "Should we enable this module?"),
         OMNISPRINT_A_MODE("OmniSprintA.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
