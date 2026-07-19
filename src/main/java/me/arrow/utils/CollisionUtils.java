@@ -678,7 +678,7 @@ public class CollisionUtils {
 
         private final List<Material> blockTypes = new ArrayList<>();
 
-        private boolean nearGround, blockAbove, nearWaterLogged, nearNonFullCollision;
+        private boolean nearGround, exactGroundSupport, blockAbove, nearWaterLogged, nearNonFullCollision;
         private boolean exactCollisionCandidate;
 
         private boolean hasExactCollisionCandidate() {
@@ -826,6 +826,16 @@ public class CollisionUtils {
                         }
 
                         for (PEMaterials.CollisionBounds box : boxes) {
+                            if (!this.exactGroundSupport
+                                    && overlapsHorizontally(
+                                            box,
+                                            playerMinX, playerMinZ,
+                                            playerMaxX, playerMaxZ
+                                    )
+                                    && Math.abs(box.maxY - feetY) <= 0.050001D) {
+                                this.exactGroundSupport = true;
+                            }
+
                             if (!this.nearGround
                                     && overlapsSupportFootprint(box, location)
                                     && box.maxY >= supportMinY
@@ -866,6 +876,10 @@ public class CollisionUtils {
 
         public boolean hasBlockAbove() {
             return blockAbove;
+        }
+
+        public boolean hasExactGroundSupport() {
+            return exactGroundSupport;
         }
 
         public boolean isWeirdBlock(Material material) {

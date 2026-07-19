@@ -68,7 +68,7 @@ public class MotionD extends Check {
                 return;
             }
 
-            if (movementData.isMovingUp()) {
+            if (movementData.getSincePredictUpwardsTicks() < 10) {
                 buffer -= Math.min(buffer, 0.5);
                 return;
             }

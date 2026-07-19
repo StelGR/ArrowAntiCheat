@@ -194,7 +194,7 @@ public class MotionA extends Check {
             if (!isGround
                     && lastGround
                     && deltaY > motion
-                    && !movementData.isMovingUp()) {
+                    && movementData.getSincePredictUpwardsTicks() > 10) {
 //                if (++buffer2 > 1) {
 //
 //                }

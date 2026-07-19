@@ -6,8 +6,10 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -15,6 +17,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
 public class EntityUtil {
+
+    private static final long MIN_CACHE_REFRESH_MS = 25L;
+    private static final Method ENTITY_IS_COLLIDABLE = findEntityIsCollidable();
 
     static ConcurrentHashMap<UUID, EntityCache> CACHE = new ConcurrentHashMap<>();
 
@@ -74,6 +79,18 @@ public class EntityUtil {
         return getOrQueueRefresh(profile).nearGhast;
     }
 
+    public static boolean hasRecentPushCandidate(Profile profile, long graceMillis) {
+        if (profile == null || profile.getPlayer() == null) {
+            return false;
+        }
+
+        EntityCache cache = getOrQueueRefresh(profile);
+        long grace = Math.max(0L, Math.min(1_000L, graceMillis));
+        long lastCandidate = cache.lastPushCandidate;
+
+        return lastCandidate > 0L && System.currentTimeMillis() - lastCandidate <= grace;
+    }
+
     public static void refresh(Profile profile) {
         if (profile == null || profile.getPlayer() == null) {
             return;
@@ -95,7 +112,9 @@ public class EntityUtil {
         EntityCache cache = CACHE.computeIfAbsent(player.getUniqueId(), uuid -> new EntityCache());
 
         if (canReadNearbyEntities(player)) {
-            refreshNow(profile);
+            if (System.currentTimeMillis() - cache.lastUpdate >= MIN_CACHE_REFRESH_MS) {
+                refreshNow(profile);
+            }
             return CACHE.getOrDefault(player.getUniqueId(), cache);
         }
 
@@ -148,7 +167,85 @@ public class EntityUtil {
         cache.nearShulker = anyNearbyNow(player, 4.0D, EntityUtil::isShulker);
         cache.nearGhast = anyNearbyNow(player, 8.0D, EntityUtil::isGhast);
 
+        if (hasNearbyPushCandidateNow(player)) {
+            cache.lastPushCandidate = System.currentTimeMillis();
+        }
+
         cache.lastUpdate = System.currentTimeMillis();
+    }
+
+    private static boolean hasNearbyPushCandidateNow(Player player) {
+        if (player == null || !canReadNearbyEntities(player)) {
+            return false;
+        }
+
+        try {
+            Location base = player.getLocation();
+
+            for (Entity entity : player.getNearbyEntities(1.25D, 2.0D, 1.25D)) {
+                if (!canReadEntity(entity) || !isPushCandidate(entity)) {
+                    continue;
+                }
+
+                Location target = entity.getLocation();
+
+                if (base.getWorld() == null
+                        || target.getWorld() == null
+                        || !base.getWorld().equals(target.getWorld())) {
+                    continue;
+                }
+
+                double deltaX = base.getX() - target.getX();
+                double deltaZ = base.getZ() - target.getZ();
+
+                if (Math.abs(base.getY() - target.getY()) < 1.9D
+                        && (deltaX * deltaX) + (deltaZ * deltaZ) <= 1.0D) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return false;
+    }
+
+    private static boolean isPushCandidate(Entity entity) {
+        if (entity == null) {
+            return false;
+        }
+
+        if (ENTITY_IS_COLLIDABLE != null) {
+            try {
+                Object result = ENTITY_IS_COLLIDABLE.invoke(entity);
+
+                if (result instanceof Boolean) {
+                    return (Boolean) result;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        if (entity instanceof LivingEntity) {
+            return true;
+        }
+
+        EntityType type;
+
+        try {
+            type = entity.getType();
+        } catch (Throwable ignored) {
+            return false;
+        }
+
+        return isBoat(type) || (type != null && type.name().contains("MINECART"));
+    }
+
+    private static Method findEntityIsCollidable() {
+        try {
+            return Entity.class.getMethod("isCollidable");
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private static boolean anyNearbyNow(Player player, double radius, Predicate<EntityType> predicate) {
@@ -356,6 +453,7 @@ public class EntityUtil {
         volatile boolean nearBoat;
         volatile boolean nearShulker;
         volatile boolean nearGhast;
+        volatile long lastPushCandidate;
         volatile long lastUpdate;
     }
 }

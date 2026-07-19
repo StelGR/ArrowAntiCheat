@@ -483,7 +483,6 @@ public class MovementData implements Data {
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(PEMaterials::isNonFullShape)
-                || nearbyBlocksResult.isNearNonFullCollision()
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isStair)
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall);
 
@@ -1276,15 +1275,25 @@ public class MovementData implements Data {
         }
         else sincePredictUpwardsTicksWithoutMaterial++;
 
-        if (isMovingDown()) {
+        if (isMovingDown() && nearStepMaterial) {
             sincePredictDownwardsTicks = 0;
         }
         else sincePredictDownwardsTicks++;
 
-        if (isMovingUp()) {
-            sincePredictUpwardsTicks = 0;
+        if (isMovingUp() && nearStepMaterial) {
+            sincePredictDownwardsTicks = 0;
         }
-        else sincePredictUpwardsTicks++;
+        else sincePredictDownwardsTicks++;
+
+        if (isMovingDown()) {
+            sincePredictDownwardsTicksWithoutMaterial = 0;
+        }
+        else sincePredictDownwardsTicksWithoutMaterial++;
+
+        if (isMovingUp()) {
+            sincePredictUpwardsTicksWithoutMaterial = 0;
+        }
+        else sincePredictUpwardsTicksWithoutMaterial++;
 
         if (profile.getPotionData().isHasSpeed()) sinceSpeedPotionEffectTicks = 0;
         else sinceSpeedPotionEffectTicks += 1;

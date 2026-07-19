@@ -5,9 +5,12 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.protocol.player.User;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDisconnect;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerParticle;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
+import io.github.retrooper.packetevents.adventure.serializer.legacy.LegacyComponentSerializer;
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
@@ -49,6 +52,9 @@ import java.util.UUID;
 @Getter
 @Setter
 public class Profile {
+
+    private static final LegacyComponentSerializer LEGACY_COMPONENT_SERIALIZER =
+            LegacyComponentSerializer.legacySection();
 
     //-------------------------------------------
     private final ActionData actionData;
@@ -250,10 +256,50 @@ public class Profile {
     }
 
     public void kick(String reason) {
+        final Player target = this.player;
 
-        if (this.player == null) return;
+        if (target == null) return;
 
-        TaskUtils.task(() -> this.player.kickPlayer(ChatUtils.format(reason)));
+        final String formattedReason = ChatUtils.format(reason);
+
+        Runnable disconnect = () -> {
+            if (!target.isOnline()) return;
+
+            try {
+                target.kickPlayer(formattedReason);
+            } catch (Throwable ignored) {
+                forceCloseConnection(target, formattedReason);
+                return;
+            }
+
+            // PlayerKickEvent can be cancelled by another plugin. Verify the Bukkit
+            // kick completed, then close the connection directly if it did not.
+            TaskUtils.playerLater(target, 1L, () -> {
+                if (target.isOnline()) {
+                    forceCloseConnection(target, formattedReason);
+                }
+            });
+        };
+
+        if (TaskUtils.isOwnedByCurrentRegion(target)) {
+            disconnect.run();
+        } else {
+            TaskUtils.player(target, disconnect);
+        }
+    }
+
+    private void forceCloseConnection(Player target, String formattedReason) {
+        try {
+            User user = PacketEvents.getAPI().getPlayerManager().getUser(target);
+
+            if (user == null) return;
+
+            user.sendPacketSilently(new WrapperPlayServerDisconnect(
+                    LEGACY_COMPONENT_SERIALIZER.deserialize(formattedReason)
+            ));
+            user.closeConnection();
+        } catch (Throwable ignored) {
+        }
     }
 
     public UUID getUUID() {
@@ -274,7 +320,7 @@ public class Profile {
     }
 
     public boolean shouldCancel() {
-        return player.isFlying()
+        return (player.getAllowFlight() && player.isFlying())
                 || getLastFlightToggleTimer().hasNotPassed(40)
                 || player.getGameMode() == GameMode.CREATIVE
                 || player.getGameMode() == GameMode.SPECTATOR

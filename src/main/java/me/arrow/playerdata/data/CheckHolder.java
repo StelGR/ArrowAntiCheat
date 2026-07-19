@@ -122,6 +122,7 @@ public class CheckHolder {
 
                 new SpeedA(this.profile),
                 new SpeedB(this.profile),
+                new SpeedC(this.profile),
 
                 new NoSlowdown(this.profile),
                 new OmniSprintA(this.profile),
