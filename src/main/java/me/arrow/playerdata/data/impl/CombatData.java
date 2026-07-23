@@ -2,7 +2,10 @@ package me.arrow.playerdata.data.impl;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.managers.profile.Profile;
@@ -42,7 +45,7 @@ public class CombatData implements Data {
     private final Deque<Long> clickTimestamps = new ArrayDeque<>();
     private final Queue<Integer> armAnimationClickSamples = new LinkedList<>();
 
-    private boolean attacked;
+    private boolean attacked, dropping;
     private boolean armAnimationSamplesReady;
     private int armAnimationMovements;
     private double armAnimationCps;
@@ -75,13 +78,24 @@ public class CombatData implements Data {
             attacked = false;
             movementTicks = 0;
             armAnimationMovements++;
-        } else if (event.getPacketType().equals(ANIMATION)) {
+            dropping = false;
+        }
+        else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
+            WrapperPlayClientPlayerDigging digging = new WrapperPlayClientPlayerDigging(event);
+
+            if (digging.getAction().equals(DiggingAction.DROP_ITEM) || digging.getAction().equals(DiggingAction.DROP_ITEM_STACK)) {
+                dropping = true;
+            }
+        }
+        else if (event.getPacketType().equals(ANIMATION)) {
             collectArmAnimationSample();
 
             // Handle block actions
-            if (profile.getLastBlockBreakTimer().hasNotPassed(20) || profile.getPredictionData().isDigging()) {
+            if (profile.getLastBlockBreakTimer().hasNotPassed(20) || profile.getPredictionData().isDigging() || isDropping()) {
                 movementTicks = 0;
                 movements.clear();
+                cpsSamples.clear();
+                clickTimestamps.clear();
                 return;
             }
 
