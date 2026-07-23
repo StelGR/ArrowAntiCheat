@@ -3,6 +3,8 @@ package me.arrow.checks.impl.combat.autoclicker;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -29,9 +31,7 @@ public class AutoClickerA extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
-
             cps = profile.getCombatData().getCurrentCps();
-
         }
 
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
