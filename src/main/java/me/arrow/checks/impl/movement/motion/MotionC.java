@@ -104,8 +104,6 @@ public class MotionC extends Check {
                 return;
             }
 
-
-
             boolean hasJumpBoost = profile.getPotionData().isHasJump();
             double jumpLevel = hasJumpBoost
                     ? profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST)
@@ -195,11 +193,11 @@ public class MotionC extends Check {
 
         double horizo = profile.getVelocityData().getTotalHorizontalVelocity();
 
-        velMag += (horizo / 2);
+        velMag += horizo;
 
         double baseTicksVel = 8;
         double baseVelocity = 0.0005;
-        double scale = 26;
+        double scale = 22;
 
         return velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
     }
