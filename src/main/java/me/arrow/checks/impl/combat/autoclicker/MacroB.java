@@ -18,15 +18,15 @@ import org.bukkit.inventory.ItemStack;
 @Experimental
 public class MacroB extends Check {
 
-    private static final long MAX_WEAPON_TO_SOUP_DROP_DELAY_MS = 35L;
-    private static final long SEQUENCE_EXPIRY_MS = 400L;
+    private static final long MAX_WEAPON_TO_SOUP_DROP_DELAY_MS = 45L;
+    private static final long SEQUENCE_EXPIRY_MS = 500L;
 
     private long weaponToSoupTime = -1L;
     private Material weaponMaterial;
     private int soupSlot = -1;
 
     public MacroB(Profile profile) {
-        super(profile, CheckType.MACRO, "B", "Detects AutoShoup");
+        super(profile, CheckType.MACRO, "B", "Detects AutoSoup");
     }
 
     @Override

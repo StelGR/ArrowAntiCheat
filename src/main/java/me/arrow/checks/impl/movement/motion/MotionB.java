@@ -52,7 +52,7 @@ public class MotionB extends Check {
                     || profile.getPlayer().isInsideVehicle()
                     || movementData.isOnBoat()
                     || movementData.isNearBoat()
-                    || movementData.getSincePredictUpwardsTicks() < 5
+                    || movementData.getSincePredictUpwardsTicks() < 10
                     || movementData.isNearClimbable()
                     || movementData.isUnderblock()
                     || (movementData.getNearbyBlocksResult() != null
@@ -139,7 +139,6 @@ public class MotionB extends Check {
             if (clientGround
                     && deltaY != 0
                     && !exempt
-                    && movementData.getSincePredictUpwardsTicks() > 10
                     && !profile.isBouncingOnSlime()
                     && !CollisionUtils.isStandingOnMaterial(movementData.getLocation(), movementData.getNearbyBlocksResult(), true, MaterialType.HONEY)
                     && profile.getVelocityData().getTotalHorizontalVelocity() == 0 && profile.getVelocityData().getTotalVerticalVelocity() == 0
@@ -163,10 +162,7 @@ public class MotionB extends Check {
                 buffer2 -= Math.min(buffer2, 0.125);
             }
 
-            if (movementData.getSincePredictUpwardsTicks() < 10) {
-                buffer3 = 0;
-                return;
-            }
+
 
             if (clientGround
                     && deltaY > 0

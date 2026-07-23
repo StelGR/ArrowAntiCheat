@@ -20,6 +20,10 @@ import static com.github.retrooper.packetevents.protocol.packettype.PacketType.P
 @Getter
 @Setter
 public class CombatData implements Data {
+    private static final int ARM_ANIMATION_SAMPLE_SIZE = 200;
+    private static final int ARM_ANIMATION_MAX_MOVEMENTS = 8;
+    private static final int ARM_ANIMATION_MAX_COMBAT_TICKS = 20;
+
     private double outlier, kurtosis, skewness, std, median, averageCps, currentCps;
     private int lastAttackedEntityID, lastLastAttackedEntityID;
     private int attackedTicks;
@@ -36,8 +40,12 @@ public class CombatData implements Data {
 
     private PlayerLocation location;
     private final Deque<Long> clickTimestamps = new ArrayDeque<>();
+    private final Queue<Integer> armAnimationClickSamples = new LinkedList<>();
 
     private boolean attacked;
+    private boolean armAnimationSamplesReady;
+    private int armAnimationMovements;
+    private double armAnimationCps;
 
     Profile profile;
     public CombatData(Profile profile) {
@@ -66,7 +74,10 @@ public class CombatData implements Data {
             this.attackedTicks++;
             attacked = false;
             movementTicks = 0;
+            armAnimationMovements++;
         } else if (event.getPacketType().equals(ANIMATION)) {
+            collectArmAnimationSample();
+
             // Handle block actions
             if (profile.getLastBlockBreakTimer().hasNotPassed(20) || profile.getPredictionData().isDigging()) {
                 movementTicks = 0;
@@ -86,9 +97,9 @@ public class CombatData implements Data {
 
             cpsSamples.add(currentCps);
 
-            if (getMovements().size() >= 120) {
-                getMovements().clear();
-                getClickTimestamps().clear();
+            if (movements.size() >= 120) {
+                movements.clear();
+                clickTimestamps.clear();
             }
 
             if (cpsSamples.isCollected())
@@ -115,5 +126,35 @@ public class CombatData implements Data {
     @Override
     public void processSend(PacketSendEvent event) {
 
+    }
+
+    public void clearArmAnimationClickSamples() {
+        armAnimationClickSamples.clear();
+        armAnimationSamplesReady = false;
+        armAnimationCps = 0.0D;
+    }
+
+    private void collectArmAnimationSample() {
+        if (profile.getPredictionData().isDigging()) {
+            return;
+        }
+
+        if (armAnimationMovements < ARM_ANIMATION_MAX_MOVEMENTS) {
+            if (attackedTicks > ARM_ANIMATION_MAX_COMBAT_TICKS) {
+                return;
+            }
+
+            if (armAnimationMovements == 0) {
+                return;
+            }
+
+            if (armAnimationClickSamples.add(armAnimationMovements)
+                    && armAnimationClickSamples.size() == ARM_ANIMATION_SAMPLE_SIZE) {
+                armAnimationCps = MathUtil.getCPS(armAnimationClickSamples);
+                armAnimationSamplesReady = true;
+            }
+        }
+
+        armAnimationMovements = 0;
     }
 }

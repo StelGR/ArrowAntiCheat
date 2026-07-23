@@ -96,11 +96,6 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (movementData.isIntersecting()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - intersecting");
-            return;
-        }
-
         if (!profile.isExempt().isRespawned()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - notRespawned");
             return;
@@ -187,8 +182,6 @@ public class SpeedA extends Check {
         allowedLimit += movementData.getDolphinGraceBoost();
         allowedLimit += movementData.isColliding() ? 0.05 : 0;
 
-
-
         int ghostLiquidWebTicks = Math.min(
                 profile.getBlockProcessor().getLastGhostLiquidWebTick(),
                 profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
@@ -198,12 +191,14 @@ public class SpeedA extends Check {
             allowedLimit += 0.2;
         }
 
-        if (profile.isSwimming() && movementData.isNearWater()) allowedLimit += 0.137;
+        //if (profile.isSwimming() && movementData.isNearWater()) allowedLimit += 0.137;
 
         if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed C: is extending (Piston Update)");
             allowedLimit += 0.1295;
         }
+
+        if (serverGroundTicks <= 10) allowedLimit += 0.00325;
 
         if (serverGround && deltaXZ != 0) {
             verbose(this.getClass().getSimpleName(), predicted, allowedLimit,
@@ -219,6 +214,8 @@ public class SpeedA extends Check {
                             + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                             + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
                             + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
+                            + "\n * moving Up Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                            + "\n * moving Down Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                             + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
                             + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
                             + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)
@@ -226,15 +223,13 @@ public class SpeedA extends Check {
                             + "\n * iceSpeedBoost " + MsgType.MAIN_THEME_COLOR.getMessage() + iceBoost);
         }
 
-
         double difference = predicted - allowedLimit;
         double bufferAmount = difference > 0.5 ? 0 : 6;
-        double serverGroundMaxTicks = 8;
+        double serverGroundMaxTicks = 4;
 
         if (difference > 0.6) serverGroundMaxTicks = 2;
 
         if (serverGroundTicks > serverGroundMaxTicks && predicted > allowedLimit) {
-
             if (++groundBuffer > bufferAmount) {
                 fail("Speed limit exceeded (Ground)",
                         "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + predicted
@@ -243,7 +238,8 @@ public class SpeedA extends Check {
                                 + "\nserverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGroundTicks);
                 groundBuffer = Math.max(bufferAmount + 2, groundBuffer);
             }
-        } else groundBuffer = Math.max(0, groundBuffer - 0.01);
+        }
+        else groundBuffer = Math.max(0, groundBuffer - 0.01);
 
     }
 
@@ -338,13 +334,13 @@ public class SpeedA extends Check {
 
         double expected = -0.0784000015258789D;
         if (Math.abs(deltaY - expected) < 1E-6 && clientAirTicks == 1) {
-            expectedSpeed += speedLevel > 0 ? (0.0575 + (0.008D * speedLevel)) : 0.0575;
+            expectedSpeed += speedLevel > 0 ? (0.06125 + (0.008D * speedLevel)) : 0.06125;
         }
 
         double expected2 = 0.33319999363422426D;
 
         if (clientAirTicks == 2 && Math.abs(deltaY - expected2) < 1E-6) {
-            expectedSpeed += speedLevel > 0 ? (0.009525 + (0.008D * speedLevel)) : 0.009525;
+            expectedSpeed += speedLevel > 0 ? (0.0108125 + (0.008D * speedLevel)) : 0.0108125;
             expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.012225 : 0;
         }
 
@@ -354,7 +350,6 @@ public class SpeedA extends Check {
             expectedSpeed += speedLevel > 0 ? (0.00725 + (0.008D * speedLevel)) : 0.00725;
             expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.00925 : 0;
         }
-
 
         if (movementData.getSinceMovingOnIceTicks() < 20 || movementData.getSinceMovingOnSlimeTicks() < 20) {
             expectedSpeed += 0.01D;
@@ -366,6 +361,10 @@ public class SpeedA extends Check {
 
         if (movementData.getSinceMovingOnIceTicks() > 0 && movementData.getSinceMovingOnIceTicks() < 120) {
             expectedSpeed += 0.003;
+        }
+
+        if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            expectedSpeed += 0.005;
         }
 
         expectedSpeed += movementData.elytraMomentum();
@@ -380,7 +379,7 @@ public class SpeedA extends Check {
             expectedSpeed += 0.2;
         }
 
-        if (profile.isSwimming() && movementData.isNearWater()) expectedSpeed += 0.137;
+        //if (profile.isSwimming() && movementData.isNearWater()) expectedSpeed += 0.137;
 
         String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
@@ -514,11 +513,12 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (movementData.getSincePredictUpwardsTicks() < 10) {
+        if (movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             airBuffer = 0;
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - movingUp");
             return;
         }
+
         if (deltaXZ > expectedSpeed
                 && !serverGround) {
 
@@ -534,6 +534,8 @@ public class SpeedA extends Check {
                                 + "\ndifference " + MsgType.MAIN_THEME_COLOR.getMessage() + difference
                                 + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                                 + "\nserverAirTicks  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
+                                + "\nupwardsTicks  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()
+                                + "\ndownwardsTicks  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks()
                                 + "\nisSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting());
                 airBuffer = Math.max(8, airBuffer);
             }

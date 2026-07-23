@@ -91,6 +91,9 @@ public enum MaterialType {
 
     BERRIES("SWEET_BERRY_BUSH"),
 
+
+    HEIGHT_CHANGE("FARM_LAND", "DIRT_PATH", "FARMLAND", "MUD", "REPEATER", "COMPARAT", "SNOW"),
+
     SCAFFOLDING("SCAFFOLDING"),
 
     BUBBLE("BUBBLE_COLUMN"),
@@ -363,6 +366,23 @@ public enum MaterialType {
         // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
         return name.endsWith("_STAIRS")
                 || isMaterial(name, MaterialType.STAIRS);
+    }
+
+    public static boolean isBed(Block block) {
+        return block != null && isBed(block.getType());
+    }
+
+    public static boolean isBed(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "BED")) return true;
+
+        String name = material.name();
+
+        // Future-proof:
+        // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
+        return name.endsWith("_BED")
+                || isMaterial(name, MaterialType.BED);
     }
 
     public static boolean isFence(Block block) {

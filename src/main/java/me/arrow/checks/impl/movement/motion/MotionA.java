@@ -119,6 +119,11 @@ public class MotionA extends Check {
                 return;
             }
 
+            if (movementData.getSincePredictUpwardsTicks() < 10 || movementData.getSincePredictDownwardsTicks() < 10) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting (step Down / Up)");
+                return;
+            }
+
             if (movementData.elytraMomentum() > 0) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: elytraMomentum");
                 return;
@@ -193,8 +198,7 @@ public class MotionA extends Check {
 
             if (!isGround
                     && lastGround
-                    && deltaY > motion
-                    && movementData.getSincePredictUpwardsTicks() > 10) {
+                    && deltaY > motion) {
 //                if (++buffer2 > 1) {
 //
 //                }

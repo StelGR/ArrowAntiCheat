@@ -31,7 +31,6 @@ import me.arrow.utils.MoveUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.*;
 import me.arrow.utils.custom.materials.MaterialType;
-import me.arrow.utils.custom.materials.PEMaterials;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -163,7 +162,6 @@ public class MovementData implements Data {
 
         if (event.getPacketType().equals(ENTITY_ACTION)) {
             handleElytraStartAction(event);
-            return;
         }
 
         if (event.getPacketType().equals(PLAYER_FLYING)) {
@@ -477,18 +475,22 @@ public class MovementData implements Data {
                 //((isPlayerIntersectingBlocks(profile) || profile.getBlockData().collideSlime || isPhasing(profile)) && (deltaXZ > 20 || deltaY > 60 || deltaY < -60) || isPhasing(profile))
         ;
 
-        nearStepMaterial = nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
+        nearStepMaterial =
+                nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFence)
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
+//                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isBed)
+//                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HEIGHT_CHANGE))
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(PEMaterials::isNonFullShape)
+//                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(PEMaterials::isNonFullCollision)
+//                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(PEMaterials::isNonFullShape)
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isStair)
                 || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall);
 
-        movingUp = moving && (getDeltaY() > 0 || getLastDeltaY() > 0) && nearStepMaterial;
+        movingUp = (getDeltaY() > 0 || getLastDeltaY() > 0) && nearStepMaterial;
 
-        movingDown = moving && (getDeltaY() < 0 || getLastDeltaY() < 0) && nearStepMaterial;
+        movingDown = (getDeltaY() < 0 || getLastDeltaY() < 0) && nearStepMaterial;
 
         if (!supportsEntityCollisionCheck()) {
             isColliding = false;
@@ -500,6 +502,8 @@ public class MovementData implements Data {
     void processBlocks() {
         NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, !TaskUtils.isFoliaServer());
+
+
 
         boolean flag_water = false, flag_lava = false, flag_web = false, flag_climbable = false,
                 flag_nearBuggyBlock = false, flag_bubble = false, flag_bed = false,
@@ -539,7 +543,7 @@ public class MovementData implements Data {
                                 || MaterialType.isMaterial(mName, MaterialType.SCAFFOLDING);
 
                         flag_nearBuggyBlock = flag_nearBuggyBlock || MaterialType.isMaterial(mName, MaterialType.BUGGY_BLOCK);
-                        flag_bed = flag_bed || MaterialType.isMaterial(mName, MaterialType.BED);
+                        flag_bed = flag_bed || MaterialType.isMaterial(mName, MaterialType.BED) || MaterialType.isBed(mat);
                         flag_honey = flag_honey || MaterialType.isMaterial(mName, MaterialType.HONEY);
                         flag_shulker = flag_shulker || MaterialType.isMaterial(mName, MaterialType.SHULKER);
                         flag_dripleaf = flag_dripleaf || MaterialType.isMaterial(mName, MaterialType.DRIP_LEAF);
@@ -569,8 +573,6 @@ public class MovementData implements Data {
         nearDripLeaf = flag_dripleaf;
         nearFence = flag_fence;
         nearSlime = flag_slime;
-
-
 
         isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.WATER);
 
@@ -604,8 +606,6 @@ public class MovementData implements Data {
         lastLastNearWall = lastNearWall;
         lastNearWall = nearWall;
         nearWall = isNearWallScanner(getLocation());
-
-
 
         boolean flag_underblock = false;
 
@@ -787,9 +787,13 @@ public class MovementData implements Data {
 
         this.serverGround = serverGround;
 
-        this.serverGroundTicks = serverGround && serverGroundTicks < 20 ? this.serverGroundTicks + 1 : 0;
+        this.serverGroundTicks = serverGround
+                ? Math.min(this.serverGroundTicks + 1, 20)
+                : 0;
 
-        this.lastServerGroundTicks = serverGround && lastServerGroundTicks < 20 ? 0 : this.lastServerGroundTicks + 1;
+        this.lastServerGroundTicks = serverGround
+                ? Math.min(this.lastServerGroundTicks + 1, 20)
+                : 0;
 
         //Equipment
 
@@ -1063,10 +1067,6 @@ public class MovementData implements Data {
 
         nearPiston = nearPiston0 || nearPiston1 || nearPiston2 || nearPiston3;
 
-
-
-
-
         // this is a temporary, test fix, for piston movable slime blocks, it may not work properly in all scenarios, but it will do for now
         // assuming that it even works...
         onExtendedHitboxSlime = onSlime || slimeBelow0 || slimeBelow1 || slimeBelow2 || slimeAbove0 || slimeAbove1 || slimeAbove2 || slimeBelowBelow0 || slimeBelowBelow1 || slimeBelowBelow2 || slimeBelowBelow3 || slimeBelowBelow4 || slimeBelowBelow5
@@ -1191,13 +1191,9 @@ public class MovementData implements Data {
             sinceRiptidingTicks = 0;
         } else sinceRiptidingTicks++;
 
-        profile.getConnectionData().setFlyingTick(profile.getConnectionData().getFlyingTick() + 1);
-
-        profile.getConnectionData().setTransDropTick(profile.getConnectionData().getTransDropTick() + 1);
-
 
         tickTime++;
-        if (tickTime >= 20 && isOnGround()) {
+        if (tickTime >= 20 && isOnGround() && !isCustomInAir()) {
             this.lastSetBackLocation = getLocation();
             tickTime = 0;  // Reset only when condition is met
         }
@@ -1265,6 +1261,8 @@ public class MovementData implements Data {
         }
         else sincePredictUpwardsTicks++;
 
+
+
         if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN) {
             sincePredictDownwardsTicksWithoutMaterial = 0;
         }
@@ -1275,15 +1273,17 @@ public class MovementData implements Data {
         }
         else sincePredictUpwardsTicksWithoutMaterial++;
 
-        if (isMovingDown()) {
+        if (isMovingDown() && isNearStepMaterial()) {
+            sincePredictDownwardsTicks = 0;
+        }
+        else sincePredictDownwardsTicks++;
+
+        if (isMovingUp() && isNearStepMaterial()) {
             sincePredictUpwardsTicks = 0;
         }
         else sincePredictUpwardsTicks++;
 
-        if (isMovingUp()) {
-            sincePredictDownwardsTicks = 0;
-        }
-        else sincePredictDownwardsTicks++;
+        //Bukkit.broadcastMessage("ticks: " + sincePredictUpwardsTicks);
 
         if (profile.getPotionData().isHasSpeed()) sinceSpeedPotionEffectTicks = 0;
         else sinceSpeedPotionEffectTicks += 1;
@@ -1301,13 +1301,6 @@ public class MovementData implements Data {
                 sinceRiptidingTicks < 20
         ;
 
-        //profile.getPlayer().sendMessage("isRiptiding: " + isRiptiding + " riptideUse: " + profile.getPredictionData().isRiptideCharging());
-
-        if (movingUp) sinceMovingUpTicks = 0;
-        else sinceMovingUpTicks++;
-
-        if (movingDown) sinceMovingDownTicks = 0;
-        else sinceMovingDownTicks++;
 
         if (nearBubble) sinceBubbleTicks = 0;
         else sinceBubbleTicks++;
@@ -1324,6 +1317,17 @@ public class MovementData implements Data {
         if (profile.getPotionData().isHasLevitation()) sinceLevitationEffectTicks = 0;
         else sinceLevitationEffectTicks++;
 
+        if (profile.isOnGhostBlock()) {
+            sinceOnGhostBlock = 0;
+        }
+        else sinceOnGhostBlock++;
+
+        dolphinGraceBoost = dolphinGraceMomentum();
+
+        profile.getConnectionData().setFlyingTick(profile.getConnectionData().getFlyingTick() + 1);
+
+        profile.getConnectionData().setTransDropTick(profile.getConnectionData().getTransDropTick() + 1);
+
         try {
             if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
                 if (profile.getPotionData().getPotionEffectLevel(PotionType.DOLPHINS_GRACE) > 0) {
@@ -1335,16 +1339,9 @@ public class MovementData implements Data {
                     sinceDolphinGraceTicks++;
                 }
             }
-        } catch (NoSuchMethodError exception) {
-            return;
-        }
+        } catch (NoSuchMethodError ignored) {
 
-        if (profile.isOnGhostBlock()) {
-            sinceOnGhostBlock = 0;
         }
-        else sinceOnGhostBlock++;
-
-        dolphinGraceBoost = dolphinGraceMomentum();
     }
 
     public boolean isWaterOrWaterlogged(Block block) {
