@@ -3,7 +3,6 @@ package me.arrow.checks.impl.movement.fly;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -12,12 +11,10 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
-import me.arrow.utils.MoveUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.event.entity.EntityDamageEvent;
 
 import static me.arrow.utils.customutils.Math.MathUtil.getAverage;
 import static me.arrow.utils.customutils.Math.MathUtil.getDevation;
@@ -266,11 +263,11 @@ public class FlyA extends Check {
 
             double horizo = profile.getVelocityData().getTotalHorizontalVelocity();
 
-            velMag += (horizo / 2);
+            velMag += horizo;
 
             double baseTicksVel = 8;
             double baseVelocity = 0.00001;
-            double scale = 26;
+            double scale = 22;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
             airTickLimit += Math.ceil(extraFromVel);
