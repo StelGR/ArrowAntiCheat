@@ -78,7 +78,7 @@ public class VelocityA extends Check {
         boolean verticalCollisionLimited = movementData.isMovingUp()
                 || movementData.isNearWall()
                 || movementData.isUnderblock()
-                || movementData.getSinceMovingUpTicks() < 5;
+                || movementData.getSincePredictUpwardsTicks() < 5;
         boolean explosionContext = pendingExplosionTicks > 0
                 || velocityData.getExplosionVelocityPacketTicks() <= 3 + transition
                 || velocityData.getExplosionVelocityTicks() <= 2;
@@ -360,7 +360,7 @@ public class VelocityA extends Check {
         pendingExplosionCollisionLimited = movementData.isNearWall()
                 || movementData.isUnderblock()
                 || movementData.isMovingUp()
-                || movementData.getSinceMovingUpTicks() < 5;
+                || movementData.getSincePredictUpwardsTicks() < 5;
         pendingExplosionTicks = 2 + Math.min(2, Math.max(0, profile.getConnectionData().getClientTickTrans()));
     }
 

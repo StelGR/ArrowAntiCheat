@@ -386,6 +386,8 @@ public class MovementPredictionUtil {
         if (MaterialType.isMaterial(type, MaterialType.WALL)) return true;
         if (MaterialType.isMaterial(type, MaterialType.DOOR)) return true;
         if (MaterialType.isMaterial(type, MaterialType.TRAPDOOR)) return true;
+        if (MaterialType.isMaterial(type, MaterialType.STAIRS)) return true;
+        if (MaterialType.isMaterial(type, MaterialType.SLAB)) return true;
         if (MaterialType.isStair(type)) return true;
         if (MaterialType.isFence(type)) return true;
         if (MaterialType.isSlab(meterialtype)) return true;

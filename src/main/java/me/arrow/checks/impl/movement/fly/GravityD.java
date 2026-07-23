@@ -100,6 +100,7 @@ public class GravityD extends Check {
                     || movementData.isNearShulkerBox()
                     || movementData.isNearLava()
                     || movementData.isNearWater()
+                    || movementData.isNearBed()
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
                     || movementData.getSinceGlidingTicks() < 30 + (transTicks * 2)
@@ -464,6 +465,11 @@ public class GravityD extends Check {
         // MovementData intentionally produces deltaY=0 for them, so consuming them here
         // would both create false low-hop samples and destroy the fall trajectory.
         if (data == null) {
+            return;
+        }
+
+        if (data.getSincePredictUpwardsTicks() < 12 + (profile.getConnectionData().getClientTickTrans() * 2) || data.getSincePredictDownwardsTicks() < 12 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            resetGravityD("predictUp/Down");
             return;
         }
 
@@ -923,7 +929,7 @@ public class GravityD extends Check {
         if (data.getMovingUnderblockTicks() > 0) { resetGravityD("movingUnderBlock"); return true; }
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return true; }
 
-        if (data.getSincePredictUpwardsTicks() < 10 || data.getSincePredictDownwardsTicks() < 10) {
+        if (data.getSincePredictUpwardsTicks() < 12 + (profile.getConnectionData().getClientTickTrans() * 2) || data.getSincePredictDownwardsTicks() < 12 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             resetGravityD("predictUp/Down");
             return true;
         }
@@ -1026,8 +1032,7 @@ public class GravityD extends Check {
             return false;
         }
 
-        double allowed = packetThreshold;
-        double severity = expectedDisplacement / allowed;
+        double severity = expectedDisplacement / packetThreshold;
         double doubleGravityDY = predictGravityDY(profile, data, expectedMotion.terminalDY);
         int airTicks = getAirTicks(data);
         String information = ChatColor.RED + "Verbose (missing position)"
@@ -1054,8 +1059,8 @@ public class GravityD extends Check {
                 0.0D,
                 lastGravityDObservedDY,
                 expectedDisplacement,
-                expectedDisplacement - allowed,
-                allowed,
+                expectedDisplacement - packetThreshold,
+                packetThreshold,
                 severity,
                 lastGravityDObservedDY - expectedMotion.terminalDY,
                 false,
@@ -1336,6 +1341,13 @@ public class GravityD extends Check {
                                        double added) {
         negGravStreak += added;
         double bufferAdded = Math.max(0.25D, Math.min(1.0D, added * 0.30D));
+
+        if (isGravityDExempt(data, getLagCompensationTicks())) return false;
+
+        double expected = 0.59260459763505993D;
+        double predictedWrong = 0.502352515459515D;
+
+        if (fallDist == 0 && airTicks == 0 && dy == 0 && ((lastDy - expected) < 1E-6) && !data.isCustomInAir() && data.isOnGround() && ((expectedDY - predictedWrong) < 1E-6)) return false;
 
         if (increaseBufferBy(bufferAdded) > required || negGravStreak > required) {
             fail("Negative Gravity Modification",

@@ -369,29 +369,35 @@ public class AimG extends Check {
         if (suspicious) {
             double evidence = hardRegionLock ? 1.55D : jitteredRegionLock ? 1.10D : 0.85D;
 
-            if (increaseBufferBy(evidence) > 2.60D) {
-                String type = hardRegionLock ? "hard-region"
-                        : jitteredRegionLock ? "jittered-region"
-                        : "coarse-region";
+            int requiredBuffer = profile.getTrustFactor().getRequiredBuffer();
 
-                fail("Hitbox Region Lock",
-                        "type " + MsgType.MAIN_THEME_COLOR.getMessage() + type
-                                + "\nclusterRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(clusterRatio)
-                                + "\nmedianDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(medianDistance)
-                                + "\np85Distance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(p85Distance)
-                                + "\nmaxDeviation " + MsgType.MAIN_THEME_COLOR.getMessage() + format(maximumDeviation)
-                                + "\ncenter " + MsgType.MAIN_THEME_COLOR.getMessage()
-                                + format(centerX) + ", " + format(centerY) + ", " + format(centerZ)
-                                + "\ndominantCellRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(dominantCellRatio)
-                                + "\nverticalBandRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(verticalBandRatio)
-                                + "\ntransitionRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(transitionRatio)
-                                + "\nstableTransitionRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(stableTransitionRatio)
-                                + "\njitterRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(jitterRatio)
-                                + "\nlongestInlierStreak " + MsgType.MAIN_THEME_COLOR.getMessage() + longestInlierStreak
-                                + "\nbearingTravel " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bearingTravel)
-                                + "\nrelativeTravel " + MsgType.MAIN_THEME_COLOR.getMessage() + format(relativeTravel));
+            if (increaseBufferBy(evidence) > requiredBuffer) {
+                if (profile.getTrustFactor().getTrust() >= 80) {
+                    profile.getTrustFactor().decreaseTrustBy(2.3);
+                } else {
+                    String type = hardRegionLock ? "hard-region"
+                            : jitteredRegionLock ? "jittered-region"
+                            : "coarse-region";
 
-                decreaseBufferBy(1.20D);
+                    fail("Hitbox Region Lock",
+                            "type " + MsgType.MAIN_THEME_COLOR.getMessage() + type
+                                    + "\nclusterRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(clusterRatio)
+                                    + "\nmedianDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(medianDistance)
+                                    + "\np85Distance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(p85Distance)
+                                    + "\nmaxDeviation " + MsgType.MAIN_THEME_COLOR.getMessage() + format(maximumDeviation)
+                                    + "\ncenter " + MsgType.MAIN_THEME_COLOR.getMessage()
+                                    + format(centerX) + ", " + format(centerY) + ", " + format(centerZ)
+                                    + "\ndominantCellRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(dominantCellRatio)
+                                    + "\nverticalBandRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(verticalBandRatio)
+                                    + "\ntransitionRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(transitionRatio)
+                                    + "\nstableTransitionRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(stableTransitionRatio)
+                                    + "\njitterRatio " + MsgType.MAIN_THEME_COLOR.getMessage() + format(jitterRatio)
+                                    + "\nlongestInlierStreak " + MsgType.MAIN_THEME_COLOR.getMessage() + longestInlierStreak
+                                    + "\nbearingTravel " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bearingTravel)
+                                    + "\nrelativeTravel " + MsgType.MAIN_THEME_COLOR.getMessage() + format(relativeTravel));
+
+                    decreaseBufferBy(1.20D);
+                }
             }
         } else {
             decreaseBufferBy(changingScene ? 0.40D : 0.65D);
