@@ -100,7 +100,7 @@ public class MacroB extends Check {
                 return;
             }
 
-            if (delay <= MAX_WEAPON_TO_SOUP_DROP_DELAY_MS) {
+            if (delay <= MAX_WEAPON_TO_SOUP_DROP_DELAY_MS && delay > 1) {
                 fail("Impossible weapon to soup drop macro",
                         "delay " + MsgType.MAIN_THEME_COLOR.getMessage() + delay + "ms"
                                 + "\nweapon " + MsgType.MAIN_THEME_COLOR.getMessage() + weaponMaterial.name()

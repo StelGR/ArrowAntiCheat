@@ -163,6 +163,12 @@ public class MotionB extends Check {
             }
 
 
+            if (movementData.getSincePredictUpwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                    || movementData.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                buffer3 = 0;
+                return;
+            }
+
 
             if (clientGround
                     && deltaY > 0

@@ -170,9 +170,7 @@ public class GravityA extends Check {
             return;
         }
 
-        if (movementData.isMovingUp()
-                || movementData.isMovingDown()
-                || movementData.getSincePredictUpwardsTicks() < 10
+        if (movementData.getSincePredictUpwardsTicks() < 10
                 || movementData.getSincePredictDownwardsTicks() < 10
                 || movementData.getSincePredictDownwardsTicksWithoutMaterial() < 5) {
             bufferA -= Math.min(bufferA, 0.75D);

@@ -70,8 +70,7 @@ public class TimerB extends Check {
         // Modern clients do not provide a useful stationary cadence. Reset the
         // baseline as well as returning, otherwise the first moving packet
         // includes all of the time that the player stood still.
-        if (profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_9)
-                && !profile.getMovementData().isMoving()) {
+        if (!profile.getMovementData().isMoving()) {
             resetTimingState();
             return;
         }

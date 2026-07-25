@@ -163,9 +163,7 @@ public class GravityB extends Check {
             PredictionResult predictionResult = selectGravityPrediction(movementData, normalPrediction, true);
             double prediction = predictionResult.prediction;
 
-            if (movementData.isMovingUp()
-                    || movementData.isMovingDown()
-                    || movementData.getSincePredictUpwardsTicks() < 10
+            if (movementData.getSincePredictUpwardsTicks() < 10
                     || movementData.getSincePredictDownwardsTicks() < 10) {
                 bufferB -= Math.min(bufferB, 0.25D);
                 return;

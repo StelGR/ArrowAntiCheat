@@ -145,7 +145,7 @@ public class VelocityB extends Check {
         if (movementData.isNearWebs()) return;
 
         handleHorizontalVelocity(movementData, velocityData);
-
+        //invalidHorizontalTwo(movementData, velocityData);
     }
 
     private boolean isMovement(PacketReceiveEvent event) {
@@ -988,11 +988,11 @@ public class VelocityB extends Check {
         }
     }
 
-    private static final class CollisionMotion {
-        private final double x;
-        private final double z;
-        private final boolean collidedX;
-        private final boolean collidedZ;
+    static class CollisionMotion {
+        double x;
+        double z;
+        boolean collidedX;
+        boolean collidedZ;
 
         private CollisionMotion(double x, double z, boolean collidedX, boolean collidedZ) {
             this.x = x;
@@ -1079,4 +1079,40 @@ public class VelocityB extends Check {
     }
 
 
+    double threshold;
+
+    public void invalidHorizontalTwo(MovementData movementData, VelocityData velocityData) {
+        if (profile.shouldCancel()
+                || movementData.isNearWater()
+                || movementData.isNearWall()
+                || movementData.isNearLava()
+                || movementData.isNearWebs()
+                || movementData.isUnderblock()) {
+            threshold = 0;
+            return;
+        }
+
+        int damageWindow = 4 + (profile.getConnectionData().getClientTickTrans() * 2);
+
+        if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, damageWindow)) {
+            resetVelocityState();
+            return;
+        }
+
+        double deltaXZ = movementData.getDeltaXZ();
+
+        double velocityH = velocityData.getVelocityH();
+
+        velocityH -= MathUtil.movingFlyingV3(profile, false);
+
+        double totalVelocity = deltaXZ / velocityH;
+
+        if (totalVelocity < 0.99 && velocityData.getVelocityTicks() == 1) {
+            if (++threshold > 8) {
+                fail("Invalid Horizontal Velocity","velocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + totalVelocity);
+            }
+        } else {
+            threshold -= Math.min(threshold, 0.025);
+        }
+    }
 }

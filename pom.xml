@@ -27,10 +27,6 @@
                                     <shadedPattern>me.arrow.libs.commons.math3</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>it.unimi.dsi.fastutil</pattern>
-                                    <shadedPattern>me.arrow.libs.commons.fastutil</shadedPattern>
-                                </relocation>
-                                <relocation>
                                     <pattern>org.apache.commons.lang3</pattern>
                                     <shadedPattern>me.arrow.libs.commons.lang3</shadedPattern>
                                 </relocation>

@@ -360,11 +360,12 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "STAIRS")) return true;
 
-        String name = material.name();
+        String name = material.name().toUpperCase();
 
         // Future-proof:
         // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
         return name.endsWith("_STAIRS")
+                || name.contains("_STAIR")
                 || isMaterial(name, MaterialType.STAIRS);
     }
 
@@ -377,7 +378,7 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "BED")) return true;
 
-        String name = material.name();
+        String name = material.name().toUpperCase();
 
         // Future-proof:
         // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
@@ -394,7 +395,7 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "FENCES", "WOODEN_FENCES")) return true;
 
-        String name = material.name();
+        String name = material.name().toUpperCase();
 
         // Future-proof:
         // OAK_FENCE, CHERRY_FENCE, WHITE_WOOL_FENCE, etc.
@@ -415,7 +416,7 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "FENCE_GATES")) return true;
 
-        String name = material.name();
+        String name = material.name().toUpperCase();
 
         return name.endsWith("_FENCE_GATE")
                 || name.equals("FENCE_GATE");
@@ -430,7 +431,7 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "WALLS")) return true;
 
-        String name = material.name();
+        String name = material.name().toUpperCase();
 
         // Future-proof:
         // COBBLESTONE_WALL, TUFF_WALL, WHITE_WOOL_WALL, etc.
@@ -448,9 +449,10 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "SLABS", "WOODEN_SLABS")) return true;
 
-        String name = material.name();
+        String name = material.name().toUpperCase();
 
         return name.endsWith("_SLAB")
+                || name.contains("_SLAB")
                 || name.equals("STEP")
                 || name.equals("WOODEN_SLAB")
                 || name.equals("STONE_SLAB2")

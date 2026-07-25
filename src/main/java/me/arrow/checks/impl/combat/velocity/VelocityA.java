@@ -75,10 +75,9 @@ public class VelocityA extends Check {
         MovementData movementData = profile.getMovementData();
         VelocityData velocityData = profile.getVelocityData();
         int transition = Math.max(0, profile.getConnectionData().getClientTickTrans());
-        boolean verticalCollisionLimited = movementData.isMovingUp()
-                || movementData.isNearWall()
+        boolean verticalCollisionLimited = movementData.isNearWall()
                 || movementData.isUnderblock()
-                || movementData.getSincePredictUpwardsTicks() < 5;
+                || movementData.getSincePredictUpwardsTicks() < 10;
         boolean explosionContext = pendingExplosionTicks > 0
                 || velocityData.getExplosionVelocityPacketTicks() <= 3 + transition
                 || velocityData.getExplosionVelocityTicks() <= 2;
@@ -359,8 +358,7 @@ public class VelocityA extends Check {
         bestExplosionResponse = Double.NEGATIVE_INFINITY;
         pendingExplosionCollisionLimited = movementData.isNearWall()
                 || movementData.isUnderblock()
-                || movementData.isMovingUp()
-                || movementData.getSincePredictUpwardsTicks() < 5;
+                || movementData.getSincePredictUpwardsTicks() < 10;
         pendingExplosionTicks = 2 + Math.min(2, Math.max(0, profile.getConnectionData().getClientTickTrans()));
     }
 

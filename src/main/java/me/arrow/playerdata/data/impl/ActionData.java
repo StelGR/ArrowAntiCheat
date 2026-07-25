@@ -97,6 +97,10 @@ public class ActionData implements Data {
     private int lastPistonUpdateZ;
     private Material lastPistonUpdateType = Material.AIR;
 
+    @Getter
+    @Setter
+    private int duplicatePOSLOOKPacketTicks = 100;
+
     private volatile boolean actionTickQueued;
     private final AtomicInteger queuedActionTicks = new AtomicInteger();
 

@@ -1,5 +1,6 @@
 package me.arrow.managers.profile;
 
+import me.arrow.Arrow;
 import me.arrow.managers.Initializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -18,6 +19,11 @@ public class ProfileManager implements Initializer {
 
     @Override
     public void initialize() {
+        if (!Arrow.getInstance().isHasLoaded()) {
+
+            Bukkit.getOnlinePlayers().stream().filter(Objects::nonNull).forEach(player -> player.kickPlayer("Server is still loading, please wait."));
+            return;
+        }
         Bukkit.getOnlinePlayers()
                 .stream()
                 .filter(Objects::nonNull)

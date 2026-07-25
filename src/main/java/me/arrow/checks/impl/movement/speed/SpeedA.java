@@ -198,7 +198,7 @@ public class SpeedA extends Check {
             allowedLimit += 0.1295;
         }
 
-        if (serverGroundTicks <= 10) allowedLimit += 0.00325;
+        if (serverGroundTicks <= 10) allowedLimit += 0.004;
 
         if (serverGround && deltaXZ != 0) {
             verbose(this.getClass().getSimpleName(), predicted, allowedLimit,
@@ -224,7 +224,7 @@ public class SpeedA extends Check {
         }
 
         double difference = predicted - allowedLimit;
-        double bufferAmount = difference > 0.5 ? 0 : 6;
+        double bufferAmount = difference > 0.7 ? 0 : 10;
         double serverGroundMaxTicks = 4;
 
         if (difference > 0.6) serverGroundMaxTicks = 2;
@@ -239,7 +239,7 @@ public class SpeedA extends Check {
                 groundBuffer = Math.max(bufferAmount + 2, groundBuffer);
             }
         }
-        else groundBuffer = Math.max(0, groundBuffer - 0.01);
+        else groundBuffer = Math.max(0, groundBuffer - 0.05);
 
     }
 
@@ -340,15 +340,15 @@ public class SpeedA extends Check {
         double expected2 = 0.33319999363422426D;
 
         if (clientAirTicks == 2 && Math.abs(deltaY - expected2) < 1E-6) {
-            expectedSpeed += speedLevel > 0 ? (0.0108125 + (0.008D * speedLevel)) : 0.0108125;
-            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.012225 : 0;
+            expectedSpeed += speedLevel > 0 ? (0.002 + (0.008D * speedLevel)) : 0.01081;
+            expectedSpeed += movementData.getSincePredictUpwardsTicksWithoutMaterial() <= 7 ? 0.013 : 0;
         }
 
         double expected3 = 0.24813599859094637D;
 
         if (clientAirTicks == 3 && Math.abs(deltaY - expected3) < 1E-6) {
-            expectedSpeed += speedLevel > 0 ? (0.00725 + (0.008D * speedLevel)) : 0.00725;
-            expectedSpeed += movementData.getSincePredictUpwardsTicks() <= 7 ? 0.00925 : 0;
+            expectedSpeed += speedLevel > 0 ? (0.007 + (0.008D * speedLevel)) : 0.007;
+            expectedSpeed += movementData.getSincePredictUpwardsTicksWithoutMaterial() <= 7 ? 0.00925 : 0;
         }
 
         if (movementData.getSinceMovingOnIceTicks() < 20 || movementData.getSinceMovingOnSlimeTicks() < 20) {
@@ -513,7 +513,7 @@ public class SpeedA extends Check {
             return;
         }
 
-        if (movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (movementData.getSincePredictUpwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             airBuffer = 0;
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - movingUp");
             return;
@@ -523,10 +523,10 @@ public class SpeedA extends Check {
                 && !serverGround) {
 
             double difference = deltaXZ - expectedSpeed;
-//            double bufferAmount = 3;
-//
-//            if (difference > 0.7) bufferAmount = 1;
-            if (++airBuffer > 0) {
+            double bufferAmount = 3;
+
+            if (difference > 0.7) bufferAmount = 1;
+            if (++airBuffer > bufferAmount) {
                 fail("Speed limit exceeded (Air)",
                         "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                                 + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedSpeed
@@ -536,6 +536,8 @@ public class SpeedA extends Check {
                                 + "\nserverAirTicks  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
                                 + "\nupwardsTicks  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()
                                 + "\ndownwardsTicks  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks()
+                                + "\nPUT  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicksWithoutMaterial()
+                                + "\nPDT  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicksWithoutMaterial()
                                 + "\nisSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting());
                 airBuffer = Math.max(8, airBuffer);
             }

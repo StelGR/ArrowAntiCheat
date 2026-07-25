@@ -468,7 +468,7 @@ public class GravityD extends Check {
             return;
         }
 
-        if (data.getSincePredictUpwardsTicks() < 12 + (profile.getConnectionData().getClientTickTrans() * 2) || data.getSincePredictDownwardsTicks() < 12 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2) || data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             resetGravityD("predictUp/Down");
             return;
         }
@@ -929,7 +929,7 @@ public class GravityD extends Check {
         if (data.getMovingUnderblockTicks() > 0) { resetGravityD("movingUnderBlock"); return true; }
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return true; }
 
-        if (data.getSincePredictUpwardsTicks() < 12 + (profile.getConnectionData().getClientTickTrans() * 2) || data.getSincePredictDownwardsTicks() < 12 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2) || data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             resetGravityD("predictUp/Down");
             return true;
         }
@@ -1348,6 +1348,14 @@ public class GravityD extends Check {
         double predictedWrong = 0.502352515459515D;
 
         if (fallDist == 0 && airTicks == 0 && dy == 0 && ((lastDy - expected) < 1E-6) && !data.isCustomInAir() && data.isOnGround() && ((expectedDY - predictedWrong) < 1E-6)) return false;
+
+
+        if (data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            resetGravityD("predictUp/Down");
+            return false;
+        }
 
         if (increaseBufferBy(bufferAdded) > required || negGravStreak > required) {
             fail("Negative Gravity Modification",

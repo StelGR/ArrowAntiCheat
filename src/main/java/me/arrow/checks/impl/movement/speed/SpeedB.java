@@ -294,7 +294,7 @@ public class SpeedB extends Check {
 
                         boolean invalid = closest > limit && !profile.isBouncingOnSlime();
 
-                        int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 50 : 25;
+                        int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 30 : 15;
 
                         if (movementData.getSincePredictUpwardsTicks() < 10
                                 || movementData.getSincePredictDownwardsTicks() < 5) {
@@ -304,7 +304,7 @@ public class SpeedB extends Check {
 
                         if (invalid) {
                             double excess = closest - limit;
-                            bufferAddition = Math.min(2, Math.max(3D, excess * 30D));
+                            bufferAddition = Math.min(4, Math.max(7D, excess * 30D));
 
                             if ((vlBuffer += bufferAddition) >= required) {
                                 fail("Invalid acceleration",

@@ -140,6 +140,7 @@ public class MovementData implements Data {
     public MovementPredictionUtil.VerticalMove verticalMove;
 
 
+    private long lastDecayTick = -1L;
 
 
     public MovementData(Profile profile) {
@@ -207,31 +208,7 @@ public class MovementData implements Data {
 
             processLocationData();
         }
-        if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
 
-            final WrapperPlayClientPlayerPositionAndRotation posLook = new WrapperPlayClientPlayerPositionAndRotation(event);
-
-            this.lastLastOnGround = this.lastOnGround;
-            this.lastOnGround = this.onGround;
-            this.onGround = posLook.isOnGround();
-
-            this.packetNearWall = posLook.isHorizontalCollision();
-            this.packetMoving = posLook.hasPositionChanged();
-
-            this.clientAirTicks = this.onGround ? 0 : this.clientAirTicks + 1;
-            this.clientGroundTicks = this.onGround ? this.clientGroundTicks + 1 : 0;
-
-            this.lastLastLocation = this.lastLocation;
-            this.lastLocation = this.location;
-            this.location = new CustomLocation(
-                    profile.getPlayer().getWorld(),
-                    posLook.getLocation().getX(), posLook.getLocation().getY(), posLook.getLocation().getZ(),
-                    posLook.getYaw(), posLook.getPitch(),
-                    currentTime
-            );
-
-            processLocationData();
-        }
         if (event.getPacketType().equals(PLAYER_ROTATION)) {
             final WrapperPlayClientPlayerRotation look = new WrapperPlayClientPlayerRotation(event);
 
@@ -248,6 +225,40 @@ public class MovementData implements Data {
             this.lastLocation = this.location;
 
             processLocationData();
+        }
+
+        if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
+            long currentTick = System.currentTimeMillis() / 50L;
+
+            if ((currentTick - lastDecayTick >= 1 && profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_17))
+                    || profile.getVersion().isOlderThan(ClientVersion.V_1_17)) {
+                lastDecayTick = currentTick;
+                final WrapperPlayClientPlayerPositionAndRotation posLook = new WrapperPlayClientPlayerPositionAndRotation(event);
+
+                this.lastLastOnGround = this.lastOnGround;
+                this.lastOnGround = this.onGround;
+                this.onGround = posLook.isOnGround();
+
+                this.packetNearWall = posLook.isHorizontalCollision();
+                this.packetMoving = posLook.hasPositionChanged();
+
+                this.clientAirTicks = this.onGround ? 0 : this.clientAirTicks + 1;
+                this.clientGroundTicks = this.onGround ? this.clientGroundTicks + 1 : 0;
+
+                this.lastLastLocation = this.lastLocation;
+                this.lastLocation = this.location;
+                this.location = new CustomLocation(
+                        profile.getPlayer().getWorld(),
+                        posLook.getLocation().getX(), posLook.getLocation().getY(), posLook.getLocation().getZ(),
+                        posLook.getYaw(), posLook.getPitch(),
+                        currentTime
+                );
+
+                processLocationData();
+            }
+
+
+
         }
     }
 

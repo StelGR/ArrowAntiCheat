@@ -267,7 +267,7 @@ public class FlyA extends Check {
 
             double baseTicksVel = 8;
             double baseVelocity = 0.00001;
-            double scale = 22;
+            double scale = 26;
 
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
             airTickLimit += Math.ceil(extraFromVel);

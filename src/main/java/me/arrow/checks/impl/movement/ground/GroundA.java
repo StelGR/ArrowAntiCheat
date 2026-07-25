@@ -71,7 +71,7 @@ public class GroundA extends Check {
             boolean invalid3 = serverGround != clientGround
                     && !movementData.isNearWater()
                     && !movementData.isNearLava()
-                    && !movementData.isMovingUp()
+                    && movementData.getSincePredictUpwardsTicks() > 10
                     && !profile.getActionData().hasRecentUnderPlaceSupport(10 + (profile.getConnectionData().getClientTickTrans() * 2))
                     && movementData.getSincePredictDownwardsTicks() < 10
                     && movementData.getSincePredictUpwardsTicks() < 10
@@ -119,7 +119,9 @@ public class GroundA extends Check {
             boolean clientGround = movementData.isOnGround();
 
             boolean invalid = profile.isBedrockPlayer() ?
-                    !serverGround && clientGround && !movementData.isMovingDown()
+                    !serverGround
+                            && clientGround
+                            && movementData.getSincePredictDownwardsTicks() > 10
                             && movementData.getCustomAirTicks() > 1
                     : (!serverGround && clientGround );
 

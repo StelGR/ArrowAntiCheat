@@ -31,6 +31,10 @@ public class ClientBrandListener implements Data {
     public void processReceive(PacketReceiveEvent event) {
         if (event.getPlayer() == null) return;
 
+        if (!Arrow.getInstance().isHasLoaded()) {
+            return;
+        }
+
         // Play plugin message. The toString fallback makes this more tolerant if PacketEvents changes phase naming.
         if (!event.getPacketType().equals(PacketType.Play.Client.PLUGIN_MESSAGE)
                 && !String.valueOf(event.getPacketType()).toUpperCase(Locale.ROOT).contains("PLUGIN_MESSAGE")) {

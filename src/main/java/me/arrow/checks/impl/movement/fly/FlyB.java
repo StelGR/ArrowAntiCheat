@@ -86,8 +86,8 @@ public class FlyB extends Check {
                     || movementData.isNearClimbable()
                     || movementData.isOnSlime()
                     || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                    || movementData.isMovingUp()
-                    || movementData.isMovingDown()
+                    || movementData.getSincePredictUpwardsTicks() < 10
+                    || movementData.getSincePredictDownwardsTicks() < 10
                     || movementData.getSinceRiptidingTicks() < 30
                     || movementData.getSinceBubbleTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
                     || profile.getPotionData().isHasLevitation()) {
@@ -154,16 +154,14 @@ public class FlyB extends Check {
 
             VelocityData vd = profile.getVelocityData();
 
-            double expectedY = 1.01D + jumpStart;
+            double expectedY = 1.01D + (jumpStart + vd.getTotalVerticalVelocity());
 
             expectedY += movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans() ? 4.15 : 0;
-
 
             final boolean invalidY =
                     deltaY > expectedY
                             && (movementData.isLastOnGround() || serverAirTicks > 0 || clientAirTicks > 0)
-                            && isNotJumpStart
-                            && !vd.isTakingVelocity();
+                            && isNotJumpStart;
 
             final boolean invalidNegativeY = acceleration < -expectedY && (clientAirTicks == 1 || movementData.isServerGround())
                     && !vd.isTakingVelocity()
