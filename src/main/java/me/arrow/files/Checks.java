@@ -544,6 +544,24 @@ public class Checks implements Initializer {
         BADPACKETS_C_PUNiSH_MODE("BadPacketsC.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         BADPACKETS_C_MAX_VL("BadPacketsC.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        BADPACKETS_D("BadPacketsD.enabled", true, "Should we enable this module?"),
+        BADPACKETS_D_PUNISH("BadPacketsD.punish", "", "Punishment settings"),
+        BADPACKETS_D_PUNiSH_ENABLED("BadPacketsD.punish.enabled", true, "Should punishments be enabled for this check?"),
+        BADPACKETS_D_PUNiSH_MODE("BadPacketsD.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        BADPACKETS_D_MAX_VL("BadPacketsD.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        BADPACKETS_E("BadPacketsE.enabled", true, "Should we enable this module?"),
+        BADPACKETS_E_PUNISH("BadPacketsE.punish", "", "Punishment settings"),
+        BADPACKETS_E_PUNiSH_ENABLED("BadPacketsE.punish.enabled", true, "Should punishments be enabled for this check?"),
+        BADPACKETS_E_PUNiSH_MODE("BadPacketsE.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        BADPACKETS_E_MAX_VL("BadPacketsE.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        BADPACKETS_F("BadPacketsF.enabled", true, "Should we enable this module?"),
+        BADPACKETS_F_PUNISH("BadPacketsF.punish", "", "Punishment settings"),
+        BADPACKETS_F_PUNiSH_ENABLED("BadPacketsF.punish.enabled", true, "Should punishments be enabled for this check?"),
+        BADPACKETS_F_PUNiSH_MODE("BadPacketsF.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        BADPACKETS_F_MAX_VL("BadPacketsF.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
+
         NOSLOWDOWN_A("NoSlowdownA.enabled", true, "Should we enable this module?"),
         NOSLOWDOWN_A_PUNISH("NoSlowdownA.punish", "", "Punishment settings"),
         NOSLOWDOWN_A_PUNiSH_ENABLED("NoSlowdownA.punish.enabled", false, "Should punishments be enabled for this check?"),

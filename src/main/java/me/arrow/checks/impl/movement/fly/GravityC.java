@@ -175,7 +175,9 @@ public class GravityC extends Check {
         double jumpStart = MoveUtils.getJumpMotion(profile);
         final double JUMP_TOL = 0.046D;
 
-        if (md.getSincePredictUpwardsTicks() < 5 || md.getSincePredictDownwardsTicks() < 5) {
+        if (md.getSincePredictUpwardsTicks() < 10
+                || md.getSincePredictDownwardsTicks() < 5
+                || md.getSincePredictUpwardsTicksWithoutMaterial() < 10) {
             lastOffset = 0.0D;
             return;
         }
