@@ -21,7 +21,7 @@ public enum MaterialType {
             "LIME_STAINED_GLASS_PANE", "PINK_STAINED_GLASS_PANE", "GRAY_STAINED_GLASS_PANE",
             "LIGHT_GRAY_STAINED_GLASS_PANE", "CYAN_STAINED_GLASS_PANE", "PURPLE_STAINED_GLASS_PANE",
             "BLUE_STAINED_GLASS_PANE", "BROWN_STAINED_GLASS_PANE", "GREEN_STAINED_GLASS_PANE",
-            "RED_STAINED_GLASS_PANE", "BLACK_STAINED_GLASS_PANE", "IRON_BARS"),
+            "RED_STAINED_GLASS_PANE", "BLACK_STAINED_GLASS_PANE", "IRON_BARS", "THIN_GLASS"),
     BREWING_STAND("BREWING_STAND"),
 
     STRUCTURE_VOID("STRUCTURE_VOID"),
@@ -115,6 +115,7 @@ public enum MaterialType {
             "CREEPER_WALL_HEAD", "DRAGON_WALL_HEAD", "SKELETON_SKULL", "WITHER_SKELETON_SKULL",
              "SKELETON_WALL_SKULL", "WITHER_SKELETON_WALL_SKULL", "SKULL",
             "ANVIL", "CHIPPED_ANVIL", "DAMAGED_ANVIL", "CUT_COPPER_SLAB",
+            "WOOD_STEP",
             "EXPOSED_CUT_COPPER_SLAB", "WEATHERED_CUT_COPPER_SLAB", "OXIDIZED_CUT_COPPER_SLAB", "WAXED_CUT_COPPER_SLAB",
             "WAXED_EXPOSED_CUT_COPPER_SLAB", "WAXED_WEATHERED_CUT_COPPER_SLAB", "WAXED_OXIDIZED_CUT_COPPER_SLAB", "OAK_SLAB",
             "SPRUCE_SLAB", "BIRCH_SLAB", "JUNGLE_SLAB", "ACACIA_SLAB",
@@ -259,7 +260,8 @@ public enum MaterialType {
             "STEP",
             "DOUBLE_STEP",
             "WOOD_DOUBLE_STEP",
-            "WOODEN_SLAB"
+            "WOODEN_SLAB",
+            "WOOD_STEP"
     ),
 
     DRIP_LEAF("BIG_DRIPLEAF", "SMALL_DRIPLEAF", "BIG_DRIPLEAF_STEM"),
@@ -454,6 +456,7 @@ public enum MaterialType {
         return name.endsWith("_SLAB")
                 || name.contains("_SLAB")
                 || name.equals("STEP")
+                || name.equals("WOOD_STEP")
                 || name.equals("WOODEN_SLAB")
                 || name.equals("STONE_SLAB2")
                 || isMaterial(name, MaterialType.SLAB);
@@ -506,6 +509,7 @@ public enum MaterialType {
         return name.endsWith("_PANE")
                 || name.equals("GLASS_PANE")
                 || name.equals("STAINED_GLASS_PANE")
+                || name.equals("THIN_GLASS")
                 || name.equals("IRON_BARS")
                 || name.equals("IRON_FENCE")
                 || isMaterial(name, MaterialType.PANE);
