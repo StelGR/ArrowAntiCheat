@@ -12,7 +12,6 @@ import me.arrow.utils.customutils.Math.MathUtil;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class AutoClickerB extends Check {
 
     public AutoClickerB(Profile profile) {
@@ -36,21 +35,15 @@ public class AutoClickerB extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
-            if (profile.getPredictionData().isDigging()) {
-                movements = 20;
-                return;
-            }
-
-
-            if (profile.shouldCancel()) {
-                movements = 20;
-                return;
-            }
 
             cps = profile.getCombatData().getCurrentCps();
             movements++;
         }
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
+
+            if (profile.getPredictionData().isDigging() || profile.shouldCancel()) {
+                return;
+            }
 
             if (movements < 10) {
                 delays.add(movements);
@@ -60,7 +53,7 @@ public class AutoClickerB extends Check {
 
                     if (std <= 0.45) {
                         if (buffer++ > 2 && cps > 7) {
-                            fail( "Consistent clicks",
+                            fail( "Consistent clicks (1)",
                                     "std " + MsgType.MAIN_THEME_COLOR.getMessage() + std);
                         }
                     } else {
@@ -70,6 +63,7 @@ public class AutoClickerB extends Check {
                     delays.clear();
                 }
             }
+            movements = 0;
         }
     }
 }
