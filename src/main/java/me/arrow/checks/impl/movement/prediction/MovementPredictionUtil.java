@@ -379,30 +379,33 @@ public class MovementPredictionUtil {
             return true;
         }
 
-        Material meterialtype = world.getBlockAt(x, y, z).getType();
-        String type = meterialtype.name();
+        try {
+            Material meterialtype = world.getBlockAt(x, y, z).getType();
+            String type = meterialtype.name();
 
+            if (MaterialType.isMaterial(type, MaterialType.AIR)) return false;
+            if (MaterialType.isMaterial(type, MaterialType.LIQUID)) return false;
+            if (MaterialType.isMaterial(type, MaterialType.TRANSPARENT)) return false;
 
-        if (MaterialType.isMaterial(type, MaterialType.AIR)) return false;
-        if (MaterialType.isMaterial(type, MaterialType.LIQUID)) return false;
-        if (MaterialType.isMaterial(type, MaterialType.TRANSPARENT)) return false;
-
-        if (MaterialType.isMaterial(type, MaterialType.HALF_BLOCK)) return true;
-        if (MaterialType.isMaterial(type, MaterialType.PANE)) return true;
-        if (MaterialType.isMaterial(type, MaterialType.FENCE)) return true;
-        if (MaterialType.isMaterial(type, MaterialType.WALL)) return true;
-        if (MaterialType.isMaterial(type, MaterialType.DOOR)) return true;
-        if (MaterialType.isMaterial(type, MaterialType.TRAPDOOR)) return true;
-        if (MaterialType.isMaterial(type, MaterialType.STAIRS)) return true;
-        if (MaterialType.isMaterial(type, MaterialType.SLAB)) return true;
-        if (MaterialType.isStair(type)) return true;
-        if (MaterialType.isFence(type)) return true;
-        if (MaterialType.isSlab(meterialtype)) return true;
-        if (MaterialType.isWall(meterialtype)) return true;
-        if (MaterialType.isFenceGate(meterialtype)) return true;
-        if (MaterialType.isPane(meterialtype)) return true;
-        if (MaterialType.isTrapdoor(meterialtype)) return true;
-        if (PEMaterials.isNonFullShape(meterialtype)) return true;
+            if (MaterialType.isMaterial(type, MaterialType.HALF_BLOCK)) return true;
+            if (MaterialType.isMaterial(type, MaterialType.PANE)) return true;
+            if (MaterialType.isMaterial(type, MaterialType.FENCE)) return true;
+            if (MaterialType.isMaterial(type, MaterialType.WALL)) return true;
+            if (MaterialType.isMaterial(type, MaterialType.DOOR)) return true;
+            if (MaterialType.isMaterial(type, MaterialType.TRAPDOOR)) return true;
+            if (MaterialType.isMaterial(type, MaterialType.STAIRS)) return true;
+            if (MaterialType.isMaterial(type, MaterialType.SLAB)) return true;
+            if (MaterialType.isStair(type)) return true;
+            if (MaterialType.isFence(type)) return true;
+            if (MaterialType.isSlab(meterialtype)) return true;
+            if (MaterialType.isWall(meterialtype)) return true;
+            if (MaterialType.isFenceGate(meterialtype)) return true;
+            if (MaterialType.isPane(meterialtype)) return true;
+            if (MaterialType.isTrapdoor(meterialtype)) return true;
+            if (PEMaterials.isNonFullShape(meterialtype)) return true;
+        } catch (IllegalStateException ignored) {
+            return true;
+        }
 
         return true;
     }
