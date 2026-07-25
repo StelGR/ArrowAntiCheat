@@ -372,6 +372,13 @@ public class MovementPredictionUtil {
     }
 
     private static boolean isBlocking(World world, int x, int y, int z) {
+        int chunkX = x >> 4;
+        int chunkZ = z >> 4;
+
+        if (!world.isChunkLoaded(chunkX, chunkZ)) {
+            return true;
+        }
+
         Material meterialtype = world.getBlockAt(x, y, z).getType();
         String type = meterialtype.name();
 
