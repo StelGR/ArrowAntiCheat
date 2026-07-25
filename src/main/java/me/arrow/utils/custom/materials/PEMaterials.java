@@ -425,6 +425,23 @@ public class PEMaterials {
             result = type.exceedsCube() || !(type.isSolid() && type.isBlocking());
         }
 
+        /*
+         * Safety net for 1.8 and other legacy servers: PacketEvents may map
+         * materials to incorrect StateTypes where isSolid()/isBlocking()
+         * returns false for blocks that are actually full cubes. If the name
+         * does not match any known partial block and the Bukkit material
+         * itself is solid, override the state-based result to prevent full
+         * blocks from being misclassified as non-full collision shapes.
+         */
+        if (result && !isObviousPartialCollisionName(name)) {
+            try {
+                if (material.isSolid()) {
+                    result = false;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
         if (!result) {
             Boolean occluding = isOccluding(material);
             result = occluding != null && !occluding && !isKnownFullTransparentCube(name);
@@ -466,9 +483,10 @@ public class PEMaterials {
         String name = stateName(state);
         return name.endsWith("_SLAB")
                 || name.equals("STEP")
-                || name.equals("DOUBLE_STEP")
-                || name.equals("STONE_SLAB2")
                 || name.equals("WOOD_STEP")
+                || name.equals("DOUBLE_STEP")
+                || name.equals("WOOD_DOUBLE_STEP")
+                || name.equals("STONE_SLAB2")
                 || name.equals("WOODEN_SLAB");
     }
 
@@ -1044,12 +1062,20 @@ public class PEMaterials {
     private static boolean isObviousPartialCollisionName(String name) {
         return name.endsWith("_STAIRS")
                 || name.endsWith("_SLAB")
+                || name.equals("STEP")
+                || name.equals("WOOD_STEP")
+                || name.equals("DOUBLE_STEP")
+                || name.equals("WOOD_DOUBLE_STEP")
+                || name.equals("DOUBLE_STONE_SLAB")
+                || name.equals("DOUBLE_STONE_SLAB2")
                 || name.endsWith("_FENCE")
                 || name.endsWith("_FENCE_GATE")
                 || name.endsWith("_WALL")
                 || name.endsWith("_PANE")
+                || name.equals("THIN_GLASS")
                 || name.endsWith("_DOOR")
                 || name.endsWith("_TRAPDOOR")
+                || name.equals("TRAP_DOOR")
                 || name.endsWith("_PRESSURE_PLATE")
                 || name.endsWith("_CARPET")
                 || name.equals("LANTERN")
@@ -1065,7 +1091,6 @@ public class PEMaterials {
                 || name.equals("HEAVY_CORE")
                 || name.equals("IRON_BARS")
                 || name.equals("IRON_FENCE")
-                || name.equals("THIN_GLASS")
                 || name.equals("CAULDRON")
                 || name.endsWith("_CAULDRON")
                 || name.equals("COMPOSTER")
