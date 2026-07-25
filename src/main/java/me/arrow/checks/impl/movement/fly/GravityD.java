@@ -421,6 +421,7 @@ public class GravityD extends Check {
                 || data.isBottomOfWater()
                 || data.isOnSlime()
                 || data.isOnHoney()
+                || data.isNearStepMaterial()
                 || data.getSincePowderSnowTicks() < 15 + transTicks
                 || data.getSinceOnGhostBlock() < 4 + transTicks
                 || world.onGhostBlock
@@ -920,6 +921,7 @@ public class GravityD extends Check {
         if (data.isNearClimbable()) { resetGravityD("nearClimbable"); return true; }
         if (data.isOnSlime()) { resetGravityD("onSlime"); return true; }
         if (data.isNearContact()) { resetGravityD("nearContact"); return true; }
+        if (data.isNearStepMaterial()) { resetGravityD("nearStepMaterial"); return true; }
         if (data.getSinceGlidingTicks() < 20 + transTicks) { resetGravityD("gliding"); return true; }
         if (data.isOnHoney()) { resetGravityD("onHoney"); return true; }
         if (data.isInsideWater()) { resetGravityD("insideWater"); return true; }
