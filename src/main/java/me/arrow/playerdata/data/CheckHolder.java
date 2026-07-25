@@ -89,6 +89,7 @@ public class CheckHolder {
 
                 new AutoClickerA(this.profile),
                 new AutoClickerB(this.profile),
+                new AutoClickerB2(this.profile),
                 new AutoClickerC(this.profile),
                 new AutoClickerD(this.profile),
                 new AutoClickerE(this.profile),
@@ -96,6 +97,7 @@ public class CheckHolder {
                 new AutoClickerG(this.profile),
                 new AutoClickerH(this.profile),
                 new AutoClickerI(this.profile),
+                new AutoClickerJ(this.profile),
                 new MacroA(this.profile),
                 new MacroB(this.profile),
 

@@ -211,6 +211,12 @@ public class Checks implements Initializer {
         AUTOCLICKER_B_PUNiSH_MODE("AutoClickerB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         AUTOCLICKER_B_MAX_VL("AutoClickerB.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        AUTOCLICKER_B2("AutoClickerB2.enabled", true, "Should we enable this module?"),
+        AUTOCLICKER_B2_PUNISH("AutoClickerB2.punish", "", "Punishment settings"),
+        AUTOCLICKER_B2_PUNiSH_ENABLED("AutoClickerB2.punish.enabled", true, "Should punishments be enabled for this check?"),
+        AUTOCLICKER_B2_PUNiSH_MODE("AutoClickerB2.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AUTOCLICKER_B2_MAX_VL("AutoClickerB2.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
         AUTOCLICKER_C("AutoClickerC.enabled", true, "Should we enable this module?"),
         AUTOCLICKER_C_PUNISH("AutoClickerC.punish", "", "Punishment settings"),
         AUTOCLICKER_C_PUNiSH_ENABLED("AutoClickerC.punish.enabled", true, "Should punishments be enabled for this check?"),
@@ -252,6 +258,12 @@ public class Checks implements Initializer {
         AUTOCLICKER_I_PUNiSH_ENABLED("AutoClickerI.punish.enabled", true, "Should punishments be enabled for this check?"),
         AUTOCLICKER_I_PUNiSH_MODE("AutoClickerI.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         AUTOCLICKER_I_MAX_VL("AutoClickerI.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        AUTOCLICKER_J("AutoClickerJ.enabled", true, "Should we enable this module?"),
+        AUTOCLICKER_J_PUNISH("AutoClickerJ.punish", "", "Punishment settings"),
+        AUTOCLICKER_J_PUNiSH_ENABLED("AutoClickerI.punish.enabled", true, "Should punishments be enabled for this check?"),
+        AUTOCLICKER_J_PUNiSH_MODE("AutoClickerJ.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AUTOCLICKER_J_MAX_VL("AutoClickerJ.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
         MACRO_A("MacroA.enabled", true, "Should we enable this module?"),
         MACRO_A_PUNISH("MacroA.punish", "", "Punishment settings"),
