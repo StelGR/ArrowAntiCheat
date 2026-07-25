@@ -51,26 +51,25 @@ public class SetbackProcessor implements Processor {
                 return;
             }
 
-            CustomLocation teleportLocation = profile.getMovementData().getLastGroundLocation();
 
-            if (teleportLocation != null) {
-                teleportSetback(player, teleportLocation);
-
-                setbackDebug(
-                        profile,
-                        "&c" + reason + " &7setback -> &6"
-                                + teleportLocation.getBlockX() + ", "
-                                + teleportLocation.getBlockY() + ", "
-                                + teleportLocation.getBlockZ()
-                );
+            if (profile.getMovementData().isCustomInAir() && profile.getMovementData().getCustomAirTicks() >= 13) {
+                setback(reason);
             }
+            else {
+                CustomLocation teleportLocation = profile.getMovementData().getLastGroundLocation();
 
-//            if (profile.getMovementData().isCustomInAir() && profile.getMovementData().getCustomAirTicks() >= 13) {
-//
-//            }
-//            else {
-//                setback(reason);
-//            }
+                if (teleportLocation != null) {
+                    teleportSetback(player, teleportLocation);
+
+                    setbackDebug(
+                            profile,
+                            "&c" + reason + " &7setback -> &6"
+                                    + teleportLocation.getBlockX() + ", "
+                                    + teleportLocation.getBlockY() + ", "
+                                    + teleportLocation.getBlockZ()
+                    );
+                }
+            }
 
         } catch (Exception e) {
 

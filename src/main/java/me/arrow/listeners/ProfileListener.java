@@ -24,6 +24,11 @@ public class ProfileListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
+        if (!Arrow.getInstance().isHasLoaded()) {
+            player.kickPlayer("Server is still loading, please wait.");
+            return;
+        }
+
         this.plugin.getProfileManager().createProfile(player);
 
         Profile profile = this.plugin.getProfileManager().getProfile(player);

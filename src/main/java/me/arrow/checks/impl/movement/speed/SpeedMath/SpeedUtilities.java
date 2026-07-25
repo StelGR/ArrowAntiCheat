@@ -16,7 +16,7 @@ public class SpeedUtilities {
 
     public static final double DEFAULT_WALK_SPEED_ATTRIBUTE = 0.1D;
     public static final double VANILLA_SPRINT_MULTIPLIER = 1.3D;
-    public static final double SPEED_MULTIPLIER_AIR = 0.2D;
+    public static final double SPEED_MULTIPLIER_AIR = 0.125D;
     public static final double SPEED_MULTIPLIER_GROUND = 0.2125D;
 
     // Vanilla's generic.movement_speed max is extremely high on modern versions.
@@ -294,33 +294,7 @@ public class SpeedUtilities {
 
     public static double getAfterJumpSpeed(Profile profile) {
         int speedLevel = getSpeedPotionLevel(profile);
-        return 0.915D + (0.008D * speedLevel);
-    }
-
-    public static int getPotionEffectLevel(Profile user, PotionEffectType potionEffectType) {
-        if (user == null || potionEffectType == null) {
-            return 0;
-        }
-
-        if (user.getPlayer() == null || !user.getPlayer().isOnline()) {
-            return 0;
-        }
-
-        try {
-            for (PotionEffect effect : user.getPlayer().getActivePotionEffects()) {
-                if (effect == null || effect.getType() == null) {
-                    continue;
-                }
-
-                if (effect.getType().equals(potionEffectType)) {
-                    return effect.getAmplifier() + 1;
-                }
-            }
-        } catch (Throwable ignored) {
-            return 0;
-        }
-
-        return 0;
+        return 0.825D + (0.008D * speedLevel);
     }
 
     public static int getDepthStriderLevel(Profile profile) {

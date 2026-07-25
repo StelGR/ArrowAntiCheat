@@ -86,10 +86,9 @@ public class RotationData implements Data {
 
         // Duplicate rotation packet (1.17+)
         if (profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_17)
-                && profile.isExempt().isTeleports()
+                && profile.getTeleportData().getTeleportTicks() > 1
                 && yaw == this.yaw
                 && packetPitch == this.pitch
-                && profile.getVehicleData() != null
                 && profile.getVehicleData().getSinceVehicleTicks() > 1) {
             return;
         }

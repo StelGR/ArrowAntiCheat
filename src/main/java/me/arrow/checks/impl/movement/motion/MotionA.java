@@ -195,6 +195,12 @@ public class MotionA extends Check {
             }
 
 
+            if (movementData.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
+                    || movementData.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
+                    || movementData.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                return;
+            }
+
 
             if (!isGround
                     && lastGround

@@ -281,6 +281,8 @@ public class TimerA extends Check {
                 && !profile.shouldCancel()
                 && !profile.isExempt().isTeleports()
                 && !profile.isExempt().vehicle()
+                && profile.isExempt().isRespawned()
+                && !profile.isExempt().isDead()
                 && CollisionUtils.isChunkLoaded(profile.getMovementData().getLocation());
     }
 }
