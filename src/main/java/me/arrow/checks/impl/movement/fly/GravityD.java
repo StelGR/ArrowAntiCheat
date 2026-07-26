@@ -273,6 +273,14 @@ public class GravityD extends Check {
             return false;
         }
 
+        if (data.isNearStepMaterial()) {
+            double absDeltaY = Math.abs(currentDY);
+            if (absDeltaY >= 0.35D && absDeltaY <= 0.65D) {
+                primeStrictGravityGround(movementTick);
+                return false;
+            }
+        }
+
         if (strictLastPositionTick == Integer.MIN_VALUE || !Double.isFinite(strictLastDY)) {
             strictLastPositionTick = movementTick;
             strictLastDY = currentDY;
@@ -421,7 +429,6 @@ public class GravityD extends Check {
                 || data.isBottomOfWater()
                 || data.isOnSlime()
                 || data.isOnHoney()
-                || data.isNearStepMaterial()
                 || data.getSincePowderSnowTicks() < 15 + transTicks
                 || data.getSinceOnGhostBlock() < 4 + transTicks
                 || world.onGhostBlock
@@ -554,6 +561,19 @@ public class GravityD extends Check {
             cumulativeNegativeGravity *= 0.45D;
             decayGravityDEvidence(0.45D, 0.20D);
             return;
+        }
+
+        if (data.isNearStepMaterial() && !actualGround && !trustedClientGround) {
+            double absDeltaY = Math.abs(displacementY);
+            if (absDeltaY >= 0.35D && absDeltaY <= 0.65D) {
+                lastGravityDObservedDY = displacementY;
+                trackingFall = true;
+                predictedDY = displacementY;
+                predictedFallDist += Math.max(0.0D, -displacementY);
+                predictedTicks = Math.max(predictedTicks + sampleTicks, data.getCustomAirTicks());
+                decayGravityDEvidence(0.45D, 0.20D);
+                return;
+            }
         }
 
         final double lastObservedDY = lastGravityDObservedDY;
@@ -921,7 +941,6 @@ public class GravityD extends Check {
         if (data.isNearClimbable()) { resetGravityD("nearClimbable"); return true; }
         if (data.isOnSlime()) { resetGravityD("onSlime"); return true; }
         if (data.isNearContact()) { resetGravityD("nearContact"); return true; }
-        if (data.isNearStepMaterial()) { resetGravityD("nearStepMaterial"); return true; }
         if (data.getSinceGlidingTicks() < 20 + transTicks) { resetGravityD("gliding"); return true; }
         if (data.isOnHoney()) { resetGravityD("onHoney"); return true; }
         if (data.isInsideWater()) { resetGravityD("insideWater"); return true; }
