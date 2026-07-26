@@ -259,7 +259,8 @@ public enum MaterialType {
             "STEP",
             "DOUBLE_STEP",
             "WOOD_DOUBLE_STEP",
-            "WOODEN_SLAB"
+            "WOODEN_SLAB",
+            "WOOD_STEP"
     ),
 
     DRIP_LEAF("BIG_DRIPLEAF", "SMALL_DRIPLEAF", "BIG_DRIPLEAF_STEM"),
@@ -454,6 +455,7 @@ public enum MaterialType {
         return name.endsWith("_SLAB")
                 || name.contains("_SLAB")
                 || name.equals("STEP")
+                || name.equals("WOOD_STEP")
                 || name.equals("WOODEN_SLAB")
                 || name.equals("STONE_SLAB2")
                 || isMaterial(name, MaterialType.SLAB);
@@ -507,6 +509,8 @@ public enum MaterialType {
                 || name.equals("GLASS_PANE")
                 || name.equals("STAINED_GLASS_PANE")
                 || name.equals("IRON_BARS")
+                || name.equals("THIN_GLASS")
+                || name.equals("THIN_GLASS_PANE")
                 || name.equals("IRON_FENCE")
                 || isMaterial(name, MaterialType.PANE);
     }
