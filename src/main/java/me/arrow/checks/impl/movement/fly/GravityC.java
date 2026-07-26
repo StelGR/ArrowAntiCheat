@@ -143,7 +143,6 @@ public class GravityC extends Check {
         if (md.isNearContact()) { debugExempt("contact"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isNearWater()) { debugExempt("nearWater"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.elytraMomentum() > 0) { debugExempt("elytraMomentum"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.isNearStepMaterial()) { debugExempt("nearStepMaterial"); lastOffset = 0.0D; bufferC = 0.0D; return; }
 
         if (md.isNearHoney()) {
             debugExempt("nearHoney");
@@ -218,6 +217,15 @@ public class GravityC extends Check {
         double pred2 = pred2Result.prediction;
         double off2 = Math.abs(deltaY - pred2);
         if (off2 < EPS) { lastOffset = off2; return; }
+
+        if (md.isNearStepMaterial()) {
+            double minOff = Math.min(off1, off2);
+            double absDeltaY = Math.abs(deltaY);
+            if (absDeltaY >= 0.35D && absDeltaY <= 0.65D && minOff < 0.65D) {
+                lastOffset = minOff;
+                return;
+            }
+        }
 
         final double VANILLA_MICRO = 0.003016261509046103D;
         final double VANILLA_NEG = -0.0784000015258789D;
