@@ -182,7 +182,6 @@ public class MovementData implements Data {
             this.lastLocation = this.location;
 
             processLocationData();
-
         }
         if (event.getPacketType().equals(PLAYER_POSITION)) {
             WrapperPlayClientPlayerPosition move = new WrapperPlayClientPlayerPosition(event);
@@ -228,37 +227,39 @@ public class MovementData implements Data {
         }
 
         if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
-            long currentTick = System.currentTimeMillis() / 50L;
+            final WrapperPlayClientPlayerPositionAndRotation posLook = new WrapperPlayClientPlayerPositionAndRotation(event);
 
-            if ((currentTick - lastDecayTick >= 1 && profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_17))
-                    || profile.getVersion().isOlderThan(ClientVersion.V_1_17)) {
-                lastDecayTick = currentTick;
-                final WrapperPlayClientPlayerPositionAndRotation posLook = new WrapperPlayClientPlayerPositionAndRotation(event);
+            this.lastLastOnGround = this.lastOnGround;
+            this.lastOnGround = this.onGround;
+            this.onGround = posLook.isOnGround();
 
-                this.lastLastOnGround = this.lastOnGround;
-                this.lastOnGround = this.onGround;
-                this.onGround = posLook.isOnGround();
+            this.packetNearWall = posLook.isHorizontalCollision();
+            this.packetMoving = posLook.hasPositionChanged();
 
-                this.packetNearWall = posLook.isHorizontalCollision();
-                this.packetMoving = posLook.hasPositionChanged();
+            this.clientAirTicks = this.onGround ? 0 : this.clientAirTicks + 1;
+            this.clientGroundTicks = this.onGround ? this.clientGroundTicks + 1 : 0;
 
-                this.clientAirTicks = this.onGround ? 0 : this.clientAirTicks + 1;
-                this.clientGroundTicks = this.onGround ? this.clientGroundTicks + 1 : 0;
+            this.lastLastLocation = this.lastLocation;
+            this.lastLocation = this.location;
+            this.location = new CustomLocation(
+                    profile.getPlayer().getWorld(),
+                    posLook.getLocation().getX(), posLook.getLocation().getY(), posLook.getLocation().getZ(),
+                    posLook.getYaw(), posLook.getPitch(),
+                    currentTime
+            );
 
-                this.lastLastLocation = this.lastLocation;
-                this.lastLocation = this.location;
-                this.location = new CustomLocation(
-                        profile.getPlayer().getWorld(),
-                        posLook.getLocation().getX(), posLook.getLocation().getY(), posLook.getLocation().getZ(),
-                        posLook.getYaw(), posLook.getPitch(),
-                        currentTime
-                );
+            processLocationData();
 
-                processLocationData();
-            }
-
-
-
+//            long currentTick = System.currentTimeMillis() / 50L;
+//
+//            if ((currentTick - lastDecayTick >= 1
+//                    && profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_17)
+//                    && PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8_8))
+//                    || profile.getVersion().isOlderThan(ClientVersion.V_1_17)
+//            ) {
+//                lastDecayTick = currentTick;
+//
+//            }
         }
     }
 
@@ -486,25 +487,7 @@ public class MovementData implements Data {
                 //((isPlayerIntersectingBlocks(profile) || profile.getBlockData().collideSlime || isPhasing(profile)) && (deltaXZ > 20 || deltaY > 60 || deltaY < -60) || isPhasing(profile))
         ;
 
-        nearStepMaterial =
-                nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFence)
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isStair)
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall)
-                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
-                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
-                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(MaterialType::isFence)
-                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
-                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
-                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(MaterialType::isStair)
-                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(MaterialType::isWall);
 
-        movingUp = (getDeltaY() > 0 || getLastDeltaY() > 0) && nearStepMaterial;
-
-        movingDown = (getDeltaY() < 0 || getLastDeltaY() < 0) && nearStepMaterial;
 
         if (!supportsEntityCollisionCheck()) {
             isColliding = false;
@@ -516,8 +499,6 @@ public class MovementData implements Data {
     void processBlocks() {
         NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, !TaskUtils.isFoliaServer());
-
-
 
         boolean flag_water = false, flag_lava = false, flag_web = false, flag_climbable = false,
                 flag_nearBuggyBlock = false, flag_bubble = false, flag_bed = false,
@@ -658,6 +639,19 @@ public class MovementData implements Data {
 
         climb = MaterialType.isMaterial(nms.getType(location.clone().subtract(0D, -1D, 0D).getBlock()).name(), MaterialType.CLIMBABLE)
                 || MaterialType.isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
+
+        nearStepMaterial =
+                nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFence)
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isStair)
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall);
+
+        movingUp = (getDeltaY() > 0 || getLastDeltaY() > 0) && nearStepMaterial;
+
+        movingDown = (getDeltaY() < 0 || getLastDeltaY() < 0) && nearStepMaterial;
 
     }
 
