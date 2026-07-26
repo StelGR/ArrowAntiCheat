@@ -488,16 +488,19 @@ public class MovementData implements Data {
 
         nearStepMaterial =
                 nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFence)
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
-//                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isBed)
-//                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HEIGHT_CHANGE))
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
-//                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(PEMaterials::isNonFullCollision)
-//                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(PEMaterials::isNonFullShape)
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isStair)
-                || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall);
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFence)
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isStair)
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall)
+                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
+                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
+                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(MaterialType::isFence)
+                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
+                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
+                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(MaterialType::isStair)
+                        || nearbyBlocksResult2.getBlockTypes().stream().anyMatch(MaterialType::isWall);
 
         movingUp = (getDeltaY() > 0 || getLastDeltaY() > 0) && nearStepMaterial;
 
