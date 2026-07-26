@@ -183,7 +183,7 @@ public class MovementData implements Data {
 
             processLocationData();
         }
-        if (event.getPacketType().equals(PLAYER_POSITION)) {
+        else if (event.getPacketType().equals(PLAYER_POSITION)) {
             WrapperPlayClientPlayerPosition move = new WrapperPlayClientPlayerPosition(event);
 
             this.lastLastOnGround = this.lastOnGround;
@@ -208,7 +208,7 @@ public class MovementData implements Data {
             processLocationData();
         }
 
-        if (event.getPacketType().equals(PLAYER_ROTATION)) {
+        else if (event.getPacketType().equals(PLAYER_ROTATION)) {
             final WrapperPlayClientPlayerRotation look = new WrapperPlayClientPlayerRotation(event);
 
             this.lastOnGround = this.onGround;
@@ -226,7 +226,7 @@ public class MovementData implements Data {
             processLocationData();
         }
 
-        if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
+        else if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
             final WrapperPlayClientPlayerPositionAndRotation posLook = new WrapperPlayClientPlayerPositionAndRotation(event);
 
             this.lastLastOnGround = this.lastOnGround;
@@ -498,7 +498,14 @@ public class MovementData implements Data {
 
     void processBlocks() {
         NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, !TaskUtils.isFoliaServer());
+
+        CustomLocation loc1 = location.clone();
+        CustomLocation loc2 = location.clone().subtract(0, 1, 0);
+        CustomLocation loc3 = location.clone().add(0, 1, 0);
+
+        CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(loc1, !TaskUtils.isFoliaServer());
+        CollisionUtils.NearbyBlocksResult nearbyBlocksResultLow = CollisionUtils.getNearbyBlocks(loc2, !TaskUtils.isFoliaServer());
+        CollisionUtils.NearbyBlocksResult nearbyBlocksResultHigh = CollisionUtils.getNearbyBlocks(loc3, !TaskUtils.isFoliaServer());
 
         boolean flag_water = false, flag_lava = false, flag_web = false, flag_climbable = false,
                 flag_nearBuggyBlock = false, flag_bubble = false, flag_bed = false,
@@ -647,7 +654,21 @@ public class MovementData implements Data {
                         || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
                         || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
                         || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isStair)
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall);
+                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall)
+                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
+                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
+                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(MaterialType::isFence)
+                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
+                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
+                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(MaterialType::isStair)
+                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(MaterialType::isWall)
+                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
+                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
+                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(MaterialType::isFence)
+                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
+                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
+                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(MaterialType::isStair)
+                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(MaterialType::isWall);
 
         movingUp = (getDeltaY() > 0 || getLastDeltaY() > 0) && nearStepMaterial;
 
