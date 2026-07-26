@@ -216,6 +216,7 @@ public class SpeedA extends Check {
                             + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
                             + "\n * moving Up Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                             + "\n * moving Down Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                            + "* nearStepMaterial " + movementData.isNearStepMaterial() + "\n"
                             + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
                             + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
                             + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)
@@ -395,6 +396,7 @@ public class SpeedA extends Check {
                 + "* bSpeed (s/ns) " + MsgType.MAIN_THEME_COLOR.getMessage() + SPRINT_BASE_SPEED + "/" + NO_SPRINT_BASE_SPEED + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* moving Up Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* moving Down Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                + "* nearStepMaterial " + movementData.isNearStepMaterial() + "\n"
                 + "* iceMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_ICE_INCREMENT_PER_TICK + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* maxIceSpeedBoost " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_MAX_ICE_SPEED_BOOST + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                 + "* slimeMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_SLIME_INCREMENT_PER_TICK + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
@@ -542,7 +544,6 @@ public class SpeedA extends Check {
                 airBuffer = Math.max(8, airBuffer);
             }
 
-            //verbose(this.getClass().getSimpleName(), airBuffer, 6, format);
         } else airBuffer = Math.max(0, airBuffer - 0.005D);
     }
 
