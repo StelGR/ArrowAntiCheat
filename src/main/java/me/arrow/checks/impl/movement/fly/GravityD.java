@@ -384,10 +384,19 @@ public class GravityD extends Check {
                 + "\nresidual " + MsgType.MAIN_THEME_COLOR.getMessage() + residual
                 + "\nallowed " + MsgType.MAIN_THEME_COLOR.getMessage() + allowed
                 + "\nsampleTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + sampleTicks
+                + "\nnearStepMaterial " + data.isNearStepMaterial()
                 + "\nexactGroundSupport " + MsgType.MAIN_THEME_COLOR.getMessage() + hasExactGroundSupport(data)
                 + "\nevidence " + MsgType.MAIN_THEME_COLOR.getMessage() + strictNegativeEvidence;
 
         verbose(getClass().getSimpleName(), strictNegativeEvidence, required, information);
+
+        if (data.getSincePredictUpwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            resetGravityD("predictUp/Down");
+            return false;
+        }
 
         if (mathematicallyStrong || strictNegativeEvidence > required) {
             fail("Negative Gravity Modification", information);
@@ -468,10 +477,10 @@ public class GravityD extends Check {
             return;
         }
 
-        if (data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictUpwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (data.getSincePredictUpwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             resetGravityD("predictUp/Down");
             return;
         }
@@ -932,10 +941,10 @@ public class GravityD extends Check {
         if (data.getMovingUnderblockTicks() > 0) { resetGravityD("movingUnderBlock"); return true; }
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return true; }
 
-        if (data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictUpwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (data.getSincePredictUpwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             resetGravityD("predictUp/Down");
             return true;
         }
@@ -1357,10 +1366,10 @@ public class GravityD extends Check {
         if (fallDist == 0 && airTicks == 0 && dy == 0 && ((lastDy - expected) < 1E-6) && !data.isCustomInAir() && data.isOnGround() && ((expectedDY - predictedWrong) < 1E-6)) return false;
 
 
-        if (data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictUpwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (data.getSincePredictUpwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             resetGravityD("predictUp/Down");
             return false;
         }
