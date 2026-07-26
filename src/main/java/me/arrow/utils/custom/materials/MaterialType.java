@@ -441,6 +441,24 @@ public enum MaterialType {
                 || isMaterial(name, MaterialType.WALL);
     }
 
+    public static boolean isCarpet(Block block) {
+        return block != null && isCarpet(block.getType());
+    }
+
+    public static boolean isCarpet(Material material) {
+        if (material == null) return false;
+
+        if (hasAnyBukkitTag(material, "CARPETS")) return true;
+
+        String name = material.name().toUpperCase();
+
+        // Future-proof:
+        // COBBLESTONE_WALL, TUFF_WALL, WHITE_WOOL_WALL, etc.
+        return name.endsWith("_CARPET")
+                || name.endsWith("CARPETS")
+                || isMaterial(name, MaterialType.WALL);
+    }
+
     public static boolean isSlab(Block block) {
         return block != null && isSlab(block.getType());
     }

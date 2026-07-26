@@ -25,7 +25,7 @@ public class BadPacketsF extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.HELD_ITEM_CHANGE)) {
+        if (event.getPacketType().equals(PacketType.Play.Client.SLOT_STATE_CHANGE)) {
             WrapperPlayClientSlotStateChange slot = new WrapperPlayClientSlotStateChange(event);
 
             if (!profile.shouldCancel()
