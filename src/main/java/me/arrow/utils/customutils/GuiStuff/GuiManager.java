@@ -12,7 +12,6 @@ import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.TaskUtils;
-import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.customutils.animationSystem.Animation;
 import me.arrow.utils.customutils.animationSystem.BanAnimationGuiLayout;
@@ -372,7 +371,19 @@ public class GuiManager {
                 Config.Setting.GHOST_BLOCK_FIX.getBoolean(),
                 serverVersion
         );
-        gui.setItem(22, generateItem(ghostBlockSyncItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ghost-Block Sync"),
+
+        gui.setItem(20, generateItem(ghostBlockSyncItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Benchmarker"),
+                Arrays.asList(
+                        translate(guiLine()),
+                        translate("&7&oShould we enable the profiler to benchmark anticheat server cpu usage?"),
+                        "",
+                        translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage()
+                                + Config.Setting.GHOST_BLOCK_FIX.getBoolean()),
+                        translate(guiLine())
+                )));
+
+
+        gui.setItem(24, generateItem(ghostBlockSyncItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ghost-Block Sync"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we fix ghostblock desyncs (Live)"),
@@ -526,7 +537,6 @@ public class GuiManager {
 
 
     public void openChecksGUI(Player player) {
-        ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
         Inventory gui = Bukkit.createInventory(player, 27, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Select Category"));
 
         gui.setItem(10, GuiUtility.generateItem(new ItemStack(Material.IRON_SWORD, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Combat"),
@@ -542,7 +552,7 @@ public class GuiManager {
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
 
-        gui.setItem(16, GuiUtility.generateItem(new ItemStack(serverVersion.isNewerThanOrEquals(ServerVersion.V_1_13) ? Material.REDSTONE_TORCH : Material.getMaterial(MaterialType.REDSTONE_TORCH_ON.name()), 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Misc"),
+        gui.setItem(16, GuiUtility.generateItem(createItem("REDSTONE_TORCH", "REDSTONE_TORCH_ON"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Misc"),
         Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                 OtherUtility.translate("&7Manage the misc checks"),
                 OtherUtility.translate(OtherUtility.guiLine())
@@ -564,7 +574,6 @@ public class GuiManager {
     }
 
     public void openCombatChecksGUI(Player player) {
-        ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
         Inventory gui = Bukkit.createInventory(player, 27, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Combat Checks"));
 
         gui.setItem(10, GuiUtility.generateItem(new ItemStack(Material.NETHER_STAR, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Aim Assist"),
@@ -645,7 +654,7 @@ public class GuiManager {
                         OtherUtility.translate("&7Manage the motion checks"),
                         OtherUtility.translate(OtherUtility.guiLine())
                 )));
-        gui.setItem(13, GuiUtility.generateItem(new ItemStack(Material.BEACON, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Vehicle"),
+        gui.setItem(13, GuiUtility.generateItem(createItem("OAK_BOAT", "BOAT"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Vehicle"),
                 Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                         OtherUtility.translate("&7Manage the vehicle checks"),
                         OtherUtility.translate(OtherUtility.guiLine())
@@ -661,7 +670,7 @@ public class GuiManager {
                         OtherUtility.translate(OtherUtility.guiLine())
                 )));
 
-        gui.setItem(16, GuiUtility.generateItem(new ItemStack(Material.BLAZE_POWDER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "IllegalMove"),
+        gui.setItem(16, GuiUtility.generateItem(createItem("LEATHER_BOOTS", "LEATHER_BOOTS"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "IllegalMove"),
                 Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
                         OtherUtility.translate("&7Manage the IllegalMove checks"),
                         OtherUtility.translate(OtherUtility.guiLine())

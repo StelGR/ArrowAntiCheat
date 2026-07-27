@@ -9,6 +9,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.PotionType;
@@ -37,133 +38,141 @@ public class GroundB extends Check {
             return;
         }
 
-        MovementData movementData = profile.getMovementData();
+        long profiler = Profiler.start();
 
-        if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()
-                || profile.getExempt().isVehicle()
-                || profile.getExempt().isTeleports()
-                || profile.isBouncingOnSlime()
-                || profile.getVehicleData().getSinceVehicleTicks() < 5
-                || movementData.isInsideLiquid()
-                || movementData.isNearShulker()
-                || movementData.isNearShulkerBox()
-                || movementData.isNearLava()
-                || movementData.isNearWater()
-                || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
-        if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
+        try {
+
+            MovementData movementData = profile.getMovementData();
+
+            if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()
+                    || profile.getExempt().isVehicle()
+                    || profile.getExempt().isTeleports()
+                    || profile.isBouncingOnSlime()
+                    || profile.getVehicleData().getSinceVehicleTicks() < 5
+                    || movementData.isInsideLiquid()
+                    || movementData.isNearShulker()
+                    || movementData.isNearShulkerBox()
+                    || movementData.isNearLava()
+                    || movementData.isNearWater()
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2)))
+                return;
+            if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
 //                || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-        ) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground B: is Exempting (Block Update/Piston Update)");
-            return;
-        }
+            ) {
+                if (Config.Setting.DEBUG.getBoolean())
+                    OtherUtility.log("Ground B: is Exempting (Block Update/Piston Update)");
+                return;
+            }
 
-        if (profile.getMovementData().getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground B: is Exempting (elytra glide)");
-            return;
-        }
+            if (profile.getMovementData().getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground B: is Exempting (elytra glide)");
+                return;
+            }
 
-        int airTicks = movementData.getCustomAirTicks();
-        int clientAirTicks = movementData.getClientAirTicks();
+            int airTicks = movementData.getCustomAirTicks();
+            int clientAirTicks = movementData.getClientAirTicks();
 
-        boolean clientGround = movementData.isOnGround();
-        boolean serverGround = movementData.isServerGround();
-        boolean serverYGround = movementData.isServerYGround();
-        boolean inAir = movementData.isCustomInAir();
+            boolean clientGround = movementData.isOnGround();
+            boolean serverGround = movementData.isServerGround();
+            boolean serverYGround = movementData.isServerYGround();
+            boolean inAir = movementData.isCustomInAir();
 
-        double deltaXZ = movementData.getDeltaXZ();
-        double deltaY = movementData.getDeltaY();
+            double deltaXZ = movementData.getDeltaXZ();
+            double deltaY = movementData.getDeltaY();
 
-        boolean recentlyPlaced = profile.getActionData().hasRecentConfirmedUnderPlace(5 + profile.getConnectionData().getClientTickTrans() * 2);
+            boolean recentlyPlaced = profile.getActionData().hasRecentConfirmedUnderPlace(5 + profile.getConnectionData().getClientTickTrans() * 2);
 
-        double airTickLimit = getAirTickLimit(
-                movementData,
-                recentlyPlaced
-        );
+            double airTickLimit = getAirTickLimit(
+                    movementData,
+                    recentlyPlaced
+            );
 
-        //invalid 1 was a terribly made check, i removed it, invalid2 does most of the job. but it can still false, needs improvements
-        double horizontal = Math.max(
-                profile.getVelocityData().getTotalHorizontalVelocitySustain(),
-                profile.getVelocityData().getStackedHorizontalVelocity()
-        );
-        double vertical = Math.max(
-                profile.getVelocityData().getTotalVerticalVelocitySustain(),
-                profile.getVelocityData().getStackedVerticalVelocity()
-        );
+            //invalid 1 was a terribly made check, i removed it, invalid2 does most of the job. but it can still false, needs improvements
+            double horizontal = Math.max(
+                    profile.getVelocityData().getTotalHorizontalVelocitySustain(),
+                    profile.getVelocityData().getStackedHorizontalVelocity()
+            );
+            double vertical = Math.max(
+                    profile.getVelocityData().getTotalVerticalVelocitySustain(),
+                    profile.getVelocityData().getStackedVerticalVelocity()
+            );
 
-        double velMag = (horizontal / 2) + vertical;
-        double baseTicksVel = 10;
-        double baseVelocity = 0.0005;
-        double scale = 14;
+            double velMag = (horizontal / 2) + vertical;
+            double baseTicksVel = 10;
+            double baseVelocity = 0.0005;
+            double scale = 14;
 
-        double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
-        airTickLimit += Math.ceil(extraFromVel);
+            double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
+            airTickLimit += Math.ceil(extraFromVel);
 
-        boolean invalid = airTicks > (airTickLimit + 12) && clientGround && serverGround && inAir;
+            boolean invalid = airTicks > (airTickLimit + 12) && clientGround && serverGround && inAir;
 
-        boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
-        if (nearEdge && movementData.getLastDeltaY() != 0 && deltaY == 0 && movementData.getClientAirTicks() == 0) invalid = false;
+            boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
+            if (nearEdge && movementData.getLastDeltaY() != 0 && deltaY == 0 && movementData.getClientAirTicks() == 0)
+                invalid = false;
 
-        float movingIceTicks = movementData.getMovingOnIceTicks();
+            float movingIceTicks = movementData.getMovingOnIceTicks();
 
-        double air_iceSpeedBoost;
-        if (movingIceTicks < 15) air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
-        else air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK_SMALLER * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
+            double air_iceSpeedBoost;
+            if (movingIceTicks < 15)
+                air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
+            else
+                air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK_SMALLER * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
 
-        double speedlimit = 0.89 + profile.getVelocityData().getTotalHorizontalVelocity();
-        speedlimit += air_iceSpeedBoost;
+            double speedlimit = 0.89 + profile.getVelocityData().getTotalHorizontalVelocity();
+            speedlimit += air_iceSpeedBoost;
 
-        boolean invalid2 = (
-                (clientGround && serverGround && inAir)
-                || (inAir && airTicks > 3 && clientAirTicks == 0)
-                || (inAir && clientAirTicks > 6 && serverYGround)
-                || (!clientGround && serverGround && inAir)
-        )
-                && movementData.getDeltaXZ() > (speedlimit)
-                && movementData.getSinceRiptidingTicks() > 40 + profile.getConnectionData().getClientTickTrans()
-                && movementData.elytraMomentum() == 0;
-
-
+            boolean invalid2 = (
+                    (clientGround && serverGround && inAir)
+                            || (inAir && airTicks > 3 && clientAirTicks == 0)
+                            || (inAir && clientAirTicks > 6 && serverYGround)
+                            || (!clientGround && serverGround && inAir)
+            )
+                    && movementData.getDeltaXZ() > (speedlimit)
+                    && movementData.getSinceRiptidingTicks() > 40 + profile.getConnectionData().getClientTickTrans()
+                    && movementData.elytraMomentum() == 0;
 
 
+            if (inAir) {
+                verbose(this.getClass().getSimpleName(), airTicks, airTickLimit,
+                        MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose"
+                                + "\n * ServerGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                + "\n * ServerYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverYGround
+                                + "\n * ClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                + "\n * InAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
+                                + "\n * AirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
+                                + "\n * ClientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
+                                + "\n * AirTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit
+                                + "\n * DeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                                + "\n * DeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                + "\n * LagTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + getLagTicks()
+                                + "\n * TransPing " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getConnectionData().getTransPing()
+                                + "\n * VelocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalHorizontalVelocity()
+                                + "\n * VelocityV " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalVerticalVelocity()
+                                + "\n * JumpLevel " + MsgType.MAIN_THEME_COLOR.getMessage() + getJumpBoostLevel()
+                                + "\n * JumpExpected " + MsgType.MAIN_THEME_COLOR.getMessage() + getExpectedJumpMotion());
+            }
 
-        if (inAir) {
-            verbose(this.getClass().getSimpleName(), airTicks, airTickLimit,
-                    MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose"
-                            + "\n * ServerGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                            + "\n * ServerYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverYGround
-                            + "\n * ClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                            + "\n * InAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
-                            + "\n * AirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
-                            + "\n * ClientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
-                            + "\n * AirTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit
-                            + "\n * DeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                            + "\n * DeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                            + "\n * LagTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + getLagTicks()
-                            + "\n * TransPing " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getConnectionData().getTransPing()
-                            + "\n * VelocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalHorizontalVelocity()
-                            + "\n * VelocityV " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalVerticalVelocity()
-                            + "\n * JumpLevel " + MsgType.MAIN_THEME_COLOR.getMessage() + getJumpBoostLevel()
-                            + "\n * JumpExpected " + MsgType.MAIN_THEME_COLOR.getMessage() + getExpectedJumpMotion());
-        }
-
-        String verboseInfo = "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverYGround
-                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
-                + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
-                + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
-                + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY;
-        if (invalid) {
-            if ( increaseBuffer() > 3) {
-                fail("Impossible ground state (1)",
+            String verboseInfo = "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                    + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverYGround
+                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                    + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
+                    + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
+                    + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
+                    + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                    + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY;
+            if (invalid) {
+                if (increaseBuffer() > 3) {
+                    fail("Impossible ground state (1)",
+                            verboseInfo);
+                }
+            } else decreaseBufferBy(0.125);
+            if (invalid2) {
+                fail("Impossible ground state (2)",
                         verboseInfo);
             }
-        }
-        else decreaseBufferBy(0.125);
-        if (invalid2) {
-            fail("Impossible ground state (2)",
-                    verboseInfo);
+        } finally {
+            Profiler.stop("Ground B", profiler);
         }
     }
 

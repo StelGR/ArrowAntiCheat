@@ -9,6 +9,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
@@ -64,192 +65,196 @@ public class MotionA extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
-            if (profile.getMovementData().isOnBoat()
-                    || profile.getMovementData().isNearBoat()) return;
 
-            MovementData movementData = profile.getMovementData();
+            long profiler = Profiler.start();
 
-            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+            try {
 
-            if (world.shouldExemptMovementChecks()
-                    || world.nextToGhostWall
-                    || world.physicsMismatch
-                    || world.onGhostBlock
-                    || world.insideGhostBlock
-                    || world.underGhostBlock
-                    || profile.getBlockProcessor().isUnderGhostBlock()) {
-                return;
-            }
+                if (profile.getMovementData().isOnBoat()
+                        || profile.getMovementData().isNearBoat()) return;
 
-            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+                MovementData movementData = profile.getMovementData();
 
-            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-                if (Config.Setting.DEBUG.getBoolean()) {
-                    OtherUtility.log("Motion A: is Exempting (ghostblock liquid/web)");
+                ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+                if (world.shouldExemptMovementChecks()
+                        || world.nextToGhostWall
+                        || world.physicsMismatch
+                        || world.onGhostBlock
+                        || world.insideGhostBlock
+                        || world.underGhostBlock
+                        || profile.getBlockProcessor().isUnderGhostBlock()) {
+                    return;
                 }
-                return;
-            }
 
-            double deltaY = movementData.getDeltaY();
+                int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
-            if (profile.shouldCancel()
-                    || profile.isExempt().isTeleports()
-                    || !profile.isExempt().isRespawned()
-                    || profile.getActionData().hasRecentConfirmedUnderPlace(6 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    || profile.isBouncingOnSlime()
-                    || profile.getPlayer().isInsideVehicle()
-                    || movementData.isNearWater()
-                    || movementData.isNearLava()
-                    || movementData.isNearWebs()
-                    || movementData.isNearWall()
-                    || movementData.isNearBuggyBlock()
-                    || movementData.isNearBed()
-                    || movementData.isUnderblock()
-                    || movementData.getMovingUnderblockTicks() > 0
-                    || movementData.isOnSlime()
-                    || (movementData.getNearbyBlocksResult() != null
-                    && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
-                    || profile.getMovementData().getSinceRiptidingTicks() < 20
-                    || profile.getVelocityData().isTakingVelocity()) {
-                return;
-            }
+                if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+                    if (Config.Setting.DEBUG.getBoolean()) {
+                        OtherUtility.log("Motion A: is Exempting (ghostblock liquid/web)");
+                    }
+                    return;
+                }
 
-            if (profile.getExempt().isReelingIn()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting (reelingIn)");
-                return;
-            }
+                double deltaY = movementData.getDeltaY();
 
-            if (movementData.getSincePredictUpwardsTicks() < 10 || movementData.getSincePredictDownwardsTicks() < 10) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting (step Down / Up)");
-                return;
-            }
+                if (profile.shouldCancel()
+                        || profile.isExempt().isTeleports()
+                        || !profile.isExempt().isRespawned()
+                        || profile.getActionData().hasRecentConfirmedUnderPlace(6 + (profile.getConnectionData().getClientTickTrans() * 2))
+                        || profile.isBouncingOnSlime()
+                        || profile.getPlayer().isInsideVehicle()
+                        || movementData.isNearWater()
+                        || movementData.isNearLava()
+                        || movementData.isNearWebs()
+                        || movementData.isNearWall()
+                        || movementData.isNearBuggyBlock()
+                        || movementData.isNearBed()
+                        || movementData.isUnderblock()
+                        || movementData.getMovingUnderblockTicks() > 0
+                        || movementData.isOnSlime()
+                        || (movementData.getNearbyBlocksResult() != null
+                        && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
+                        || profile.getMovementData().getSinceRiptidingTicks() < 20
+                        || profile.getVelocityData().isTakingVelocity()) {
+                    return;
+                }
 
-            if (movementData.elytraMomentum() > 0) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: elytraMomentum");
-                return;
-            }
+                if (profile.getExempt().isReelingIn()) {
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting (reelingIn)");
+                    return;
+                }
 
-            if (profile.getMovementData().getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting GhostBlock");
-                return;
-            }
+                if (movementData.getSincePredictUpwardsTicks() < 10 || movementData.getSincePredictDownwardsTicks() < 10) {
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting (step Down / Up)");
+                    return;
+                }
 
-            if (profile.getBlockProcessor().isUnderGhostBlock()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: underGhostblock");
-                return;
-            }
+                if (movementData.elytraMomentum() > 0) {
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: elytraMomentum");
+                    return;
+                }
 
-            if (profile.getMovementData().getSinceGlidingTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: Exempt - just gliding");
-                return;
-            }
+                if (profile.getMovementData().getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) {
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting GhostBlock");
+                    return;
+                }
 
-            double expected = 0.40444491418477924D;
+                if (profile.getBlockProcessor().isUnderGhostBlock()) {
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: underGhostblock");
+                    return;
+                }
 
-            int trans = profile.getConnectionData().getClientTickTrans();
+                if (profile.getMovementData().getSinceGlidingTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: Exempt - just gliding");
+                    return;
+                }
 
-            if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)
-                    && !movementData.isOnGround()
-                    && Math.abs(deltaY - expected) < 1E-6
-                    && profile.getActionData().hasRecentTowerBlockPlace(20 + (trans * 2), 2 + trans)) {
-                buffer2 = 0.0D;
-                return; // vanilla 1.8 tower/building up first tick
-            }
+                double expected = 0.40444491418477924D;
 
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(movementData.getLocation(), true);
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(movementData.getLastLocation(), true);
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(movementData.getLastLastLocation(), true);
+                int trans = profile.getConnectionData().getClientTickTrans();
 
-            boolean onHoney0 = CollisionUtils.isStandingOnMaterial(movementData.getLocation(), nearbyBlocksResult, true, MaterialType.HONEY);
-            boolean onHoney1 = CollisionUtils.isStandingOnMaterial(movementData.getLastLocation(), nearbyBlocksResult_lower, true, MaterialType.HONEY);
-            boolean onHoney2 = CollisionUtils.isStandingOnMaterial(movementData.getLastLastLocation(), nearbyBlocksResult_lowest, true, MaterialType.HONEY);
-            boolean onHoney = onHoney0 || onHoney1 || onHoney2;
+                if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)
+                        && !movementData.isOnGround()
+                        && Math.abs(deltaY - expected) < 1E-6
+                        && profile.getActionData().hasRecentTowerBlockPlace(20 + (trans * 2), 2 + trans)) {
+                    buffer2 = 0.0D;
+                    return; // vanilla 1.8 tower/building up first tick
+                }
 
-            boolean isGround = movementData.isOnGround(),
-                    lastGround = movementData.isLastOnGround();
-            boolean serverGround = movementData.isServerGround(), positionGround = movementData.isPositionYGround();
-            boolean lastServerGround = movementData.isLastServerGround(), lastPositionGround = movementData.isLastPositionYGround();
+                final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(movementData.getLocation(), true);
+                final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(movementData.getLastLocation(), true);
+                final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(movementData.getLastLastLocation(), true);
 
-            double motion = MoveUtils.getJumpMotion(profile);
+                boolean onHoney0 = CollisionUtils.isStandingOnMaterial(movementData.getLocation(), nearbyBlocksResult, true, MaterialType.HONEY);
+                boolean onHoney1 = CollisionUtils.isStandingOnMaterial(movementData.getLastLocation(), nearbyBlocksResult_lower, true, MaterialType.HONEY);
+                boolean onHoney2 = CollisionUtils.isStandingOnMaterial(movementData.getLastLastLocation(), nearbyBlocksResult_lowest, true, MaterialType.HONEY);
+                boolean onHoney = onHoney0 || onHoney1 || onHoney2;
 
-            double maxJumpHeight = onHoney ? motion * 0.5F : motion;
+                boolean isGround = movementData.isOnGround(),
+                        lastGround = movementData.isLastOnGround();
+                boolean serverGround = movementData.isServerGround(), positionGround = movementData.isPositionYGround();
+                boolean lastServerGround = movementData.isLastServerGround(), lastPositionGround = movementData.isLastPositionYGround();
 
-            String data = MsgType.MAIN_THEME_COLOR.getMessage() +"* Verbose\n * deltaY "+MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                    + "\n * maxJumpHeight "+MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
-                    + "\n * clientGround "+MsgType.MAIN_THEME_COLOR.getMessage() + isGround
-                    + "\n * lastClientGround "+MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
-                    + "\n * serverGround "+MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                    + "\n * lastServerGround "+MsgType.MAIN_THEME_COLOR.getMessage() + lastServerGround
-                    + "\n * positionGround "+MsgType.MAIN_THEME_COLOR.getMessage() + positionGround
-                    + "\n * lastPositionGround "+MsgType.MAIN_THEME_COLOR.getMessage() + lastPositionGround
-                    + "\n * underblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock();
+                double motion = MoveUtils.getJumpMotion(profile);
 
-            if (deltaY != 0) verbose(this.getClass().getSimpleName(), deltaY, maxJumpHeight, data);
+                double maxJumpHeight = onHoney ? motion * 0.5F : motion;
 
+                String data = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                        + "\n * maxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
+                        + "\n * clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
+                        + "\n * lastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
+                        + "\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                        + "\n * lastServerGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastServerGround
+                        + "\n * positionGround " + MsgType.MAIN_THEME_COLOR.getMessage() + positionGround
+                        + "\n * lastPositionGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastPositionGround
+                        + "\n * underblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock();
 
-            //temporary fix for pistons slime blocks.
-            if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    && deltaY > MoveUtils.getJumpMotion(profile)
-                    && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                return;
-            }
-
-
-            if (movementData.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                    || movementData.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                    || movementData.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                return;
-            }
+                if (deltaY != 0) verbose(this.getClass().getSimpleName(), deltaY, maxJumpHeight, data);
 
 
-            if (!isGround
-                    && lastGround
-                    && deltaY > motion) {
+                //temporary fix for pistons slime blocks.
+                if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
+                        && deltaY > MoveUtils.getJumpMotion(profile)
+                        && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                    return;
+                }
+
+
+                if (movementData.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
+                        || movementData.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
+                        || movementData.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                    return;
+                }
+
+
+                if (!isGround
+                        && lastGround
+                        && deltaY > motion) {
 //                if (++buffer2 > 1) {
 //
 //                }
 
-                fail("Jumping Higher Than Expected",
-                        "deltaY "+ MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
-                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
-                                + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
-                                + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
-
-                verbose(this.getClass().getSimpleName(), buffer2, 2, data);
-            }
-//            else {
-//                buffer2 -= Math.min(buffer2, 0.025);
-//            }
-
-
-            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                return;
-            }
-
-            if (!isGround
-                    && lastGround
-                    && deltaY > 0.0
-                    && deltaY < maxJumpHeight) {
-                if (++buffer > 2) {
-                    fail("Jumping Lower Than Expected",
+                    fail("Jumping Higher Than Expected",
                             "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                     + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
                                     + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
                                     + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
                                     + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
+
+                    verbose(this.getClass().getSimpleName(), buffer2, 2, data);
+                }
+//            else {
+//                buffer2 -= Math.min(buffer2, 0.025);
+//            }
+
+
+                if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                    return;
                 }
 
+                if (!isGround
+                        && lastGround
+                        && deltaY > 0.0
+                        && deltaY < maxJumpHeight) {
+                    if (++buffer > 2) {
+                        fail("Jumping Lower Than Expected",
+                                "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                        + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
+                                        + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + isGround
+                                        + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
+                                        + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
+                    }
 
 
-                verbose(this.getClass().getSimpleName(), buffer, 2, data);
-            }
-            else {
-                buffer -= Math.min(buffer, 0.025);
+                    verbose(this.getClass().getSimpleName(), buffer, 2, data);
+                } else {
+                    buffer -= Math.min(buffer, 0.025);
+                }
+            } finally {
+                Profiler.stop("Motion A", profiler);
             }
         }
-
-
     }
 }
 

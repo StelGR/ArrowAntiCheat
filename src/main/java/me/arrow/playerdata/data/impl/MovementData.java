@@ -20,6 +20,7 @@ import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.nms.NmsInstance;
 import me.arrow.playerdata.data.Data;
 import me.arrow.playerdata.processors.impl.CollisionProcessor;
@@ -39,6 +40,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
@@ -460,15 +462,17 @@ public class MovementData implements Data {
     }
 
     private void handleNearbyBlocks() {
+        boolean async = !TaskUtils.isFoliaServer();
+
         /*
         Handle collisions
         NOTE: You should ALWAYS use NMS if you plan on supporting 1.9+
         For a production server, DO NOT use spigot's api. It's slow. (Especially for Blocks, Chunks, Materials)
          */
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation().clone(), !TaskUtils.isFoliaServer());
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation().clone(), async);
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(
                 getLocation().clone().add(0, 1, 0),
-                !TaskUtils.isFoliaServer()
+                async
         );
 
         this.nearbyBlocksResult = nearbyBlocksResult;
@@ -498,14 +502,15 @@ public class MovementData implements Data {
 
     void processBlocks() {
         NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
+        boolean async = !TaskUtils.isFoliaServer();
 
         CustomLocation loc1 = location.clone();
         CustomLocation loc2 = location.clone().subtract(0, 1, 0);
         CustomLocation loc3 = location.clone().add(0, 1, 0);
 
-        CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(loc1, !TaskUtils.isFoliaServer());
-        CollisionUtils.NearbyBlocksResult nearbyBlocksResultLow = CollisionUtils.getNearbyBlocks(loc2, !TaskUtils.isFoliaServer());
-        CollisionUtils.NearbyBlocksResult nearbyBlocksResultHigh = CollisionUtils.getNearbyBlocks(loc3, !TaskUtils.isFoliaServer());
+        CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(loc1, async);
+        CollisionUtils.NearbyBlocksResult nearbyBlocksResultLow = CollisionUtils.getNearbyBlocks(loc2, async);
+        CollisionUtils.NearbyBlocksResult nearbyBlocksResultHigh = CollisionUtils.getNearbyBlocks(loc3, async);
 
         boolean flag_water = false, flag_lava = false, flag_web = false, flag_climbable = false,
                 flag_nearBuggyBlock = false, flag_bubble = false, flag_bed = false,
@@ -593,7 +598,6 @@ public class MovementData implements Data {
                 checkLoc.setX(checkLoc.getX() + x);
                 checkLoc.setZ(checkLoc.getZ() + z);
                 checkLoc.setY(playerLoc.getY() + 0.5);
-                //Block block = CollisionUtils.getBlock(checkLoc, !TaskUtils.isFoliaServer());
                 String mName = nms.getType(checkLoc.getBlock()).name();
                 if (MaterialType.isMaterial(mName, MaterialType.WATER)) {
                     isInsideWater = true;
@@ -648,33 +652,30 @@ public class MovementData implements Data {
                 || MaterialType.isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
 
         nearStepMaterial =
-                nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFence)
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isStair)
-                        || nearbyBlocksResult.getBlockTypes().stream().anyMatch(MaterialType::isWall)
-                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
-                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
-                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(MaterialType::isFence)
-                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
-                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
-                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(MaterialType::isStair)
-                        || nearbyBlocksResultLow.getBlockTypes().stream().anyMatch(MaterialType::isWall)
-                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.HALF_BLOCK))
-                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(MaterialType::isSlab)
-                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(MaterialType::isFence)
-                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(MaterialType::isFenceGate)
-                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(m -> MaterialType.isMaterial(m.name(), MaterialType.SNOW))
-                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(MaterialType::isStair)
-                        || nearbyBlocksResultHigh.getBlockTypes().stream().anyMatch(MaterialType::isWall);
+                containsStepMaterial(nearbyBlocksResult)
+                        || containsStepMaterial(nearbyBlocksResultLow)
+                        || containsStepMaterial(nearbyBlocksResultHigh);
 
         movingUp = (getDeltaY() > 0 || getLastDeltaY() > 0) && nearStepMaterial;
 
         movingDown = (getDeltaY() < 0 || getLastDeltaY() < 0) && nearStepMaterial;
 
     }
+
+    private static boolean isStepMaterial(Material m) {
+        String name = m.name();
+
+        return MaterialType.isMaterial(name, MaterialType.HALF_BLOCK)
+                || MaterialType.isMaterial(name, MaterialType.HEIGHT_CHANGE)
+                || MaterialType.isMaterial(name, MaterialType.SNOW)
+                || MaterialType.isSlab(m)
+                || MaterialType.isFence(m)
+                || MaterialType.isFenceGate(m)
+                || MaterialType.isStair(m)
+                || MaterialType.isWall(m);
+    }
+
+
 
     private boolean isNearWallScanner(CustomLocation location) {
         if (location == null || location.getWorld() == null) {
@@ -983,393 +984,382 @@ public class MovementData implements Data {
     int tickTime;
 
     void updateTicks() {
-        this.tick++;
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, !TaskUtils.isFoliaServer());
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, !TaskUtils.isFoliaServer());
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation, !TaskUtils.isFoliaServer());
-
-        boolean powdersnow = nearbyBlocksResult.getBlockTypes().stream()
-                .anyMatch(material -> material.name().equals("POWDER_SNOW"));
-
-        if (powdersnow) {
-            sincePowderSnowTicks = 0;
-        } else {
-            sincePowderSnowTicks++;
-        }
-
-        boolean onIce0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.ICE);
-        boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.ICE);
-        boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.ICE);
-        onIce = onIce0 || onIce1 || onIce2;
-
-        if (moving && (onIce0 || onIce1 || onIce2)) {
-            movingOnIceTicks += (movingOnIceTicks < 30 ? 1f : 0);
-        } else {
-            movingOnIceTicks = Math.max(0, movingOnIceTicks - 0.25f);
-        }
-
-        if (onIce0 || onIce1 || onIce2) {
-            iceTicks += (iceTicks < 25 ? 1 : 0);
-        } else {
-            iceTicks = Math.max(0, iceTicks - 1);
-        }
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow =
-                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lower =
-                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lowest =
-                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), !TaskUtils.isFoliaServer());
-
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow =
-                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower =
-                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 2, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest =
-                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 2, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow1 =
-                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 3, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower1 =
-                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 3, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest1 =
-                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 3, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove =
-                CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lower =
-                CollisionUtils.getNearbyBlocks(this.lastLocation.clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lowest =
-                CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
-
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocks =
-                CollisionUtils.getNearbyBlocks(this.location, !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow =
-                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), !TaskUtils.isFoliaServer());
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow2 =
-                CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), !TaskUtils.isFoliaServer());
-
-
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksAbove =
-                CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), !TaskUtils.isFoliaServer());
-
-
-        boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lower, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lowest, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-
-        boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-
-        boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow1, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower1, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest1, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-
-        boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lower, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lowest, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-
-        boolean onSlime0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.SLIME);
-        onSlime = onSlime0 || onSlime1 || onSlime2;
-
-
-        boolean nearPiston0 = nearbyBlocks.getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.PISTON));
-        boolean nearPiston1 = nearbyBlocksBelow.getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.PISTON));
-        boolean nearPiston2 = nearbyBlocksBelow2.getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.PISTON));
-        boolean nearPiston3 = nearbyBlocksAbove.getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.PISTON));
-
-        nearPiston = nearPiston0 || nearPiston1 || nearPiston2 || nearPiston3;
-
-        // this is a temporary, test fix, for piston movable slime blocks, it may not work properly in all scenarios, but it will do for now
-        // assuming that it even works...
-        onExtendedHitboxSlime = onSlime || slimeBelow0 || slimeBelow1 || slimeBelow2 || slimeAbove0 || slimeAbove1 || slimeAbove2 || slimeBelowBelow0 || slimeBelowBelow1 || slimeBelowBelow2 || slimeBelowBelow3 || slimeBelowBelow4 || slimeBelowBelow5
-                || (getMovingOnSlimeTicks() < 11 && getMovingOnSlimeTicks() > 0) || getSinceMovingOnSlimeTicks() < 10;
-
-       // profile.getPlayer().sendMessage("nearPiston: " + nearPiston + ", onSlime " + onExtendedHitboxSlime + ", deltaY " + deltaY + ", slimeTicks " + getMovingOnSlimeTicks() + ", sinceSlimeTicks " + getSinceMovingOnSlimeTicks());
-
-
-        if (moving && (onSlime0 || onSlime1 || onSlime2)) {
-            movingOnSlimeTicks += (movingOnSlimeTicks < 30 ? 1F : 0F);
-        } else {
-            movingOnSlimeTicks = Math.max(0, movingOnSlimeTicks - 0.5F);
-        }
-
-        if (onSlime0 || onSlime1 || onSlime2) {
-            slimeTicks += (slimeTicks < 25 ? 1 : 0);
-        } else {
-            slimeTicks = Math.max(0, slimeTicks - 1);
-        }
-
-        if (isNearSlime()) sinceNearSlimeTicks = 0;
-        else sinceNearSlimeTicks++;
-
-        if (isNearPiston()) sinceNearPistonTicks = 0;
-        else sinceNearPistonTicks++;
-
-        boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.SOUL_SAND);
-        boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.SOUL_SAND);
-        boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.SOUL_SAND);
-        onSoulSand = onSoul0 || onSoul1 || onSoul2;
-
-        if (moving && (onSoul0 || onSoul1 || onSoul2)) {
-            movingOnSoulTicks += (movingOnSoulTicks < 25 ? 1 : 0);
-        } else {
-            movingOnSoulTicks = Math.max(0, movingOnSoulTicks - 1);
-        }
-
-        if (onSoul0 || onSoul1 || onSoul2) {
-            soulTicks += (soulTicks < 25 ? 1 : 0);
-        } else {
-            soulTicks = Math.max(0, soulTicks - 1);
-        }
-
-        boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.SOUL_BLOCK);
-        boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.SOUL_BLOCK);
-        boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.SOUL_BLOCK);
-
-        if (moving && (onSoulBlock0 || onSoulBlock1 || onSoulBlock2)) {
-            movingOnSoulBlocksTicks += (movingOnSoulBlocksTicks < 25 ? 1 : 0);
-        } else {
-            movingOnSoulBlocksTicks = Math.max(0, movingOnSoulBlocksTicks - 1);
-        }
-
-        boolean onHoney0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.HONEY);
-        boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, !TaskUtils.isFoliaServer(), MaterialType.HONEY);
-        boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, !TaskUtils.isFoliaServer(), MaterialType.HONEY);
-        onHoney = onHoney0 || onHoney1 || onHoney2;
-
-
-        if (moving && (onHoney0 || onHoney1 || onHoney2)) {
-            movingOnHoneyTicks += (movingOnHoneyTicks < 25 ? 1 : 0);
-        } else {
-            movingOnHoneyTicks = Math.max(0, movingOnHoneyTicks - 1);
-        }
-
-        if (onHoney0 || onHoney1 || onHoney2) {
-            honeyTicks += (honeyTicks < 25 ? 1 : 0);
-        } else {
-            honeyTicks = Math.max(0, honeyTicks - 1);
-        }
-
-        if (movingOnIceTicks > 0) {
-            sinceMovingOnIceTicks = 0;
-        } else sinceMovingOnIceTicks++;
-
-        if (movingOnSlimeTicks > 0) {
-            sinceMovingOnSlimeTicks = 0;
-        } else sinceMovingOnSlimeTicks++;
-
-        if (moving && isUnderblock()) {
-            movingUnderblockTicks += (movingUnderblockTicks < 25 ? 1f : 0);
-        } else {
-            movingUnderblockTicks = Math.max(0, movingUnderblockTicks - 0.5f);
-        }
-
-        if (moving) {
-            movingTicks += 1;
-        } else {
-            movingTicks = 0;
-        }
-
-        if (isCustomInAir()
-                && !profile.getPlayer().isInsideVehicle()
-                && !isClimb()
-                && !isNearWebs()
-                && !EntityUtil.isOnBoat(profile)
-                && !profile.isBouncingOnSlime()
-                //&& !CollisionUtils.isNearEdge(getLocation())
-        ) {
-            customAirTicks++;
-        } else {
-            customAirTicks = 0;
-        }
-
-        boolean nearWallNow = isNearWall()
-                || isLastNearWall()
-                || isLastLastNearWall()
-                || isPacketNearWall();
-
-        if (nearWallNow
-                && !(isNearLava() || isInsideWater() || isNearWebs())
-                && !profile.getPlayer().isInsideVehicle()) {
-            nearWallTicks++;
-        } else {
-            nearWallTicks = 0;
-        }
-
-        if (profile.getPredictionData().isRiptiding() || Arrow.getInstance()
-                .getNmsManager()
-                .getNmsInstance()
-                .isRiptiding(profile.getPlayer())) {
-            sinceRiptidingTicks = 0;
-        } else sinceRiptidingTicks++;
-
-
-        tickTime++;
-        if (tickTime >= 20 && isOnGround() && !isCustomInAir()) {
-            this.lastSetBackLocation = getLocation();
-            tickTime = 0;  // Reset only when condition is met
-        }
-
-        Vector velocity = profile.getVelocityData().getExplosionKnockback();
-        if (velocity.getX() == 0 && velocity.getY() == 0 && velocity.getZ() == 0) {
-            sinceExplosionTicks++;
-        }
-        else sinceExplosionTicks = 0;
-
-        if (isColliding) {
-            sinceCollideTicks = 0;
-        } else sinceCollideTicks++;
-
-        boolean glidingNow = metadataGliding
-                || glideStartTransitionTicks > 0
-                || isGliding(profile.getPlayer());
-
-        if (glidingNow) {
-            sinceGlidingTicks = 0;
-        }
-        else sinceGlidingTicks++;
-
-        updateElytraMomentum(glidingNow);
-
-        if (glideStartTransitionTicks > 0) {
-            glideStartTransitionTicks--;
-        }
-
-        if (profile.isWearingFunctionalElytra()) {
-            sinceElytraEquipTicks = 0;
-        }
-        else sinceElytraEquipTicks++;
-
-        if (isIntersecting()) {
-            sinceGlitchedInsideBlockTicks = 0;
-        }
-        else sinceGlitchedInsideBlockTicks++;
-
-        if (isServerGround()) {
-            if (serverGroundTicksPlus < 20) serverGroundTicksPlus++;
-            serverAirTicks = 0;
-        } else {
-            serverGroundTicksPlus = 0;
-            if (serverAirTicks < 20) serverAirTicks++;
-        }
-
-        if (profile.getPlayer().isInsideVehicle()) {
-            if (profile.getVehicleData().getVehicleTicks() < 20) {
-                profile.getVehicleData().setVehicleTicks(profile.getVehicleData().getVehicleTicks() + 1);
-            }
-        } else {
-            if (profile.getVehicleData().getVehicleTicks() > 0) {
-                profile.getVehicleData().setVehicleTicks(profile.getVehicleData().getVehicleTicks() - 1);
-            }
-        }
-
-        if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN && nearStepMaterial) {
-            sincePredictDownwardsTicks = 0;
-        }
-        else sincePredictDownwardsTicks++;
-
-        if (verticalMove == MovementPredictionUtil.VerticalMove.UP && nearStepMaterial) {
-            sincePredictUpwardsTicks = 0;
-        }
-        else sincePredictUpwardsTicks++;
-
-
-
-        if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN) {
-            sincePredictDownwardsTicksWithoutMaterial = 0;
-        }
-        else sincePredictDownwardsTicksWithoutMaterial++;
-
-        if (verticalMove == MovementPredictionUtil.VerticalMove.UP) {
-            sincePredictUpwardsTicksWithoutMaterial = 0;
-        }
-        else sincePredictUpwardsTicksWithoutMaterial++;
-
-        if (isMovingDown() && isNearStepMaterial()) {
-            sincePredictDownwardsTicks = 0;
-        }
-        else sincePredictDownwardsTicks++;
-
-        if (isMovingUp() && isNearStepMaterial()) {
-            sincePredictUpwardsTicks = 0;
-        }
-        else sincePredictUpwardsTicks++;
-
-        //Bukkit.broadcastMessage("ticks: " + sincePredictUpwardsTicks);
-
-        if (profile.getPotionData().isHasSpeed()) sinceSpeedPotionEffectTicks = 0;
-        else sinceSpeedPotionEffectTicks += 1;
-
-        if (nearGhast) sinceNearGhastTicks = 0;
-        else sinceNearGhastTicks++;
-
-        if (profile.getExempt().isTeleports()) {
-            sinceTeleportTicks = 0;
-        } else sinceTeleportTicks++;
-
-        isRiptiding =
-                //profile.getPredictionData().isRiptideHeuristicActive() && profile.getPredictionData().isRiptideMotionAllowed(getDeltaXZ(),  getDeltaY())
-//        profile.getPlayer().isRiptiding()
-                sinceRiptidingTicks < 20
-        ;
-
-
-        if (nearBubble) sinceBubbleTicks = 0;
-        else sinceBubbleTicks++;
-
-        if (isClimb()) ladderTicks++;
-        else ladderTicks = 0;
-
-        if (isInsideWater()) sinceInsideWaterTicks = 0;
-        else sinceInsideWaterTicks++;
-
-        if (isNearWater()) sinceNearWaterTicks = 0;
-        else sinceNearWaterTicks++;
-
-        if (profile.getPotionData().isHasLevitation()) sinceLevitationEffectTicks = 0;
-        else sinceLevitationEffectTicks++;
-
-        if (profile.isOnGhostBlock()) {
-            sinceOnGhostBlock = 0;
-        }
-        else sinceOnGhostBlock++;
-
-        dolphinGraceBoost = dolphinGraceMomentum();
-
-        profile.getConnectionData().setFlyingTick(profile.getConnectionData().getFlyingTick() + 1);
-
-        profile.getConnectionData().setTransDropTick(profile.getConnectionData().getTransDropTick() + 1);
+        long profiler = Profiler.start();
 
         try {
-            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
-                if (profile.getPotionData().getPotionEffectLevel(PotionType.DOLPHINS_GRACE) > 0) {
-                    dolphinGraceTicks++;
-                    sinceDolphinGraceTicks = 0;
+
+
+            this.tick++;
+            PotionData potion = profile.getPotionData();
+
+            boolean async = !TaskUtils.isFoliaServer();
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, async);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, async);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation, async);
+
+            boolean powdersnow = nearbyBlocksResult.getBlockTypes().stream()
+                    .anyMatch(material -> material.name().equals("POWDER_SNOW"));
+
+            if (powdersnow) {
+                sincePowderSnowTicks = 0;
+            } else {
+                sincePowderSnowTicks++;
+            }
+
+            boolean onIce0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.ICE);
+            boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.ICE);
+            boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.ICE);
+            onIce = onIce0 || onIce1 || onIce2;
+
+            if (moving && onIce) {
+                movingOnIceTicks += (movingOnIceTicks < 30 ? 1f : 0);
+            } else {
+                movingOnIceTicks = Math.max(0, movingOnIceTicks - 0.25f);
+            }
+
+            if (onIce) {
+                iceTicks += (iceTicks < 25 ? 1 : 0);
+            } else {
+                iceTicks = Math.max(0, iceTicks - 1);
+            }
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow =
+                    CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lower =
+                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lowest =
+                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), async);
+
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow =
+                    CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower =
+                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 2, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest =
+                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 2, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow1 =
+                    CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 3, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower1 =
+                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 3, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest1 =
+                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 3, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove =
+                    CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lower =
+                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().add(0, 1, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lowest =
+                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().add(0, 1, 0), async);
+
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocks =
+                    CollisionUtils.getNearbyBlocks(this.location, async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow =
+                    CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), async);
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow2 =
+                    CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), async);
+
+
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksAbove =
+                    CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), async);
+
+
+            boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow, async, MaterialType.SLIME);
+            boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lower, async, MaterialType.SLIME);
+            boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lowest, async, MaterialType.SLIME);
+
+            boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow, async, MaterialType.SLIME);
+            boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower, async, MaterialType.SLIME);
+            boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest, async, MaterialType.SLIME);
+
+            boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow1, async, MaterialType.SLIME);
+            boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower1, async, MaterialType.SLIME);
+            boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest1, async, MaterialType.SLIME);
+
+            boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove, async, MaterialType.SLIME);
+            boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lower, async, MaterialType.SLIME);
+            boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lowest, async, MaterialType.SLIME);
+
+            boolean onSlime0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SLIME);
+            boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SLIME);
+            boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SLIME);
+            onSlime = onSlime0 || onSlime1 || onSlime2;
+
+            nearPiston =
+                    containsMaterial(nearbyBlocks.getBlockTypes(), MaterialType.PISTON)
+                            || containsMaterial(nearbyBlocksBelow.getBlockTypes(), MaterialType.PISTON)
+                            || containsMaterial(nearbyBlocksBelow2.getBlockTypes(), MaterialType.PISTON)
+                            || containsMaterial(nearbyBlocksAbove.getBlockTypes(), MaterialType.PISTON);
+
+            // this is a temporary, test fix, for piston movable slime blocks, it may not work properly in all scenarios, but it will do for now
+            // assuming that it even works...
+            onExtendedHitboxSlime = onSlime || slimeBelow0 || slimeBelow1 || slimeBelow2 || slimeAbove0 || slimeAbove1 || slimeAbove2 || slimeBelowBelow0 || slimeBelowBelow1 || slimeBelowBelow2 || slimeBelowBelow3 || slimeBelowBelow4 || slimeBelowBelow5
+                    || (getMovingOnSlimeTicks() < 11 && getMovingOnSlimeTicks() > 0) || getSinceMovingOnSlimeTicks() < 10;
+
+            // profile.getPlayer().sendMessage("nearPiston: " + nearPiston + ", onSlime " + onExtendedHitboxSlime + ", deltaY " + deltaY + ", slimeTicks " + getMovingOnSlimeTicks() + ", sinceSlimeTicks " + getSinceMovingOnSlimeTicks());
+
+
+            if (moving && onSlime) {
+                movingOnSlimeTicks += (movingOnSlimeTicks < 30 ? 1F : 0F);
+            } else {
+                movingOnSlimeTicks = Math.max(0, movingOnSlimeTicks - 0.5F);
+            }
+
+            if (onSlime) {
+                slimeTicks += (slimeTicks < 25 ? 1 : 0);
+            } else {
+                slimeTicks = Math.max(0, slimeTicks - 1);
+            }
+
+            if (isNearSlime()) sinceNearSlimeTicks = 0;
+            else sinceNearSlimeTicks++;
+
+            if (isNearPiston()) sinceNearPistonTicks = 0;
+            else sinceNearPistonTicks++;
+
+            boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SOUL_SAND);
+            boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SOUL_SAND);
+            boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SOUL_SAND);
+            onSoulSand = onSoul0 || onSoul1 || onSoul2;
+
+            if (moving && onSoulSand) {
+                movingOnSoulTicks += (movingOnSoulTicks < 25 ? 1 : 0);
+            } else {
+                movingOnSoulTicks = Math.max(0, movingOnSoulTicks - 1);
+            }
+
+            if (onSoulSand) {
+                soulTicks += (soulTicks < 25 ? 1 : 0);
+            } else {
+                soulTicks = Math.max(0, soulTicks - 1);
+            }
+
+            boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SOUL_BLOCK);
+            boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SOUL_BLOCK);
+            boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SOUL_BLOCK);
+
+            if (moving && (onSoulBlock0 || onSoulBlock1 || onSoulBlock2)) {
+                movingOnSoulBlocksTicks += (movingOnSoulBlocksTicks < 25 ? 1 : 0);
+            } else {
+                movingOnSoulBlocksTicks = Math.max(0, movingOnSoulBlocksTicks - 1);
+            }
+
+            boolean onHoney0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.HONEY);
+            boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.HONEY);
+            boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.HONEY);
+            onHoney = onHoney0 || onHoney1 || onHoney2;
+
+
+            if (moving && onHoney) {
+                movingOnHoneyTicks += (movingOnHoneyTicks < 25 ? 1 : 0);
+            } else {
+                movingOnHoneyTicks = Math.max(0, movingOnHoneyTicks - 1);
+            }
+
+            if (onHoney) {
+                honeyTicks += (honeyTicks < 25 ? 1 : 0);
+            } else {
+                honeyTicks = Math.max(0, honeyTicks - 1);
+            }
+
+            if (movingOnIceTicks > 0) {
+                sinceMovingOnIceTicks = 0;
+            } else sinceMovingOnIceTicks++;
+
+            if (movingOnSlimeTicks > 0) {
+                sinceMovingOnSlimeTicks = 0;
+            } else sinceMovingOnSlimeTicks++;
+
+            if (moving && isUnderblock()) {
+                movingUnderblockTicks += (movingUnderblockTicks < 25 ? 1f : 0);
+            } else {
+                movingUnderblockTicks = Math.max(0, movingUnderblockTicks - 0.5f);
+            }
+
+            if (moving) {
+                movingTicks += 1;
+            } else {
+                movingTicks = 0;
+            }
+
+            if (isCustomInAir()
+                    && !profile.getPlayer().isInsideVehicle()
+                    && !isClimb()
+                    && !isNearWebs()
+                    && !EntityUtil.isOnBoat(profile)
+                    && !profile.isBouncingOnSlime()
+                //&& !CollisionUtils.isNearEdge(getLocation())
+            ) {
+                customAirTicks++;
+            } else {
+                customAirTicks = 0;
+            }
+
+            boolean nearWallNow = isNearWall()
+                    || isLastNearWall()
+                    || isLastLastNearWall()
+                    || isPacketNearWall();
+
+            if (nearWallNow
+                    && !(isNearLava() || isInsideWater() || isNearWebs())
+                    && !profile.getPlayer().isInsideVehicle()) {
+                nearWallTicks++;
+            } else {
+                nearWallTicks = 0;
+            }
+
+            if (profile.getPredictionData().isRiptiding() || Arrow.getInstance()
+                    .getNmsManager()
+                    .getNmsInstance()
+                    .isRiptiding(profile.getPlayer())) {
+                sinceRiptidingTicks = 0;
+            } else sinceRiptidingTicks++;
+
+
+            tickTime++;
+            if (tickTime >= 20 && isOnGround() && !isCustomInAir()) {
+                this.lastSetBackLocation = getLocation();
+                tickTime = 0;  // Reset only when condition is met
+            }
+
+            Vector velocity = profile.getVelocityData().getExplosionKnockback();
+            if (velocity.getX() == 0 && velocity.getY() == 0 && velocity.getZ() == 0) {
+                sinceExplosionTicks++;
+            } else sinceExplosionTicks = 0;
+
+            if (isColliding) {
+                sinceCollideTicks = 0;
+            } else sinceCollideTicks++;
+
+            boolean glidingNow = metadataGliding
+                    || glideStartTransitionTicks > 0
+                    || isGliding(profile.getPlayer());
+
+            if (glidingNow) {
+                sinceGlidingTicks = 0;
+            } else sinceGlidingTicks++;
+
+            updateElytraMomentum(glidingNow);
+
+            if (glideStartTransitionTicks > 0) {
+                glideStartTransitionTicks--;
+            }
+
+            if (profile.isWearingFunctionalElytra()) {
+                sinceElytraEquipTicks = 0;
+            } else sinceElytraEquipTicks++;
+
+            if (isIntersecting()) {
+                sinceGlitchedInsideBlockTicks = 0;
+            } else sinceGlitchedInsideBlockTicks++;
+
+            if (isServerGround()) {
+                if (serverGroundTicksPlus < 20) serverGroundTicksPlus++;
+                serverAirTicks = 0;
+            } else {
+                serverGroundTicksPlus = 0;
+                if (serverAirTicks < 20) serverAirTicks++;
+            }
+
+            if (profile.getPlayer().isInsideVehicle()) {
+                if (profile.getVehicleData().getVehicleTicks() < 20) {
+                    profile.getVehicleData().setVehicleTicks(profile.getVehicleData().getVehicleTicks() + 1);
                 }
-                else {
-                    dolphinGraceTicks = 0;
-                    sinceDolphinGraceTicks++;
+            } else {
+                if (profile.getVehicleData().getVehicleTicks() > 0) {
+                    profile.getVehicleData().setVehicleTicks(profile.getVehicleData().getVehicleTicks() - 1);
                 }
             }
-        } catch (NoSuchMethodError ignored) {
 
+            if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN && nearStepMaterial) {
+                sincePredictDownwardsTicks = 0;
+            } else sincePredictDownwardsTicks++;
+
+            if (verticalMove == MovementPredictionUtil.VerticalMove.UP && nearStepMaterial) {
+                sincePredictUpwardsTicks = 0;
+            } else sincePredictUpwardsTicks++;
+
+            if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN) {
+                sincePredictDownwardsTicksWithoutMaterial = 0;
+            } else sincePredictDownwardsTicksWithoutMaterial++;
+
+            if (verticalMove == MovementPredictionUtil.VerticalMove.UP) {
+                sincePredictUpwardsTicksWithoutMaterial = 0;
+            } else sincePredictUpwardsTicksWithoutMaterial++;
+
+            if (isMovingDown() && isNearStepMaterial()) {
+                sincePredictDownwardsTicks = 0;
+            } else sincePredictDownwardsTicks++;
+
+            if (isMovingUp() && isNearStepMaterial()) {
+                sincePredictUpwardsTicks = 0;
+            } else sincePredictUpwardsTicks++;
+
+            //Bukkit.broadcastMessage("ticks: " + sincePredictUpwardsTicks);
+
+            if (potion.isHasSpeed()) sinceSpeedPotionEffectTicks = 0;
+            else sinceSpeedPotionEffectTicks += 1;
+
+            if (nearGhast) sinceNearGhastTicks = 0;
+            else sinceNearGhastTicks++;
+
+            if (profile.getExempt().isTeleports()) {
+                sinceTeleportTicks = 0;
+            } else sinceTeleportTicks++;
+
+            isRiptiding = sinceRiptidingTicks < 20;
+
+            if (nearBubble) sinceBubbleTicks = 0;
+            else sinceBubbleTicks++;
+
+            if (isClimb()) ladderTicks++;
+            else ladderTicks = 0;
+
+            if (isInsideWater()) sinceInsideWaterTicks = 0;
+            else sinceInsideWaterTicks++;
+
+            if (isNearWater()) sinceNearWaterTicks = 0;
+            else sinceNearWaterTicks++;
+
+            if (potion.isHasLevitation()) sinceLevitationEffectTicks = 0;
+            else sinceLevitationEffectTicks++;
+
+            if (profile.isOnGhostBlock()) {
+                sinceOnGhostBlock = 0;
+            } else sinceOnGhostBlock++;
+
+            dolphinGraceBoost = dolphinGraceMomentum();
+
+            profile.getConnectionData().setFlyingTick(profile.getConnectionData().getFlyingTick() + 1);
+
+            profile.getConnectionData().setTransDropTick(profile.getConnectionData().getTransDropTick() + 1);
+            try {
+                if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
+                    if (potion.getPotionEffectLevel(PotionType.DOLPHINS_GRACE) > 0) {
+                        dolphinGraceTicks++;
+                        sinceDolphinGraceTicks = 0;
+                    } else {
+                        dolphinGraceTicks = 0;
+                        sinceDolphinGraceTicks++;
+                    }
+                }
+            } catch (NoSuchMethodError ignored) {
+
+            }
+        } finally {
+            Profiler.stop("MovementData (Ticks)", profiler);
         }
     }
 
@@ -1563,5 +1553,26 @@ public class MovementData implements Data {
             case 3 -> 1.494f;
             default -> 0.146f;
         };
+    }
+
+    private boolean containsStepMaterial(CollisionUtils.NearbyBlocksResult result) {
+        for (Material material : result.getBlockTypes()) {
+            if (isStepMaterial(material)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsMaterial(
+            Collection<Material> blocks,
+            MaterialType type
+    ) {
+        for (Material mat : blocks) {
+            if (MaterialType.isMaterial(mat.name(), type)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

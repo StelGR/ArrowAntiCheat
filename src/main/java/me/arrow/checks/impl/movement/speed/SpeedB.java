@@ -13,6 +13,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
@@ -45,6 +46,7 @@ public class SpeedB extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+
             if (profile.shouldCancel()
                     || profile.getPlayer().isDead()
                     || !profile.isExempt().isRespawned()
@@ -129,260 +131,275 @@ public class SpeedB extends Check {
                                       double velocityH,
                                       boolean sprinting) {
 
-        boolean velocity = profile.getVelocityData().isTakingVelocity();
+        long profiler = Profiler.start();
 
-        if (checkValid() && movementData.getMovingUnderblockTicks() <= 0) {
+        try {
 
-            double attribute = SpeedUtilities.getMovementSpeedAttribute(profile);
-            float attr = (float) attribute;
-            float movementSpeedSP = (float) SpeedUtilities.getSprintingAttributeSpeed(profile);
+            boolean velocity = profile.getVelocityData().isTakingVelocity();
 
-            float friction = 0.91F;
-            float force = 0.02F;
-            float forceSprint = 0.026F;
+            if (checkValid() && movementData.getMovingUnderblockTicks() <= 0) {
 
-            Vector move = new Vector(deltaX, 0.0, deltaZ);
+                double attribute = SpeedUtilities.getMovementSpeedAttribute(profile);
+                float attr = (float) attribute;
+                float movementSpeedSP = (float) SpeedUtilities.getSprintingAttributeSpeed(profile);
 
-            Vector compLastMove;
-            if (movementData.isLastServerGround()) {
-                compLastMove = lastMove.clone().multiply(movementData.getLastFrictionFactor());
-            } else {
-                compLastMove = lastMove.clone().multiply(0.91F);
-            }
+                float friction = 0.91F;
+                float force = 0.02F;
+                float forceSprint = 0.026F;
 
-            Vector plainComp = compLastMove.clone();
+                Vector move = new Vector(deltaX, 0.0, deltaZ);
 
-            if (profile.getCombatData().getAttackedTicks() <= 1) {
-                compLastMove.multiply(0.6);
-            }
-
-            float yaw = movementData.getLocation().getYaw();
-
-            if (movementData.isLastOnGround() && !clientGround && deltaY >= 0.0) {
-                float f = (float) (yaw * Math.PI / 180.0F);
-                compLastMove.add(new Vector(-sin(f) * 0.2, 0.0, cos(f) * 0.2));
-            }
-
-            if (movementData.isLastOnGround()) {
-                friction = movementData.getFrictionFactor();
-                float f3 = friction * friction * friction;
-                float constant = 0.16277136F;
-                force = attr * constant / f3;
-                forceSprint = movementSpeedSP * constant / f3;
-            }
-
-            if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) return;
-
-            double threshold = movingTicks <= 3.0F ? 0.0325D : 0.0116D;
-
-            threshold += movementData.isLastOnGround()
-                    ? SpeedUtilities.getGroundAttributeBonus(profile) * 0.08D
-                    : SpeedUtilities.getAirAttributeBonus(profile) * 0.08D;
-
-            threshold += movementData.isLastOnGround()
-                    ? SpeedUtilities.getGroundPotionBonus(profile) * 0.035D
-                    : SpeedUtilities.getAirPotionBonus(profile) * 0.035D;
-
-            if (deltaXZ < 0.25D && movingTicks <= 2.0F && movementData.isLastOnGround()) {
-                threshold += 0.2D;
-            }
-
-            if (movementData.isNearWebs()) {
-                threshold += 0.1D;
-            }
-
-            if (movementData.getMovingOnHoneyTicks() > 0) {
-                threshold += 0.15D;
-            }
-
-            if (profile.isExempt().isTeleports()) {
-                threshold += 0.3D;
-            }
-
-            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
-
-            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-                threshold += 0.2D;
-            }
-
-            if (movementData.getLastNearEdgeTicks() <= 3) {
-                if (velocity) {
-                    threshold += profile.getVelocityData().getTotalHorizontalVelocity() + 0.5D;
+                Vector compLastMove;
+                if (movementData.isLastServerGround()) {
+                    compLastMove = lastMove.clone().multiply(movementData.getLastFrictionFactor());
                 } else {
-                    threshold += 0.5D;
+                    compLastMove = lastMove.clone().multiply(0.91F);
                 }
-            }
 
-            if (profile.getVelocityData().getVelocityTicks() <= 10 && !movementData.isLastOnGround()) {
-                threshold += sustainVelocity * 1.25D + 0.6D;
-            }
+                Vector plainComp = compLastMove.clone();
 
-            double tMult = 1.00001D;
-            verbose(this.getClass().getSimpleName(), vlBuffer, threshold, "* Verbose (accel) (1)\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                    + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                    + "\n * sprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting
-                    + "\n * threshold " + MsgType.MAIN_THEME_COLOR.getMessage() + threshold
-                    + "\n * buffer " + MsgType.MAIN_THEME_COLOR.getMessage() + vlBuffer
-                    + "\n * friction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
-                    + "\n * clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                    + "\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                    + "\n * velocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
+                if (profile.getCombatData().getAttackedTicks() <= 1) {
+                    compLastMove.multiply(0.6);
+                }
 
-            if (!(deltaXZ > 0.1D)) {
-                vlBuffer = Math.max(0.0, vlBuffer - 0.0075);
-            } else {
-                Vector subtracted = move.clone().subtract(compLastMove);
+                float yaw = movementData.getLocation().getYaw();
 
-                double bestNormal = Math.min(this.getBest(subtracted, false, forceSprint, true), this.getBest(subtracted, false, force, false));
-                double bestBlocking = Math.min(this.getBest(subtracted, true, forceSprint, true), this.getBest(subtracted, true, force, false));
+                if (movementData.isLastOnGround() && !clientGround && deltaY >= 0.0) {
+                    float f = (float) (yaw * Math.PI / 180.0F);
+                    compLastMove.add(new Vector(-sin(f) * 0.2, 0.0, cos(f) * 0.2));
+                }
 
-                if (bestNormal > threshold * tMult && bestBlocking > threshold * tMult) {
-                    Vector subtractedPlain = move.clone().subtract(plainComp);
+                if (movementData.isLastOnGround()) {
+                    friction = movementData.getFrictionFactor();
+                    float f3 = friction * friction * friction;
+                    float constant = 0.16277136F;
+                    force = attr * constant / f3;
+                    forceSprint = movementSpeedSP * constant / f3;
+                }
 
-                    double bestNormal2 = Math.min(this.getBest(subtractedPlain, false, forceSprint, true), this.getBest(subtractedPlain, false, force, false));
-                    double bestBlocking2 = Math.min(this.getBest(subtractedPlain, true, forceSprint, true), this.getBest(subtractedPlain, true, force, false));
+                if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) return;
 
-                    if (bestNormal2 > threshold * tMult && bestBlocking2 > threshold * tMult) {
-                        if (movingTicks <= 3.0F) {
-                            if (++smallBuffer > 3.0) {
-                                smallBuffer = 3.0;
-                                vlBuffer = Math.max(0.0, vlBuffer - 0.0075);
-                            }
-                            lastMove = new Vector(deltaX, 0.0, deltaZ);
-                        } else {
-                            smallBuffer = Math.max(0.0, smallBuffer - 0.005);
-                        }
+                double threshold = movingTicks <= 3.0F ? 0.0325D : 0.0116D;
 
-                        double closest = Math.min(Math.min(bestNormal, bestNormal2), Math.min(bestBlocking, bestBlocking2));
-                        double bufferAddition = 0.0D;
+                threshold += movementData.isLastOnGround()
+                        ? SpeedUtilities.getGroundAttributeBonus(profile) * 0.08D
+                        : SpeedUtilities.getAirAttributeBonus(profile) * 0.08D;
 
-                        float movingIceTicks = movementData.getMovingOnIceTicks();
-                        double air_iceSpeedBoost;
-                        if (movingIceTicks < 15) air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
-                        else air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK_SMALLER * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
+                threshold += movementData.isLastOnGround()
+                        ? SpeedUtilities.getGroundPotionBonus(profile) * 0.035D
+                        : SpeedUtilities.getAirPotionBonus(profile) * 0.035D;
 
-                        double limit = serverGround ? 0.23D : 0.437D;
+                if (deltaXZ < 0.25D && movingTicks <= 2.0F && movementData.isLastOnGround()) {
+                    threshold += 0.2D;
+                }
 
-                        limit += serverGround
-                                ? SpeedUtilities.getGroundSpeedLimitBonus(profile)
-                                : SpeedUtilities.getAirSpeedLimitBonus(profile);
+                if (movementData.isNearWebs()) {
+                    threshold += 0.1D;
+                }
 
-                        limit += air_iceSpeedBoost;
-                        boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() <= 15;
-                        int riptideLevel = 0;
-                        try {
-                            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
-                                org.bukkit.enchantments.Enchantment riptide = org.bukkit.enchantments.Enchantment.RIPTIDE;
-                                org.bukkit.inventory.ItemStack main = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer());
-                                if (main != null && main.containsEnchantment(riptide)) {
-                                    riptideLevel = main.getEnchantmentLevel(riptide);
-                                }
-                            }
-                        } catch (Throwable ignored) {
-                        }
-                        limit += currentlyRiptiding ? (1.5 * riptideLevel) : 0;
-                        limit += (clientGround ? (profile.getVelocityData().getTotalHorizontalVelocity() * 2) : profile.getVelocityData().getTotalHorizontalVelocity());
-                        limit += movementData.elytraMomentum();
-                        if (movementData.isLastOnGround() && !clientGround && deltaY >= 0.0D) {
-                            limit += SpeedUtilities.getAirAttributeBonus(profile) * 0.45D;
-                            limit += SpeedUtilities.getAirPotionBonus(profile) * 0.30D;
-                            limit += SpeedUtilities.getAirAttributePotionBonus(profile) * 0.35D;
-                        }
-                        if (profile.getMovementData().getSinceSpeedPotionEffectTicks() < 15) {
-                            limit += 0.05D + (0.01D * SpeedUtilities.getSpeedPotionLevel(profile));
-                        }
+                if (movementData.getMovingOnHoneyTicks() > 0) {
+                    threshold += 0.15D;
+                }
 
-                        boolean invalid = closest > limit && !profile.isBouncingOnSlime();
+                if (profile.isExempt().isTeleports()) {
+                    threshold += 0.3D;
+                }
 
-                        int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 30 : 15;
+                int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
-                        if (movementData.getSincePredictUpwardsTicks() < 10
-                                || movementData.getSincePredictDownwardsTicks() < 5) {
-                            vlBuffer = Math.max(0.0D, vlBuffer - 0.5D);
-                            return;
-                        }
+                if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+                    threshold += 0.2D;
+                }
 
-                        if (invalid) {
-                            double excess = closest - limit;
-                            bufferAddition = Math.min(4, Math.max(7D, excess * 30D));
-
-                            if ((vlBuffer += bufferAddition) >= required) {
-                                fail("Invalid acceleration",
-                                        "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                                + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
-                                                + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + limit
-                                                + "\nexcess " + MsgType.MAIN_THEME_COLOR.getMessage() + excess
-                                                + "\nfriction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
-                                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                                + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                                + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
-
-                                vlBuffer = Math.max(75D, vlBuffer);
-                            }
-                        } else {
-                            vlBuffer = Math.max(0.0D, vlBuffer - 0.005D);
-                        }
-
-                        verbose(this.getClass().getSimpleName(), vlBuffer, required, "* Verbose (accel) (2)\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                + "\n * predictedB1 " + MsgType.MAIN_THEME_COLOR.getMessage() + bestBlocking
-                                + "\n * predictedB2 " + MsgType.MAIN_THEME_COLOR.getMessage() + bestBlocking2
-                                + "\n * predictedN1 " + MsgType.MAIN_THEME_COLOR.getMessage() + bestNormal
-                                + "\n * predictedN2 " + MsgType.MAIN_THEME_COLOR.getMessage() + bestNormal2
-                                + "\n * closest " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
-                                + "\n * addition " + MsgType.MAIN_THEME_COLOR.getMessage() + bufferAddition
-                                + "\n * sprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting
-                                + "\n * threshold " + MsgType.MAIN_THEME_COLOR.getMessage() + required
-                                + "\n * buffer " + MsgType.MAIN_THEME_COLOR.getMessage() + vlBuffer
-                                + "\n * limit " + MsgType.MAIN_THEME_COLOR.getMessage() + limit
-                                + "\n * friction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
-                                + "\n * clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                + "\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                + "\n * velocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
-
+                if (movementData.getLastNearEdgeTicks() <= 3) {
+                    if (velocity) {
+                        threshold += profile.getVelocityData().getTotalHorizontalVelocity() + 0.5D;
                     } else {
-                        vlBuffer = Math.max(0.0, vlBuffer - 0.0025);
+                        threshold += 0.5D;
                     }
-                } else {
-                    vlBuffer = Math.max(0.0, vlBuffer - 0.005);
                 }
+
+                if (profile.getVelocityData().getVelocityTicks() <= 10 && !movementData.isLastOnGround()) {
+                    threshold += sustainVelocity * 1.25D + 0.6D;
+                }
+
+                double tMult = 1.00001D;
+                verbose(this.getClass().getSimpleName(), vlBuffer, threshold, "* Verbose (accel) (1)\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                        + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                        + "\n * sprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting
+                        + "\n * threshold " + MsgType.MAIN_THEME_COLOR.getMessage() + threshold
+                        + "\n * buffer " + MsgType.MAIN_THEME_COLOR.getMessage() + vlBuffer
+                        + "\n * friction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
+                        + "\n * clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                        + "\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                        + "\n * velocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
+
+                if (!(deltaXZ > 0.1D)) {
+                    vlBuffer = Math.max(0.0, vlBuffer - 0.0075);
+                } else {
+                    Vector subtracted = move.clone().subtract(compLastMove);
+
+                    double bestNormal = Math.min(this.getBest(subtracted, false, forceSprint, true), this.getBest(subtracted, false, force, false));
+                    double bestBlocking = Math.min(this.getBest(subtracted, true, forceSprint, true), this.getBest(subtracted, true, force, false));
+
+                    if (bestNormal > threshold * tMult && bestBlocking > threshold * tMult) {
+                        Vector subtractedPlain = move.clone().subtract(plainComp);
+
+                        double bestNormal2 = Math.min(this.getBest(subtractedPlain, false, forceSprint, true), this.getBest(subtractedPlain, false, force, false));
+                        double bestBlocking2 = Math.min(this.getBest(subtractedPlain, true, forceSprint, true), this.getBest(subtractedPlain, true, force, false));
+
+                        if (bestNormal2 > threshold * tMult && bestBlocking2 > threshold * tMult) {
+                            if (movingTicks <= 3.0F) {
+                                if (++smallBuffer > 3.0) {
+                                    smallBuffer = 3.0;
+                                    vlBuffer = Math.max(0.0, vlBuffer - 0.0075);
+                                }
+                                lastMove = new Vector(deltaX, 0.0, deltaZ);
+                            } else {
+                                smallBuffer = Math.max(0.0, smallBuffer - 0.005);
+                            }
+
+                            double closest = Math.min(Math.min(bestNormal, bestNormal2), Math.min(bestBlocking, bestBlocking2));
+                            double bufferAddition = 0.0D;
+
+                            float movingIceTicks = movementData.getMovingOnIceTicks();
+                            double air_iceSpeedBoost;
+                            if (movingIceTicks < 15)
+                                air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
+                            else
+                                air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK_SMALLER * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
+
+                            double limit = serverGround ? 0.23D : 0.437D;
+
+                            limit += serverGround
+                                    ? SpeedUtilities.getGroundSpeedLimitBonus(profile)
+                                    : SpeedUtilities.getAirSpeedLimitBonus(profile);
+
+                            limit += air_iceSpeedBoost;
+                            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() <= 15;
+                            int riptideLevel = 0;
+                            try {
+                                if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
+                                    org.bukkit.enchantments.Enchantment riptide = org.bukkit.enchantments.Enchantment.RIPTIDE;
+                                    org.bukkit.inventory.ItemStack main = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer());
+                                    if (main != null && main.containsEnchantment(riptide)) {
+                                        riptideLevel = main.getEnchantmentLevel(riptide);
+                                    }
+                                }
+                            } catch (Throwable ignored) {
+                            }
+                            limit += currentlyRiptiding ? (1.5 * riptideLevel) : 0;
+                            limit += (clientGround ? (profile.getVelocityData().getTotalHorizontalVelocity() * 2) : profile.getVelocityData().getTotalHorizontalVelocity());
+                            limit += movementData.elytraMomentum();
+                            if (movementData.isLastOnGround() && !clientGround && deltaY >= 0.0D) {
+                                limit += SpeedUtilities.getAirAttributeBonus(profile) * 0.45D;
+                                limit += SpeedUtilities.getAirPotionBonus(profile) * 0.30D;
+                                limit += SpeedUtilities.getAirAttributePotionBonus(profile) * 0.35D;
+                            }
+                            if (profile.getMovementData().getSinceSpeedPotionEffectTicks() < 15) {
+                                limit += 0.05D + (0.01D * SpeedUtilities.getSpeedPotionLevel(profile));
+                            }
+
+                            boolean invalid = closest > limit && !profile.isBouncingOnSlime();
+
+                            int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 30 : 15;
+
+                            if (movementData.getSincePredictUpwardsTicks() < 10
+                                    || movementData.getSincePredictDownwardsTicks() < 5) {
+                                vlBuffer = Math.max(0.0D, vlBuffer - 0.5D);
+                                return;
+                            }
+
+                            if (invalid) {
+                                double excess = closest - limit;
+                                bufferAddition = Math.min(4, Math.max(7D, excess * 30D));
+
+                                if ((vlBuffer += bufferAddition) >= required) {
+                                    fail("Invalid acceleration",
+                                            "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                                                    + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                                    + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
+                                                    + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + limit
+                                                    + "\nexcess " + MsgType.MAIN_THEME_COLOR.getMessage() + excess
+                                                    + "\nfriction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
+                                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                                    + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                                    + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
+
+                                    vlBuffer = Math.max(75D, vlBuffer);
+                                }
+                            } else {
+                                vlBuffer = Math.max(0.0D, vlBuffer - 0.005D);
+                            }
+
+                            verbose(this.getClass().getSimpleName(), vlBuffer, required, "* Verbose (accel) (2)\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                                    + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                    + "\n * predictedB1 " + MsgType.MAIN_THEME_COLOR.getMessage() + bestBlocking
+                                    + "\n * predictedB2 " + MsgType.MAIN_THEME_COLOR.getMessage() + bestBlocking2
+                                    + "\n * predictedN1 " + MsgType.MAIN_THEME_COLOR.getMessage() + bestNormal
+                                    + "\n * predictedN2 " + MsgType.MAIN_THEME_COLOR.getMessage() + bestNormal2
+                                    + "\n * closest " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
+                                    + "\n * addition " + MsgType.MAIN_THEME_COLOR.getMessage() + bufferAddition
+                                    + "\n * sprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting
+                                    + "\n * threshold " + MsgType.MAIN_THEME_COLOR.getMessage() + required
+                                    + "\n * buffer " + MsgType.MAIN_THEME_COLOR.getMessage() + vlBuffer
+                                    + "\n * limit " + MsgType.MAIN_THEME_COLOR.getMessage() + limit
+                                    + "\n * friction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
+                                    + "\n * clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                    + "\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                    + "\n * velocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
+
+                        } else {
+                            vlBuffer = Math.max(0.0, vlBuffer - 0.0025);
+                        }
+                    } else {
+                        vlBuffer = Math.max(0.0, vlBuffer - 0.005);
+                    }
+                }
+
+                lastMove = new Vector(deltaX, 0.0, deltaZ);
+
+                if (velocity) {
+                    sustainVelocity = profile.getVelocityData().getTotalHorizontalVelocity();
+                }
+
+            } else {
+                lastMove = new Vector(deltaX, 0.0, deltaZ);
             }
-
-            lastMove = new Vector(deltaX, 0.0, deltaZ);
-
-            if (velocity) {
-                sustainVelocity = profile.getVelocityData().getTotalHorizontalVelocity();
-            }
-
-        } else {
-            lastMove = new Vector(deltaX, 0.0, deltaZ);
+        } finally {
+            Profiler.stop("Speed B (Accel)", profiler);
         }
     }
 
 
     public void calculateDeceleration(MovementData movementData, double deltaXZ, double lastDeltaXZ, double deltaYaw, double accel, double mdAccel) {
-        double squaredAccel = accel * 100;
-        boolean exempt = squaredAccel != 0
-                && !(movementData.isNearWater() || movementData.isNearLava() || movementData.isNearWebs() || movementData.isNearClimbable());
 
-        if (deltaYaw > 1.5f
-                && deltaYaw != lastDeltaYaw
-                && deltaXZ > .15D
-                && squaredAccel < 1.0E-5
-                && exempt) {
-            if (increaseBuffer() > 1) {
-                fail("Invalid deceleration",
-                        "deltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
-                                + "\nlastDeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaYaw
-                                + "\naccel " + MsgType.MAIN_THEME_COLOR.getMessage() + accel
-                                + "\naccel (* 100) " + MsgType.MAIN_THEME_COLOR.getMessage() + squaredAccel
-                                + "\nmdAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + mdAccel
-                                + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ);
-            }
+        long profiler = Profiler.start();
+
+        try {
+            double squaredAccel = accel * 100;
+            boolean exempt = squaredAccel != 0
+                    && !(movementData.isNearWater() || movementData.isNearLava() || movementData.isNearWebs() || movementData.isNearClimbable());
+
+            if (deltaYaw > 1.5f
+                    && deltaYaw != lastDeltaYaw
+                    && deltaXZ > .15D
+                    && squaredAccel < 1.0E-5
+                    && exempt) {
+                if (increaseBuffer() > 1) {
+                    fail("Invalid deceleration",
+                            "deltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
+                                    + "\nlastDeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaYaw
+                                    + "\naccel " + MsgType.MAIN_THEME_COLOR.getMessage() + accel
+                                    + "\naccel (* 100) " + MsgType.MAIN_THEME_COLOR.getMessage() + squaredAccel
+                                    + "\nmdAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + mdAccel
+                                    + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                                    + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ);
+                }
+            } else decreaseBufferBy(0.005);
+        } finally {
+            Profiler.stop("Speed B (Decel)", profiler);
         }
-        else decreaseBufferBy(0.005);
     }
 
 

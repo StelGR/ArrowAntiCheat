@@ -109,7 +109,7 @@ public class Config implements Initializer {
         WEBHOOK_FREQUENCY("webhook.frequency", 5, "How often should an alert be sent in chat. It goes by alert values, so every 5, or 10, or 15. 5 is the minimum to prevent discord from being spammed."),
         WEBHOOK_LINK("webhook.link", "", "The discord webhook link, if empty it will be disabled."),
 
-        TEST_SERVER_MODE("test_server_mode", "", "testserver mode settings"),
+        TEST_SERVER_MODE("test_server_mode", "", "Testserver mode settings"),
         TEST_SERVER_MODE_ENABLED("test_server_mode.enabled", false, "Should we enable the test server mode?", " This is used to test the anticheat in your own server environment before pushing to production"),
         TEST_SERVER_MODE_PREVENT_DAMAGE("test_server_mode.prevent_damage", true, "Should we prevent all players from taking any damage?","This is useful if you want to test combat checks without the worry of death"),
         TEST_SERVER_MODE_WORLD("test_server_mode.world", "anticheattest", "The world test server mode works in"),
@@ -121,6 +121,11 @@ public class Config implements Initializer {
         TEST_SERVER_MODE_BUILD_ZONE_REGION("test_server_mode.build_zone.region", "10, 0, -10 | -10, 50, 10", "Where should we place the build zone?","(Format must be exactly like the default or it will cause errors)"),
         TEST_SERVER_MODE_BUILD_ZONE_ITEMS("test_server_mode.build_zone.items", false, "Should we give custom items for people to use in our build zone and other areas?", "Do not use this if you have other items because it would clear peoples items for a diamond sword and diamond blocks (this also makes the diamond blocks re-apear after placing in your inventory if enabled)"),
         TEST_SERVER_MODE_BUILD_ZONE_SPAWN("test_server_mode.build_zone.spawn", "0, 1, 0", "Spawn point when build mode is enabled"),
+
+
+        BENCHMARK("benchmark", "", "Benchmark Settings"),
+        BENCHMARK_ENABLED("benchmark.enabled", false, "Should we benchmark the anticheat? only enable if you are having performance issues, and want to diagnose"),
+
         DEBUG("debug", false, "DO NOT TOUCH UNLESS YOU KNOW WHAT YOU ARE DOING");
 
         @Getter

@@ -9,6 +9,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
@@ -48,83 +49,91 @@ public class GravityA extends Check {
             return;
         }
 
-        MovementData movementData = profile.getMovementData();
+        long profiler = Profiler.start();
 
-        if (movementData == null
-                || movementData.isOnBoat()
-                || movementData.isNearBoat()
-                || movementData.isNearShulker()
-                || movementData.isNearShulkerBox()
-                || movementData.isNearLava()
-                || movementData.isNearWater()
-                || profile.getExempt().isVehicle()
-                || profile.shouldCancel()
-                || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
-                || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                || movementData.getSinceLevitationEffectTicks() < 10) {
-            return;
+        try {
+
+            MovementData movementData = profile.getMovementData();
+
+            if (movementData == null
+                    || movementData.isOnBoat()
+                    || movementData.isNearBoat()
+                    || movementData.isNearShulker()
+                    || movementData.isNearShulkerBox()
+                    || movementData.isNearLava()
+                    || movementData.isNearWater()
+                    || profile.getExempt().isVehicle()
+                    || profile.shouldCancel()
+                    || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
+                    || !CollisionUtils.isChunkLoaded(movementData.getLocation())
+                    || movementData.getSinceLevitationEffectTicks() < 10) {
+                return;
+            }
+
+            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+            if (world.shouldExemptMovementChecks()
+                    || world.nextToGhostWall
+                    || world.physicsMismatch
+                    || world.onGhostBlock
+                    || world.insideGhostBlock
+                    || world.underGhostBlock
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                bufferA = 0.0D;
+                return;
+            }
+
+            if (movementData.getSinceTeleportTicks() < 5) {
+                return;
+            }
+
+            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                return;
+            }
+
+            if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity A: Exempt - vehicle");
+                return;
+            }
+
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
+
+            if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (Config.Setting.DEBUG.getBoolean())
+                    OtherUtility.log("Gravity A: is Exempting (ghostblock liquid/web)");
+                bufferA = 0.0D;
+                return;
+            }
+
+            if (profile.getBlockProcessor().isNearGhostBlock()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity A: is Exempting (near Ghostblock)");
+                bufferA = 0.0D;
+                return;
+            }
+
+            if (profile.getBlockProcessor().isUnderGhostBlock()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity A: is Exempting (under Ghostblock)");
+                bufferA = 0.0D;
+                return;
+            }
+
+            if (movementData.getSinceGlidingTicks() < 20) {
+                bufferA = 0.0D;
+                return;
+            }
+
+            if (profile.getGeysersTracker().isBeingPushed()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity A: Exempt - geysers (26.2+)");
+                return;
+            }
+
+            GravityPredictionA(movementData, movementData.getDeltaY(), movementData.isOnGround());
+        } finally {
+            Profiler.stop("Gravity A", profiler);
         }
-
-        ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-
-        if (world.shouldExemptMovementChecks()
-                || world.nextToGhostWall
-                || world.physicsMismatch
-                || world.onGhostBlock
-                || world.insideGhostBlock
-                || world.underGhostBlock
-                || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            bufferA = 0.0D;
-            return;
-        }
-
-        if (movementData.getSinceTeleportTicks() < 5) {
-            return;
-        }
-
-        if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            return;
-        }
-
-        if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity A: Exempt - vehicle");
-            return;
-        }
-
-        int ghostLiquidWebTicks = Math.min(
-                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-        );
-
-        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity A: is Exempting (ghostblock liquid/web)");
-            bufferA = 0.0D;
-            return;
-        }
-
-        if (profile.getBlockProcessor().isNearGhostBlock()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity A: is Exempting (near Ghostblock)");
-            bufferA = 0.0D;
-            return;
-        }
-
-        if (profile.getBlockProcessor().isUnderGhostBlock()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity A: is Exempting (under Ghostblock)");
-            bufferA = 0.0D;
-            return;
-        }
-
-        if (movementData.getSinceGlidingTicks() < 20) {
-            bufferA = 0.0D;
-            return;
-        }
-
-        if (profile.getGeysersTracker().isBeingPushed()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity A: Exempt - geysers (26.2+)");
-            return;
-        }
-
-        GravityPredictionA(movementData, movementData.getDeltaY(), movementData.isOnGround());
     }
 
     private void GravityPredictionA(MovementData movementData, double deltaY, boolean onGround) {

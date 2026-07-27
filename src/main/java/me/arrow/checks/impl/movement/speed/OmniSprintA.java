@@ -9,6 +9,7 @@ import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
@@ -83,259 +84,266 @@ public class OmniSprintA extends Check {
             return;
         }
 
-        MovementData movementData = profile.getMovementData();
-        RotationData rotationData = profile.getRotationData();
-        ActionData actionData = profile.getActionData();
+        long profiler = Profiler.start();
 
-        double deltaX = movementData.getDeltaX();
-        double deltaZ = movementData.getDeltaZ();
-        double deltaXZ = movementData.getDeltaXZ();
+        try {
 
-        double lastDeltaX = movementData.getLastDeltaX();
-        double lastDeltaZ = movementData.getLastDeltaZ();
+            MovementData movementData = profile.getMovementData();
+            RotationData rotationData = profile.getRotationData();
+            ActionData actionData = profile.getActionData();
 
-        /*
-         * Do NOT re-wrap PacketEvents here.
-         *
-         * RotationData already processed the packet and stored the raw yaw.
-         * Re-wrapping the packet can throw readerIndex/writerIndex errors because
-         * the packet buffer may already be consumed.
-         */
-        float yaw = rotationData.getYaw();
+            double deltaX = movementData.getDeltaX();
+            double deltaZ = movementData.getDeltaZ();
+            double deltaXZ = movementData.getDeltaXZ();
 
-        MovementPredictionUtil.DirectionalMovement velocityDirection =
-                MovementPredictionUtil.predictDirectionalMovement(deltaX, deltaZ, yaw);
+            double lastDeltaX = movementData.getLastDeltaX();
+            double lastDeltaZ = movementData.getLastDeltaZ();
 
-        double airInputX = deltaX - (lastDeltaX * AIR_HORIZONTAL_FRICTION);
-        double airInputZ = deltaZ - (lastDeltaZ * AIR_HORIZONTAL_FRICTION);
-        double airInputXZ = Math.hypot(airInputX, airInputZ);
+            /*
+             * Do NOT re-wrap PacketEvents here.
+             *
+             * RotationData already processed the packet and stored the raw yaw.
+             * Re-wrapping the packet can throw readerIndex/writerIndex errors because
+             * the packet buffer may already be consumed.
+             */
+            float yaw = rotationData.getYaw();
 
-        MovementPredictionUtil.DirectionalMovement airInputDirection =
-                MovementPredictionUtil.predictDirectionalMovement(airInputX, airInputZ, yaw);
+            MovementPredictionUtil.DirectionalMovement velocityDirection =
+                    MovementPredictionUtil.predictDirectionalMovement(deltaX, deltaZ, yaw);
 
-        boolean sprinting = actionData.isSprinting();
-        boolean lastSprinting = actionData.isLastSprinting();
+            double airInputX = deltaX - (lastDeltaX * AIR_HORIZONTAL_FRICTION);
+            double airInputZ = deltaZ - (lastDeltaZ * AIR_HORIZONTAL_FRICTION);
+            double airInputXZ = Math.hypot(airInputX, airInputZ);
 
-        if (sprinting) {
-            sprintTicks = Math.min(20, sprintTicks + 1);
-        } else {
-            sprintTicks = 0;
-        }
+            MovementPredictionUtil.DirectionalMovement airInputDirection =
+                    MovementPredictionUtil.predictDirectionalMovement(airInputX, airInputZ, yaw);
 
-        double baseSpeed = MathUtil.getBaseSpeed_2(profile.getPlayer());
+            boolean sprinting = actionData.isSprinting();
+            boolean lastSprinting = actionData.isLastSprinting();
 
-        double minimumGroundMovement = Math.max(MIN_GROUND_DELTA_XZ, Math.min(0.18D, baseSpeed * 0.45D));
-        double minimumAirMovement = Math.max(MIN_AIR_DELTA_XZ, Math.min(0.16D, baseSpeed * 0.35D));
+            if (sprinting) {
+                sprintTicks = Math.min(20, sprintTicks + 1);
+            } else {
+                sprintTicks = 0;
+            }
 
-        boolean largeTurn =
-                rotationData.getDeltaYaw() > 45.0F
-                        || rotationData.getYawAccel() > 60.0F
-                        || MovementPredictionUtil.yawDifference(yaw, rotationData.getLastYaw()) > 45.0F;
+            double baseSpeed = MathUtil.getBaseSpeed_2(profile.getPlayer());
 
-        if (largeTurn) {
-            turnGraceTicks = 0;
-        } else {
-            turnGraceTicks = Math.min(20, turnGraceTicks + 1);
-        }
+            double minimumGroundMovement = Math.max(MIN_GROUND_DELTA_XZ, Math.min(0.18D, baseSpeed * 0.45D));
+            double minimumAirMovement = Math.max(MIN_AIR_DELTA_XZ, Math.min(0.16D, baseSpeed * 0.35D));
 
-        boolean ground =
-                movementData.isOnGround()
-                        || movementData.isServerGround()
-                        || movementData.getClientGroundTicks() > 0
-                        || movementData.getServerGroundTicksPlus() > 0;
+            boolean largeTurn =
+                    rotationData.getDeltaYaw() > 45.0F
+                            || rotationData.getYawAccel() > 60.0F
+                            || MovementPredictionUtil.yawDifference(yaw, rotationData.getLastYaw()) > 45.0F;
 
-        boolean air =
-                !ground
-                        && movementData.getClientAirTicks() > 1
-                        && movementData.getServerAirTicks() > 1;
+            if (largeTurn) {
+                turnGraceTicks = 0;
+            } else {
+                turnGraceTicks = Math.min(20, turnGraceTicks + 1);
+            }
 
-        boolean hardExempt =
-                !movementData.isPacketMoving()
-                        || !velocityDirection.isMoving()
+            boolean ground =
+                    movementData.isOnGround()
+                            || movementData.isServerGround()
+                            || movementData.getClientGroundTicks() > 0
+                            || movementData.getServerGroundTicksPlus() > 0;
 
-                        || movementData.isInsideWater()
-                        || movementData.isNearWater()
-                        || movementData.isNearWebs()
-                        || movementData.isNearClimbable()
-                        || movementData.isOnIce()
-                        || movementData.isOnSlime()
-                        || movementData.isOnSoulSand()
-                        || movementData.isOnHoney()
-                        || movementData.isNearBoat()
-                        || movementData.isOnBoat()
-                        || movementData.isNearWall()
-                        || movementData.isColliding()
-                        || movementData.isUnderblock()
-                        || movementData.getSincePredictDownwardsTicks() < 5
-                        || movementData.getSincePredictUpwardsTicks() < 5
-                        || movementData.getSinceCollideTicks() < 3
-                        || movementData.getSinceOnGhostBlock() < 5 + profile.getConnectionData().getClientTickTrans()
-                        || movementData.getSinceTeleportTicks() < 3 + profile.getConnectionData().getClientTickTrans()
-                        || movementData.isRiptiding()
-                        || movementData.getSinceRiptidingTicks() < 20
-                        || movementData.getSinceGlidingTicks() < 20
-                        || movementData.getSinceElytraEquipTicks() < 20
+            boolean air =
+                    !ground
+                            && movementData.getClientAirTicks() > 1
+                            && movementData.getServerAirTicks() > 1;
 
-                        || profile.getVelocityData().isTakingVelocity()
-                        || profile.getExempt().isVehicle()
-                        || profile.getExempt().isTeleports()
-                        || profile.shouldCancel()
-                        || profile.isBouncingOnSlime()
-                        || profile.getPlayer().isInsideVehicle()
-                        || (
-                        profile.getVehicleData().getSinceVehicleTicks() > 0
-                                && profile.getVehicleData().getSinceVehicleTicks()
-                                < 5 + profile.getConnectionData().getClientTickTrans()
-                );
+            boolean hardExempt =
+                    !movementData.isPacketMoving()
+                            || !velocityDirection.isMoving()
 
-        if (hardExempt) {
-            rewardAll(0.75D);
-            return;
-        }
+                            || movementData.isInsideWater()
+                            || movementData.isNearWater()
+                            || movementData.isNearWebs()
+                            || movementData.isNearClimbable()
+                            || movementData.isOnIce()
+                            || movementData.isOnSlime()
+                            || movementData.isOnSoulSand()
+                            || movementData.isOnHoney()
+                            || movementData.isNearBoat()
+                            || movementData.isOnBoat()
+                            || movementData.isNearWall()
+                            || movementData.isColliding()
+                            || movementData.isUnderblock()
+                            || movementData.getSincePredictDownwardsTicks() < 5
+                            || movementData.getSincePredictUpwardsTicks() < 5
+                            || movementData.getSinceCollideTicks() < 3
+                            || movementData.getSinceOnGhostBlock() < 5 + profile.getConnectionData().getClientTickTrans()
+                            || movementData.getSinceTeleportTicks() < 3 + profile.getConnectionData().getClientTickTrans()
+                            || movementData.isRiptiding()
+                            || movementData.getSinceRiptidingTicks() < 20
+                            || movementData.getSinceGlidingTicks() < 20
+                            || movementData.getSinceElytraEquipTicks() < 20
 
-        if (!sprinting && !lastSprinting) {
-            groundInvalidTicks = 0;
-            airInvalidTicks = 0;
-            rewardAll(0.75D);
-            return;
-        }
+                            || profile.getVelocityData().isTakingVelocity()
+                            || profile.getExempt().isVehicle()
+                            || profile.getExempt().isTeleports()
+                            || profile.shouldCancel()
+                            || profile.isBouncingOnSlime()
+                            || profile.getPlayer().isInsideVehicle()
+                            || (
+                            profile.getVehicleData().getSinceVehicleTicks() > 0
+                                    && profile.getVehicleData().getSinceVehicleTicks()
+                                    < 5 + profile.getConnectionData().getClientTickTrans()
+                    );
 
-        boolean groundImpossible =
-                velocityDirection.getAbsoluteAngle() >= GROUND_INVALID_ANGLE
-                        || velocityDirection.getDot() < GROUND_MIN_FORWARD_DOT;
+            if (hardExempt) {
+                rewardAll(0.75D);
+                return;
+            }
 
-        boolean groundHardImpossible =
-                velocityDirection.getAbsoluteAngle() >= GROUND_HARD_INVALID_ANGLE
-                        || velocityDirection.getDot() < GROUND_HARD_BACKWARD_DOT;
+            if (!sprinting && !lastSprinting) {
+                groundInvalidTicks = 0;
+                airInvalidTicks = 0;
+                rewardAll(0.75D);
+                return;
+            }
 
-        boolean groundInvalid =
-                ground
-                        && deltaXZ > minimumGroundMovement
-                        && sprinting
-                        && lastSprinting
-                        && sprintTicks > 1
-                        && turnGraceTicks > 1
-                        && groundImpossible;
+            boolean groundImpossible =
+                    velocityDirection.getAbsoluteAngle() >= GROUND_INVALID_ANGLE
+                            || velocityDirection.getDot() < GROUND_MIN_FORWARD_DOT;
 
-        /*
-         * Air detection:
-         *
-         * This checks the estimated input direction, not only the current velocity.
-         * If the player is adding sideways/backwards movement force while sprinting,
-         * this will buffer.
-         */
-        boolean usefulAirInput =
-                airInputXZ > MIN_AIR_INPUT_XZ
-                        && airInputDirection.isMoving();
+            boolean groundHardImpossible =
+                    velocityDirection.getAbsoluteAngle() >= GROUND_HARD_INVALID_ANGLE
+                            || velocityDirection.getDot() < GROUND_HARD_BACKWARD_DOT;
 
-        boolean airInputImpossible =
-                airInputDirection.getAbsoluteAngle() >= AIR_INVALID_INPUT_ANGLE
-                        || airInputDirection.getDot() < AIR_MIN_INPUT_FORWARD_DOT;
+            boolean groundInvalid =
+                    ground
+                            && deltaXZ > minimumGroundMovement
+                            && sprinting
+                            && lastSprinting
+                            && sprintTicks > 1
+                            && turnGraceTicks > 1
+                            && groundImpossible;
 
-        boolean airInputHardImpossible =
-                airInputDirection.getAbsoluteAngle() >= AIR_HARD_INVALID_INPUT_ANGLE
-                        || airInputDirection.getDot() < AIR_HARD_BACKWARD_INPUT_DOT;
+            /*
+             * Air detection:
+             *
+             * This checks the estimated input direction, not only the current velocity.
+             * If the player is adding sideways/backwards movement force while sprinting,
+             * this will buffer.
+             */
+            boolean usefulAirInput =
+                    airInputXZ > MIN_AIR_INPUT_XZ
+                            && airInputDirection.isMoving();
 
-        boolean airInvalid =
-                air
-                        && deltaXZ > minimumAirMovement
-                        && usefulAirInput
-                        && sprinting
-                        && lastSprinting
-                        && sprintTicks > 2
-                        && turnGraceTicks > 4
-                        && airInputImpossible;
+            boolean airInputImpossible =
+                    airInputDirection.getAbsoluteAngle() >= AIR_INVALID_INPUT_ANGLE
+                            || airInputDirection.getDot() < AIR_MIN_INPUT_FORWARD_DOT;
 
-        verbose(this.getClass().getSimpleName(), Math.max(groundBuffer, airBuffer), 8,
-                MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (OmniSprint)\n" +
-                        " * velocitySector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
-                        "\nairInputSector " + MsgType.MAIN_THEME_COLOR.getMessage() + airInputDirection.getSector() +
+            boolean airInputHardImpossible =
+                    airInputDirection.getAbsoluteAngle() >= AIR_HARD_INVALID_INPUT_ANGLE
+                            || airInputDirection.getDot() < AIR_HARD_BACKWARD_INPUT_DOT;
 
-                        "\nvelocityAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getSignedAngle()) +
-                        "\nvelocityAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getAbsoluteAngle()) +
-                        "\nvelocityDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getDot()) +
-                        "\nvelocityCross " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getCross()) +
+            boolean airInvalid =
+                    air
+                            && deltaXZ > minimumAirMovement
+                            && usefulAirInput
+                            && sprinting
+                            && lastSprinting
+                            && sprintTicks > 2
+                            && turnGraceTicks > 4
+                            && airInputImpossible;
 
-                        "\nairInputX " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputX) +
-                        "\nairInputZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputZ) +
-                        "\nairInputXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputXZ) +
-                        "\nairInputAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getSignedAngle()) +
-                        "\nairInputAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getAbsoluteAngle()) +
-                        "\nairInputDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getDot()) +
-                        "\nairInputCross " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getCross()) +
-
-                        "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(yaw) +
-                        "\ndeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(rotationData.getDeltaYaw()) +
-                        "\nyawAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + format(rotationData.getYawAccel()) +
-
-                        "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(deltaXZ) +
-                        "\nminimumGroundMovement " + MsgType.MAIN_THEME_COLOR.getMessage() + format(minimumGroundMovement) +
-                        "\nminimumAirMovement " + MsgType.MAIN_THEME_COLOR.getMessage() + format(minimumAirMovement) +
-                        "\nbaseSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + format(baseSpeed) +
-
-                        "\nground " + MsgType.MAIN_THEME_COLOR.getMessage() + ground +
-                        "\nair " + MsgType.MAIN_THEME_COLOR.getMessage() + air +
-                        "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks() +
-                        "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks() +
-                        "\nturnGraceTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + turnGraceTicks +
-                        "\nsprintTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + sprintTicks +
-
-                        "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting +
-                        "\nlastSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + lastSprinting +
-
-                        "\ngroundInvalid " + MsgType.MAIN_THEME_COLOR.getMessage() + groundInvalid +
-                        "\nairInvalid " + MsgType.MAIN_THEME_COLOR.getMessage() + airInvalid +
-
-                        "\ngroundBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(groundBuffer) +
-                        "\nairBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airBuffer));
-
-        handleGround(groundInvalid, groundHardImpossible);
-        handleAir(airInvalid, airInputHardImpossible);
-
-        if (airInputDirection.isForward()) return;
-
-        if (groundBuffer > 8.0D) {
-            fail("Sprinting in impossible direction",
-                    "type " + MsgType.MAIN_THEME_COLOR.getMessage() + "ground" +
-                            "\nsector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
-                            "\nangle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getSignedAngle()) +
-                            "\nabsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getAbsoluteAngle()) +
-                            "\ndot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getDot()) +
-                            "\ncross " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getCross()) +
-                            "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(yaw) +
-                            "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(deltaXZ) +
-                            "\nbaseSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + format(baseSpeed) +
-                            "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting +
-                            "\nlastSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + lastSprinting);
-
-            groundBuffer = 4.0D;
-            groundInvalidTicks = 0;
-            actionData.getDesync().fix(DesyncType.SPRINTING);
-            return;
-        }
-
-        if (airBuffer > 6.5D) {
-            fail("Sprinting in impossible air direction",
-                    "type " + MsgType.MAIN_THEME_COLOR.getMessage() + "air" +
-                            "\nvelocitySector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
+            verbose(this.getClass().getSimpleName(), Math.max(groundBuffer, airBuffer), 8,
+                    MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (OmniSprint)\n" +
+                            " * velocitySector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
                             "\nairInputSector " + MsgType.MAIN_THEME_COLOR.getMessage() + airInputDirection.getSector() +
+
                             "\nvelocityAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getSignedAngle()) +
                             "\nvelocityAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getAbsoluteAngle()) +
                             "\nvelocityDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getDot()) +
+                            "\nvelocityCross " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getCross()) +
+
+                            "\nairInputX " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputX) +
+                            "\nairInputZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputZ) +
+                            "\nairInputXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputXZ) +
                             "\nairInputAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getSignedAngle()) +
                             "\nairInputAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getAbsoluteAngle()) +
                             "\nairInputDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getDot()) +
-                            "\nairInputXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputXZ) +
+                            "\nairInputCross " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getCross()) +
+
                             "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(yaw) +
+                            "\ndeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(rotationData.getDeltaYaw()) +
+                            "\nyawAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + format(rotationData.getYawAccel()) +
+
                             "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(deltaXZ) +
+                            "\nminimumGroundMovement " + MsgType.MAIN_THEME_COLOR.getMessage() + format(minimumGroundMovement) +
+                            "\nminimumAirMovement " + MsgType.MAIN_THEME_COLOR.getMessage() + format(minimumAirMovement) +
+                            "\nbaseSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + format(baseSpeed) +
+
+                            "\nground " + MsgType.MAIN_THEME_COLOR.getMessage() + ground +
+                            "\nair " + MsgType.MAIN_THEME_COLOR.getMessage() + air +
                             "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks() +
                             "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks() +
-                            "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting +
-                            "\nlastSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + lastSprinting);
+                            "\nturnGraceTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + turnGraceTicks +
+                            "\nsprintTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + sprintTicks +
 
-            airBuffer = 3.0D;
-            airInvalidTicks = 0;
-            actionData.getDesync().fix(DesyncType.SPRINTING);
+                            "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting +
+                            "\nlastSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + lastSprinting +
+
+                            "\ngroundInvalid " + MsgType.MAIN_THEME_COLOR.getMessage() + groundInvalid +
+                            "\nairInvalid " + MsgType.MAIN_THEME_COLOR.getMessage() + airInvalid +
+
+                            "\ngroundBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(groundBuffer) +
+                            "\nairBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airBuffer));
+
+            handleGround(groundInvalid, groundHardImpossible);
+            handleAir(airInvalid, airInputHardImpossible);
+
+            if (airInputDirection.isForward()) return;
+
+            if (groundBuffer > 8.0D) {
+                fail("Sprinting in impossible direction",
+                        "type " + MsgType.MAIN_THEME_COLOR.getMessage() + "ground" +
+                                "\nsector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
+                                "\nangle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getSignedAngle()) +
+                                "\nabsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getAbsoluteAngle()) +
+                                "\ndot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getDot()) +
+                                "\ncross " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getCross()) +
+                                "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(yaw) +
+                                "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(deltaXZ) +
+                                "\nbaseSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + format(baseSpeed) +
+                                "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting +
+                                "\nlastSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + lastSprinting);
+
+                groundBuffer = 4.0D;
+                groundInvalidTicks = 0;
+                actionData.getDesync().fix(DesyncType.SPRINTING);
+                return;
+            }
+
+            if (airBuffer > 6.5D) {
+                fail("Sprinting in impossible air direction",
+                        "type " + MsgType.MAIN_THEME_COLOR.getMessage() + "air" +
+                                "\nvelocitySector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
+                                "\nairInputSector " + MsgType.MAIN_THEME_COLOR.getMessage() + airInputDirection.getSector() +
+                                "\nvelocityAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getSignedAngle()) +
+                                "\nvelocityAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getAbsoluteAngle()) +
+                                "\nvelocityDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getDot()) +
+                                "\nairInputAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getSignedAngle()) +
+                                "\nairInputAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getAbsoluteAngle()) +
+                                "\nairInputDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getDot()) +
+                                "\nairInputXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputXZ) +
+                                "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(yaw) +
+                                "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(deltaXZ) +
+                                "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks() +
+                                "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks() +
+                                "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting +
+                                "\nlastSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + lastSprinting);
+
+                airBuffer = 3.0D;
+                airInvalidTicks = 0;
+                actionData.getDesync().fix(DesyncType.SPRINTING);
+            }
+        } finally {
+            Profiler.stop("OmniSprint A", profiler);
         }
     }
 

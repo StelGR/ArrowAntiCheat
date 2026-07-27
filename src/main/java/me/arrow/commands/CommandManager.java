@@ -34,6 +34,7 @@ public class CommandManager implements TabExecutor {
         this.subCommands.add(new PingCommand(plugin));
         this.subCommands.add(new InfoCommand(plugin));
         this.subCommands.add(new ReloadCommand(plugin));
+        this.subCommands.add(new ProfilerCommand(plugin));
     }
 
     @Override
