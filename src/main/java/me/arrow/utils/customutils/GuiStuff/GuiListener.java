@@ -135,9 +135,16 @@ public class GuiListener implements Listener {
                 openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
-            case 22:
+            case 24:
                 Config.Setting.GHOST_BLOCK_FIX.setValue(
                         !Config.Setting.GHOST_BLOCK_FIX.getBoolean()
+                );
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
+                break;
+
+            case 20:
+                Config.Setting.BENCHMARK_ENABLED.setValue(
+                        !Config.Setting.BENCHMARK_ENABLED.getBoolean()
                 );
                 openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;

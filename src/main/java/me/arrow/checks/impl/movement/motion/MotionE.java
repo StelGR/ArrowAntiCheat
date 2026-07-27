@@ -9,6 +9,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.Math.MathUtil;
@@ -36,43 +37,50 @@ public class MotionE extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
 
-            if (profile.shouldCancel()
-                    || profile.getMovementData().isUnderblock()
-                    || profile.getMovementData().isOnBoat()
-                    || profile.getMovementData().isNearBoat()
-                    || Arrow.getInstance().getNmsManager().getNmsInstance().isSwimming(profile.getPlayer())
-                    || profile.getMovementData().getSinceRiptidingTicks() < 5
-                    || profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5
-                    || profile.getMovementData().isNearBuggyBlock()) {
-                return;
+            long profiler = Profiler.start();
+
+            try {
+
+                if (profile.shouldCancel()
+                        || profile.getMovementData().isUnderblock()
+                        || profile.getMovementData().isOnBoat()
+                        || profile.getMovementData().isNearBoat()
+                        || Arrow.getInstance().getNmsManager().getNmsInstance().isSwimming(profile.getPlayer())
+                        || profile.getMovementData().getSinceRiptidingTicks() < 5
+                        || profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5
+                        || profile.getMovementData().isNearBuggyBlock()) {
+                    return;
+                }
+
+                MovementData movementData = profile.getMovementData();
+
+                int clientAirTicks = movementData.getClientAirTicks();
+                int serverAirTicks = movementData.getCustomAirTicks();
+
+                double deltaY = movementData.getDeltaY();
+                double deltaXZ = movementData.getDeltaXZ();
+                boolean inAir = movementData.isCustomInAir();
+                boolean serverGround = movementData.isServerGround();
+                boolean clientGround = movementData.isOnGround();
+
+                boolean waterstate = profile.getMovementData().isOnTopOfWater();
+
+                if (profile.getMovementData().isNearWater())
+                    verbose(this.getClass().getSimpleName(), clientAirTicks, serverAirTicks, "* Verbose\n * clientAir " + clientAirTicks
+                            + "\n * serverAir " + serverAirTicks
+                            + "\n * sGround " + serverGround
+                            + "\n * cGround " + clientGround
+                            + "\n * air " + inAir
+                            + "\n * inW " + profile.getMovementData().isInsideWater()
+                            + "\n * onW " + profile.getMovementData().isOnTopOfWater()
+                            + "\n * deltaY " + deltaY);
+
+                if (profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5) return;
+
+                WaterWalking(waterstate, deltaY, deltaXZ, inAir, serverGround, clientGround, clientAirTicks, serverAirTicks);
+            } finally {
+                Profiler.stop("Motion E", profiler);
             }
-
-            MovementData movementData = profile.getMovementData();
-
-            int clientAirTicks = movementData.getClientAirTicks();
-            int serverAirTicks = movementData.getCustomAirTicks();
-
-            double deltaY = movementData.getDeltaY();
-            double deltaXZ = movementData.getDeltaXZ();
-            boolean inAir = movementData.isCustomInAir();
-            boolean serverGround = movementData.isServerGround();
-            boolean clientGround = movementData.isOnGround();
-
-            boolean waterstate = profile.getMovementData().isOnTopOfWater();
-
-            if (profile.getMovementData().isNearWater())
-                verbose(this.getClass().getSimpleName(),clientAirTicks, serverAirTicks, "* Verbose\n * clientAir "+ clientAirTicks
-                        + "\n * serverAir " + serverAirTicks
-                        +"\n * sGround " + serverGround
-                        +"\n * cGround " + clientGround
-                        +"\n * air " + inAir
-                        +"\n * inW " + profile.getMovementData().isInsideWater()
-                        +"\n * onW " + profile.getMovementData().isOnTopOfWater()
-                        +"\n * deltaY " + deltaY);
-
-            if (profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5) return;
-
-            WaterWalking(waterstate, deltaY, deltaXZ, inAir, serverGround, clientGround, clientAirTicks, serverAirTicks);
         }
     }
 

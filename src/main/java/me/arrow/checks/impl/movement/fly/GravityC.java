@@ -9,6 +9,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
@@ -43,73 +44,81 @@ public class GravityC extends Check {
                 && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) return;
 
-        MovementData movementData = profile.getMovementData();
-        if (movementData == null
-                || movementData.isOnBoat()
-                || movementData.isNearBoat()
-                || movementData.isNearShulker()
-                || movementData.isNearShulkerBox()
-                || movementData.isNearLava()
-                || movementData.isNearWater()
-                || profile.getExempt().isVehicle()
-                || profile.shouldCancel()
-                || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
-                || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                || movementData.getSinceLevitationEffectTicks() < 10) return;
+        long profiler = Profiler.start();
 
-        ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-        if (world.shouldExemptMovementChecks()
-                || world.nextToGhostWall
-                || world.physicsMismatch
-                || world.onGhostBlock
-                || world.insideGhostBlock
-                || world.underGhostBlock
-                || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            bufferC = 0.0D;
-            return;
-        }
+        try {
 
-        if (movementData.getSinceTeleportTicks() < 5) return;
-        if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            lastOffset = 0.0D;
-            return;
-        }
+            MovementData movementData = profile.getMovementData();
+            if (movementData == null
+                    || movementData.isOnBoat()
+                    || movementData.isNearBoat()
+                    || movementData.isNearShulker()
+                    || movementData.isNearShulkerBox()
+                    || movementData.isNearLava()
+                    || movementData.isNearWater()
+                    || profile.getExempt().isVehicle()
+                    || profile.shouldCancel()
+                    || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
+                    || !CollisionUtils.isChunkLoaded(movementData.getLocation())
+                    || movementData.getSinceLevitationEffectTicks() < 10) return;
 
-        if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: Exempt - vehicle");
-            return;
-        }
+            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+            if (world.shouldExemptMovementChecks()
+                    || world.nextToGhostWall
+                    || world.physicsMismatch
+                    || world.onGhostBlock
+                    || world.insideGhostBlock
+                    || world.underGhostBlock
+                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                bufferC = 0.0D;
+                return;
+            }
 
-        int ghostLiquidWebTicks = Math.min(
-                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-        );
+            if (movementData.getSinceTeleportTicks() < 5) return;
+            if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                lastOffset = 0.0D;
+                return;
+            }
 
-        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: is Exempting (ghostblock liquid/web)");
-            bufferC = 0.0D;
-            return;
-        }
-        if (profile.getBlockProcessor().isNearGhostBlock()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: is Exempting (near Ghostblock)");
-            bufferC = 0.0D;
-            return;
-        }
-        if (profile.getBlockProcessor().isUnderGhostBlock()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: is Exempting (under Ghostblock)");
-            bufferC = 0.0D;
-            return;
-        }
-        if (movementData.getSinceGlidingTicks() < 20) {
-            bufferC = 0.0D;
-            return;
-        }
-        if (profile.getGeysersTracker().isBeingPushed()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: Exempt - geysers (26.2+)");
-            return;
-        }
-        if (!profile.isBedrockPlayer()) {
-            GravityPredictionC(movementData.getDeltaY(), movementData.getLastDeltaY(), movementData.isUnderblock(), movementData);
+            if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: Exempt - vehicle");
+                return;
+            }
+
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
+
+            if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (Config.Setting.DEBUG.getBoolean())
+                    OtherUtility.log("Gravity C: is Exempting (ghostblock liquid/web)");
+                bufferC = 0.0D;
+                return;
+            }
+            if (profile.getBlockProcessor().isNearGhostBlock()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: is Exempting (near Ghostblock)");
+                bufferC = 0.0D;
+                return;
+            }
+            if (profile.getBlockProcessor().isUnderGhostBlock()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: is Exempting (under Ghostblock)");
+                bufferC = 0.0D;
+                return;
+            }
+            if (movementData.getSinceGlidingTicks() < 20) {
+                bufferC = 0.0D;
+                return;
+            }
+            if (profile.getGeysersTracker().isBeingPushed()) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: Exempt - geysers (26.2+)");
+                return;
+            }
+            if (!profile.isBedrockPlayer()) {
+                GravityPredictionC(movementData.getDeltaY(), movementData.getLastDeltaY(), movementData.isUnderblock(), movementData);
+            }
+        } finally {
+            Profiler.stop("Gravity C", profiler);
         }
     }
 

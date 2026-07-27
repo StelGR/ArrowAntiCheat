@@ -291,7 +291,7 @@ public class Arrow {
 
 
         TaskUtils.taskLater(() -> {
-            if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_13_2)) {
+            if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_14_4)) {
                 log(translate("&e[WARN] This server is running a depricated version, meaning the anticheat will still work, but you will not receive any priority or proper support for updates, if there is an issue, you may still report it but do not expect any fix to be implemented."));
             }
         }, 60L);

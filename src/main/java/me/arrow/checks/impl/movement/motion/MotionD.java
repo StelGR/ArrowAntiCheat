@@ -7,6 +7,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 
@@ -32,68 +33,75 @@ public class MotionD extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
 
-            MovementData movementData = profile.getMovementData();
+            long profiler = Profiler.start();
 
-            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+            try {
 
-            if (world.shouldExemptMovementChecks()
-                    || world.physicsMismatch
-                    || world.onGhostBlock
-                    || world.underGhostBlock
-                    || world.insideGhostBlock) {
-                return;
-            }
+                MovementData movementData = profile.getMovementData();
 
-            double deltaY = movementData.getDeltaY();
-            double lastDeltaY = movementData.getLastDeltaY();
+                ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
 
-            if (profile.shouldCancel()
-                    || profile.isBouncingOnSlime()
-                    || movementData.isOnSlime()
-                    || movementData.getMovingUnderblockTicks() > 0
-                    || profile.isExempt().isTeleports()
-                    || movementData.isUnderblock()
-                    || movementData.isNearBed()
-                    || movementData.isOnBoat()
-                    || movementData.isNearWebs()
-                    || movementData.isNearBoat()
-                    || movementData.isNearWater()
-                    || movementData.isNearLava()
-                    || movementData.isNearClimbable()
-                    || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
-                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    || (profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 10)
-                    || profile.getPlayer().isInsideVehicle()) {
-                buffer = 0;
-                return;
-            }
-
-            if (movementData.getSincePredictUpwardsTicks() < 10) {
-                buffer -= Math.min(buffer, 0.5);
-                return;
-            }
-
-            if (deltaY != 0)
-                verbose(this.getClass().getSimpleName(), buffer, 3, MsgType.MAIN_THEME_COLOR.getMessage() +"* Verbose\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                    + "\n * lastDeltaY "+ MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
-                    + "\n * underBlock "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
-
-
-            boolean invalid = deltaY == -lastDeltaY && deltaY != 0.0;
-
-            if (invalid) {
-                if (++buffer > 3) {
-                    fail("Impossible Vertical Motion",
-                            "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                            + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
-                            + "\nunderBlock " + MsgType.MAIN_THEME_COLOR.getMessage()+ movementData.isUnderblock());
+                if (world.shouldExemptMovementChecks()
+                        || world.physicsMismatch
+                        || world.onGhostBlock
+                        || world.underGhostBlock
+                        || world.insideGhostBlock) {
+                    return;
                 }
 
-                verbose(this.getClass().getSimpleName(), buffer, 3, MsgType.MAIN_THEME_COLOR.getMessage() +"* Verbose\n * deltaY "+ MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                        + "\n * lastDeltaY "+ MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
-                        + "\n * underBlock "+ MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
-            } else {
-                buffer -= Math.min(buffer, 0.05);
+                double deltaY = movementData.getDeltaY();
+                double lastDeltaY = movementData.getLastDeltaY();
+
+                if (profile.shouldCancel()
+                        || profile.isBouncingOnSlime()
+                        || movementData.isOnSlime()
+                        || movementData.getMovingUnderblockTicks() > 0
+                        || profile.isExempt().isTeleports()
+                        || movementData.isUnderblock()
+                        || movementData.isNearBed()
+                        || movementData.isOnBoat()
+                        || movementData.isNearWebs()
+                        || movementData.isNearBoat()
+                        || movementData.isNearWater()
+                        || movementData.isNearLava()
+                        || movementData.isNearClimbable()
+                        || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
+                        || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))
+                        || (profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 10)
+                        || profile.getPlayer().isInsideVehicle()) {
+                    buffer = 0;
+                    return;
+                }
+
+                if (movementData.getSincePredictUpwardsTicks() < 10) {
+                    buffer -= Math.min(buffer, 0.5);
+                    return;
+                }
+
+                if (deltaY != 0)
+                    verbose(this.getClass().getSimpleName(), buffer, 3, MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                            + "\n * lastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
+                            + "\n * underBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
+
+
+                boolean invalid = deltaY == -lastDeltaY && deltaY != 0.0;
+
+                if (invalid) {
+                    if (++buffer > 3) {
+                        fail("Impossible Vertical Motion",
+                                "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                        + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
+                                        + "\nunderBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
+                    }
+
+                    verbose(this.getClass().getSimpleName(), buffer, 3, MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                            + "\n * lastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
+                            + "\n * underBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
+                } else {
+                    buffer -= Math.min(buffer, 0.05);
+                }
+            } finally {
+                Profiler.stop("Motion E", profiler);
             }
         }
     }

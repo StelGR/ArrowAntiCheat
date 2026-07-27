@@ -7,6 +7,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 
@@ -30,114 +31,123 @@ public class GroundA extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
 
-            MovementData movementData = profile.getMovementData();
+            long profiler = Profiler.start();
 
-            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+            try {
+                MovementData movementData = profile.getMovementData();
 
-            if (world.shouldExemptMovementChecks()
-                    || world.physicsMismatch
-                    || world.onGhostBlock
-                    || world.underGhostBlock
-                    || world.insideGhostBlock) {
-                return;
-            }
+                ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
 
-            if (profile.shouldCancel()
-                    || profile.getTick() < 60
-                    || profile.getMovementData().isOnBoat()
-                    || profile.getMovementData().isNearBoat()
-                    || profile.isExempt().isTeleports()
-                    || movementData.isNearWebs()
-                    || movementData.isNearShulkerBox()
-                    || movementData.isNearClimbable()
-                    || movementData.isNearGhast()
-                    || movementData.isNearShulker()
-                    || movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
-                    || movementData.getSinceCollideTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
-                    || profile.getMovementData().getSincePowderSnowTicks() < 10
-                    || profile.getVehicleData().getSinceVehicleTicks() < 1) {
-                return;
-            }
-
-            boolean serverGround = movementData.isServerGround();
-            boolean clientGround = movementData.isOnGround();
-            boolean serverGround2 = movementData.isServerYGround();
-            int trans = profile.getConnectionData().getClientTickTrans();
-
-            boolean invalid2 = !serverGround2 && clientGround && movementData.getCustomAirTicks() != 0;
-
-            boolean invalid1 = !serverGround && !clientGround && movementData.isCustomInAir() && movementData.getClientAirTicks() == 0 && movementData.getServerAirTicks() > 3 && ( movementData.getCustomAirTicks() == 1 || movementData.getCustomAirTicks() > 5);
-
-            boolean invalid3 = serverGround != clientGround
-                    && !movementData.isNearWater()
-                    && !movementData.isNearLava()
-                    && movementData.getSincePredictUpwardsTicks() > 10
-                    && !profile.getActionData().hasRecentUnderPlaceSupport(10 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    && movementData.getSincePredictDownwardsTicks() < 10
-                    && movementData.getSincePredictUpwardsTicks() < 10
-                    && !profile.isBedrockPlayer();
-
-            if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
-                    || profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
-                    || profile.getActionData().hasRecentTowerBlockPlace(10 + (trans * 2), 2 + trans)) {
-                return;
-            }
-
-            if (invalid1 || invalid2
-                    || invalid3
-            ) {
-                if (increaseBuffer() > 1) {
-                    fail("Mismatched ground status " + (invalid1 ? "(2)" :
-                                    invalid3 ? "(4)" :
-                                            "(3)"),
-                            "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                    + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround2
-                                    + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
-                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                    + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
-                                    + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
-                                    + "\nserverAirTicks (2) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks());
+                if (world.shouldExemptMovementChecks()
+                        || world.physicsMismatch
+                        || world.onGhostBlock
+                        || world.underGhostBlock
+                        || world.insideGhostBlock) {
+                    return;
                 }
+
+                if (profile.shouldCancel()
+                        || profile.getTick() < 60
+                        || profile.getMovementData().isOnBoat()
+                        || profile.getMovementData().isNearBoat()
+                        || profile.isExempt().isTeleports()
+                        || movementData.isNearWebs()
+                        || movementData.isNearShulkerBox()
+                        || movementData.isNearClimbable()
+                        || movementData.isNearGhast()
+                        || movementData.isNearShulker()
+                        || movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
+                        || movementData.getSinceCollideTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
+                        || profile.getMovementData().getSincePowderSnowTicks() < 10
+                        || profile.getVehicleData().getSinceVehicleTicks() < 1) {
+                    return;
+                }
+
+                boolean serverGround = movementData.isServerGround();
+                boolean clientGround = movementData.isOnGround();
+                boolean serverGround2 = movementData.isServerYGround();
+                int trans = profile.getConnectionData().getClientTickTrans();
+
+                boolean invalid2 = !serverGround2 && clientGround && movementData.getCustomAirTicks() != 0;
+
+                boolean invalid1 = !serverGround && !clientGround && movementData.isCustomInAir() && movementData.getClientAirTicks() == 0 && movementData.getServerAirTicks() > 3 && (movementData.getCustomAirTicks() == 1 || movementData.getCustomAirTicks() > 5);
+
+                boolean invalid3 = serverGround != clientGround
+                        && !movementData.isNearWater()
+                        && !movementData.isNearLava()
+                        && movementData.getSincePredictUpwardsTicks() > 10
+                        && !profile.getActionData().hasRecentUnderPlaceSupport(10 + (profile.getConnectionData().getClientTickTrans() * 2))
+                        && movementData.getSincePredictDownwardsTicks() < 10
+                        && movementData.getSincePredictUpwardsTicks() < 10
+                        && !profile.isBedrockPlayer();
+
+                if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
+                        || profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
+                        || profile.getActionData().hasRecentTowerBlockPlace(10 + (trans * 2), 2 + trans)) {
+                    return;
+                }
+
+                if (invalid1 || invalid2
+                        || invalid3
+                ) {
+                    if (increaseBuffer() > 1) {
+                        fail("Mismatched ground status " + (invalid1 ? "(2)" :
+                                        invalid3 ? "(4)" :
+                                                "(3)"),
+                                "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                        + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround2
+                                        + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
+                                        + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                        + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
+                                        + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
+                                        + "\nserverAirTicks (2) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks());
+                    }
+                } else decreaseBufferBy(0.025);
+            } finally {
+                Profiler.stop("Ground A (2, 3, 4)", profiler);
             }
-            else decreaseBufferBy(0.025);
         }
 
         if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+            long profiler = Profiler.start();
 
-            MovementData movementData = profile.getMovementData();
-            if (movementData.isOnBoat()
-                    || movementData.isNearBoat()
-                    || movementData.isNearGhast()
-                    || movementData.getSincePowderSnowTicks() < 10
-                    || movementData.getSincePredictDownwardsTicks() < 10
-                    || movementData.getSincePredictUpwardsTicks() < 10
-                    || profile.isExempt().isTeleports()
-            ) return;
+            try {
+                MovementData movementData = profile.getMovementData();
+                if (movementData.isOnBoat()
+                        || movementData.isNearBoat()
+                        || movementData.isNearGhast()
+                        || movementData.getSincePowderSnowTicks() < 10
+                        || movementData.getSincePredictDownwardsTicks() < 10
+                        || movementData.getSincePredictUpwardsTicks() < 10
+                        || profile.isExempt().isTeleports()
+                ) return;
 
-            boolean serverGround = movementData.isServerGround();
-            boolean clientGround = movementData.isOnGround();
+                boolean serverGround = movementData.isServerGround();
+                boolean clientGround = movementData.isOnGround();
 
-            boolean invalid = profile.isBedrockPlayer() ?
-                    !serverGround
-                            && clientGround
-                            && movementData.getSincePredictDownwardsTicks() > 10
-                            && movementData.getCustomAirTicks() > 1
-                    : (!serverGround && clientGround );
+                boolean invalid = profile.isBedrockPlayer() ?
+                        !serverGround
+                                && clientGround
+                                && movementData.getSincePredictDownwardsTicks() > 10
+                                && movementData.getCustomAirTicks() > 1
+                        : (!serverGround && clientGround);
 
-            if (invalid) {
-                if (increaseBuffer() > 1) {
-                    fail("Mismatched ground status (1)",
-                            "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                    + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerYGround()
-                                    + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
-                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                    + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
-                                    + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
-                                    + "\nserverAirTicks (2) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks());
-                }
+                if (invalid) {
+                    if (increaseBuffer() > 1) {
+                        fail("Mismatched ground status (1)",
+                                "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                        + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerYGround()
+                                        + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
+                                        + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                        + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
+                                        + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
+                                        + "\nserverAirTicks (2) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks());
+                    }
+                } else decreaseBufferBy(0.01);
+            } finally {
+                Profiler.stop("Ground A (1)", profiler);
             }
-            else decreaseBufferBy(0.01);
         }
     }
 }

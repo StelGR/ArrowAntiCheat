@@ -8,6 +8,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.PotionData;
 import me.arrow.playerdata.data.impl.VelocityData;
@@ -36,50 +37,54 @@ public class MotionF extends Check {
                         || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
         )) return;
 
-        MovementData md = profile.getMovementData();
-        VelocityData vd = profile.getVelocityData();
-        PotionData pot = profile.getPotionData();
+        long profiler = Profiler.start();
+
+        try {
+            MovementData md = profile.getMovementData();
+            VelocityData vd = profile.getVelocityData();
+            PotionData pot = profile.getPotionData();
 
 
+            if (profile.shouldCancel()
+                    || profile.getPlayer().isDead()
+                    || !profile.isExempt().isRespawned()
+                    || profile.isExempt().isTeleports()
+                    || profile.isBouncingOnSlime()
+                    || md.isNearWater()
+                    || vd.getTotalVerticalVelocity() > 0
+            ) return;
+
+            if (profile.getPlayer().isInsideVehicle()) return;
+
+            final double deltaY = md.getDeltaY();
+            final double lastDeltaY = md.getLastDeltaY();
+            int clientAirTicks = md.getClientAirTicks();
+            int serverAirTicks = md.getCustomAirTicks();
 
 
-        if (profile.shouldCancel()
-                || profile.getPlayer().isDead()
-                || !profile.isExempt().isRespawned()
-                || profile.isExempt().isTeleports()
-                || profile.isBouncingOnSlime()
-                || md.isNearWater()
-                || vd.getTotalVerticalVelocity() > 0
-        ) return;
+            boolean exempt = profile.isBouncingOnSlime()
+                    || md.isNearShulker()
+                    || md.isNearShulkerBox()
+                    || md.isNearBubble()
+                    || md.getSincePowderSnowTicks() < 5
+                    || md.getLadderTicks() < 10
+                    || md.isOnGround()
+                    || md.isLastOnGround()
+                    || pot.isHasLevitation()
+                    || clientAirTicks < 6;
 
-        if (profile.getPlayer().isInsideVehicle()) return;
-
-        final double deltaY = md.getDeltaY();
-        final double lastDeltaY = md.getLastDeltaY();
-        int clientAirTicks = md.getClientAirTicks();
-        int serverAirTicks = md.getCustomAirTicks();
-
-
-        boolean exempt = profile.isBouncingOnSlime()
-                || md.isNearShulker()
-                || md.isNearShulkerBox()
-                || md.isNearBubble()
-                || md.getSincePowderSnowTicks() < 5
-                || md.getLadderTicks() < 10
-                || md.isOnGround()
-                || md.isLastOnGround()
-                || pot.isHasLevitation()
-                || clientAirTicks < 6;
-
-        if (!exempt) {
-            if (deltaY > 0.11760000228885
-                    && md.isClimb()) {
-                fail("Fast Ladder?" ,"deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                        + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
-                        + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
-                        + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
-                        + "\nladderTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + md.getLadderTicks());
+            if (!exempt) {
+                if (deltaY > 0.11760000228885
+                        && md.isClimb()) {
+                    fail("Fast Ladder?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                            + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
+                            + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
+                            + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
+                            + "\nladderTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + md.getLadderTicks());
+                }
             }
+        } finally {
+            Profiler.stop("Motion F", profiler);
         }
     }
 }

@@ -10,6 +10,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.customutils.Math.MathUtil;
@@ -46,152 +47,157 @@ public class IllegalMoveC extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION))) {
             return;
         }
+        long profiler = Profiler.start();
 
-        MovementData movementData = profile.getMovementData();
-        ActionData actionData = profile.getActionData();
+        try {
 
-        if (profile.shouldCancel()
-                || profile.isExempt().isTeleports()
-                || movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()
-                || profile.getPlayer().isDead()
-                || movementData.isOnBoat()
-                || movementData.isNearBoat()
-                || movementData.isNearWater()
-                || movementData.isInsideLiquid()) {
-            airBuffer = 0;
-            groundBuffer = 0;
-            return;
-        }
 
-        if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMoveC: is Exempting (Piston Update)");
-            return;
-        }
+            MovementData movementData = profile.getMovementData();
+            ActionData actionData = profile.getActionData();
 
-        if (profile.getExempt().isReelingIn()) {
-            if (Config.Setting.DEBUG.getBoolean()) {
-                OtherUtility.log("IllegalMoveC: is Exempting (reelingIn)");
+            if (profile.shouldCancel()
+                    || profile.isExempt().isTeleports()
+                    || movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()
+                    || profile.getPlayer().isDead()
+                    || movementData.isOnBoat()
+                    || movementData.isNearBoat()
+                    || movementData.isNearWater()
+                    || movementData.isInsideLiquid()) {
+                airBuffer = 0;
+                groundBuffer = 0;
+                return;
             }
-            return;
-        }
 
-        double blockFriction = movementData.getFrictionFactor();
-
-        boolean isGround = movementData.isOnGround();
-        boolean isLastGround = movementData.isLastOnGround();
-
-        double deltaXZWF = movementData.getDeltaXZ() * blockFriction;
-
-        boolean isSprinting = actionData.isSprinting();
-        boolean isLastSprinting = actionData.isLastSprinting();
-        boolean isLastLastSprinting = actionData.isLastLastSprinting();
-
-        double fallDistance = profile.getPlayer().getFallDistance();
-        boolean nearWall = movementData.isNearWall();
-
-        double baseAirLimit = 0.221D;
-        double baseGroundLimit = 0.24D;
-
-        double frictionMultiplier = getLimitFrictionMultiplier(blockFriction);
-
-        airLimit = baseAirLimit * frictionMultiplier;
-        groundLimit = baseGroundLimit * frictionMultiplier;
-
-        airLimit += SpeedUtilities.getAirSpeedLimitBonus(profile) * frictionMultiplier;
-        groundLimit += SpeedUtilities.getGroundSpeedLimitBonus(profile) * frictionMultiplier;
-
-        double velocityContribution = Math.max(profile.getVelocityData().getTotalHorizontalVelocity(), 0);
-
-        airLimit += velocityContribution + 0.05D;
-        groundLimit += velocityContribution + 0.05D;
-
-        if (movementData.getSinceSpeedPotionEffectTicks() < 15) {
-            airLimit += 0.05D + (0.01D * SpeedUtilities.getSpeedPotionLevel(profile));
-            groundLimit += 0.05D + (0.01D * SpeedUtilities.getSpeedPotionLevel(profile));
-        }
-
-        if (movementData.getSinceCollideTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
-            airLimit += 0.08D;
-            groundLimit += 0.08D;
-        }
-
-        if (movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
-            return;
-        }
-
-        boolean velocityActive = profile.getVelocityData().getTotalHorizontalVelocity() != 0
-                || profile.getVelocityData().getTotalVerticalVelocity() != 0;
-
-        boolean basicInvalidState = !isSprinting
-                && !isLastSprinting
-                && !isLastLastSprinting
-                && !nearWall
-                && !velocityActive
-                && !profile.getPlayer().isInsideVehicle()
-                && actionData.getSinceLastSprintingTicks() > 20;
-
-        if (isGround) {
-            verbose(this.getClass().getSimpleName(), deltaXZWF, groundLimit,
-                    MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Ground)\n * predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
-                            + "\n * expected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
-                            + "\n * expected deltaXZ (No Friction) " + MsgType.MAIN_THEME_COLOR.getMessage() + (groundLimit / Math.max(0.0001, frictionMultiplier))
-                            + "\n * blockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                            + "\n * frictionMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + frictionMultiplier
-                            + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaY()
-                            + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
-                            + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
-                            + "\n * attributeValue " + MsgType.MAIN_THEME_COLOR.getMessage() + MathUtil.getAttributeSpeed(profile, isSprinting)
-                            + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
-                            + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
-                            + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)
-                            + "\n * serverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerGroundTicks());
-        }
-        else {
-            verbose(this.getClass().getSimpleName(), deltaXZWF, groundLimit,
-                    MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n * predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
-                            + "\n * expected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
-                            + "\n * expected deltaXZ (No Friction) " + MsgType.MAIN_THEME_COLOR.getMessage() + (groundLimit / Math.max(0.0001, frictionMultiplier))
-                            + "\n * blockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                            + "\n * frictionMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + frictionMultiplier
-                            + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaY()
-                            + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
-                            + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
-                            + "\n * attributeValue " + MsgType.MAIN_THEME_COLOR.getMessage() + MathUtil.getAttributeSpeed(profile, isSprinting)
-                            + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
-                            + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
-                            + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)
-                            + "\n * serverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerGroundTicks());
-        }
-
-        if (isGround && isLastGround && deltaXZWF > groundLimit && basicInvalidState) {
-            if (++groundBuffer > maxBuffer) {
-                fail("Incorrect sprint (ground)",
-                        "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
-                                + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
-                                + "\nblockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                                + "\nattributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
-                                + "\npotionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
-                                + "\ncomboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile));
-                groundBuffer = Math.max( maxBuffer + 2, groundBuffer);
+            if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMoveC: is Exempting (Piston Update)");
+                return;
             }
-        }
-        else {
-            groundBuffer -= Math.min(groundBuffer, resetRate1);
-        }
-        if (!isGround && !isLastGround && deltaXZWF > airLimit && basicInvalidState && fallDistance < 1) {
-            if (++airBuffer > maxBuffer) {
-                fail("Incorrect sprint (air)",
-                        "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
-                                + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + airLimit
-                                + "\nblockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                                + "\nattributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributeBonus(profile)
-                                + "\npotionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirPotionBonus(profile)
-                                + "\ncomboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributePotionBonus(profile));
 
-                airBuffer = Math.max(maxBuffer + 2, airBuffer);
+            if (profile.getExempt().isReelingIn()) {
+                if (Config.Setting.DEBUG.getBoolean()) {
+                    OtherUtility.log("IllegalMoveC: is Exempting (reelingIn)");
+                }
+                return;
             }
-        } else {
-            airBuffer -= Math.min(airBuffer, resetRate1);
+
+            double blockFriction = movementData.getFrictionFactor();
+
+            boolean isGround = movementData.isOnGround();
+            boolean isLastGround = movementData.isLastOnGround();
+
+            double deltaXZWF = movementData.getDeltaXZ() * blockFriction;
+
+            boolean isSprinting = actionData.isSprinting();
+            boolean isLastSprinting = actionData.isLastSprinting();
+            boolean isLastLastSprinting = actionData.isLastLastSprinting();
+
+            double fallDistance = profile.getPlayer().getFallDistance();
+            boolean nearWall = movementData.isNearWall();
+
+            double baseAirLimit = 0.221D;
+            double baseGroundLimit = 0.24D;
+
+            double frictionMultiplier = getLimitFrictionMultiplier(blockFriction);
+
+            airLimit = baseAirLimit * frictionMultiplier;
+            groundLimit = baseGroundLimit * frictionMultiplier;
+
+            airLimit += SpeedUtilities.getAirSpeedLimitBonus(profile) * frictionMultiplier;
+            groundLimit += SpeedUtilities.getGroundSpeedLimitBonus(profile) * frictionMultiplier;
+
+            double velocityContribution = Math.max(profile.getVelocityData().getTotalHorizontalVelocity(), 0);
+
+            airLimit += velocityContribution + 0.05D;
+            groundLimit += velocityContribution + 0.05D;
+
+            if (movementData.getSinceSpeedPotionEffectTicks() < 15) {
+                airLimit += 0.05D + (0.01D * SpeedUtilities.getSpeedPotionLevel(profile));
+                groundLimit += 0.05D + (0.01D * SpeedUtilities.getSpeedPotionLevel(profile));
+            }
+
+            if (movementData.getSinceCollideTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
+                airLimit += 0.08D;
+                groundLimit += 0.08D;
+            }
+
+            if (movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
+                return;
+            }
+
+            boolean velocityActive = profile.getVelocityData().getTotalHorizontalVelocity() != 0
+                    || profile.getVelocityData().getTotalVerticalVelocity() != 0;
+
+            boolean basicInvalidState = !isSprinting
+                    && !isLastSprinting
+                    && !isLastLastSprinting
+                    && !nearWall
+                    && !velocityActive
+                    && !profile.getPlayer().isInsideVehicle()
+                    && actionData.getSinceLastSprintingTicks() > 20;
+
+            if (isGround) {
+                verbose(this.getClass().getSimpleName(), deltaXZWF, groundLimit,
+                        MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Ground)\n * predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
+                                + "\n * expected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
+                                + "\n * expected deltaXZ (No Friction) " + MsgType.MAIN_THEME_COLOR.getMessage() + (groundLimit / Math.max(0.0001, frictionMultiplier))
+                                + "\n * blockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
+                                + "\n * frictionMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + frictionMultiplier
+                                + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaY()
+                                + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
+                                + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
+                                + "\n * attributeValue " + MsgType.MAIN_THEME_COLOR.getMessage() + MathUtil.getAttributeSpeed(profile, isSprinting)
+                                + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
+                                + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
+                                + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)
+                                + "\n * serverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerGroundTicks());
+            } else {
+                verbose(this.getClass().getSimpleName(), deltaXZWF, groundLimit,
+                        MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n * predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
+                                + "\n * expected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
+                                + "\n * expected deltaXZ (No Friction) " + MsgType.MAIN_THEME_COLOR.getMessage() + (groundLimit / Math.max(0.0001, frictionMultiplier))
+                                + "\n * blockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
+                                + "\n * frictionMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + frictionMultiplier
+                                + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaY()
+                                + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
+                                + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
+                                + "\n * attributeValue " + MsgType.MAIN_THEME_COLOR.getMessage() + MathUtil.getAttributeSpeed(profile, isSprinting)
+                                + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
+                                + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
+                                + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)
+                                + "\n * serverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerGroundTicks());
+            }
+
+            if (isGround && isLastGround && deltaXZWF > groundLimit && basicInvalidState) {
+                if (++groundBuffer > maxBuffer) {
+                    fail("Incorrect sprint (ground)",
+                            "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
+                                    + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
+                                    + "\nblockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
+                                    + "\nattributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
+                                    + "\npotionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
+                                    + "\ncomboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile));
+                    groundBuffer = Math.max(maxBuffer + 2, groundBuffer);
+                }
+            } else {
+                groundBuffer -= Math.min(groundBuffer, resetRate1);
+            }
+            if (!isGround && !isLastGround && deltaXZWF > airLimit && basicInvalidState && fallDistance < 1) {
+                if (++airBuffer > maxBuffer) {
+                    fail("Incorrect sprint (air)",
+                            "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZWF
+                                    + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + airLimit
+                                    + "\nblockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
+                                    + "\nattributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributeBonus(profile)
+                                    + "\npotionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirPotionBonus(profile)
+                                    + "\ncomboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributePotionBonus(profile));
+
+                    airBuffer = Math.max(maxBuffer + 2, airBuffer);
+                }
+            } else {
+                airBuffer -= Math.min(airBuffer, resetRate1);
+            }
+        } finally {
+            Profiler.stop("IllegalMove C", profiler);
         }
     }
 
