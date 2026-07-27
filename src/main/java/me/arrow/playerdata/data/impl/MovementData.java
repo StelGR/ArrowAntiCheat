@@ -1299,8 +1299,8 @@ public class MovementData implements Data {
             movingUp = (deltaY > 0 || lastDeltaY > 0) && isNearStepMaterial();
             movingDown = (deltaY < 0 || lastDeltaY < 0) && isNearStepMaterial();
 
-            sincePredictDownwardsTicks = movingDown ? sincePredictDownwardsTicks++ : 0;
-            sincePredictUpwardsTicks = movingUp ? sincePredictUpwardsTicks++ : 0;
+            sincePredictDownwardsTicks = movingDown ? 0 : sincePredictDownwardsTicks++;
+            sincePredictUpwardsTicks = movingUp ? 0 : sincePredictUpwardsTicks++;
             //Bukkit.broadcastMessage("ticks: " + sincePredictUpwardsTicks);
 
             if (potion.isHasSpeed()) sinceSpeedPotionEffectTicks = 0;
