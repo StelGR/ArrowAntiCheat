@@ -1,5 +1,7 @@
 package me.arrow.utils.customutils;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import me.arrow.Arrow;
 import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
@@ -39,7 +41,8 @@ public class OtherUtility {
     }
 
     public static String guiLine() {
-        return "&7&m------------------------";
+        return PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_14_4) ?
+                "&7&m                                        " : "&7&m--------------------------";
     }
 
     public static final String DASH_LINE = "&7&m                                                                     ";

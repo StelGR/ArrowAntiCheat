@@ -367,12 +367,12 @@ public class GuiManager {
                         translate(guiLine())
                 )));
 
-        ItemStack ghostBlockSyncItem = createToggleWool(
-                Config.Setting.GHOST_BLOCK_FIX.getBoolean(),
+        ItemStack benchmarkerItem = createToggleWool(
+                Config.Setting.BENCHMARK_ENABLED.getBoolean(),
                 serverVersion
         );
 
-        gui.setItem(20, generateItem(ghostBlockSyncItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Benchmarker"),
+        gui.setItem(20, generateItem(benchmarkerItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Benchmarker"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable the profiler to benchmark anticheat server cpu usage?"),
@@ -382,6 +382,10 @@ public class GuiManager {
                         translate(guiLine())
                 )));
 
+        ItemStack ghostBlockSyncItem = createToggleWool(
+                Config.Setting.GHOST_BLOCK_FIX.getBoolean(),
+                serverVersion
+        );
 
         gui.setItem(24, generateItem(ghostBlockSyncItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ghost-Block Sync"),
                 Arrays.asList(

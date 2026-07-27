@@ -392,7 +392,11 @@ public class GravityD extends Check {
                 + "\nresidual " + MsgType.MAIN_THEME_COLOR.getMessage() + residual
                 + "\nallowed " + MsgType.MAIN_THEME_COLOR.getMessage() + allowed
                 + "\nsampleTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + sampleTicks
-                + "\nnearStepMaterial " + data.isNearStepMaterial()
+                + "\nnearStepMaterial " + MsgType.MAIN_THEME_COLOR.getMessage() + data.isNearStepMaterial()
+                + "\nupTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getSincePredictUpwardsTicks()
+                + "\nupTicksWM " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getSincePredictUpwardsTicksWithoutMaterial()
+                + "\ndownTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getSincePredictDownwardsTicks()
+                + "\ndownTicksWM " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getSincePredictDownwardsTicksWithoutMaterial()
                 + "\nexactGroundSupport " + MsgType.MAIN_THEME_COLOR.getMessage() + hasExactGroundSupport(data)
                 + "\nevidence " + MsgType.MAIN_THEME_COLOR.getMessage() + strictNegativeEvidence;
 
@@ -1401,6 +1405,11 @@ public class GravityD extends Check {
                             + "\nearlyMotionCut " + MsgType.MAIN_THEME_COLOR.getMessage() + earlyMotionCut
                             + "\nlateMotionSet " + MsgType.MAIN_THEME_COLOR.getMessage() + lateMotionSet
                             + "\nhardMotionSet " + MsgType.MAIN_THEME_COLOR.getMessage() + hardMotionSet
+                            + "\nnearStepMaterial " + MsgType.MAIN_THEME_COLOR.getMessage() + data.isNearStepMaterial()
+                            + "\nupTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getSincePredictUpwardsTicks()
+                            + "\nupTicksWM " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getSincePredictUpwardsTicksWithoutMaterial()
+                            + "\ndownTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getSincePredictDownwardsTicks()
+                            + "\ndownTicksWM " + MsgType.MAIN_THEME_COLOR.getMessage() + data.getSincePredictDownwardsTicksWithoutMaterial()
                             + "\nimpossibleAcceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + impossibleAcceleration
                             + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + data.isOnGround()
                             + "\ncustomInAir " + MsgType.MAIN_THEME_COLOR.getMessage() + data.isCustomInAir()
