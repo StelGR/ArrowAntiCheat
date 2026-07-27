@@ -218,9 +218,11 @@ public class SpeedA extends Check {
                                 + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                 + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
                                 + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
-                                + "\n * moving Up Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                                + "\n * moving Down Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                                + "* nearStepMaterial " + movementData.isNearStepMaterial() + "\n"
+                                + "\n * upTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()
+                                + "\n * upTicksWM " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicksWithoutMaterial()
+                                + "\n * downTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks()
+                                + "\n * downTicksWM " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicksWithoutMaterial()
+                                + "\n * nearStepMaterial " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isNearStepMaterial()
                                 + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
                                 + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
                                 + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)

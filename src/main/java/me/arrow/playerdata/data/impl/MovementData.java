@@ -412,7 +412,6 @@ public class MovementData implements Data {
         //Process data
 
         updateNearWallState();
-        processPlayerData();
         processBlocks();
 
         profile.setBouncingOnSlime(getSlimeProcessor().isBouncing(this, profile.getPotionData()));
@@ -432,6 +431,7 @@ public class MovementData implements Data {
         if (onGround) sinceOnGround = 0;
         else sinceOnGround++;
 
+        processPlayerData();
         //this.getGhostBlockProcessor().process();
 
 
@@ -656,9 +656,7 @@ public class MovementData implements Data {
                         || containsStepMaterial(nearbyBlocksResultLow)
                         || containsStepMaterial(nearbyBlocksResultHigh);
 
-        movingUp = (getDeltaY() > 0 || getLastDeltaY() > 0) && nearStepMaterial;
 
-        movingDown = (getDeltaY() < 0 || getLastDeltaY() < 0) && nearStepMaterial;
 
     }
 
@@ -774,7 +772,6 @@ public class MovementData implements Data {
             return false;
         }
     }
-
 
     private void processPlayerData() {
 
@@ -987,12 +984,12 @@ public class MovementData implements Data {
         long profiler = Profiler.start();
 
         try {
-
-
             this.tick++;
             PotionData potion = profile.getPotionData();
 
             boolean async = !TaskUtils.isFoliaServer();
+
+
 
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, async);
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, async);
@@ -1299,14 +1296,11 @@ public class MovementData implements Data {
                 sincePredictUpwardsTicksWithoutMaterial = 0;
             } else sincePredictUpwardsTicksWithoutMaterial++;
 
-            if (isMovingDown() && isNearStepMaterial()) {
-                sincePredictDownwardsTicks = 0;
-            } else sincePredictDownwardsTicks++;
+            movingUp = (deltaY > 0 || lastDeltaY > 0) && isNearStepMaterial();
+            movingDown = (deltaY < 0 || lastDeltaY < 0) && isNearStepMaterial();
 
-            if (isMovingUp() && isNearStepMaterial()) {
-                sincePredictUpwardsTicks = 0;
-            } else sincePredictUpwardsTicks++;
-
+            sincePredictDownwardsTicks = movingDown ? sincePredictDownwardsTicks++ : 0;
+            sincePredictUpwardsTicks = movingUp ? sincePredictUpwardsTicks++ : 0;
             //Bukkit.broadcastMessage("ticks: " + sincePredictUpwardsTicks);
 
             if (potion.isHasSpeed()) sinceSpeedPotionEffectTicks = 0;
