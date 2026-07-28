@@ -60,9 +60,10 @@ public class TimerA extends Check {
             return;
         }
 
-        if (profile.getConnectionData().getTransPing() >= 1500 && ready()) {
+        if (profile.getConnectionData().getTransPing() >= 1500 && ready() && !profile.isPingkicked()) {
             if (increaseBuffer() > 750) {
                 profile.kick("Your ping is constantly high, do something about it.");
+                profile.setPingkicked(true);
                 for (Player staff : Bukkit.getOnlinePlayers()) {
 
                     final Profile staffProfile = Arrow.getInstance().getProfileManager().getProfile(staff);
@@ -82,9 +83,10 @@ public class TimerA extends Check {
             decreaseBufferBy(50);
         }
 
-        if (profile.getConnectionData().getTransPing() >= 2000 && profile.getPing() > 1000 && ready()) {
+        if (profile.getConnectionData().getTransPing() >= 2000 && profile.getPing() > 1000 && ready() && !profile.isPingkicked()) {
             if (increaseBuffer() > 50) {
                 profile.kick("Your ping is constantly high, do something about it.");
+                profile.setPingkicked(true);
                 for (Player staff : Bukkit.getOnlinePlayers()) {
 
                     final Profile staffProfile = Arrow.getInstance().getProfileManager().getProfile(staff);
