@@ -81,6 +81,11 @@ public class FlyA extends Check {
                     return;
                 }
 
+                if (profile.getPotionData().isHasLevitation()
+                        && ((movementData.getDeltaY() != 0 && movementData.getLastDeltaY() != 0) || movementData.isUnderblock())) {
+                    movementData.setCustomAirTicks(0);
+                }
+
 //            if (profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
 //                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: Exempt - block update under");
 //                return;
@@ -270,9 +275,9 @@ public class FlyA extends Check {
 
                 velMag += horizo;
 
-                double baseTicksVel = 8;
+                double baseTicksVel = 10;
                 double baseVelocity = 0.00001;
-                double scale = 26;
+                double scale = 28;
 
                 double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
                 airTickLimit += Math.ceil(extraFromVel);

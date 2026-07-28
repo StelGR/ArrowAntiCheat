@@ -204,9 +204,9 @@ public class MotionC extends Check {
 
         velMag += horizo;
 
-        double baseTicksVel = 8;
+        double baseTicksVel = 10;
         double baseVelocity = 0.0005;
-        double scale = 26;
+        double scale = 28;
 
         return velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
     }

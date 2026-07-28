@@ -146,7 +146,7 @@ public class Profile {
     private final Map<Integer, Long> iSentTransactions = new EvictingMap<>(100);
     private final Map<Short, Long> sSentTransactions = new EvictingMap<>(100);
 
-    boolean verbose = false, alerts = false, banned = false, setbackDebug = false;
+    boolean verbose = false, alerts = false, banned = false, setbackDebug = false, pingkicked = false;
     String verbosingClass = "None";
     //---------------------------
 
