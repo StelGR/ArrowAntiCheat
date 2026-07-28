@@ -3,12 +3,17 @@ package me.arrow.checks.impl.misc.timer;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import me.arrow.Arrow;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
+import me.arrow.enums.Permissions;
 import me.arrow.managers.profile.Profile;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.CollisionUtils;
+import me.arrow.utils.customutils.OtherUtility;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 public class TimerA extends Check {
 
@@ -58,10 +63,45 @@ public class TimerA extends Check {
         if (profile.getConnectionData().getTransPing() >= 1500 && ready()) {
             if (increaseBuffer() > 750) {
                 profile.kick("Your ping is constantly high, do something about it.");
+                for (Player staff : Bukkit.getOnlinePlayers()) {
+
+                    final Profile staffProfile = Arrow.getInstance().getProfileManager().getProfile(staff);
+
+                    if (staffProfile == null || !staffProfile.isAlerts()) {
+                        continue;
+                    }
+
+                    if (!staff.hasPermission(Permissions.ALERTS.getPermission())) {
+                        continue;
+                    }
+
+                    staff.sendMessage(OtherUtility.translate(MsgType.PREFIX.getMessage() + profile.getPlayer().getDisplayName() + MsgType.MAIN_THEME_COLOR.getMessage() + " was kicked due to ping timeout. (1)"));
+                }
             }
         } else {
             decreaseBufferBy(50);
         }
+
+        if (profile.getConnectionData().getTransPing() >= 2000 && profile.getPing() > 1000 && ready()) {
+            if (increaseBuffer() > 50) {
+                profile.kick("Your ping is constantly high, do something about it.");
+                for (Player staff : Bukkit.getOnlinePlayers()) {
+
+                    final Profile staffProfile = Arrow.getInstance().getProfileManager().getProfile(staff);
+
+                    if (staffProfile == null || !staffProfile.isAlerts()) {
+                        continue;
+                    }
+
+                    if (!staff.hasPermission(Permissions.ALERTS.getPermission())) {
+                        continue;
+                    }
+
+                    staff.sendMessage(OtherUtility.translate(MsgType.PREFIX.getMessage() + profile.getPlayer().getDisplayName() + MsgType.MAIN_THEME_COLOR.getMessage() + " was kicked due to ping timeout. (2)"));
+                }
+            }
+        }
+        else decreaseBufferBy(10);
 
 
         long now = System.nanoTime();
