@@ -377,6 +377,10 @@ public class SpeedA extends Check {
                 expectedSpeed += 0.005;
             }
 
+            if (profile.getPotionData().isHasJump()) {
+                expectedSpeed += 0.002;
+            }
+
             expectedSpeed += movementData.elytraMomentum();
             expectedSpeed += movementData.getDolphinGraceBoost();
 

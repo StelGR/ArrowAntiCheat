@@ -233,7 +233,7 @@ public class GravityA extends Check {
                     bufferA = Math.min(requiredBuffer + 2, bufferA);
                 }
             } else {
-                bufferA -= Math.min(bufferA, 0.05D);
+                bufferA -= Math.min(bufferA, 0.025D);
             }
         }
     }

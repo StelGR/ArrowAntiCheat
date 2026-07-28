@@ -214,8 +214,7 @@ public class FlyA extends Check {
                 boolean serverGround = movementData.isServerGround();
                 boolean clientGround = movementData.isOnGround();
 
-                if (movementData.getSinceLevitationEffectTicks() < 10
-                        || movementData.isNearShulker()
+                if (movementData.isNearShulker()
                         || movementData.isNearShulkerBox()
                         || movementData.isNearLava()
                         || movementData.isNearWater()
@@ -366,7 +365,7 @@ public class FlyA extends Check {
 
                 //if (profile.getVelocityData().getVelocityTicks() < velocityTickExempt) return;
 
-                if (invalidNormal && !exempt) {
+                if (invalidNormal && !exempt && movementData.getSinceLevitationEffectTicks() > 20) {
                     fail("Improbable air time (" + serverAirTicks + "/" + airTickLimit + ")",
                             "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                     + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround

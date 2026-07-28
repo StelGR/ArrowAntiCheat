@@ -24,6 +24,7 @@ import me.arrow.checks.impl.misc.phase.PhaseA;
 import me.arrow.checks.impl.misc.scaffold.*;
 import me.arrow.checks.impl.misc.timer.TimerA;
 import me.arrow.checks.impl.misc.timer.TimerB;
+import me.arrow.checks.impl.misc.timer.TimerC;
 import me.arrow.checks.impl.misc.vehicle.VehicleA;
 import me.arrow.checks.impl.movement.fly.*;
 import me.arrow.checks.impl.movement.ground.GroundA;
@@ -166,6 +167,7 @@ public class CheckHolder {
 
                 new TimerA(this.profile),
                 new TimerB(this.profile),
+                new TimerC(this.profile),
                 new VehicleA(this.profile)
 
         );

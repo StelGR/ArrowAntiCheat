@@ -134,9 +134,6 @@ public class IllegalMoveA extends Check {
 
                 double stepHeight = 0.5975D;
 
-//            if (movementData.isNearStepMaterial()) stepHeight ;
-//            else stepHeight = 0.49;
-
                 //temporary piston fix
                 if (movementData.getSinceNearSlimeTicks() <= (15 + (profile.getConnectionData().getClientTickTrans() * 2))
                         && deltaY > MoveUtils.getJumpMotion(profile)
@@ -144,8 +141,9 @@ public class IllegalMoveA extends Check {
                     return;
                 }
 
-                if (profile.getPotionData().isHasJump())
+                if (profile.getPotionData().isHasJump()) {
                     stepHeight += (profile.getPotionData().getJumpAmplifier() * 0.1F);
+                }
 
                 if ((deltaY > stepHeight)
                         && (movementData.isNearWall() || movementData.isLastNearWall() || movementData.isLastLastNearWall())
@@ -161,7 +159,8 @@ public class IllegalMoveA extends Check {
                         && movementData.getSinceRiptidingTicks() > 15
                         && movementData.getSinceGlidingTicks() > 15)) {
                     verbose(this.getClass().getSimpleName(), deltaY, 1.0, data3);
-                    fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY);
+                    fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                            + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + stepHeight);
                 }
             } finally {
                 Profiler.stop("IllegalMove A", profiler);

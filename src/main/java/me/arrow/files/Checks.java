@@ -514,7 +514,7 @@ public class Checks implements Initializer {
         TIMER_A_PUNISH("TimerA.punish", "", "Punishment settings"),
         TIMER_A_PUNISH_ENABLED("TimerA.punish.enabled", true, "Should punishments be enabled for this check?"),
         TIMER_A_PUNISH_MODE("TimerA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        TIMER_A_MAX_VL("TimerA.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
+        TIMER_A_MAX_VL("TimerA.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
         TIMER_B("TimerB.enabled", true, "Should we enable this module?"),
         TIMER_B_MODE("TimerB.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
@@ -522,6 +522,13 @@ public class Checks implements Initializer {
         TIMER_B_PUNISH_ENABLED("TimerB.punish.enabled", true, "Should punishments be enabled for this check?"),
         TIMER_B_PUNISH_MODE("TimerB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         TIMER_B_MAX_VL("TimerB.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        TIMER_C("TimerC.enabled", false, "Should we enable this module?"),
+        TIMER_C_MODE("TimerC.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
+        TIMER_C_PUNISH("TimerC.punish", "", "Punishment settings"),
+        TIMER_C_PUNISH_ENABLED("TimerC.punish.enabled", true, "Should punishments be enabled for this check?"),
+        TIMER_C_PUNISH_MODE("TimerC.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        TIMER_C_MAX_VL("TimerC.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
         BADPACKETS_A("BadPacketsA.enabled", true, "Should we enable this module?"),
         BADPACKETS_A_MODE("BadPacketsA.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),

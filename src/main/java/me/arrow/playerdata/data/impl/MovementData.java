@@ -666,7 +666,9 @@ public class MovementData implements Data {
         return MaterialType.isMaterial(name, MaterialType.HALF_BLOCK)
                 || MaterialType.isMaterial(name, MaterialType.HEIGHT_CHANGE)
                 || MaterialType.isMaterial(name, MaterialType.SNOW)
+                || MaterialType.isMaterial(name, MaterialType.SOUL_SAND)
                 || MaterialType.isSlab(m)
+                || MaterialType.isTrapdoor(m)
                 || MaterialType.isFence(m)
                 || MaterialType.isFenceGate(m)
                 || MaterialType.isStair(m)
@@ -989,14 +991,11 @@ public class MovementData implements Data {
 
             boolean async = !TaskUtils.isFoliaServer();
 
-
-
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, async);
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, async);
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation, async);
 
-            boolean powdersnow = nearbyBlocksResult.getBlockTypes().stream()
-                    .anyMatch(material -> material.name().equals("POWDER_SNOW"));
+            boolean powdersnow = containsMaterial(nearbyBlocksResult.getBlockTypes(), MaterialType.POWDER_SNOW);
 
             if (powdersnow) {
                 sincePowderSnowTicks = 0;
