@@ -501,163 +501,170 @@ public class MovementData implements Data {
     }
 
     void processBlocks() {
-        NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
-        boolean async = !TaskUtils.isFoliaServer();
 
-        CustomLocation loc1 = location.clone();
-        CustomLocation loc2 = location.clone().subtract(0, 1, 0);
-        CustomLocation loc3 = location.clone().add(0, 1, 0);
+        long profiler = Profiler.start();
 
-        CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(loc1, async);
-        CollisionUtils.NearbyBlocksResult nearbyBlocksResultLow = CollisionUtils.getNearbyBlocks(loc2, async);
-        CollisionUtils.NearbyBlocksResult nearbyBlocksResultHigh = CollisionUtils.getNearbyBlocks(loc3, async);
+        try {
 
-        boolean flag_water = false, flag_lava = false, flag_web = false, flag_climbable = false,
-                flag_nearBuggyBlock = false, flag_bubble = false, flag_bed = false,
-                flag_honey = false, flag_shulker = false, flag_contact = false,
-                flag_dripleaf = false, flag_fence = false, flag_slime = false;
+            NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
+            boolean async = !TaskUtils.isFoliaServer();
 
-        World world = location.getWorld();
+            CustomLocation loc1 = location.clone();
+            CustomLocation loc2 = location.clone().subtract(0, 1, 0);
+            CustomLocation loc3 = location.clone().add(0, 1, 0);
 
-        if (world != null) {
-            int baseX = location.getBlockX();
-            int baseY = location.getBlockY();
-            int baseZ = location.getBlockZ();
+            CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(loc1, async);
+            CollisionUtils.NearbyBlocksResult nearbyBlocksResultLow = CollisionUtils.getNearbyBlocks(loc2, async);
+            CollisionUtils.NearbyBlocksResult nearbyBlocksResultHigh = CollisionUtils.getNearbyBlocks(loc3, async);
 
-            int[] yLevels = {
-                    3,
-                    2,
-                    1,
-                    0,
-                    -1
-            };
+            boolean flag_water = false, flag_lava = false, flag_web = false, flag_climbable = false,
+                    flag_nearBuggyBlock = false, flag_bubble = false, flag_bed = false,
+                    flag_honey = false, flag_shulker = false, flag_contact = false,
+                    flag_dripleaf = false, flag_fence = false, flag_slime = false;
 
-            for (int yOffset : yLevels) {
-                for (int xOffset = -1; xOffset <= 1; xOffset++) {
-                    for (int zOffset = -1; zOffset <= 1; zOffset++) {
-                        Block block = world.getBlockAt(baseX + xOffset, baseY + yOffset, baseZ + zOffset);
-                        Material mat = nms.getType(block);
-                        String mName = mat.name();
+            World world = location.getWorld();
 
-                        flag_water = flag_water || isWaterOrWaterlogged(block);
-                        flag_slime = flag_slime || MaterialType.isMaterial(mName, MaterialType.SLIME);
-                        flag_bubble = flag_bubble || MaterialType.isMaterial(mName, MaterialType.BUBBLE);
-                        flag_lava = flag_lava || MaterialType.isMaterial(mName, MaterialType.LAVA);
-                        flag_web = flag_web || MaterialType.isMaterial(mName, MaterialType.WEB);
+            if (world != null) {
+                int baseX = location.getBlockX();
+                int baseY = location.getBlockY();
+                int baseZ = location.getBlockZ();
 
-                        flag_climbable = flag_climbable
-                                || MaterialType.isMaterial(mName, MaterialType.CLIMBABLE)
-                                || MaterialType.isMaterial(mName, MaterialType.SCAFFOLDING);
+                int[] yLevels = {
+                        3,
+                        2,
+                        1,
+                        0,
+                        -1
+                };
 
-                        flag_nearBuggyBlock = flag_nearBuggyBlock || MaterialType.isMaterial(mName, MaterialType.BUGGY_BLOCK);
-                        flag_bed = flag_bed || MaterialType.isMaterial(mName, MaterialType.BED) || MaterialType.isBed(mat);
-                        flag_honey = flag_honey || MaterialType.isMaterial(mName, MaterialType.HONEY);
-                        flag_shulker = flag_shulker || MaterialType.isMaterial(mName, MaterialType.SHULKER);
-                        flag_dripleaf = flag_dripleaf || MaterialType.isMaterial(mName, MaterialType.DRIP_LEAF);
+                for (int yOffset : yLevels) {
+                    for (int xOffset = -1; xOffset <= 1; xOffset++) {
+                        for (int zOffset = -1; zOffset <= 1; zOffset++) {
+                            Block block = world.getBlockAt(baseX + xOffset, baseY + yOffset, baseZ + zOffset);
+                            Material mat = nms.getType(block);
+                            String mName = mat.name();
 
-                        flag_contact = flag_contact
-                                || MaterialType.isMaterial(mName, MaterialType.CACTUS)
-                                || MaterialType.isMaterial(mName, MaterialType.BERRIES);
+                            flag_water = flag_water || isWaterOrWaterlogged(block);
+                            flag_slime = flag_slime || MaterialType.isMaterial(mName, MaterialType.SLIME);
+                            flag_bubble = flag_bubble || MaterialType.isMaterial(mName, MaterialType.BUBBLE);
+                            flag_lava = flag_lava || MaterialType.isMaterial(mName, MaterialType.LAVA);
+                            flag_web = flag_web || MaterialType.isMaterial(mName, MaterialType.WEB);
 
-                        flag_fence = flag_fence
-                                || MaterialType.isMaterial(mName, MaterialType.FENCE)
-                                || MaterialType.isMaterial(mName, MaterialType.WALL);
+                            flag_climbable = flag_climbable
+                                    || MaterialType.isMaterial(mName, MaterialType.CLIMBABLE)
+                                    || MaterialType.isMaterial(mName, MaterialType.SCAFFOLDING);
+
+                            flag_nearBuggyBlock = flag_nearBuggyBlock || MaterialType.isMaterial(mName, MaterialType.BUGGY_BLOCK);
+                            flag_bed = flag_bed || MaterialType.isMaterial(mName, MaterialType.BED) || MaterialType.isBed(mat);
+                            flag_honey = flag_honey || MaterialType.isMaterial(mName, MaterialType.HONEY);
+                            flag_shulker = flag_shulker || MaterialType.isMaterial(mName, MaterialType.SHULKER);
+                            flag_dripleaf = flag_dripleaf || MaterialType.isMaterial(mName, MaterialType.DRIP_LEAF);
+
+                            flag_contact = flag_contact
+                                    || MaterialType.isMaterial(mName, MaterialType.CACTUS)
+                                    || MaterialType.isMaterial(mName, MaterialType.BERRIES);
+
+                            flag_fence = flag_fence
+                                    || MaterialType.isMaterial(mName, MaterialType.FENCE)
+                                    || MaterialType.isMaterial(mName, MaterialType.WALL);
+                        }
                     }
                 }
             }
-        }
 
-        nearContact = flag_contact;
-        nearWater = flag_water;
-        nearBubble = flag_bubble;
-        nearLava = flag_lava;
-        nearWebs = flag_web;
-        nearClimbable = flag_climbable;
-        nearBuggyBlock = flag_nearBuggyBlock;
-        nearBed = flag_bed;
-        nearHoney = flag_honey;
-        nearShulkerBox = flag_shulker;
-        nearDripLeaf = flag_dripleaf;
-        nearFence = flag_fence;
-        nearSlime = flag_slime;
+            nearContact = flag_contact;
+            nearWater = flag_water;
+            nearBubble = flag_bubble;
+            nearLava = flag_lava;
+            nearWebs = flag_web;
+            nearClimbable = flag_climbable;
+            nearBuggyBlock = flag_nearBuggyBlock;
+            nearBed = flag_bed;
+            nearHoney = flag_honey;
+            nearShulkerBox = flag_shulker;
+            nearDripLeaf = flag_dripleaf;
+            nearFence = flag_fence;
+            nearSlime = flag_slime;
 
-        isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.WATER);
+            isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.WATER);
 
-        CustomLocation playerLoc = new CustomLocation(
-                profile.getPlayer().getWorld(),
-                profile.getPlayer().getLocation().getX(),
-                profile.getPlayer().getLocation().getY(),
-                profile.getPlayer().getLocation().getZ()
-        );
+            CustomLocation playerLoc = new CustomLocation(
+                    profile.getPlayer().getWorld(),
+                    profile.getPlayer().getLocation().getX(),
+                    profile.getPlayer().getLocation().getY(),
+                    profile.getPlayer().getLocation().getZ()
+            );
 
 
-        isInsideWater = false;
-        for (int x = -1; x <= 1; x++) {
-            for (int z = -1; z <= 1; z++) {
-                CustomLocation checkLoc = playerLoc.clone();
-                checkLoc.setX(checkLoc.getX() + x);
-                checkLoc.setZ(checkLoc.getZ() + z);
-                checkLoc.setY(playerLoc.getY() + 0.5);
-                String mName = nms.getType(checkLoc.getBlock()).name();
-                if (MaterialType.isMaterial(mName, MaterialType.WATER)) {
-                    isInsideWater = true;
-                    break;
+            isInsideWater = false;
+            for (int x = -1; x <= 1; x++) {
+                for (int z = -1; z <= 1; z++) {
+                    CustomLocation checkLoc = playerLoc.clone();
+                    checkLoc.setX(checkLoc.getX() + x);
+                    checkLoc.setZ(checkLoc.getZ() + z);
+                    checkLoc.setY(playerLoc.getY() + 0.5);
+                    String mName = nms.getType(checkLoc.getBlock()).name();
+                    if (MaterialType.isMaterial(mName, MaterialType.WATER)) {
+                        isInsideWater = true;
+                        break;
+                    }
                 }
+                if (isInsideWater) break;
             }
-            if (isInsideWater) break;
-        }
 
-        isBottomOfWater = isInsideWater && isServerGround();
-        //nearWall = CollisionUtils.isNearWall(getLocation());
-        lastLastNearWall = lastNearWall;
-        lastNearWall = nearWall;
-        nearWall = isNearWallScanner(getLocation());
+            isBottomOfWater = isInsideWater && isServerGround();
+            //nearWall = CollisionUtils.isNearWall(getLocation());
+            lastLastNearWall = lastNearWall;
+            lastNearWall = nearWall;
+            nearWall = isNearWallScanner(getLocation());
 
-        boolean flag_underblock = false;
+            boolean flag_underblock = false;
 
-        for (int x2 = -1; x2 <= 1; x2++) {
-            for (int z2 = -1; z2 <= 1; z2++) {
-                flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 2, z2).getBlock()));
-            }
-        }
-
-        for (int x2 = -1; x2 <= 1; x2++) {
-            for (int z2 = -1; z2 <= 1; z2++) {
-                flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 1, z2).getBlock()));
-            }
-        }
-
-        if (profile.isCrawling()) {
             for (int x2 = -1; x2 <= 1; x2++) {
                 for (int z2 = -1; z2 <= 1; z2++) {
-                    flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 3, z2).getBlock()));
+                    flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 2, z2).getBlock()));
                 }
             }
 
             for (int x2 = -1; x2 <= 1; x2++) {
                 for (int z2 = -1; z2 <= 1; z2++) {
-                    flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 0, z2).getBlock()));
+                    flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 1, z2).getBlock()));
                 }
             }
+
+            if (profile.isCrawling()) {
+                for (int x2 = -1; x2 <= 1; x2++) {
+                    for (int z2 = -1; z2 <= 1; z2++) {
+                        flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 3, z2).getBlock()));
+                    }
+                }
+
+                for (int x2 = -1; x2 <= 1; x2++) {
+                    for (int z2 = -1; z2 <= 1; z2++) {
+                        flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 0, z2).getBlock()));
+                    }
+                }
+            }
+
+            //profile.getPlayer().sendMessage("isSwimming " + Arrow.getInstance().getNmsManager().getNmsInstance().isSneaking(profile.getPlayer()));
+
+            underblock = flag_underblock;
+
+            insideLiquid = MaterialType.isMaterial(nms.getType(location.clone().subtract(0D, 1D, 0D).getBlock()).name(), MaterialType.LIQUID)
+                    || MaterialType.isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.LIQUID);
+
+            climb = MaterialType.isMaterial(nms.getType(location.clone().subtract(0D, -1D, 0D).getBlock()).name(), MaterialType.CLIMBABLE)
+                    || MaterialType.isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
+
+            nearStepMaterial =
+                    containsStepMaterial(nearbyBlocksResult)
+                            || containsStepMaterial(nearbyBlocksResultLow)
+                            || containsStepMaterial(nearbyBlocksResultHigh);
+
+
+        }  finally {
+            Profiler.stop("MovementData (Blocks)", profiler);
         }
-
-        //profile.getPlayer().sendMessage("isSwimming " + Arrow.getInstance().getNmsManager().getNmsInstance().isSneaking(profile.getPlayer()));
-
-        underblock = flag_underblock;
-
-        insideLiquid = MaterialType.isMaterial(nms.getType(location.clone().subtract(0D, 1D, 0D).getBlock()).name(), MaterialType.LIQUID)
-                || MaterialType.isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.LIQUID);
-
-        climb = MaterialType.isMaterial(nms.getType(location.clone().subtract(0D, -1D, 0D).getBlock()).name(), MaterialType.CLIMBABLE)
-                || MaterialType.isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
-
-        nearStepMaterial =
-                containsStepMaterial(nearbyBlocksResult)
-                        || containsStepMaterial(nearbyBlocksResultLow)
-                        || containsStepMaterial(nearbyBlocksResultHigh);
-
-
-
     }
 
     private static boolean isStepMaterial(Material m) {
@@ -777,79 +784,85 @@ public class MovementData implements Data {
 
     private void processPlayerData() {
 
-        final Player p = profile.getPlayer();
+        long profiler = Profiler.start();
 
-        NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
+        try {
+            final Player p = profile.getPlayer();
 
-        profile.setBoundingBox(createPlayerBox());
+            NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
 
-        handleNearbyBlocks();
+            profile.setBoundingBox(createPlayerBox());
 
-        //Friction Factor
+            handleNearbyBlocks();
 
-        this.frictionFactor = CollisionUtils.getBlockSlipperiness(
-                nms.getType(this.location.clone().subtract(0D, .825D, 0D).getBlock())
-        );
+            //Friction Factor
 
-        this.lastFrictionFactorUpdateTicks = this.frictionFactor != this.lastFrictionFactor ? 0 : this.lastFrictionFactorUpdateTicks + 1;
+            this.frictionFactor = CollisionUtils.getBlockSlipperiness(
+                    nms.getType(this.location.clone().subtract(0D, .825D, 0D).getBlock())
+            );
 
-        this.lastFrictionFactor = this.frictionFactor;
+            this.lastFrictionFactorUpdateTicks = this.frictionFactor != this.lastFrictionFactor ? 0 : this.lastFrictionFactorUpdateTicks + 1;
+
+            this.lastFrictionFactor = this.frictionFactor;
 
 
-        //Near Wall
+            //Near Wall
 
-        this.lastNearWallTicks = (this.nearWall || this.lastNearWall || this.packetNearWall)
-                ? 0
-                : this.lastNearWallTicks + 1;
+            this.lastNearWallTicks = (this.nearWall || this.lastNearWall || this.packetNearWall)
+                    ? 0
+                    : this.lastNearWallTicks + 1;
 
-        //Near Edge
+            //Near Edge
 
-        this.lastNearEdgeTicks = this.lastNearGroundTicks == 0 && CollisionUtils.isNearEdge(this.location) ? 0 : this.lastNearEdgeTicks + 1;
+            this.lastNearEdgeTicks = this.lastNearGroundTicks == 0 && CollisionUtils.isNearEdge(this.location) ? 0 : this.lastNearEdgeTicks + 1;
 
-        //Server Ground
+            //Server Ground
 
-        final boolean lastServerGround = this.serverGround;
+            final boolean lastServerGround = this.serverGround;
 
-        final boolean serverGround = CollisionUtils.isServerGround(this.location.getY());
+            final boolean serverGround = CollisionUtils.isServerGround(this.location.getY());
 
-        this.lastServerGround = lastServerGround;
+            this.lastServerGround = lastServerGround;
 
-        this.serverGround = serverGround;
+            this.serverGround = serverGround;
 
-        this.serverGroundTicks = serverGround
-                ? Math.min(this.serverGroundTicks + 1, 20)
-                : 0;
+            this.serverGroundTicks = serverGround
+                    ? Math.min(this.serverGroundTicks + 1, 20)
+                    : 0;
 
-        this.lastServerGroundTicks = serverGround
-                ? Math.min(this.lastServerGroundTicks + 1, 20)
-                : 0;
+            this.lastServerGroundTicks = serverGround
+                    ? Math.min(this.lastServerGroundTicks + 1, 20)
+                    : 0;
 
-        //Equipment
+            //Equipment
 
-        this.equipment.handle(p);
+            this.equipment.handle(p);
 
-        //Fall Distance
+            //Fall Distance
 
-        this.lastFallDistance = this.fallDistance;
+            this.lastFallDistance = this.fallDistance;
 
-        this.fallDistance = nms.getFallDistance(p);
+            this.fallDistance = nms.getFallDistance(p);
 
-        //Base Speed
+            //Base Speed
 
-        this.baseGroundSpeed = MoveUtils.getBaseGroundSpeed(profile);
+            this.baseGroundSpeed = MoveUtils.getBaseGroundSpeed(profile);
 
-        this.baseAirSpeed = MoveUtils.getBaseAirSpeed(profile);
+            this.baseAirSpeed = MoveUtils.getBaseAirSpeed(profile);
 
-        this.pastLocations.add(getLocation());
-        this.reachPastLocations.add(getLocation());
+            this.pastLocations.add(getLocation());
+            this.reachPastLocations.add(getLocation());
 
-        moving = (deltaXZ != 0.0D && deltaXZ != lastDeltaXZ) || (deltaY != 0.0D && deltaY != lastDeltaY);
+            moving = (deltaXZ != 0.0D && deltaXZ != lastDeltaXZ) || (deltaY != 0.0D && deltaY != lastDeltaY);
 
-        //Ghost Blocks
+            //Ghost Blocks
 
-        //this.ghostBlockProcessor.process();
+            //this.ghostBlockProcessor.process();
 
-        updateTicks();
+        }  finally {
+            Profiler.stop("MovementData (playerdata without ticks)", profiler);
+            updateTicks();
+        }
     }
 
     private BoundingBox createPlayerBox() {

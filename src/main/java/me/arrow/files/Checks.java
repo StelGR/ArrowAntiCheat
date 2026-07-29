@@ -363,9 +363,9 @@ public class Checks implements Initializer {
         SPEED_A_MAX_VL("SpeedA.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
 
         SPEED_B("SpeedB.enabled", true, "Should we enable this module?"),
-        SPEED_B_MODE("SpeedB.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
+        SPEED_B_MODE("SpeedB.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
         SPEED_B_PUNISH("SpeedB.punish", "", "Punishment settings"),
-        SPEED_B_PUNISH_ENABLED("SpeedB.punish.enabled", false, "Should punishments be enabled for this check?"),
+        SPEED_B_PUNISH_ENABLED("SpeedB.punish.enabled", true, "Should punishments be enabled for this check?"),
         SPEED_B_PUNISH_MODE("SpeedB.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         SPEED_B_MAX_VL("SpeedB.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
@@ -522,13 +522,6 @@ public class Checks implements Initializer {
         TIMER_B_PUNISH_ENABLED("TimerB.punish.enabled", true, "Should punishments be enabled for this check?"),
         TIMER_B_PUNISH_MODE("TimerB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         TIMER_B_MAX_VL("TimerB.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
-
-        TIMER_C("TimerC.enabled", false, "Should we enable this module?"),
-        TIMER_C_MODE("TimerC.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
-        TIMER_C_PUNISH("TimerC.punish", "", "Punishment settings"),
-        TIMER_C_PUNISH_ENABLED("TimerC.punish.enabled", true, "Should punishments be enabled for this check?"),
-        TIMER_C_PUNISH_MODE("TimerC.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        TIMER_C_MAX_VL("TimerC.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
         BADPACKETS_A("BadPacketsA.enabled", true, "Should we enable this module?"),
         BADPACKETS_A_MODE("BadPacketsA.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
