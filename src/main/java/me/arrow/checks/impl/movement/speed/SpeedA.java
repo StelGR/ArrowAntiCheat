@@ -378,7 +378,7 @@ public class SpeedA extends Check {
             }
 
             if (profile.getPotionData().isHasJump()) {
-                expectedSpeed += 0.002;
+                expectedSpeed += 0.004;
             }
 
             expectedSpeed += movementData.elytraMomentum();
