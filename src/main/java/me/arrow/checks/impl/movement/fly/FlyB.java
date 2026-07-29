@@ -94,8 +94,8 @@ public class FlyB extends Check {
                         || movementData.getSincePredictUpwardsTicks() < 10
                         || movementData.getSincePredictDownwardsTicks() < 10
                         || movementData.getSinceRiptidingTicks() < 30
-                        || movementData.getSinceBubbleTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || profile.getPotionData().isHasLevitation()) {
+                        || movementData.getSinceBubbleTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                    resetBuffer();
                     return;
                 }
 
@@ -176,7 +176,11 @@ public class FlyB extends Check {
 
                 final boolean invalid = (acceleration > 0.0 && !vd.isTakingVelocity()) && (serverAirTicks > 8 || clientAirTicks > 8) && !profile.getPotionData().isHasSlowFalling();
 
+                boolean invalidLevitation = profile.getPotionData().isHasLevitation() && deltaY > 0.05 && clientAirTicks > 8 && !vd.isTakingVelocity();
+
                 //final boolean invalidY2 = deltaY > (profile.getVelocityData().getTotalVerticalVelocity() * 2.5) && serverAirTicks > 8;
+
+
 
                 String verboseInfo = "acceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
                         + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
@@ -187,6 +191,12 @@ public class FlyB extends Check {
                         + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                         + "\njumpStart " + MsgType.MAIN_THEME_COLOR.getMessage() + jumpStart
                         + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + totalVerticalVelocity;
+                if (invalidLevitation) {
+                    fail("Impossible acceleration with levitation", verboseInfo);
+                }
+
+                if (profile.getPotionData().isHasLevitation()) return;
+
                 if ((invalid
                         && (!movementData.isNearWater()
                         || !movementData.isInsideLiquid()))
@@ -204,6 +214,8 @@ public class FlyB extends Check {
                     fail("Impossible negative vertical speed",
                             verboseInfo);
                 }
+
+
 
                 final double deltaXZ = movementData.getDeltaXZ();
                 final double lastDeltaXZ = movementData.getLastDeltaXZ();
