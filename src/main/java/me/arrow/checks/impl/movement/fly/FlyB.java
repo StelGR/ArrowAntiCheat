@@ -176,7 +176,13 @@ public class FlyB extends Check {
 
                 final boolean invalid = (acceleration > 0.0 && !vd.isTakingVelocity()) && (serverAirTicks > 8 || clientAirTicks > 8) && !profile.getPotionData().isHasSlowFalling();
 
-                boolean invalidLevitation = profile.getPotionData().isHasLevitation() && deltaY > 0.05 && clientAirTicks > 8 && !vd.isTakingVelocity();
+                double maxDeltaY = 0.05 * profile.getPotionData().getLevitationAmplifier();
+
+                boolean invalidLevitation =
+                        profile.getPotionData().isHasLevitation()
+                                && deltaY > maxDeltaY
+                                && clientAirTicks > 8
+                                && !vd.isTakingVelocity();
 
                 //final boolean invalidY2 = deltaY > (profile.getVelocityData().getTotalVerticalVelocity() * 2.5) && serverAirTicks > 8;
 
@@ -195,7 +201,7 @@ public class FlyB extends Check {
                     fail("Impossible acceleration with levitation", verboseInfo);
                 }
 
-                if (profile.getPotionData().isHasLevitation()) return;
+                if (movementData.getSinceLevitationEffectTicks() < 20) return;
 
                 if ((invalid
                         && (!movementData.isNearWater()
