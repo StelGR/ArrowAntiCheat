@@ -7,8 +7,6 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 // our speed utilities, this is where Speed A (Ground) is computed.
 
@@ -62,7 +60,7 @@ public class SpeedUtilities {
                 return 0;
             }
 
-            org.bukkit.enchantments.Enchantment soulSpeed = org.bukkit.enchantments.Enchantment.getByName("SOUL_SPEED");
+            Enchantment soulSpeed = Enchantment.getByName("SOUL_SPEED");
 
             if (soulSpeed == null) {
                 return 0;
@@ -244,6 +242,26 @@ public class SpeedUtilities {
         }
 
         return Math.max(0, profile.getPotionData().getPotionEffectLevel(PotionType.SPEED));
+    }
+
+    public static int getJumpBoostPotionLevel(Profile profile) {
+        if (profile == null || profile.getPotionData() == null) {
+            return 0;
+        }
+
+        if (!profile.getPotionData().isHasJump()) {
+            try {
+                if (profile.getMovementData() != null
+                        && profile.getMovementData().getSinceJumpBoostEffectTicks() <= 10) {
+                    return Math.max(0, profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST));
+                }
+            } catch (Throwable ignored) {
+            }
+
+            return 0;
+        }
+
+        return Math.max(0, profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST));
     }
 
     public static double getPotionSpeedAirMultiplier(Profile profile) {

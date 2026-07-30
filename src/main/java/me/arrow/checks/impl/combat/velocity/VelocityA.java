@@ -8,6 +8,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
+import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
@@ -52,6 +53,7 @@ public class VelocityA extends Check {
         addCauseIfPresent(set, "SUFFOCATION");
         addCauseIfPresent(set, "LIGHTNING");
         addCauseIfPresent(set, "CONTACT");
+        addCauseIfPresent(set, "DROWNING");
         addCauseIfPresent(set, "THORNS");
         addCauseIfPresent(set, "FLY_INTO_WALL");
         addCauseIfPresent(set, "CRAMMING");
@@ -263,7 +265,7 @@ public class VelocityA extends Check {
     private double getExpectedJumpMotion() {
         double jumpMotion = 0.42D;
 
-        if (profile.getPotionData() != null && profile.getPotionData().isHasJump()) {
+        if (profile.getPotionData() != null && SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
             jumpMotion += profile.getPotionData().getJumpAmplifier() * 0.1D;
         }
 

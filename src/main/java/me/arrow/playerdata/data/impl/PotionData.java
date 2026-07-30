@@ -31,8 +31,12 @@ public class PotionData implements Data {
                 || event.getPacketType().equals(PLAYER_FLYING)
                 || event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
 
+            this.hasSpeed = hasPotion(PotionType.SPEED);
+            this.hasJump = hasPotion(PotionType.JUMP_BOOST);
+            this.hasLevitation = hasPotion(PotionType.LEVITATION);
+            this.hasSlowFalling = hasPotion(PotionType.SLOW_FALLING);
             // Speed
-            if ((this.hasSpeed = hasPotion(PotionType.SPEED))) {
+            if (hasSpeed) {
                 this.speedAmplifier = getPotionEffectLevel(PotionType.SPEED);
                 this.speedTicks += (this.speedTicks < 20 ? 1 : 0);
             } else {
@@ -40,7 +44,7 @@ public class PotionData implements Data {
             }
 
             // Jump Boost
-            if ((this.hasJump = hasPotion(PotionType.JUMP_BOOST))) {
+            if (hasJump) {
                 this.jumpAmplifier = getPotionEffectLevel(PotionType.JUMP_BOOST);
                 this.jumpTicks += (this.jumpTicks < 20 ? 1 : 0);
             } else {
@@ -48,7 +52,7 @@ public class PotionData implements Data {
             }
 
             // Levitation
-            if ((this.hasLevitation = hasPotion(PotionType.LEVITATION))) {
+            if (hasLevitation) {
                 this.levitationAmplifier = getPotionEffectLevel(PotionType.LEVITATION);
                 this.levitationTicks += (this.levitationTicks < 20 ? 1 : 0);
             } else {
@@ -56,7 +60,7 @@ public class PotionData implements Data {
             }
 
             // Slow Falling
-            if ((this.hasSlowFalling = hasPotion(PotionType.SLOW_FALLING))) {
+            if (hasSlowFalling) {
                 this.slowFallingAmplifier = getPotionEffectLevel(PotionType.SLOW_FALLING);
                 this.slowFallingTicks += (this.slowFallingTicks < 20 ? 1 : 0);
             } else {

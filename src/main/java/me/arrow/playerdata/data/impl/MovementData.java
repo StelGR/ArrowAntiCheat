@@ -108,7 +108,7 @@ public class MovementData implements Data {
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
             customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
-            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks;
+            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks;
 
     @Getter
     @Setter
@@ -1315,8 +1315,7 @@ public class MovementData implements Data {
             sincePredictUpwardsTicks = movingUp ? 0 : sincePredictUpwardsTicks++;
             //Bukkit.broadcastMessage("ticks: " + sincePredictUpwardsTicks);
 
-            if (potion.isHasSpeed()) sinceSpeedPotionEffectTicks = 0;
-            else sinceSpeedPotionEffectTicks += 1;
+
 
             if (nearGhast) sinceNearGhastTicks = 0;
             else sinceNearGhastTicks++;
@@ -1339,8 +1338,9 @@ public class MovementData implements Data {
             if (isNearWater()) sinceNearWaterTicks = 0;
             else sinceNearWaterTicks++;
 
-            if (potion.isHasLevitation()) sinceLevitationEffectTicks = 0;
-            else sinceLevitationEffectTicks++;
+            sinceLevitationEffectTicks = potion.isHasLevitation() ? 0 : sinceLevitationEffectTicks++;
+            sinceJumpBoostEffectTicks = potion.isHasJump() ? 0 : sinceJumpBoostEffectTicks++;
+            sinceSpeedPotionEffectTicks = potion.isHasSpeed() ? 0 : sinceSpeedPotionEffectTicks++;
 
             if (profile.isOnGhostBlock()) {
                 sinceOnGhostBlock = 0;

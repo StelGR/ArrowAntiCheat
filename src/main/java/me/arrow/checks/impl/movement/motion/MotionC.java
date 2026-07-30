@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.enums.CheckType;
+import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
@@ -110,10 +111,10 @@ public class MotionC extends Check {
                     return;
                 }
 
-                boolean hasJumpBoost = profile.getPotionData().isHasJump();
+                boolean hasJumpBoost = SpeedUtilities.getJumpBoostPotionLevel(profile) > 0;
                 double jumpLevel = hasJumpBoost
-                        ? profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST)
-                        + (4 + (profile.getPotionData().getJumpAmplifier()))
+                        ?
+                        (4 + (SpeedUtilities.getJumpBoostPotionLevel(profile)))
                         : 0;
 
                 int clientTickTrans = profile.getConnectionData().getClientTickTrans();
