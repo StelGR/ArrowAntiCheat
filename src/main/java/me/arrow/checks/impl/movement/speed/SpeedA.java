@@ -377,7 +377,7 @@ public class SpeedA extends Check {
                 expectedSpeed += 0.005;
             }
 
-            if (profile.getPotionData().isHasJump()) {
+            if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
                 expectedSpeed += 0.004;
             }
 

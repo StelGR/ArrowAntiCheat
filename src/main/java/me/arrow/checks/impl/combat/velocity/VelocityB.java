@@ -12,6 +12,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEn
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
 import me.arrow.checks.enums.CheckType;
+import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
@@ -1080,7 +1081,7 @@ public class VelocityB extends Check {
     private boolean isJumped(MovementData movementData) {
         double jumpMotion = 0.42F;
 
-        if (profile.getPotionData() != null && profile.getPotionData().isHasJump()) {
+        if (profile.getPotionData() != null && SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
             jumpMotion += (float) profile.getPotionData().getJumpAmplifier() * 0.1F;
         }
 

@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import me.arrow.checks.enums.CheckType;
+import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
@@ -12,7 +13,6 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.CollisionUtils;
-import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.customutils.OtherUtility;
 
 // other impossible states, like the description claims, it uses material from the world, instead of listening to either the server
@@ -149,7 +149,7 @@ public class GroundB extends Check {
                                 + "\n * TransPing " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getConnectionData().getTransPing()
                                 + "\n * VelocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalHorizontalVelocity()
                                 + "\n * VelocityV " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalVerticalVelocity()
-                                + "\n * JumpLevel " + MsgType.MAIN_THEME_COLOR.getMessage() + getJumpBoostLevel()
+                                + "\n * JumpLevel " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getJumpBoostPotionLevel(profile)
                                 + "\n * JumpExpected " + MsgType.MAIN_THEME_COLOR.getMessage() + getExpectedJumpMotion());
             }
 
@@ -181,7 +181,7 @@ public class GroundB extends Check {
 
         double limit = 5.0D;
 
-        int jumpBoost = getJumpBoostLevel();
+        int jumpBoost = SpeedUtilities.getJumpBoostPotionLevel(profile);
 
         if (jumpBoost > 0) {
             limit += Math.min(3.0D, jumpBoost * 0.75D);
@@ -226,21 +226,8 @@ public class GroundB extends Check {
         return Math.min(10, ticks);
     }
 
-
-    private int getJumpBoostLevel() {
-        try {
-            if (!profile.getPotionData().isHasJump()) {
-                return 0;
-            }
-
-            return Math.max(0, profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST));
-        } catch (Throwable ignored) {
-            return 0;
-        }
-    }
-
     private double getExpectedJumpMotion() {
-        return 0.42D + (getJumpBoostLevel() * 0.1D);
+        return 0.42D + (SpeedUtilities.getJumpBoostPotionLevel(profile) * 0.1D);
     }
 
     private boolean isMovementPacket(PacketTypeCommon packetType) {

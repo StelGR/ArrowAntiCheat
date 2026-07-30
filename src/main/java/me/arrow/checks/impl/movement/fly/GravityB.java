@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import me.arrow.checks.enums.CheckType;
+import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
@@ -301,7 +302,7 @@ public class GravityB extends Check {
         double motion = MoveUtils.getJumpMotion(profile);
         if (!Double.isFinite(motion) || motion < 0.30D || motion > 1.60D) {
             motion = 0.42D;
-            if (profile.getPotionData().isHasJump()) motion += Math.max(0, profile.getPotionData().getJumpAmplifier()) * 0.10D;
+            if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) motion += Math.max(0, SpeedUtilities.getJumpBoostPotionLevel(profile)) * 0.10D;
         }
         return motion;
     }

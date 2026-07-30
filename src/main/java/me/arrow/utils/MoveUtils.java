@@ -1,5 +1,6 @@
 package me.arrow.utils;
 
+import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.customutils.Math.MathUtil;
 import org.bukkit.entity.Player;
@@ -113,8 +114,8 @@ public class MoveUtils {
         if (profile != null && profile.isBedrockPlayer() && profile.getMovementData() != null) {
             double motion = profile.getMovementData().getBEDROCK_JUMP_MOTION();
 
-            if (profile.getPotionData() != null && profile.getPotionData().isHasJump()) {
-                int level = profile.getPotionData().getJumpAmplifier();
+            if (profile.getPotionData() != null && SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
+                int level = SpeedUtilities.getJumpBoostPotionLevel(profile);
                 if (level >= 0) {
                     motion += level * 0.1D;
                 }
@@ -125,8 +126,8 @@ public class MoveUtils {
 
         float motion = 0.42F;
 
-        if (profile != null && profile.getPotionData() != null && profile.getPotionData().isHasJump()) {
-            int level = profile.getPotionData().getJumpAmplifier();
+        if (profile != null && profile.getPotionData() != null && SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
+            int level = SpeedUtilities.getJumpBoostPotionLevel(profile);
             if (level >= 0) {
                 motion += level * 0.1F;
             }

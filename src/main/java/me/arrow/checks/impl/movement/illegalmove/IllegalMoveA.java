@@ -141,8 +141,8 @@ public class IllegalMoveA extends Check {
                     return;
                 }
 
-                if (profile.getPotionData().isHasJump()) {
-                    stepHeight += (profile.getPotionData().getJumpAmplifier() * 0.1F);
+                if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
+                    stepHeight += (SpeedUtilities.getJumpBoostPotionLevel(profile) * 0.1F);
                 }
 
                 if ((deltaY > stepHeight)
