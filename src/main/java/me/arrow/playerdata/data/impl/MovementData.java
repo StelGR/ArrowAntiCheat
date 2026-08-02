@@ -26,10 +26,7 @@ import me.arrow.playerdata.data.Data;
 import me.arrow.playerdata.processors.impl.CollisionProcessor;
 import me.arrow.playerdata.processors.impl.SetbackProcessor;
 import me.arrow.playerdata.processors.impl.SlimeProcessor;
-import me.arrow.utils.CollisionUtils;
-import me.arrow.utils.EntityUtil;
-import me.arrow.utils.MoveUtils;
-import me.arrow.utils.TaskUtils;
+import me.arrow.utils.*;
 import me.arrow.utils.custom.*;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
@@ -39,11 +36,11 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
-import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
+import static me.arrow.utils.custom.materials.MaterialType.isMaterial;
 
 // this is the entire main data of the anticheat, there's alot of crap thrown in here, and some of them should be in other data classes
 // there will be a big recode to organize stuff in the future.
@@ -51,6 +48,7 @@ import static com.github.retrooper.packetevents.protocol.packettype.PacketType.P
 @Getter
 @Setter
 public class MovementData implements Data {
+
 
     @Getter
     @Setter
@@ -116,10 +114,6 @@ public class MovementData implements Data {
 
     @Getter
     @Setter
-    boolean intersecting;
-
-    @Getter
-    @Setter
     boolean packetNearWall;
 
     boolean packetMoving;
@@ -151,7 +145,6 @@ public class MovementData implements Data {
         this.equipment = new Equipment();
         this.setbackProcessor = new SetbackProcessor(profile);
         this.slimeProcessor = new SlimeProcessor(profile);
-      //  this.ghostBlockProcessor = new GhostBlockProcessor(profile, false);
 
         /*
         Initialize the current location.
@@ -251,17 +244,6 @@ public class MovementData implements Data {
             );
 
             processLocationData();
-
-//            long currentTick = System.currentTimeMillis() / 50L;
-//
-//            if ((currentTick - lastDecayTick >= 1
-//                    && profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_17)
-//                    && PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8_8))
-//                    || profile.getVersion().isOlderThan(ClientVersion.V_1_17)
-//            ) {
-//                lastDecayTick = currentTick;
-//
-//            }
         }
     }
 
@@ -394,7 +376,6 @@ public class MovementData implements Data {
                             && deltaY < 0.422;
 
             if (groundTransition
-                    //&& cleanContext
                     && possibleJump
             ) {
                 BEDROCK_JUMP_MOTION = deltaY;
@@ -419,7 +400,7 @@ public class MovementData implements Data {
             profile.getPlayer().sendMessage(OtherUtility.translate("Bouncing on Slime: &c" + profile.isBouncingOnSlime()));
         }
 
-        if (profile.getPlayer().getAllowFlight()) {
+        if (profile.getPlayer().isFlying()) {
             profile.getLastFlightToggleTimer().reset();
         }
 
@@ -428,8 +409,7 @@ public class MovementData implements Data {
         nearGhast = EntityUtil.isNearGhast(profile);
         onBoat = EntityUtil.isOnBoat(profile);
 
-        if (onGround) sinceOnGround = 0;
-        else sinceOnGround++;
+        sinceOnGround = onGround ? 0 : sinceOnGround + 1;
 
         processPlayerData();
         //this.getGhostBlockProcessor().process();
@@ -438,11 +418,10 @@ public class MovementData implements Data {
     }
 
     private void updateNearWallState() {
-        boolean currentNearWall = isNearWallScanner(this.location) || this.packetNearWall;
+        lastLastNearWall = lastNearWall;
+        lastNearWall = nearWall;
 
-        this.lastLastNearWall = this.lastNearWall;
-        this.lastNearWall = this.nearWall;
-        this.nearWall = currentNearWall;
+        nearWall = packetNearWall || isNearWallScanner(location);
     }
 
     private void predictPlayerMovement() {
@@ -469,7 +448,7 @@ public class MovementData implements Data {
         NOTE: You should ALWAYS use NMS if you plan on supporting 1.9+
         For a production server, DO NOT use spigot's api. It's slow. (Especially for Blocks, Chunks, Materials)
          */
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation().clone(), async);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation(), async);
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(
                 getLocation().clone().add(0, 1, 0),
                 async
@@ -479,25 +458,13 @@ public class MovementData implements Data {
 
         customInAir = !nearbyBlocksResult.isNearGround()
                 && !nearbyBlocksResult2.isNearGround()
-                //&& (!nearbyBlocksResult3.isNearGround() && CollisionUtils.isNearEdge(getLocation()))
-//                && !nearbyBlocksResult4.isNearGround()
                 && !profile.isExempt().isFlight()
                 && !profile.shouldCancel()
                 && !profile.getPlayer().isInsideVehicle()
                 && !isNearBoat()
                 && !isOnBoat();
 
-        intersecting = false
-                //((isPlayerIntersectingBlocks(profile) || profile.getBlockData().collideSlime || isPhasing(profile)) && (deltaXZ > 20 || deltaY > 60 || deltaY < -60) || isPhasing(profile))
-        ;
-
-
-
-        if (!supportsEntityCollisionCheck()) {
-            isColliding = false;
-        } else {
-            isColliding = CollisionProcessor.isColliding(profile.getPlayer(), profile.getBoundingBox());
-        }
+        isColliding = supportsEntityCollisionCheck() && CollisionProcessor.isColliding(profile.getPlayer(), profile.getBoundingBox());
     }
 
     void processBlocks() {
@@ -529,44 +496,49 @@ public class MovementData implements Data {
                 int baseY = location.getBlockY();
                 int baseZ = location.getBlockZ();
 
-                int[] yLevels = {
-                        3,
-                        2,
-                        1,
-                        0,
-                        -1
-                };
-
-                for (int yOffset : yLevels) {
+                for (int yOffset = 3; yOffset >= -1; yOffset--) {
                     for (int xOffset = -1; xOffset <= 1; xOffset++) {
                         for (int zOffset = -1; zOffset <= 1; zOffset++) {
-                            Block block = world.getBlockAt(baseX + xOffset, baseY + yOffset, baseZ + zOffset);
-                            Material mat = nms.getType(block);
-                            String mName = mat.name();
 
-                            flag_water = flag_water || isWaterOrWaterlogged(block);
-                            flag_slime = flag_slime || MaterialType.isMaterial(mName, MaterialType.SLIME);
-                            flag_bubble = flag_bubble || MaterialType.isMaterial(mName, MaterialType.BUBBLE);
-                            flag_lava = flag_lava || MaterialType.isMaterial(mName, MaterialType.LAVA);
-                            flag_web = flag_web || MaterialType.isMaterial(mName, MaterialType.WEB);
+                            Block block = world.getBlockAt(
+                                    baseX + xOffset,
+                                    baseY + yOffset,
+                                    baseZ + zOffset
+                            );
 
-                            flag_climbable = flag_climbable
-                                    || MaterialType.isMaterial(mName, MaterialType.CLIMBABLE)
-                                    || MaterialType.isMaterial(mName, MaterialType.SCAFFOLDING);
+                            Material material = nms.getType(block);
 
-                            flag_nearBuggyBlock = flag_nearBuggyBlock || MaterialType.isMaterial(mName, MaterialType.BUGGY_BLOCK);
-                            flag_bed = flag_bed || MaterialType.isMaterial(mName, MaterialType.BED) || MaterialType.isBed(mat);
-                            flag_honey = flag_honey || MaterialType.isMaterial(mName, MaterialType.HONEY);
-                            flag_shulker = flag_shulker || MaterialType.isMaterial(mName, MaterialType.SHULKER);
-                            flag_dripleaf = flag_dripleaf || MaterialType.isMaterial(mName, MaterialType.DRIP_LEAF);
+                            int flags = MaterialType.getFlags(material);
 
-                            flag_contact = flag_contact
-                                    || MaterialType.isMaterial(mName, MaterialType.CACTUS)
-                                    || MaterialType.isMaterial(mName, MaterialType.BERRIES);
+                            flag_water |= (flags & MaterialType.FLAG_WATER) != 0
+                                    || nms.isWaterLogged(block);
 
-                            flag_fence = flag_fence
-                                    || MaterialType.isMaterial(mName, MaterialType.FENCE)
-                                    || MaterialType.isMaterial(mName, MaterialType.WALL);
+                            flag_slime |= (flags & MaterialType.FLAG_SLIME) != 0;
+                            flag_bubble |= (flags & MaterialType.FLAG_BUBBLE) != 0;
+                            flag_lava |= (flags & MaterialType.FLAG_LAVA) != 0;
+                            flag_web |= (flags & MaterialType.FLAG_WEB) != 0;
+
+                            flag_climbable |= (flags & MaterialType.FLAG_CLIMBABLE) != 0
+                                    || (flags & MaterialType.FLAG_SCAFFOLDING) != 0;
+
+                            flag_nearBuggyBlock |=
+                                    (flags & MaterialType.FLAG_BUGGY_BLOCK) != 0;
+
+                            flag_bed |= (flags & MaterialType.FLAG_BED) != 0;
+
+                            flag_honey |= (flags & MaterialType.FLAG_HONEY) != 0;
+
+                            flag_shulker |= (flags & MaterialType.FLAG_SHULKER) != 0;
+
+                            flag_dripleaf |= (flags & MaterialType.FLAG_DRIP_LEAF) != 0;
+
+                            flag_contact |=
+                                    (flags & MaterialType.FLAG_CACTUS) != 0
+                                            || (flags & MaterialType.FLAG_BERRIES) != 0;
+
+                            flag_fence |=
+                                    (flags & MaterialType.FLAG_FENCE) != 0
+                                            || (flags & MaterialType.FLAG_WALL) != 0;
                         }
                     }
                 }
@@ -588,23 +560,16 @@ public class MovementData implements Data {
 
             isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.WATER);
 
-            CustomLocation playerLoc = new CustomLocation(
-                    profile.getPlayer().getWorld(),
-                    profile.getPlayer().getLocation().getX(),
-                    profile.getPlayer().getLocation().getY(),
-                    profile.getPlayer().getLocation().getZ()
-            );
-
 
             isInsideWater = false;
             for (int x = -1; x <= 1; x++) {
                 for (int z = -1; z <= 1; z++) {
-                    CustomLocation checkLoc = playerLoc.clone();
+                    CustomLocation checkLoc = location.clone();
                     checkLoc.setX(checkLoc.getX() + x);
                     checkLoc.setZ(checkLoc.getZ() + z);
-                    checkLoc.setY(playerLoc.getY() + 0.5);
+                    checkLoc.setY(checkLoc.getY() + 0.5);
                     String mName = nms.getType(checkLoc.getBlock()).name();
-                    if (MaterialType.isMaterial(mName, MaterialType.WATER)) {
+                    if (isMaterial(mName, MaterialType.WATER)) {
                         isInsideWater = true;
                         break;
                     }
@@ -614,9 +579,6 @@ public class MovementData implements Data {
 
             isBottomOfWater = isInsideWater && isServerGround();
             //nearWall = CollisionUtils.isNearWall(getLocation());
-            lastLastNearWall = lastNearWall;
-            lastNearWall = nearWall;
-            nearWall = isNearWallScanner(getLocation());
 
             boolean flag_underblock = false;
 
@@ -650,11 +612,11 @@ public class MovementData implements Data {
 
             underblock = flag_underblock;
 
-            insideLiquid = MaterialType.isMaterial(nms.getType(location.clone().subtract(0D, 1D, 0D).getBlock()).name(), MaterialType.LIQUID)
-                    || MaterialType.isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.LIQUID);
+            insideLiquid = isMaterial(nms.getType(location.clone().subtract(0D, 1D, 0D).getBlock()).name(), MaterialType.LIQUID)
+                    || isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.LIQUID);
 
-            climb = MaterialType.isMaterial(nms.getType(location.clone().subtract(0D, -1D, 0D).getBlock()).name(), MaterialType.CLIMBABLE)
-                    || MaterialType.isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
+            climb = isMaterial(nms.getType(location.clone().subtract(0D, -1D, 0D).getBlock()).name(), MaterialType.CLIMBABLE)
+                    || isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
 
             nearStepMaterial =
                     containsStepMaterial(nearbyBlocksResult)
@@ -670,10 +632,10 @@ public class MovementData implements Data {
     private static boolean isStepMaterial(Material m) {
         String name = m.name();
 
-        return MaterialType.isMaterial(name, MaterialType.HALF_BLOCK)
-                || MaterialType.isMaterial(name, MaterialType.HEIGHT_CHANGE)
-                || MaterialType.isMaterial(name, MaterialType.SNOW)
-                || MaterialType.isMaterial(name, MaterialType.SOUL_SAND)
+        return isMaterial(name, MaterialType.HALF_BLOCK)
+                || isMaterial(name, MaterialType.HEIGHT_CHANGE)
+                || isMaterial(name, MaterialType.SNOW)
+                || isMaterial(name, MaterialType.SOUL_SAND)
                 || MaterialType.isSlab(m)
                 || MaterialType.isTrapdoor(m)
                 || MaterialType.isFence(m)
@@ -745,10 +707,10 @@ public class MovementData implements Data {
 
         String name = material.name();
 
-        return !MaterialType.isMaterial(name, MaterialType.LIQUID)
-                && !MaterialType.isMaterial(name, MaterialType.WEB)
-                && !MaterialType.isMaterial(name, MaterialType.BUBBLE)
-                && !MaterialType.isMaterial(name, MaterialType.WATER_PLANT);
+        return !isMaterial(name, MaterialType.LIQUID)
+                && !isMaterial(name, MaterialType.WEB)
+                && !isMaterial(name, MaterialType.BUBBLE)
+                && !isMaterial(name, MaterialType.WATER_PLANT);
     }
 
     private int floor(double value) {
@@ -760,11 +722,11 @@ public class MovementData implements Data {
         if (!material.isBlock()) return false;
         String name = material.name();
 
-        if (MaterialType.isMaterial(name, MaterialType.AIR)) return true;
-        if (MaterialType.isMaterial(name, MaterialType.WATER_PLANT)) return true;
-        if (MaterialType.isMaterial(name, MaterialType.LIQUID)) return true;
-        if (MaterialType.isMaterial(name, MaterialType.BUBBLE)) return true;
-        if (MaterialType.isMaterial(name, MaterialType.TRANSPARENT)) return true;
+        if (isMaterial(name, MaterialType.AIR)) return true;
+        if (isMaterial(name, MaterialType.WATER_PLANT)) return true;
+        if (isMaterial(name, MaterialType.LIQUID)) return true;
+        if (isMaterial(name, MaterialType.BUBBLE)) return true;
+        if (isMaterial(name, MaterialType.TRANSPARENT)) return true;
 
         return switch (name) {
             case "TORCH", "SOUL_TORCH", "FIRE", "SOUL_FIRE", "REDSTONE", "WHEAT", "RAIL", "LEVER", "REDSTONE_TORCH",
@@ -896,7 +858,7 @@ public class MovementData implements Data {
             return PlayerBoxSize.STANDING;
         }
 
-        String pose = getPoseName(player);
+        String pose = ReflectionUtils.getPoseName(player);
 
         // Sleeping hitbox
         if (pose.equals("SLEEPING")) {
@@ -908,8 +870,8 @@ public class MovementData implements Data {
                 || pose.equals("CRAWLING")
                 || pose.equals("FALL_FLYING")
                 || pose.equals("SPIN_ATTACK")
-                || isSwimming(player)
-                || isGliding(player)) {
+                || ReflectionUtils.isSwimming(player)
+                || ReflectionUtils.isGliding(player)) {
             return PlayerBoxSize.FLAT;
         }
 
@@ -924,47 +886,6 @@ public class MovementData implements Data {
         return PlayerBoxSize.STANDING;
     }
 
-
-    private String getPoseName(Player player) {
-        try {
-            Method getPose = player.getClass().getMethod("getPose");
-            Object pose = getPose.invoke(player);
-
-            if (pose != null) {
-                return pose.toString().toUpperCase(java.util.Locale.ROOT);
-            }
-        } catch (Throwable ignored) {
-        }
-
-        return "STANDING";
-    }
-
-    private boolean isSwimming(Player player) {
-        try {
-            Method isSwimming = player.getClass().getMethod("isSwimming");
-            Object result = isSwimming.invoke(player);
-
-            return result instanceof Boolean && (Boolean) result;
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    private boolean isGliding(Player player) {
-        try {
-            return Arrow.getInstance().getNmsManager().getNmsInstance().isGliding(player);
-        } catch (Throwable ignored) {
-        }
-
-        try {
-            Method isGliding = player.getClass().getMethod("isGliding");
-            Object result = isGliding.invoke(player);
-
-            return result instanceof Boolean && (Boolean) result;
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
 
     private boolean hasModernSneakingDimensions() {
         try {
@@ -993,6 +914,8 @@ public class MovementData implements Data {
     }
 
 
+
+
     int tickTime;
 
     void updateTicks() {
@@ -1002,37 +925,16 @@ public class MovementData implements Data {
             this.tick++;
             PotionData potion = profile.getPotionData();
 
-            boolean async = !TaskUtils.isFoliaServer();
+            //conditions
 
+            boolean async = !TaskUtils.isFoliaServer();
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, async);
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, async);
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation, async);
-
             boolean powdersnow = containsMaterial(nearbyBlocksResult.getBlockTypes(), MaterialType.POWDER_SNOW);
-
-            if (powdersnow) {
-                sincePowderSnowTicks = 0;
-            } else {
-                sincePowderSnowTicks++;
-            }
-
             boolean onIce0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.ICE);
             boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.ICE);
             boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.ICE);
-            onIce = onIce0 || onIce1 || onIce2;
-
-            if (moving && onIce) {
-                movingOnIceTicks += (movingOnIceTicks < 30 ? 1f : 0);
-            } else {
-                movingOnIceTicks = Math.max(0, movingOnIceTicks - 0.25f);
-            }
-
-            if (onIce) {
-                iceTicks += (iceTicks < 25 ? 1 : 0);
-            } else {
-                iceTicks = Math.max(0, iceTicks - 1);
-            }
-
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow =
                     CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), async);
 
@@ -1104,7 +1006,46 @@ public class MovementData implements Data {
             boolean onSlime0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SLIME);
             boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SLIME);
             boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SLIME);
+            boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SOUL_SAND);
+            boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SOUL_SAND);
+            boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SOUL_SAND);
+            boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SOUL_BLOCK);
+            boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SOUL_BLOCK);
+            boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SOUL_BLOCK);
+
+            boolean onHoney0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.HONEY);
+            boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.HONEY);
+            boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.HONEY);
+
+            boolean inAir = isCustomInAir()
+                    && !profile.getPlayer().isInsideVehicle()
+                    && !isClimb()
+                    && !isNearWebs()
+                    && !EntityUtil.isOnBoat(profile)
+                    && !profile.isBouncingOnSlime();
+
+            boolean nearWallNow = isNearWall()
+                    || isLastNearWall()
+                    || isLastLastNearWall()
+                    || isPacketNearWall();
+
+            boolean exempt = (isNearLava() || isNearWater() || isNearWebs())
+                    || profile.getPlayer().isInsideVehicle();
+
+            boolean riptiding = profile.getPredictionData().isRiptiding() || Arrow.getInstance()
+                    .getNmsManager()
+                    .getNmsInstance()
+                    .isRiptiding(profile.getPlayer());
+
+            boolean glidingNow = metadataGliding
+                    || glideStartTransitionTicks > 0
+                    || ReflectionUtils.isGliding(profile.getPlayer());
+
+            boolean onSoulBlock = (onSoulBlock0 || onSoulBlock1 || onSoulBlock2);
+            onIce = onIce0 || onIce1 || onIce2;
             onSlime = onSlime0 || onSlime1 || onSlime2;
+            onSoulSand = onSoul0 || onSoul1 || onSoul2;
+            onHoney = onHoney0 || onHoney1 || onHoney2;
 
             nearPiston =
                     containsMaterial(nearbyBlocks.getBlockTypes(), MaterialType.PISTON)
@@ -1112,130 +1053,39 @@ public class MovementData implements Data {
                             || containsMaterial(nearbyBlocksBelow2.getBlockTypes(), MaterialType.PISTON)
                             || containsMaterial(nearbyBlocksAbove.getBlockTypes(), MaterialType.PISTON);
 
+
+            boolean predictUp = verticalMove == MovementPredictionUtil.VerticalMove.UP;
+            boolean predictDown = verticalMove == MovementPredictionUtil.VerticalMove.DOWN;
+
+            //ticks
+
+            sincePowderSnowTicks = powdersnow ? 0 : sincePowderSnowTicks + 1;
+            movingOnIceTicks = (moving && onIce) ? (movingOnIceTicks < 30 ? movingOnIceTicks + 1f : 0) : (movingOnIceTicks > 0 ? movingOnIceTicks - 0.25f : 0);
+            iceTicks = onIce ? (iceTicks < 25 ? iceTicks + 1 : 0) : (iceTicks > 0 ? iceTicks - 1 : 0);
+
+
             // this is a temporary, test fix, for piston movable slime blocks, it may not work properly in all scenarios, but it will do for now
             // assuming that it even works...
             onExtendedHitboxSlime = onSlime || slimeBelow0 || slimeBelow1 || slimeBelow2 || slimeAbove0 || slimeAbove1 || slimeAbove2 || slimeBelowBelow0 || slimeBelowBelow1 || slimeBelowBelow2 || slimeBelowBelow3 || slimeBelowBelow4 || slimeBelowBelow5
                     || (getMovingOnSlimeTicks() < 11 && getMovingOnSlimeTicks() > 0) || getSinceMovingOnSlimeTicks() < 10;
 
-            // profile.getPlayer().sendMessage("nearPiston: " + nearPiston + ", onSlime " + onExtendedHitboxSlime + ", deltaY " + deltaY + ", slimeTicks " + getMovingOnSlimeTicks() + ", sinceSlimeTicks " + getSinceMovingOnSlimeTicks());
+            movingOnSlimeTicks = (moving && onSlime) ? (movingOnSlimeTicks < 30 ? movingOnSlimeTicks + 1F : 0F) : (movingOnSlimeTicks > 0 ?  movingOnSlimeTicks - 0.5F : 0);
+            slimeTicks = onSlime ? slimeTicks < 25 ? slimeTicks + 1 : 0 : slimeTicks > 0 ? slimeTicks - 1 : 0;
+            sinceNearSlimeTicks = isNearSlime() ? 0 : sinceNearSlimeTicks;
+            sinceNearPistonTicks = isNearPiston() ? 0 : sinceNearPistonTicks;
+            movingOnSoulTicks = (moving && onSoulSand) ? (movingOnSoulTicks < 25 ? movingOnSoulTicks + 1 : 0) : (movingOnSoulTicks > 0 ? movingOnSoulTicks - 1 : 0);
+            soulTicks = onSoulSand ? (soulTicks < 25 ? soulTicks + 1 : 0) : (soulTicks > 0 ? soulTicks - 1 : 0);
+            movingOnSoulBlocksTicks = (moving && onSoulBlock) ? (movingOnSoulBlocksTicks < 25 ? movingOnSoulBlocksTicks + 1 : 0) : (movingOnSoulBlocksTicks > 0 ? movingOnSoulBlocksTicks - 1 : 0);
+            movingOnHoneyTicks = (moving && onHoney) ? (movingOnHoneyTicks < 25 ? movingOnHoneyTicks + 1 : 0) : (movingOnHoneyTicks > 0 ? movingOnHoneyTicks - 1 : 0);
+            honeyTicks = onHoney ? (honeyTicks < 25 ? honeyTicks + 1 : 0) : (honeyTicks > 0 ? honeyTicks - 1 : 0);
+            sinceMovingOnIceTicks = movingOnIceTicks > 0 ? 0 : sinceMovingOnIceTicks + 1;
+            sinceMovingOnSlimeTicks = movingOnSlimeTicks > 0 ? 0 : sinceMovingOnSlimeTicks + 1;
+            movingUnderblockTicks = (moving && isUnderblock()) ? (movingUnderblockTicks < 25 ? movingUnderblockTicks + 1f : 0) : (movingUnderblockTicks > 0 ? movingUnderblockTicks - 1 : 0);
 
-
-            if (moving && onSlime) {
-                movingOnSlimeTicks += (movingOnSlimeTicks < 30 ? 1F : 0F);
-            } else {
-                movingOnSlimeTicks = Math.max(0, movingOnSlimeTicks - 0.5F);
-            }
-
-            if (onSlime) {
-                slimeTicks += (slimeTicks < 25 ? 1 : 0);
-            } else {
-                slimeTicks = Math.max(0, slimeTicks - 1);
-            }
-
-            if (isNearSlime()) sinceNearSlimeTicks = 0;
-            else sinceNearSlimeTicks++;
-
-            if (isNearPiston()) sinceNearPistonTicks = 0;
-            else sinceNearPistonTicks++;
-
-            boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SOUL_SAND);
-            boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SOUL_SAND);
-            boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SOUL_SAND);
-            onSoulSand = onSoul0 || onSoul1 || onSoul2;
-
-            if (moving && onSoulSand) {
-                movingOnSoulTicks += (movingOnSoulTicks < 25 ? 1 : 0);
-            } else {
-                movingOnSoulTicks = Math.max(0, movingOnSoulTicks - 1);
-            }
-
-            if (onSoulSand) {
-                soulTicks += (soulTicks < 25 ? 1 : 0);
-            } else {
-                soulTicks = Math.max(0, soulTicks - 1);
-            }
-
-            boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SOUL_BLOCK);
-            boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SOUL_BLOCK);
-            boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SOUL_BLOCK);
-
-            if (moving && (onSoulBlock0 || onSoulBlock1 || onSoulBlock2)) {
-                movingOnSoulBlocksTicks += (movingOnSoulBlocksTicks < 25 ? 1 : 0);
-            } else {
-                movingOnSoulBlocksTicks = Math.max(0, movingOnSoulBlocksTicks - 1);
-            }
-
-            boolean onHoney0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.HONEY);
-            boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.HONEY);
-            boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.HONEY);
-            onHoney = onHoney0 || onHoney1 || onHoney2;
-
-
-            if (moving && onHoney) {
-                movingOnHoneyTicks += (movingOnHoneyTicks < 25 ? 1 : 0);
-            } else {
-                movingOnHoneyTicks = Math.max(0, movingOnHoneyTicks - 1);
-            }
-
-            if (onHoney) {
-                honeyTicks += (honeyTicks < 25 ? 1 : 0);
-            } else {
-                honeyTicks = Math.max(0, honeyTicks - 1);
-            }
-
-            if (movingOnIceTicks > 0) {
-                sinceMovingOnIceTicks = 0;
-            } else sinceMovingOnIceTicks++;
-
-            if (movingOnSlimeTicks > 0) {
-                sinceMovingOnSlimeTicks = 0;
-            } else sinceMovingOnSlimeTicks++;
-
-            if (moving && isUnderblock()) {
-                movingUnderblockTicks += (movingUnderblockTicks < 25 ? 1f : 0);
-            } else {
-                movingUnderblockTicks = Math.max(0, movingUnderblockTicks - 0.5f);
-            }
-
-            if (moving) {
-                movingTicks += 1;
-            } else {
-                movingTicks = 0;
-            }
-
-            if (isCustomInAir()
-                    && !profile.getPlayer().isInsideVehicle()
-                    && !isClimb()
-                    && !isNearWebs()
-                    && !EntityUtil.isOnBoat(profile)
-                    && !profile.isBouncingOnSlime()
-                //&& !CollisionUtils.isNearEdge(getLocation())
-            ) {
-                customAirTicks++;
-            } else {
-                customAirTicks = 0;
-            }
-
-            boolean nearWallNow = isNearWall()
-                    || isLastNearWall()
-                    || isLastLastNearWall()
-                    || isPacketNearWall();
-
-            if (nearWallNow
-                    && !(isNearLava() || isInsideWater() || isNearWebs())
-                    && !profile.getPlayer().isInsideVehicle()) {
-                nearWallTicks++;
-            } else {
-                nearWallTicks = 0;
-            }
-
-            if (profile.getPredictionData().isRiptiding() || Arrow.getInstance()
-                    .getNmsManager()
-                    .getNmsInstance()
-                    .isRiptiding(profile.getPlayer())) {
-                sinceRiptidingTicks = 0;
-            } else sinceRiptidingTicks++;
-
+            movingTicks = moving ? movingTicks + 1 : 0;
+            customAirTicks = inAir ? customAirTicks + 1 : 0;
+            nearWallTicks = nearWallNow && !exempt ? nearWallTicks + 1 : 0;
+            sinceRiptidingTicks = riptiding ? 0 : sinceRiptidingTicks + 1;
 
             tickTime++;
             if (tickTime >= 20 && isOnGround() && !isCustomInAir()) {
@@ -1244,21 +1094,10 @@ public class MovementData implements Data {
             }
 
             Vector velocity = profile.getVelocityData().getExplosionKnockback();
-            if (velocity.getX() == 0 && velocity.getY() == 0 && velocity.getZ() == 0) {
-                sinceExplosionTicks++;
-            } else sinceExplosionTicks = 0;
+            sinceExplosionTicks = velocity.isZero() ? sinceExplosionTicks + 1 : 0;
 
-            if (isColliding) {
-                sinceCollideTicks = 0;
-            } else sinceCollideTicks++;
-
-            boolean glidingNow = metadataGliding
-                    || glideStartTransitionTicks > 0
-                    || isGliding(profile.getPlayer());
-
-            if (glidingNow) {
-                sinceGlidingTicks = 0;
-            } else sinceGlidingTicks++;
+            sinceCollideTicks = isColliding ? 0 : sinceCollideTicks + 1;
+            sinceGlidingTicks = glidingNow ? 0 : sinceGlidingTicks + 1;
 
             updateElytraMomentum(glidingNow);
 
@@ -1266,21 +1105,9 @@ public class MovementData implements Data {
                 glideStartTransitionTicks--;
             }
 
-            if (profile.isWearingFunctionalElytra()) {
-                sinceElytraEquipTicks = 0;
-            } else sinceElytraEquipTicks++;
-
-            if (isIntersecting()) {
-                sinceGlitchedInsideBlockTicks = 0;
-            } else sinceGlitchedInsideBlockTicks++;
-
-            if (isServerGround()) {
-                if (serverGroundTicksPlus < 20) serverGroundTicksPlus++;
-                serverAirTicks = 0;
-            } else {
-                serverGroundTicksPlus = 0;
-                if (serverAirTicks < 20) serverAirTicks++;
-            }
+            sinceElytraEquipTicks = profile.isWearingFunctionalElytra() ?  0 : sinceElytraEquipTicks + 1;
+            serverAirTicks = isServerGround() ? 0 : serverAirTicks + 1;
+            serverGroundTicks = isServerGround() ? serverGroundTicksPlus + 1 : 0;
 
             if (profile.getPlayer().isInsideVehicle()) {
                 if (profile.getVehicleData().getVehicleTicks() < 20) {
@@ -1292,59 +1119,24 @@ public class MovementData implements Data {
                 }
             }
 
-            if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN && nearStepMaterial) {
-                sincePredictDownwardsTicks = 0;
-            } else sincePredictDownwardsTicks++;
-
-            if (verticalMove == MovementPredictionUtil.VerticalMove.UP && nearStepMaterial) {
-                sincePredictUpwardsTicks = 0;
-            } else sincePredictUpwardsTicks++;
-
-            if (verticalMove == MovementPredictionUtil.VerticalMove.DOWN) {
-                sincePredictDownwardsTicksWithoutMaterial = 0;
-            } else sincePredictDownwardsTicksWithoutMaterial++;
-
-            if (verticalMove == MovementPredictionUtil.VerticalMove.UP) {
-                sincePredictUpwardsTicksWithoutMaterial = 0;
-            } else sincePredictUpwardsTicksWithoutMaterial++;
-
             movingUp = (deltaY > 0 || lastDeltaY > 0) && isNearStepMaterial();
             movingDown = (deltaY < 0 || lastDeltaY < 0) && isNearStepMaterial();
 
-            sincePredictDownwardsTicks = movingDown ? 0 : sincePredictDownwardsTicks++;
-            sincePredictUpwardsTicks = movingUp ? 0 : sincePredictUpwardsTicks++;
-            //Bukkit.broadcastMessage("ticks: " + sincePredictUpwardsTicks);
-
-
-
-            if (nearGhast) sinceNearGhastTicks = 0;
-            else sinceNearGhastTicks++;
-
-            if (profile.getExempt().isTeleports()) {
-                sinceTeleportTicks = 0;
-            } else sinceTeleportTicks++;
-
+            sincePredictUpwardsTicksWithoutMaterial = predictUp ? 0 : sincePredictUpwardsTicksWithoutMaterial + 1;
+            sincePredictDownwardsTicksWithoutMaterial = predictDown ? 0 : sincePredictDownwardsTicksWithoutMaterial + 1;
+            sincePredictDownwardsTicks = movingDown || (predictDown && isNearStepMaterial()) ? 0 : sincePredictDownwardsTicks + 1;
+            sincePredictUpwardsTicks = movingUp || (predictUp && isNearStepMaterial())? 0 : sincePredictUpwardsTicks + 1;
+            sinceNearGhastTicks = nearGhast ? 0 : sinceNearGhastTicks + 1;
+            sinceTeleportTicks = profile.getExempt().isTeleports() ? 0 : sinceTeleportTicks + 1;
             isRiptiding = sinceRiptidingTicks < 20;
-
-            if (nearBubble) sinceBubbleTicks = 0;
-            else sinceBubbleTicks++;
-
-            if (isClimb()) ladderTicks++;
-            else ladderTicks = 0;
-
-            if (isInsideWater()) sinceInsideWaterTicks = 0;
-            else sinceInsideWaterTicks++;
-
-            if (isNearWater()) sinceNearWaterTicks = 0;
-            else sinceNearWaterTicks++;
-
-            sinceLevitationEffectTicks = potion.isHasLevitation() ? 0 : sinceLevitationEffectTicks++;
-            sinceJumpBoostEffectTicks = potion.isHasJump() ? 0 : sinceJumpBoostEffectTicks++;
-            sinceSpeedPotionEffectTicks = potion.isHasSpeed() ? 0 : sinceSpeedPotionEffectTicks++;
-
-            if (profile.isOnGhostBlock()) {
-                sinceOnGhostBlock = 0;
-            } else sinceOnGhostBlock++;
+            ladderTicks = isClimb() ? ladderTicks + 1 : 0;
+            sinceBubbleTicks = nearBubble ? 0 : sinceBubbleTicks + 1;
+            sinceInsideWaterTicks = isInsideWater() ? 0 : sinceInsideWaterTicks + 1;
+            sinceNearWaterTicks = isNearWater() ? 0 : sinceNearWaterTicks + 1;
+            sinceLevitationEffectTicks = potion.getLevitationTicks() > 0 ? 0 : sinceLevitationEffectTicks + 1;
+            sinceJumpBoostEffectTicks = potion.getJumpTicks() > 0 ? 0 : sinceJumpBoostEffectTicks + 1;
+            sinceSpeedPotionEffectTicks = potion.getSpeedTicks() > 0 ? 0 : sinceSpeedPotionEffectTicks + 1;
+            sinceOnGhostBlock = profile.isOnGhostBlock() ? 0 : sinceOnGhostBlock + 1;
 
             dolphinGraceBoost = dolphinGraceMomentum();
 
@@ -1367,64 +1159,6 @@ public class MovementData implements Data {
         } finally {
             Profiler.stop("MovementData (Ticks)", profiler);
         }
-    }
-
-    public boolean isWaterOrWaterlogged(Block block) {
-        if (block == null) {
-            return false;
-        } else {
-            block.getType();
-        }
-
-        Material material = block.getType();
-        String name = material.name();
-
-        if (MaterialType.isMaterial(name, MaterialType.WATER)) {
-            return true;
-        }
-
-        if (isWaterPlantOrFluid(name)) {
-            return true;
-        }
-
-        if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
-            try {
-                Object blockData = block.getClass().getMethod("getBlockData").invoke(block);
-
-                if (blockData == null) {
-                    return false;
-                }
-
-                try {
-                    Object value = blockData.getClass().getMethod("isWaterlogged").invoke(blockData);
-
-                    if (value instanceof Boolean) {
-                        return (Boolean) value;
-                    }
-                } catch (NoSuchMethodException ignored) {
-                    return false;
-                }
-            } catch (Throwable ignored) {
-                return false;
-            }
-        }
-
-        return false;
-    }
-
-    private boolean isWaterPlantOrFluid(String name) {
-        if (name == null) {
-            return false;
-        }
-
-        return name.equals("KELP")
-                || name.equals("KELP_PLANT")
-                || name.equals("SEAGRASS")
-                || name.equals("TALL_SEAGRASS")
-                || name.equals("BUBBLE_COLUMN")
-                || name.equals("WATER_CAULDRON")
-                || name.equals("LEGACY_STATIONARY_WATER")
-                || name.equals("LEGACY_WATER");
     }
 
     public float elytraMomentum() {
@@ -1575,7 +1309,7 @@ public class MovementData implements Data {
             MaterialType type
     ) {
         for (Material mat : blocks) {
-            if (MaterialType.isMaterial(mat.name(), type)) {
+            if (isMaterial(mat.name(), type)) {
                 return true;
             }
         }

@@ -337,8 +337,8 @@ public enum MaterialType {
             "CACTUS_FLOWER",
             "PALE_HANGING_MOSS",
             "EYEBLOSSOM"
-    )
-            ;
+    );
+
 
     @Getter
     public final String[] values;
@@ -352,6 +352,111 @@ public enum MaterialType {
     private static final Map<String, Object> TAG_CACHE = new ConcurrentHashMap<>();
     private static final Map<String, Boolean> TAG_RESULT_CACHE = new ConcurrentHashMap<>();
 
+    public static final int FLAG_WATER = 1;
+    public static final int FLAG_SLIME = 1 << 1;
+    public static final int FLAG_BUBBLE = 1 << 2;
+    public static final int FLAG_LAVA = 1 << 3;
+    public static final int FLAG_WEB = 1 << 4;
+    public static final int FLAG_CLIMBABLE = 1 << 5;
+    public static final int FLAG_SCAFFOLDING = 1 << 6;
+    public static final int FLAG_BUGGY_BLOCK = 1 << 7;
+    public static final int FLAG_BED = 1 << 8;
+    public static final int FLAG_HONEY = 1 << 9;
+    public static final int FLAG_SHULKER = 1 << 10;
+    public static final int FLAG_DRIP_LEAF = 1 << 11;
+    public static final int FLAG_CACTUS = 1 << 12;
+    public static final int FLAG_BERRIES = 1 << 13;
+    public static final int FLAG_FENCE = 1 << 14;
+    public static final int FLAG_WALL = 1 << 15;
+    static final int[] MATERIAL_FLAGS = new int[Material.values().length];
+
+    static {
+        for (Material material : Material.values()) {
+            int flags = 0;
+
+            String name = material.name();
+
+            if (isMaterial(name, WATER)) {
+                flags |= FLAG_WATER;
+            }
+
+            if (isMaterial(name, SLIME)) {
+                flags |= FLAG_SLIME;
+            }
+
+            if (isMaterial(name, BUBBLE)) {
+                flags |= FLAG_BUBBLE;
+            }
+
+            if (isMaterial(name, LAVA)) {
+                flags |= FLAG_LAVA;
+            }
+
+            if (isMaterial(name, WEB)) {
+                flags |= FLAG_WEB;
+            }
+
+            if (isMaterial(name, CLIMBABLE)) {
+                flags |= FLAG_CLIMBABLE;
+            }
+
+            if (isMaterial(name, SCAFFOLDING)) {
+                flags |= FLAG_SCAFFOLDING;
+            }
+
+            if (isMaterial(name, BUGGY_BLOCK)) {
+                flags |= FLAG_BUGGY_BLOCK;
+            }
+
+            if (isMaterial(name, BED) || isBed(material)) {
+                flags |= FLAG_BED;
+            }
+
+            if (isMaterial(name, HONEY)) {
+                flags |= FLAG_HONEY;
+            }
+
+            if (isMaterial(name, SHULKER)) {
+                flags |= FLAG_SHULKER;
+            }
+
+            if (isMaterial(name, DRIP_LEAF)) {
+                flags |= FLAG_DRIP_LEAF;
+            }
+
+            if (isMaterial(name, CACTUS)) {
+                flags |= FLAG_CACTUS;
+            }
+
+            if (isMaterial(name, BERRIES)) {
+                flags |= FLAG_BERRIES;
+            }
+
+            if (isFence(material)) {
+                flags |= FLAG_FENCE;
+            }
+
+            if (isWall(material)) {
+                flags |= FLAG_WALL;
+            }
+
+            MATERIAL_FLAGS[material.ordinal()] = flags;
+        }
+    }
+
+
+    public static int getFlags(Material material) {
+        return material == null
+                ? 0
+                : MATERIAL_FLAGS[material.ordinal()];
+    }
+
+    public static boolean hasFlag(Material material, int flag) {
+        return material != null
+                && (MATERIAL_FLAGS[material.ordinal()] & flag) != 0;
+    }
+
+
     public static boolean isStair(Block block) {
         return block != null && isStair(block.getType());
     }
@@ -361,7 +466,7 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "STAIRS")) return true;
 
-        String name = material.name().toUpperCase();
+        String name = material.name();
 
         // Future-proof:
         // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
@@ -379,7 +484,7 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "BED")) return true;
 
-        String name = material.name().toUpperCase();
+        String name = material.name();
 
         // Future-proof:
         // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
@@ -396,7 +501,7 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "FENCES", "WOODEN_FENCES")) return true;
 
-        String name = material.name().toUpperCase();
+        String name = material.name();
 
         // Future-proof:
         // OAK_FENCE, CHERRY_FENCE, WHITE_WOOL_FENCE, etc.
@@ -417,7 +522,7 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "FENCE_GATES")) return true;
 
-        String name = material.name().toUpperCase();
+        String name = material.name();
 
         return name.endsWith("_FENCE_GATE")
                 || name.equals("FENCE_GATE");
@@ -432,7 +537,7 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "WALLS")) return true;
 
-        String name = material.name().toUpperCase();
+        String name = material.name();
 
         // Future-proof:
         // COBBLESTONE_WALL, TUFF_WALL, WHITE_WOOL_WALL, etc.
@@ -450,13 +555,12 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "CARPETS")) return true;
 
-        String name = material.name().toUpperCase();
+        String name = material.name();
 
         // Future-proof:
         // COBBLESTONE_WALL, TUFF_WALL, WHITE_WOOL_WALL, etc.
         return name.endsWith("_CARPET")
-                || name.endsWith("CARPETS")
-                || isMaterial(name, MaterialType.WALL);
+                || name.endsWith("CARPETS");
     }
 
     public static boolean isSlab(Block block) {
@@ -468,7 +572,7 @@ public enum MaterialType {
 
         if (hasAnyBukkitTag(material, "SLABS", "WOODEN_SLABS")) return true;
 
-        String name = material.name().toUpperCase();
+        String name = material.name();
 
         return name.endsWith("_SLAB")
                 || name.contains("_SLAB")

@@ -2,9 +2,13 @@ package me.arrow.utils;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import me.arrow.Arrow;
 import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.exception.AnticheatException;
+import me.arrow.utils.custom.materials.MaterialType;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -313,5 +317,107 @@ public class ReflectionUtils {
             }
         }
         throw new AnticheatException("Couldn't find method at class " + clazz.getSimpleName());
+    }
+
+
+
+    public static String getPoseName(Player player) {
+        try {
+            Method getPose = player.getClass().getMethod("getPose");
+            Object pose = getPose.invoke(player);
+
+            if (pose != null) {
+                return pose.toString().toUpperCase(java.util.Locale.ROOT);
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return "STANDING";
+    }
+
+    public static boolean isSwimming(Player player) {
+        try {
+            Method isSwimming = player.getClass().getMethod("isSwimming");
+            Object result = isSwimming.invoke(player);
+
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    public static boolean isGliding(Player player) {
+        try {
+            return Arrow.getInstance().getNmsManager().getNmsInstance().isGliding(player);
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            Method isGliding = player.getClass().getMethod("isGliding");
+            Object result = isGliding.invoke(player);
+
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+
+    public static boolean isWaterOrWaterlogged(Block block) {
+        if (block == null) {
+            return false;
+        } else {
+            block.getType();
+        }
+
+        Material material = block.getType();
+        String name = material.name();
+
+        if (MaterialType.isMaterial(name, MaterialType.WATER)) {
+            return true;
+        }
+
+        if (isWaterPlantOrFluid(name)) {
+            return true;
+        }
+
+        if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
+            try {
+                Object blockData = block.getClass().getMethod("getBlockData").invoke(block);
+
+                if (blockData == null) {
+                    return false;
+                }
+
+                try {
+                    Object value = blockData.getClass().getMethod("isWaterlogged").invoke(blockData);
+
+                    if (value instanceof Boolean) {
+                        return (Boolean) value;
+                    }
+                } catch (NoSuchMethodException ignored) {
+                    return false;
+                }
+            } catch (Throwable ignored) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isWaterPlantOrFluid(String name) {
+        if (name == null) {
+            return false;
+        }
+
+        return name.equals("KELP")
+                || name.equals("KELP_PLANT")
+                || name.equals("SEAGRASS")
+                || name.equals("TALL_SEAGRASS")
+                || name.equals("BUBBLE_COLUMN")
+                || name.equals("WATER_CAULDRON")
+                || name.equals("LEGACY_STATIONARY_WATER")
+                || name.equals("LEGACY_WATER");
     }
 }

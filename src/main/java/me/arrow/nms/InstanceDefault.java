@@ -2,11 +2,13 @@ package me.arrow.nms;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import me.arrow.utils.ReflectionUtils;
 import me.arrow.utils.TaskUtils;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Waterlogged;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -17,9 +19,23 @@ import java.util.Objects;
 
 public class InstanceDefault implements NmsInstance {
 
+    private static final ServerVersion VERSION =
+            PacketEvents.getAPI()
+                    .getServerManager()
+                    .getVersion();
+
+    private static final boolean HAS_1_9 =
+            VERSION.isNewerThan(ServerVersion.V_1_8_8);
+
+    private static final boolean HAS_1_13 =
+            VERSION.isNewerThanOrEquals(ServerVersion.V_1_13);
+
+    private static final boolean HAS_1_14 =
+            VERSION.isNewerThanOrEquals(ServerVersion.V_1_14);
+
     @Override
     public float getAttackCooldown(Player player) {
-        return PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_9) ? player.getAttackCooldown() : 1F;
+        return HAS_1_9 ? player.getAttackCooldown() : 1F;
     }
 
 
@@ -49,15 +65,19 @@ public class InstanceDefault implements NmsInstance {
 
     @Override
     public boolean isWaterLogged(Block block) {
-        return PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)
-                && block.getBlockData() instanceof Waterlogged
-                && ((Waterlogged) block.getBlockData()).isWaterlogged();
+        if (!HAS_1_13) {
+            return false;
+        }
+
+        BlockData data = block.getBlockData();
+
+        return data instanceof Waterlogged
+                && ((Waterlogged) data).isWaterlogged() || ReflectionUtils.isWaterOrWaterlogged(block);
     }
 
     @Override
     public boolean isCrawling(Player player) {
-        return PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)
-                && player.getPose() == Pose.SWIMMING;
+        return HAS_1_13 && player.getPose() == Pose.SWIMMING;
     }
 
 
@@ -73,16 +93,16 @@ public class InstanceDefault implements NmsInstance {
 
     @Override
     public boolean isSwimming(Player player) {
-        return PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13) && player.isSwimming();
+        return HAS_1_13 && player.isSwimming();
     }
 
     @Override
     public boolean isGliding(Player player) {
-        if (!PacketEvents.getAPI().getServerManager().getVersion().isNewerThan(ServerVersion.V_1_8_8)) {
+        if (!VERSION.isNewerThan(ServerVersion.V_1_8_8)) {
             return false;
         }
 
-        if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_14)) {
+        if (HAS_1_14) {
             return player.getPose() == Pose.FALL_FLYING;
         }
 
@@ -96,7 +116,7 @@ public class InstanceDefault implements NmsInstance {
 
     @Override
     public boolean isRiptiding(Player player) {
-        return PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13) && player.isRiptiding();
+        return HAS_1_13 && player.isRiptiding();
     }
 
     @Override
@@ -112,7 +132,7 @@ public class InstanceDefault implements NmsInstance {
     @Override
     public ItemStack getItemInMainHand(Player player) {
         try {
-            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThan(ServerVersion.V_1_8_8)) {
+            if (VERSION.isNewerThan(ServerVersion.V_1_8_8)) {
                 return player.getInventory().getItemInMainHand(); // safe on 1.9+
             } else {
                 return player.getItemInHand(); // 1.8
@@ -125,7 +145,7 @@ public class InstanceDefault implements NmsInstance {
     @Override
     public ItemStack getItemInOffHand(Player player) {
         try {
-            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThan(ServerVersion.V_1_8_8)) {
+            if (VERSION.isNewerThan(ServerVersion.V_1_8_8)) {
                 return player.getInventory().getItemInOffHand(); // safe on 1.9+
             } else {
                 return new ItemStack(Material.AIR); // 1.8 has no offhand
@@ -144,7 +164,7 @@ public class InstanceDefault implements NmsInstance {
 
     @Override
     public float getAttributeSpeed(Player player) {
-        return PacketEvents.getAPI().getServerManager().getVersion().isNewerThan(ServerVersion.V_1_8_8)  ? (float) Objects.requireNonNull(player.getAttribute(Attribute.MOVEMENT_SPEED)).getValue() : 0.1F;
+        return VERSION.isNewerThan(ServerVersion.V_1_8_8) ? (float) Objects.requireNonNull(player.getAttribute(Attribute.MOVEMENT_SPEED)).getValue() : 0.1F;
     }
 
     @Override

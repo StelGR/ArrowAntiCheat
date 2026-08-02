@@ -1,12 +1,16 @@
 package me.arrow.checks.impl.movement.prediction;
 
 import lombok.Getter;
+import me.arrow.Arrow;
+import me.arrow.managers.profiler.Profiler;
+import me.arrow.nms.NmsInstance;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 
 public class MovementPredictionUtil {
 
@@ -372,35 +376,41 @@ public class MovementPredictionUtil {
     }
 
     private static boolean isBlocking(World world, int x, int y, int z) {
+        long profiler = Profiler.start();
+
         try {
-            Material meterialtype = world.getBlockAt(x, y, z).getType();
-            String type = meterialtype.name();
+            try {
+                NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
+                Block block = world.getBlockAt(x, y, z);
+                Material materialtype = nms.getType(block);
+                String type = materialtype.name();
 
+                if (MaterialType.isMaterial(type, MaterialType.AIR)) return false;
+                if (MaterialType.isMaterial(type, MaterialType.LIQUID)) return false;
+                if (MaterialType.isMaterial(type, MaterialType.TRANSPARENT)) return false;
+                if (MaterialType.isMaterial(type, MaterialType.HALF_BLOCK)) return true;
+                if (MaterialType.isMaterial(type, MaterialType.PANE)) return true;
+                if (MaterialType.isMaterial(type, MaterialType.FENCE)) return true;
+                if (MaterialType.isMaterial(type, MaterialType.WALL)) return true;
+                if (MaterialType.isMaterial(type, MaterialType.DOOR)) return true;
+                if (MaterialType.isMaterial(type, MaterialType.TRAPDOOR)) return true;
+                if (MaterialType.isMaterial(type, MaterialType.STAIRS)) return true;
+                if (MaterialType.isMaterial(type, MaterialType.SLAB)) return true;
+                if (MaterialType.isStair(type)) return true;
+                if (MaterialType.isFence(type)) return true;
+                if (MaterialType.isSlab(materialtype)) return true;
+                if (MaterialType.isWall(materialtype)) return true;
+                if (MaterialType.isFenceGate(materialtype)) return true;
+                if (MaterialType.isPane(materialtype)) return true;
+                if (MaterialType.isTrapdoor(materialtype)) return true;
+                if (PEMaterials.isNonFullShape(materialtype)) return true;
 
-            if (MaterialType.isMaterial(type, MaterialType.AIR)) return false;
-            if (MaterialType.isMaterial(type, MaterialType.LIQUID)) return false;
-            if (MaterialType.isMaterial(type, MaterialType.TRANSPARENT)) return false;
-
-            if (MaterialType.isMaterial(type, MaterialType.HALF_BLOCK)) return true;
-            if (MaterialType.isMaterial(type, MaterialType.PANE)) return true;
-            if (MaterialType.isMaterial(type, MaterialType.FENCE)) return true;
-            if (MaterialType.isMaterial(type, MaterialType.WALL)) return true;
-            if (MaterialType.isMaterial(type, MaterialType.DOOR)) return true;
-            if (MaterialType.isMaterial(type, MaterialType.TRAPDOOR)) return true;
-            if (MaterialType.isMaterial(type, MaterialType.STAIRS)) return true;
-            if (MaterialType.isMaterial(type, MaterialType.SLAB)) return true;
-            if (MaterialType.isStair(type)) return true;
-            if (MaterialType.isFence(type)) return true;
-            if (MaterialType.isSlab(meterialtype)) return true;
-            if (MaterialType.isWall(meterialtype)) return true;
-            if (MaterialType.isFenceGate(meterialtype)) return true;
-            if (MaterialType.isPane(meterialtype)) return true;
-            if (MaterialType.isTrapdoor(meterialtype)) return true;
-            if (PEMaterials.isNonFullShape(meterialtype)) return true;
-
-            return true;
-        } catch (IllegalStateException e) {
-            return false;
+                return true;
+            } catch (IllegalStateException e) {
+                return false;
+            }
+        } finally {
+            Profiler.stop("Movement Pred Util", profiler);
         }
     }
 

@@ -10,6 +10,7 @@ import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
+import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.OtherUtility;
@@ -164,9 +165,7 @@ public class GuiManager {
 
             Profile info = Arrow.getInstance().getProfileManager().getProfile(playerForInfo);
 
-            if (info == null) {
-                return;
-            }
+            MovementData movementData = info.getMovementData();
 
             List<PlayerLog> logs = Arrow.getInstance().getLogManager()
                     .getLogExporter()
@@ -221,28 +220,28 @@ public class GuiManager {
             extraDebugLore.add(translate(guiLine()));
             extraDebugLore.add(translate("&7BoundingBox: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getBoundingBox()));
 
-            if (info.getMovementData() != null && info.getMovementData().getLocation() != null) {
+            if (movementData != null && movementData.getLocation() != null) {
                 extraDebugLore.add(translate("&7Location: "));
-                extraDebugLore.add(translate(" &7X: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getLocation().getX()));
-                extraDebugLore.add(translate(" &7Y: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getLocation().getY()));
-                extraDebugLore.add(translate(" &7Z: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getLocation().getZ()));
-                if (info.getMovementData().getLocation().getWorld() != null) {
-                    extraDebugLore.add(translate(" &7World: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getLocation().getWorld().getName()));
+                extraDebugLore.add(translate(" &7X: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLocation().getX()));
+                extraDebugLore.add(translate(" &7Y: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLocation().getY()));
+                extraDebugLore.add(translate(" &7Z: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLocation().getZ()));
+                if (movementData.getLocation().getWorld() != null) {
+                    extraDebugLore.add(translate(" &7World: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLocation().getWorld().getName()));
                 }
-                extraDebugLore.add(translate(" &7Pitch: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getLocation().getPitch()));
-                extraDebugLore.add(translate(" &7Yaw: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getLocation().getYaw()));
+                extraDebugLore.add(translate(" &7Pitch: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLocation().getPitch()));
+                extraDebugLore.add(translate(" &7Yaw: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLocation().getYaw()));
             }
             extraDebugLore.add(translate("&7Elytra: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isWearingFunctionalElytra()));
             extraDebugLore.add(translate("&7Air Bridging: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isAirBridging(info.getPlayer().getLocation())));
             extraDebugLore.add(translate("&7Ghost Block: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isOnGhostBlock()));
             extraDebugLore.add(translate("&7Teleporting: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isExempt().isTeleports()));
             extraDebugLore.add("");
-            extraDebugLore.add(translate("&7Moving: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().isMoving()));
-            extraDebugLore.add(translate("&7DeltaXZ: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getDeltaXZ()));
-            extraDebugLore.add(translate("&7DeltaY: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getDeltaY()));
-            extraDebugLore.add(translate("&7Predict Up Ticks: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getSincePredictUpwardsTicks()));
-            extraDebugLore.add(translate("&7Predict Down Ticks: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().getSincePredictDownwardsTicks()));
-            extraDebugLore.add(translate("&7In Air: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.getMovementData().isCustomInAir()));
+            extraDebugLore.add(translate("&7Moving: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isMoving()));
+            extraDebugLore.add(translate("&7DeltaXZ: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaXZ()));
+            extraDebugLore.add(translate("&7DeltaY: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaY()));
+            extraDebugLore.add(translate("&7Predict Up Ticks: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()));
+            extraDebugLore.add(translate("&7Predict Down Ticks: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks()));
+            extraDebugLore.add(translate("&7In Air: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()));
             extraDebugLore.add("");
 
             try {
@@ -273,6 +272,12 @@ public class GuiManager {
                             + " &7Time: " + MsgType.MAIN_THEME_COLOR.getMessage() + durationSeconds + "s"));
                 }
             }
+
+            extraDebugLore.add("");
+            extraDebugLore.add(translate("&7Potion Effect Ticks:"));
+            extraDebugLore.add(translate(" &cSpeed: " + movementData.getSinceSpeedPotionEffectTicks()));
+            extraDebugLore.add(translate(" &cJumpBoost: " + movementData.getSinceJumpBoostEffectTicks()));
+            extraDebugLore.add(translate(" &cLevitation: " + movementData.getSinceLevitationEffectTicks()));
 
             extraDebugLore.add(translate(guiLine()));
 

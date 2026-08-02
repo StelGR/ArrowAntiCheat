@@ -31,6 +31,7 @@ import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.Exempt;
 import me.arrow.utils.customutils.EventTimer;
 import me.arrow.utils.customutils.EvictingMap;
+import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.versionutils.VersionUtils;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -320,11 +321,24 @@ public class Profile {
     }
 
     public boolean shouldCancel() {
+
+        if (player.getAllowFlight() && player.isFlying()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Profile: cancelling for flying");
+        }
+
+        if (getLastFlightToggleTimer().hasNotPassed(40)) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Profile: cancelling for flying timer, " + getLastFlightToggleTimer().getTick());
+        }
+
+        if (player.getGameMode() == GameMode.CREATIVE
+                || player.getGameMode() == GameMode.SPECTATOR) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Profile: cancelling for gamemode " + player.getGameMode());
+        }
+
         return (player.getAllowFlight() && player.isFlying())
                 || getLastFlightToggleTimer().hasNotPassed(40)
                 || player.getGameMode() == GameMode.CREATIVE
                 || player.getGameMode() == GameMode.SPECTATOR
-                || getTick() < 20
                 //|| !Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(movementData.getLocation().getWorld(), (int) movementData.getLocation().getX(), (int) movementData.getLocation().getZ())
                 //|| isExempt().isSetback()
                 ;
