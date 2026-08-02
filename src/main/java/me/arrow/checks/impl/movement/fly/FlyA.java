@@ -82,7 +82,7 @@ public class FlyA extends Check {
                     return;
                 }
 
-                if (movementData.getSinceLevitationEffectTicks() < 10
+                if ((movementData.getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)
                         && ((movementData.getDeltaY() != 0 && movementData.getLastDeltaY() != 0) || movementData.isUnderblock())) {
                     movementData.setCustomAirTicks(0);
                 }

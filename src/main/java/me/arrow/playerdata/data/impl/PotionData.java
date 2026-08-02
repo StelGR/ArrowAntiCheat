@@ -16,9 +16,9 @@ import static com.github.retrooper.packetevents.protocol.packettype.PacketType.P
 public class PotionData implements Data {
 
     Profile profile;
-    private boolean hasSpeed, hasJump, hasLevitation, hasSlowFalling;
-    private int speedAmplifier, jumpAmplifier, levitationAmplifier, slowFallingAmplifier;
-    private int speedTicks, jumpTicks, levitationTicks, slowFallingTicks;
+    boolean hasSpeed, hasJump, hasLevitation, hasSlowFalling;
+    int speedAmplifier, jumpAmplifier, levitationAmplifier, slowFallingAmplifier;
+    int speedTicks, jumpTicks, levitationTicks, slowFallingTicks;
 
     public PotionData(Profile profile) {
         this.profile = profile;

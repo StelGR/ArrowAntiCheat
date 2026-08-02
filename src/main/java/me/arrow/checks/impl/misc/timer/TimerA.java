@@ -30,8 +30,8 @@ public class TimerA extends Check {
     private static final double MIN_STABLE_TPS = 19.0D;
     private static final long MAX_STABLE_TICK_TIME = 65L;
 
-    private static final int MAX_PING_JITTER = 150;
-    private static final int MIN_STABLE_SAMPLES = 12;
+    private static final int MAX_PING_JITTER = 800;
+    private static final int MIN_STABLE_SAMPLES = 20;
     private static final double VIOLATION_DECAY_PER_SECOND = 0.10D;
 
     private long lastFlyingPacket;

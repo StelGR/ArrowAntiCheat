@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
+import me.arrow.nms.NmsInstance;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.MiscUtils;
 import me.arrow.utils.TaskUtils;
@@ -655,7 +656,10 @@ public class ActionData implements Data {
                 continue;
             }
 
-            Material actualType = world.getBlockAt(update.x, update.y, update.z).getType();
+            NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
+
+            Block block = world.getBlockAt(update.x, update.y, update.z);
+            Material actualType = nms.getType(block);
 
             if (isCorrectiveUnderPlacePacket(update.x, update.y, update.z, actualType)) {
                 iterator.remove();
