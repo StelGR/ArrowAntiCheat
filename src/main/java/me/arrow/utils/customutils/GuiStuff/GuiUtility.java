@@ -456,6 +456,18 @@ public class GuiUtility {
         return stack;
     }
 
+
+    public static ItemStack createToggleItem(Boolean enchanted, String... materialNames) {
+        Material material = firstMaterial(materialNames);
+
+        if (material == null) {
+            material = Material.BOOK;
+        }
+        
+
+        return new ItemStack(material, 1);
+    }
+
     public static ItemStack createItem(String... materialNames) {
         Material material = firstMaterial(materialNames);
 

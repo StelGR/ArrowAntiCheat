@@ -61,7 +61,7 @@ public class GravityC extends Check {
                     || profile.shouldCancel()
                     || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
                     || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                    || movementData.getSinceLevitationEffectTicks() < 10) return;
+                    || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) return;
 
             ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
             if (world.shouldExemptMovementChecks()
@@ -191,7 +191,8 @@ public class GravityC extends Check {
             lastOffset = 0.0D;
             return;
         }
-        if (profile.getPotionData().isHasLevitation() || profile.getPotionData().isHasSlowFalling()) {
+        if ((profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)
+                || profile.getPotionData().isHasSlowFalling()) {
             lastOffset = 0.0D;
             return;
         }

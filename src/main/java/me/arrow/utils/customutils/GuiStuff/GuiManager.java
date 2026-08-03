@@ -330,38 +330,35 @@ public class GuiManager {
         ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
         Inventory gui = Bukkit.createInventory(player, 45, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Settings"));
 
-        ItemStack alertsOnJoinItem = createToggleWool(Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean(), serverVersion);
-        gui.setItem(10, generateItem(alertsOnJoinItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Alerts on Join"),
+        gui.setItem(10, generateItem(new ItemStack(Material.FIREWORK_ROCKET), translate((Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean() ? "&a" : "&c") + "Alerts on Join"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable alerts for admins when they join?"),
                         "",
                         translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage() + Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean()),
                         translate(guiLine())
-                )));
+                ), true, Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean()));
 
         ItemStack alertConsoleItem = createToggleWool(Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean(), serverVersion);
-        gui.setItem(12, generateItem(alertConsoleItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Alert Console"),
+        gui.setItem(12, generateItem(alertConsoleItem, translate((Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean() ? "&a" : "&c") + "Alert Console"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we also send alerts in console?"),
                         "",
                         translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage() + Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean()),
                         translate(guiLine())
-                )));
+                ), true, Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean()));
 
-        ItemStack logsItem = createToggleWool(Config.Setting.LOGS_ENABLED.getBoolean(), serverVersion);
-        gui.setItem(14, generateItem(logsItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Logs"),
+        gui.setItem(14, generateItem(new ItemStack(Material.PAPER, 1), translate((Config.Setting.LOGS_ENABLED.getBoolean() ? "&a" : "&c") + "Logs"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable logging?"),
                         "",
                         translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage() + Config.Setting.LOGS_ENABLED.getBoolean()),
                         translate(guiLine())
-                )));
+                ), true, Config.Setting.LOGS_ENABLED.getBoolean()));
 
-        ItemStack punishItem = createToggleWool(Config.Setting.PUNISH_ENABLED.getBoolean(), serverVersion);
-        gui.setItem(16, generateItem(punishItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Punishments"),
+        gui.setItem(16, generateItem(createItem("DIAMOND_AXE", "DIAMOND_AXE"), translate((Config.Setting.PUNISH_ENABLED.getBoolean() ? "&a" : "&c") + "Punishments"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we punish players for cheating?"),
@@ -370,14 +367,9 @@ public class GuiManager {
                         "",
                         translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage() + Config.Setting.PUNISH_ENABLED.getBoolean()),
                         translate(guiLine())
-                )));
+                ), true, Config.Setting.PUNISH_ENABLED.getBoolean()));
 
-        ItemStack benchmarkerItem = createToggleWool(
-                Config.Setting.BENCHMARK_ENABLED.getBoolean(),
-                serverVersion
-        );
-
-        gui.setItem(20, generateItem(benchmarkerItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Benchmarker"),
+        gui.setItem(20, generateItem(createItem("REDSTONE_TORCH", "REDSTONE_TORCH_ON"), translate((Config.Setting.BENCHMARK_ENABLED.getBoolean() ? "&a" : "&c") + "Benchmarker"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable the profiler to benchmark anticheat server cpu usage?"),
@@ -385,14 +377,9 @@ public class GuiManager {
                         translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage()
                                 + Config.Setting.GHOST_BLOCK_FIX.getBoolean()),
                         translate(guiLine())
-                )));
+                ), true, Config.Setting.BENCHMARK_ENABLED.getBoolean()));
 
-        ItemStack ghostBlockSyncItem = createToggleWool(
-                Config.Setting.GHOST_BLOCK_FIX.getBoolean(),
-                serverVersion
-        );
-
-        gui.setItem(24, generateItem(ghostBlockSyncItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ghost-Block Sync"),
+        gui.setItem(24, generateItem(createItem("REDSTONE_COMPARATOR", "REDSTONE_COMPARATOR_ON"), translate((Config.Setting.GHOST_BLOCK_FIX.getBoolean() ? "&a" : "&c") + "Ghost-Block Sync"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we fix ghostblock desyncs (Live)"),
@@ -400,10 +387,9 @@ public class GuiManager {
                         translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage()
                                 + Config.Setting.GHOST_BLOCK_FIX.getBoolean()),
                         translate(guiLine())
-                )));
+                ), true, Config.Setting.GHOST_BLOCK_FIX.getBoolean()));
 
-        ItemStack testModeItem = createToggleWool(Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean(), serverVersion);
-        gui.setItem(28, generateItem(testModeItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Test Server Mode"),
+        gui.setItem(28, generateItem(createItem("REDSTONE", "REDSTONE_DUST"), translate((Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean() ? "&a" : "&c") + "Test Server Mode"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable the test server mode?"),
@@ -412,8 +398,7 @@ public class GuiManager {
                         translate(guiLine())
                 )));
 
-        ItemStack debugItem = createToggleWool(Config.Setting.DEBUG.getBoolean(), serverVersion);
-        gui.setItem(30, generateItem(debugItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Debug Mode"),
+        gui.setItem(30, generateItem(new ItemStack(Material.STICK, 1), translate((Config.Setting.DEBUG.getBoolean() ? "&a" : "&c") + "Debug Mode"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable the debug mode?"),
@@ -421,20 +406,18 @@ public class GuiManager {
                         "",
                         translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage() + Config.Setting.DEBUG.getBoolean()),
                         translate(guiLine())
-                )));
+                ), true, Config.Setting.DEBUG.getBoolean()));
 
-        ItemStack bypassItem = createToggleWool(Config.Setting.IGNORE_BEDROCK.getBoolean(), serverVersion);
-        gui.setItem(32, generateItem(bypassItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ignore Bedrock"),
+        gui.setItem(32, generateItem(new ItemStack(Material.BEDROCK, 1), translate((Config.Setting.IGNORE_BEDROCK.getBoolean() ? "&a" : "&c") + "Ignore Bedrock"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we ignore bedrock players?"),
                         "",
                         translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage() + Config.Setting.IGNORE_BEDROCK.getBoolean()),
                         translate(guiLine())
-                )));
+                ), true, Config.Setting.IGNORE_BEDROCK.getBoolean()));
 
-        ItemStack animationItem = createToggleWool(Config.Setting.BAN_ANIMATION_ENABLED.getBoolean(), serverVersion);
-        gui.setItem(34, generateItem(animationItem, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ban Animations"),
+        gui.setItem(34, generateItem(createItem("ANVIL", "ANVIL"), translate((Config.Setting.BAN_ANIMATION_ENABLED.getBoolean() ? "&a" : "&c") + "Ban Animations"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould punishments use ban animations?"),
@@ -445,7 +428,7 @@ public class GuiManager {
                         translate("&aLeft Click &7to toggle animations."),
                         translate("&eRight Click &7to select animation style."),
                         translate(guiLine())
-                )));
+                ), true, Config.Setting.BAN_ANIMATION_ENABLED.getBoolean()));
 
         gui.setItem(40, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
                 Arrays.asList(

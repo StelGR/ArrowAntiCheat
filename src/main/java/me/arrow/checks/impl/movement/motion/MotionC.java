@@ -58,7 +58,7 @@ public class MotionC extends Check {
                         || movementData.getSinceNearWaterTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
                         || profile.isExempt().isTeleports()
                         || profile.getPlayer().isInsideVehicle()
-                        || profile.getPotionData().isHasLevitation()) {
+                        || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
                     return;
                 }
 

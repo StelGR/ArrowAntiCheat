@@ -201,7 +201,7 @@ public class FlyB extends Check {
                     fail("Impossible acceleration with levitation", verboseInfo);
                 }
 
-                if (movementData.getSinceLevitationEffectTicks() < 20) return;
+                if (movementData.getSinceLevitationEffectTicks() < 20 && profile.getPotionData().getLevitationTicks() > 0) return;
 
                 if ((invalid
                         && (!movementData.isNearWater()

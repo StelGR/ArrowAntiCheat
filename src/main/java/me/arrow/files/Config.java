@@ -122,6 +122,7 @@ public class Config implements Initializer {
         TEST_SERVER_MODE_BUILD_ZONE_ITEMS("test_server_mode.build_zone.items", false, "Should we give custom items for people to use in our build zone and other areas?", "Do not use this if you have other items because it would clear peoples items for a diamond sword and diamond blocks (this also makes the diamond blocks re-apear after placing in your inventory if enabled)"),
         TEST_SERVER_MODE_BUILD_ZONE_SPAWN("test_server_mode.build_zone.spawn", "0, 1, 0", "Spawn point when build mode is enabled"),
 
+        COMPATIBILITY("compatibility_mode", false, "Should we enable compatibility mode? This will make the anticheat work with dungeons and taverns enchants (as of right now)"),
 
         BENCHMARK("benchmark", "", "Benchmark Settings"),
         BENCHMARK_ENABLED("benchmark.enabled", false, "Should we benchmark the anticheat? only enable if you are having performance issues, and want to diagnose"),

@@ -55,6 +55,9 @@ public class VelocityA extends Check {
         addCauseIfPresent(set, "CONTACT");
         addCauseIfPresent(set, "DROWNING");
         addCauseIfPresent(set, "THORNS");
+        addCauseIfPresent(set, "FREEZE");
+        addCauseIfPresent(set, "FREEZE");
+        addCauseIfPresent(set, "HOT_FLOOR");
         addCauseIfPresent(set, "FLY_INTO_WALL");
         addCauseIfPresent(set, "CRAMMING");
         addCauseIfPresent(set, "WORLD_BORDER");
