@@ -59,7 +59,7 @@ public class GravityB extends Check {
                     || profile.shouldCancel()
                     || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
                     || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                    || movementData.getSinceLevitationEffectTicks() < 10) return;
+                    || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) return;
 
             ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
             if (world.shouldExemptMovementChecks()
@@ -165,7 +165,7 @@ public class GravityB extends Check {
         if (!isClientGround && !(profile.getVelocityData().isTakingVelocity()
                 && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2))) {
             double normalPrediction;
-            if (profile.getPotionData().isHasLevitation()) {
+            if (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0) {
                 normalPrediction = (lastDeltaY * 0.8D) + (0.01D * profile.getPotionData().getLevitationAmplifier());
             } else {
                 normalPrediction = (lastDeltaY - 0.08D) * 0.9800000190734863D;

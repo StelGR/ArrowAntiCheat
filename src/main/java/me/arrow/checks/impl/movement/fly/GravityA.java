@@ -373,7 +373,7 @@ public class GravityA extends Check {
             return Double.isFinite(predicted) ? predicted : 0.0D;
         }
 
-        if (user.getPotionData().isHasLevitation()) {
+        if (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0) {
             int amp = user.getPotionData().getLevitationAmplifier();
             double levPerTick = (0.9D * (amp + 1)) / 20.0D;
             double predicted = lastDeltaY + levPerTick;

@@ -111,7 +111,7 @@ public class GravityD extends Check {
                         || profile.shouldCancel()
                         || movementData.getSinceGlidingTicks() < 30 + (transTicks * 2)
                         || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                        || movementData.getSinceLevitationEffectTicks() < 20) {
+                        || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
                     resetGravityD("globalMovementExempt");
                     return;
                 }
@@ -456,8 +456,7 @@ public class GravityD extends Check {
             return true;
         }
 
-        if (data.getSinceLevitationEffectTicks() < 20
-                || profile.getPotionData().isHasSlowFalling()
+        if ((profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)|| profile.getPotionData().isHasSlowFalling()
                 || profile.getPotionData().getSlowFallingTicks() > 0) {
             return true;
         }
@@ -969,8 +968,7 @@ public class GravityD extends Check {
         // Bukkit potion state is not transaction-confirmed to the client. Ignore the
         // active effect and its short decay window so application/removal cannot leave
         // a stale normal-gravity trajectory or false high-ping players.
-        if (data.getSinceLevitationEffectTicks() < 20
-                || profile.getPotionData().isHasSlowFalling()
+        if ((profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)|| profile.getPotionData().isHasSlowFalling()
                 || profile.getPotionData().getSlowFallingTicks() > 0) {
             resetGravityD("gravityPotion");
             return true;

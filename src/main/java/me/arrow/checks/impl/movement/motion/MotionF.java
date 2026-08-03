@@ -70,7 +70,7 @@ public class MotionF extends Check {
                     || md.getLadderTicks() < 10
                     || md.isOnGround()
                     || md.isLastOnGround()
-                    || pot.isHasLevitation()
+                    || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)
                     || clientAirTicks < 6;
 
             if (!exempt) {

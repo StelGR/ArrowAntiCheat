@@ -21,6 +21,8 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 
 public class IllegalMoveA extends Check {
@@ -57,11 +59,12 @@ public class IllegalMoveA extends Check {
                 }
 
                 if (profile.getExempt().isReelingIn()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion F: is Exempting (reelingIn)");
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove A: is Exempting (reelingIn)");
                     return;
                 }
 
                 if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove A: is Exempting (teleports)");
                     return;
                 }
 
@@ -143,6 +146,23 @@ public class IllegalMoveA extends Check {
 
                 if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
                     stepHeight += (SpeedUtilities.getJumpBoostPotionLevel(profile) * 0.1F);
+                }
+
+
+
+                if (Config.Setting.COMPATIBILITY.getBoolean()) {
+                    PlayerInventory playerinv = profile.getPlayer().getInventory();
+                    ItemStack playerBoots = playerinv.getBoots();
+
+                    if (playerBoots != null) {
+                        if (playerBoots.getItemMeta() != null) {
+                            if (playerBoots.getItemMeta().getLore() != null) {
+                                if (playerBoots.getItemMeta().getLore().contains("Traveler")) {
+                                    stepHeight += 0.5;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if ((deltaY > stepHeight)
