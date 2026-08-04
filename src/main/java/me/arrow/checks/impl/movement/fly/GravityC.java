@@ -59,6 +59,7 @@ public class GravityC extends Check {
                     || movementData.isNearWater()
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
+                    || profile.getTick() < 120
                     || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
                     || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                     || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) return;

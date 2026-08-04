@@ -73,8 +73,10 @@ public class MotionF extends Check {
                     || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)
                     || clientAirTicks < 6;
 
+            double expected = profile.isBedrockPlayer() ? 0.21 : 0.11760000228885;
+
             if (!exempt) {
-                if (deltaY > 0.11760000228885
+                if (deltaY > expected
                         && md.isClimb()) {
                     fail("Fast Ladder?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                             + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY

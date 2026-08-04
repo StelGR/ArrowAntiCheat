@@ -40,7 +40,7 @@ import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
-import static me.arrow.utils.custom.materials.MaterialType.isMaterial;
+import static me.arrow.utils.custom.materials.MaterialType.*;
 
 // this is the entire main data of the anticheat, there's alot of crap thrown in here, and some of them should be in other data classes
 // there will be a big recode to organize stuff in the future.
@@ -106,7 +106,7 @@ public class MovementData implements Data {
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
             customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
-            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks;
+            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks, sinceMovingUnderBlockTicks;
 
     @Getter
     @Setter
@@ -507,38 +507,36 @@ public class MovementData implements Data {
                             );
 
                             Material material = nms.getType(block);
+                            String materialName = material.name();
 
-                            int flags = MaterialType.getFlags(material);
+                            flag_water |= isMaterialEqual(materialName, MaterialType.WATER)  || nms.isWaterLogged(block);
 
-                            flag_water |= (flags & MaterialType.FLAG_WATER) != 0
-                                    || nms.isWaterLogged(block);
+                            flag_slime |= isMaterialEqual(materialName, MaterialType.SLIME) ;
+                            flag_bubble |= isMaterialEqual(materialName, MaterialType.BUBBLE);
+                            flag_lava |= isMaterialEqual(materialName, MaterialType.LAVA);
+                            flag_web |= isMaterialEqual(materialName, MaterialType.WEB);
 
-                            flag_slime |= (flags & MaterialType.FLAG_SLIME) != 0;
-                            flag_bubble |= (flags & MaterialType.FLAG_BUBBLE) != 0;
-                            flag_lava |= (flags & MaterialType.FLAG_LAVA) != 0;
-                            flag_web |= (flags & MaterialType.FLAG_WEB) != 0;
-
-                            flag_climbable |= (flags & MaterialType.FLAG_CLIMBABLE) != 0
-                                    || (flags & MaterialType.FLAG_SCAFFOLDING) != 0;
+                            flag_climbable |= isMaterialEqual(materialName, MaterialType.SCAFFOLDING)
+                                    || isMaterialEqual(materialName, MaterialType.CLIMBABLE);
 
                             flag_nearBuggyBlock |=
-                                    (flags & MaterialType.FLAG_BUGGY_BLOCK) != 0;
+                                    isMaterialEqual(materialName, MaterialType.BUGGY_BLOCK);
 
-                            flag_bed |= (flags & MaterialType.FLAG_BED) != 0;
+                            flag_bed |= isMaterialEqual(materialName, MaterialType.BED) || MaterialType.isBed(material);
 
-                            flag_honey |= (flags & MaterialType.FLAG_HONEY) != 0;
+                            flag_honey |= isMaterialEqual(materialName, MaterialType.HONEY);
 
-                            flag_shulker |= (flags & MaterialType.FLAG_SHULKER) != 0;
+                            flag_shulker |= isMaterialEqual(materialName, MaterialType.SHULKER);
 
-                            flag_dripleaf |= (flags & MaterialType.FLAG_DRIP_LEAF) != 0;
+                            flag_dripleaf |= isMaterialEqual(materialName, MaterialType.DRIP_LEAF);
 
                             flag_contact |=
-                                    (flags & MaterialType.FLAG_CACTUS) != 0
-                                            || (flags & MaterialType.FLAG_BERRIES) != 0;
+                                    isMaterialEqual(materialName, MaterialType.CACTUS)
+                                            || isMaterialEqual(materialName, MaterialType.BERRIES);
 
                             flag_fence |=
-                                    (flags & MaterialType.FLAG_FENCE) != 0
-                                            || (flags & MaterialType.FLAG_WALL) != 0;
+                                    isMaterialEqual(materialName, MaterialType.FENCE)
+                                            || MaterialType.isFence(material);
                         }
                     }
                 }
@@ -569,7 +567,7 @@ public class MovementData implements Data {
                     checkLoc.setZ(checkLoc.getZ() + z);
                     checkLoc.setY(checkLoc.getY() + 0.5);
                     String mName = nms.getType(checkLoc.getBlock()).name();
-                    if (isMaterial(mName, MaterialType.WATER)) {
+                    if (isMaterialEqual(mName, MaterialType.WATER)) {
                         isInsideWater = true;
                         break;
                     }
@@ -612,11 +610,11 @@ public class MovementData implements Data {
 
             underblock = flag_underblock;
 
-            insideLiquid = isMaterial(nms.getType(location.clone().subtract(0D, 1D, 0D).getBlock()).name(), MaterialType.LIQUID)
-                    || isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.LIQUID);
+            insideLiquid = isMaterialEqual(nms.getType(location.clone().subtract(0D, 1D, 0D).getBlock()).name(), MaterialType.LIQUID)
+                    || isMaterialEqual(nms.getType(location.clone().getBlock()).name(), MaterialType.LIQUID);
 
-            climb = isMaterial(nms.getType(location.clone().subtract(0D, -1D, 0D).getBlock()).name(), MaterialType.CLIMBABLE)
-                    || isMaterial(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
+            climb = isMaterialEqual(nms.getType(location.clone().subtract(0D, -1D, 0D).getBlock()).name(), MaterialType.CLIMBABLE)
+                    || isMaterialEqual(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
 
             nearStepMaterial =
                     containsStepMaterial(nearbyBlocksResult)
@@ -632,8 +630,8 @@ public class MovementData implements Data {
     private static boolean isStepMaterial(Material m) {
         String name = m.name();
 
-        return isMaterial(name, MaterialType.HALF_BLOCK)
-                || isMaterial(name, MaterialType.HEIGHT_CHANGE)
+        return isMaterialEqual(name, MaterialType.HALF_BLOCK)
+                || isMaterialEqual(name, MaterialType.HEIGHT_CHANGE)
                 || isMaterial(name, MaterialType.SNOW)
                 || isMaterial(name, MaterialType.SOUL_SAND)
                 || MaterialType.isSlab(m)
@@ -708,9 +706,9 @@ public class MovementData implements Data {
         String name = material.name();
 
         return !isMaterial(name, MaterialType.LIQUID)
-                && !isMaterial(name, MaterialType.WEB)
+                && !isMaterialEqual(name, MaterialType.WEB)
                 && !isMaterial(name, MaterialType.BUBBLE)
-                && !isMaterial(name, MaterialType.WATER_PLANT);
+                && !isMaterialEqual(name, MaterialType.WATER_PLANT);
     }
 
     private int floor(double value) {
@@ -722,11 +720,11 @@ public class MovementData implements Data {
         if (!material.isBlock()) return false;
         String name = material.name();
 
-        if (isMaterial(name, MaterialType.AIR)) return true;
-        if (isMaterial(name, MaterialType.WATER_PLANT)) return true;
-        if (isMaterial(name, MaterialType.LIQUID)) return true;
+        if (isMaterialEqual(name, MaterialType.AIR)) return true;
+        if (isMaterialEqual(name, MaterialType.WATER_PLANT)) return true;
+        if (isMaterialEqual(name, MaterialType.LIQUID)) return true;
         if (isMaterial(name, MaterialType.BUBBLE)) return true;
-        if (isMaterial(name, MaterialType.TRANSPARENT)) return true;
+        if (isMaterialEqual(name, MaterialType.TRANSPARENT)) return true;
 
         return switch (name) {
             case "TORCH", "SOUL_TORCH", "FIRE", "SOUL_FIRE", "REDSTONE", "WHEAT", "RAIL", "LEVER", "REDSTONE_TORCH",
@@ -1060,27 +1058,28 @@ public class MovementData implements Data {
             //ticks
 
             sincePowderSnowTicks = powdersnow ? 0 : sincePowderSnowTicks + 1;
-            movingOnIceTicks = (moving && onIce) ? (movingOnIceTicks < 30 ? movingOnIceTicks + 1f : 0) : (movingOnIceTicks > 0 ? movingOnIceTicks - 0.25f : 0);
-            iceTicks = onIce ? (iceTicks < 25 ? iceTicks + 1 : 0) : (iceTicks > 0 ? iceTicks - 1 : 0);
-
+            movingOnIceTicks = (moving && onIce) ? Math.max(movingOnIceTicks + 1, 20) : Math.max(movingOnIceTicks - 1, 0);
+            iceTicks = onIce ? Math.max(iceTicks + 1, 20) : Math.max(iceTicks - 1, 0);
 
             // this is a temporary, test fix, for piston movable slime blocks, it may not work properly in all scenarios, but it will do for now
             // assuming that it even works...
             onExtendedHitboxSlime = onSlime || slimeBelow0 || slimeBelow1 || slimeBelow2 || slimeAbove0 || slimeAbove1 || slimeAbove2 || slimeBelowBelow0 || slimeBelowBelow1 || slimeBelowBelow2 || slimeBelowBelow3 || slimeBelowBelow4 || slimeBelowBelow5
                     || (getMovingOnSlimeTicks() < 11 && getMovingOnSlimeTicks() > 0) || getSinceMovingOnSlimeTicks() < 10;
 
-            movingOnSlimeTicks = (moving && onSlime) ? (movingOnSlimeTicks < 30 ? movingOnSlimeTicks + 1F : 0F) : (movingOnSlimeTicks > 0 ?  movingOnSlimeTicks - 0.5F : 0);
-            slimeTicks = onSlime ? slimeTicks < 25 ? slimeTicks + 1 : 0 : slimeTicks > 0 ? slimeTicks - 1 : 0;
-            sinceNearSlimeTicks = isNearSlime() ? 0 : sinceNearSlimeTicks;
-            sinceNearPistonTicks = isNearPiston() ? 0 : sinceNearPistonTicks;
-            movingOnSoulTicks = (moving && onSoulSand) ? (movingOnSoulTicks < 25 ? movingOnSoulTicks + 1 : 0) : (movingOnSoulTicks > 0 ? movingOnSoulTicks - 1 : 0);
-            soulTicks = onSoulSand ? (soulTicks < 25 ? soulTicks + 1 : 0) : (soulTicks > 0 ? soulTicks - 1 : 0);
-            movingOnSoulBlocksTicks = (moving && onSoulBlock) ? (movingOnSoulBlocksTicks < 25 ? movingOnSoulBlocksTicks + 1 : 0) : (movingOnSoulBlocksTicks > 0 ? movingOnSoulBlocksTicks - 1 : 0);
-            movingOnHoneyTicks = (moving && onHoney) ? (movingOnHoneyTicks < 25 ? movingOnHoneyTicks + 1 : 0) : (movingOnHoneyTicks > 0 ? movingOnHoneyTicks - 1 : 0);
-            honeyTicks = onHoney ? (honeyTicks < 25 ? honeyTicks + 1 : 0) : (honeyTicks > 0 ? honeyTicks - 1 : 0);
+            movingOnSlimeTicks = (moving && onSlime) ? Math.max(movingOnSlimeTicks + 1, 20) : Math.max(movingOnSlimeTicks - 1, 0);
+            slimeTicks = onSlime ? Math.max(slimeTicks + 1, 20) : Math.max(slimeTicks - 1, 0);
+            sinceNearSlimeTicks = isNearSlime() ? 0 : sinceNearSlimeTicks + 1;
+            sinceNearPistonTicks = isNearPiston() ? 0 : sinceNearPistonTicks + 1;
+            movingOnSoulTicks = (moving && onSoulSand) ? Math.max(movingOnSoulTicks + 1, 20) : Math.max(movingOnSoulTicks - 1, 0);
+            soulTicks = onSoulSand ? Math.max(soulTicks + 1, 20) : Math.max(soulTicks - 1, 0);
+            movingOnSoulBlocksTicks = (moving && onSoulBlock) ? Math.max(movingOnSoulBlocksTicks + 1, 20) : Math.max(movingOnSoulBlocksTicks - 1, 0);
+            movingOnHoneyTicks = (moving && onHoney) ? Math.max(movingOnHoneyTicks + 1, 20) : Math.max(movingOnHoneyTicks - 1, 0);
+            honeyTicks = onHoney ? Math.max(honeyTicks + 1, 20) : Math.max(honeyTicks - 1, 0);
             sinceMovingOnIceTicks = movingOnIceTicks > 0 ? 0 : sinceMovingOnIceTicks + 1;
             sinceMovingOnSlimeTicks = movingOnSlimeTicks > 0 ? 0 : sinceMovingOnSlimeTicks + 1;
-            movingUnderblockTicks = (moving && isUnderblock()) ? (movingUnderblockTicks < 25 ? movingUnderblockTicks + 1f : 0) : (movingUnderblockTicks > 0 ? movingUnderblockTicks - 1 : 0);
+            movingUnderblockTicks = (moving && isUnderblock()) ? Math.max(movingUnderblockTicks + 1, 20) : Math.max(movingUnderblockTicks - 1, 0);
+
+            sinceMovingUnderBlockTicks = movingUnderblockTicks > 0 ? 0 : sinceMovingUnderBlockTicks + 1;
 
             movingTicks = moving ? movingTicks + 1 : 0;
             customAirTicks = inAir ? customAirTicks + 1 : 0;
@@ -1309,7 +1308,7 @@ public class MovementData implements Data {
             MaterialType type
     ) {
         for (Material mat : blocks) {
-            if (isMaterial(mat.name(), type)) {
+            if (isMaterialEqual(mat.name(), type)) {
                 return true;
             }
         }

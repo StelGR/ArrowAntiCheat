@@ -352,111 +352,6 @@ public enum MaterialType {
     private static final Map<String, Object> TAG_CACHE = new ConcurrentHashMap<>();
     private static final Map<String, Boolean> TAG_RESULT_CACHE = new ConcurrentHashMap<>();
 
-    public static final int FLAG_WATER = 1;
-    public static final int FLAG_SLIME = 1 << 1;
-    public static final int FLAG_BUBBLE = 1 << 2;
-    public static final int FLAG_LAVA = 1 << 3;
-    public static final int FLAG_WEB = 1 << 4;
-    public static final int FLAG_CLIMBABLE = 1 << 5;
-    public static final int FLAG_SCAFFOLDING = 1 << 6;
-    public static final int FLAG_BUGGY_BLOCK = 1 << 7;
-    public static final int FLAG_BED = 1 << 8;
-    public static final int FLAG_HONEY = 1 << 9;
-    public static final int FLAG_SHULKER = 1 << 10;
-    public static final int FLAG_DRIP_LEAF = 1 << 11;
-    public static final int FLAG_CACTUS = 1 << 12;
-    public static final int FLAG_BERRIES = 1 << 13;
-    public static final int FLAG_FENCE = 1 << 14;
-    public static final int FLAG_WALL = 1 << 15;
-    static final int[] MATERIAL_FLAGS = new int[Material.values().length];
-
-    static {
-        for (Material material : Material.values()) {
-            int flags = 0;
-
-            String name = material.name();
-
-            if (isMaterial(name, WATER)) {
-                flags |= FLAG_WATER;
-            }
-
-            if (isMaterial(name, SLIME)) {
-                flags |= FLAG_SLIME;
-            }
-
-            if (isMaterial(name, BUBBLE)) {
-                flags |= FLAG_BUBBLE;
-            }
-
-            if (isMaterial(name, LAVA)) {
-                flags |= FLAG_LAVA;
-            }
-
-            if (isMaterial(name, WEB)) {
-                flags |= FLAG_WEB;
-            }
-
-            if (isMaterial(name, CLIMBABLE)) {
-                flags |= FLAG_CLIMBABLE;
-            }
-
-            if (isMaterial(name, SCAFFOLDING)) {
-                flags |= FLAG_SCAFFOLDING;
-            }
-
-            if (isMaterial(name, BUGGY_BLOCK)) {
-                flags |= FLAG_BUGGY_BLOCK;
-            }
-
-            if (isMaterial(name, BED) || isBed(material)) {
-                flags |= FLAG_BED;
-            }
-
-            if (isMaterial(name, HONEY)) {
-                flags |= FLAG_HONEY;
-            }
-
-            if (isMaterial(name, SHULKER)) {
-                flags |= FLAG_SHULKER;
-            }
-
-            if (isMaterial(name, DRIP_LEAF)) {
-                flags |= FLAG_DRIP_LEAF;
-            }
-
-            if (isMaterial(name, CACTUS)) {
-                flags |= FLAG_CACTUS;
-            }
-
-            if (isMaterial(name, BERRIES)) {
-                flags |= FLAG_BERRIES;
-            }
-
-            if (isFence(material)) {
-                flags |= FLAG_FENCE;
-            }
-
-            if (isWall(material)) {
-                flags |= FLAG_WALL;
-            }
-
-            MATERIAL_FLAGS[material.ordinal()] = flags;
-        }
-    }
-
-
-    public static int getFlags(Material material) {
-        return material == null
-                ? 0
-                : MATERIAL_FLAGS[material.ordinal()];
-    }
-
-    public static boolean hasFlag(Material material, int flag) {
-        return material != null
-                && (MATERIAL_FLAGS[material.ordinal()] & flag) != 0;
-    }
-
-
     public static boolean isStair(Block block) {
         return block != null && isStair(block.getType());
     }
@@ -472,7 +367,7 @@ public enum MaterialType {
         // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
         return name.endsWith("_STAIRS")
                 || name.contains("_STAIR")
-                || isMaterial(name, MaterialType.STAIRS);
+                || isMaterialEqual(name, MaterialType.STAIRS);
     }
 
     public static boolean isBed(Block block) {
@@ -489,7 +384,7 @@ public enum MaterialType {
         // Future-proof:
         // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
         return name.endsWith("_BED")
-                || isMaterial(name, MaterialType.BED);
+                || isMaterialEqual(name, MaterialType.BED);
     }
 
     public static boolean isFence(Block block) {
@@ -510,7 +405,7 @@ public enum MaterialType {
                 || name.equals("FENCE")
                 || name.equals("NETHER_FENCE")
                 || name.equals("IRON_FENCE")
-                || isMaterial(name, MaterialType.FENCE);
+                || isMaterialEqual(name, MaterialType.FENCE);
     }
 
     public static boolean isFenceGate(Block block) {
@@ -543,7 +438,7 @@ public enum MaterialType {
         // COBBLESTONE_WALL, TUFF_WALL, WHITE_WOOL_WALL, etc.
         return name.endsWith("_WALL")
                 || name.equals("COBBLE_WALL")
-                || isMaterial(name, MaterialType.WALL);
+                || isMaterialEqual(name, MaterialType.WALL);
     }
 
     public static boolean isCarpet(Block block) {
@@ -580,7 +475,7 @@ public enum MaterialType {
                 || name.equals("WOOD_STEP")
                 || name.equals("WOODEN_SLAB")
                 || name.equals("STONE_SLAB2")
-                || isMaterial(name, MaterialType.SLAB);
+                || isMaterialEqual(name, MaterialType.SLAB);
     }
 
     public static boolean isDoor(Block block) {
@@ -597,7 +492,7 @@ public enum MaterialType {
         return name.endsWith("_DOOR")
                 || name.equals("WOODEN_DOOR")
                 || name.equals("IRON_DOOR_BLOCK")
-                || isMaterial(name, MaterialType.DOOR);
+                || isMaterialEqual(name, MaterialType.DOOR);
     }
 
     public static boolean isTrapdoor(Block block) {
@@ -613,7 +508,7 @@ public enum MaterialType {
 
         return name.endsWith("_TRAPDOOR")
                 || name.equals("TRAP_DOOR")
-                || isMaterial(name, MaterialType.TRAPDOOR);
+                || isMaterialEqual(name, MaterialType.TRAPDOOR);
     }
 
     public static boolean isPane(Block block) {
@@ -634,7 +529,7 @@ public enum MaterialType {
                 || name.equals("THIN_GLASS")
                 || name.equals("THIN_GLASS_PANE")
                 || name.equals("IRON_FENCE")
-                || isMaterial(name, MaterialType.PANE);
+                || isMaterialEqual(name, MaterialType.PANE);
     }
 
     public static boolean isButton(Block block) {
@@ -671,7 +566,7 @@ public enum MaterialType {
 
     public static boolean isStair(String materialName) {
         String name = normalizeMaterialName(materialName);
-        return name != null && (name.endsWith("_STAIRS") || isMaterial(name, MaterialType.STAIRS));
+        return name != null && (name.endsWith("_STAIRS") || isMaterialEqual(name, MaterialType.STAIRS));
     }
 
     public static boolean isFence(String materialName) {
@@ -681,7 +576,7 @@ public enum MaterialType {
                         || name.equals("FENCE")
                         || name.equals("NETHER_FENCE")
                         || name.equals("IRON_FENCE")
-                        || isMaterial(name, MaterialType.FENCE)
+                        || isMaterialEqual(name, MaterialType.FENCE)
         );
     }
 
@@ -695,7 +590,7 @@ public enum MaterialType {
         return name != null && (
                 name.endsWith("_WALL")
                         || name.equals("COBBLE_WALL")
-                        || isMaterial(name, MaterialType.WALL)
+                        || isMaterialEqual(name, MaterialType.WALL)
         );
     }
 
@@ -775,6 +670,23 @@ public enum MaterialType {
             TAG_CACHE.put(tagName, NO_TAG);
             return NO_TAG;
         }
+    }
+
+    public static boolean isMaterialEqual(String value, MaterialType type) {
+        /*
+        Null checking since we're going to be using the "==" operator which is not null safe.
+         */
+        if (value == null) return false;
+
+        /*
+        Compare using "=="
+        NOTE: This does improve perfomance by a L O T
+        However this can ONLY be used in cases such as this (Materials)
+        Where we're comparing string objects that never change no matter what (Applies to constant strings aswell).
+         */
+        for (String t : type.values) if (value.equals(t)) return true;
+
+        return false;
     }
 
     public static boolean isMaterial(String value, MaterialType type) {

@@ -411,6 +411,8 @@ public class GravityD extends Check {
             return false;
         }
 
+        if (data.isNearBoat() || data.isOnBoat()) return false;
+
         if (mathematicallyStrong || strictNegativeEvidence > required) {
             fail("Negative Gravity Modification", information);
             strictNegativeEvidence = Math.max(required, strictNegativeEvidence * 0.50D);

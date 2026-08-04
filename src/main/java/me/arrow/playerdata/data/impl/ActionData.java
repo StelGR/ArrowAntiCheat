@@ -1037,9 +1037,9 @@ public class ActionData implements Data {
 
         String name = material.name();
 
-        if (MaterialType.isMaterial(name, MaterialType.AIR)
+        if (MaterialType.isMaterialEqual(name, MaterialType.AIR)
                 || MaterialType.isMaterial(name, MaterialType.LIQUID)
-                || MaterialType.isMaterial(name, MaterialType.TRANSPARENT)) {
+                || MaterialType.isMaterialEqual(name, MaterialType.TRANSPARENT)) {
             return false;
         }
 
