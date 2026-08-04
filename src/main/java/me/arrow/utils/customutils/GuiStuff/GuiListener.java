@@ -142,6 +142,13 @@ public class GuiListener implements Listener {
                 openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
+            case 22:
+                Config.Setting.COMPATIBILITY.setValue(
+                        !Config.Setting.COMPATIBILITY.getBoolean()
+                );
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
+                break;
+
             case 20:
                 Config.Setting.BENCHMARK_ENABLED.setValue(
                         !Config.Setting.BENCHMARK_ENABLED.getBoolean()

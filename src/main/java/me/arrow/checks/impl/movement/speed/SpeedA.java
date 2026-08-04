@@ -11,6 +11,7 @@ import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.PotionData;
 import me.arrow.playerdata.data.impl.VelocityData;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
@@ -61,7 +62,6 @@ public class SpeedA extends Check {
             int movingHoneyTicks = movementData.getMovingOnHoneyTicks();
             float movingIceTicks = movementData.getMovingOnIceTicks();
             float underBlockMoveTime = movementData.getMovingUnderblockTicks();
-
 
             calculateAir(movementData, movingIceTicks, movingSlimeTicks, movingHoneyTicks, underBlockMoveTime, velocityH, deltaY, deltaXZ, clientAirTicks, clientGround, serverGround);
 
@@ -152,11 +152,6 @@ public class SpeedA extends Check {
                 return;
             }
 
-            if (movementData.getMovingOnSlimeTicks() > 0) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - collideSlime");
-                return;
-            }
-
             if (movementData.getSincePredictUpwardsTicks() < 10) {
                 groundBuffer = 0;
                 return;
@@ -203,6 +198,11 @@ public class SpeedA extends Check {
             }
 
             if (serverGroundTicks <= 10) allowedLimit += 0.004;
+
+
+            if (movementData.getMovingOnSlimeTicks() > 0) {
+                allowedLimit += 0.05;
+            }
 
             if (serverGround && deltaXZ != 0) {
                 verbose(this.getClass().getSimpleName(), predicted, allowedLimit,
@@ -257,16 +257,8 @@ public class SpeedA extends Check {
     final double SPRINT_BASE_SPEED = 0.22301212D;
     final double NO_SPRINT_BASE_SPEED = 0.25301212D;
 
-    final double AIR_SLIME_INCREMENT_PER_TICK = 0.12;
-    final double AIR_ICE_INCREMENT_PER_TICK = 0.1225;
-    final double AIR_ICE_INCREMENT_PER_TICK_SMALLER = 0.0625;
-
-    final double AIR_UNDER_BLOCK_SPEED_DECREMENT = 0.19;
     final double AIR_HONEY_INCREMENT_PER_TICK = 0.0021;
 
-    final double AIR_MAX_SLIME_SPEED_BOOST = 2.4;
-    final double AIR_MAX_ICE_SPEED_BOOST = 6.25;
-    final double AIR_MAX_UNDER_BLOCK_SPEED_BOOST = 1.2;
     final double AIR_MAX_HONEY_SPEED_BOOST = 1.1;
 
     private long lastDecayTick = -1L;
@@ -276,14 +268,6 @@ public class SpeedA extends Check {
 
         try {
             int speedLevel = SpeedUtilities.getSpeedPotionLevel(profile);
-
-            double air_iceSpeedBoost;
-            if (movingIceTicks < 15)
-                air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
-            else
-                air_iceSpeedBoost = Math.min(AIR_ICE_INCREMENT_PER_TICK_SMALLER * movingIceTicks, AIR_MAX_ICE_SPEED_BOOST);
-            double air_slimeSpeedBoost = Math.min(AIR_SLIME_INCREMENT_PER_TICK * movingSlimeTicks, AIR_MAX_SLIME_SPEED_BOOST);
-            double air_underBlockSpeedReduction = Math.min(AIR_UNDER_BLOCK_SPEED_DECREMENT * underBlockMoveTime, AIR_MAX_UNDER_BLOCK_SPEED_BOOST);
 
             double air_honeySpeedBoost = Math.min(AIR_HONEY_INCREMENT_PER_TICK * movingHoneyTicks, AIR_MAX_HONEY_SPEED_BOOST);
 
@@ -299,7 +283,7 @@ public class SpeedA extends Check {
                 expectedSpeed += soulSpeedLevel * 0.075D;
             }
 
-            expectedSpeed += expectedSpeed * (air_honeySpeedBoost + air_iceSpeedBoost + air_slimeSpeedBoost + air_underBlockSpeedReduction);
+            expectedSpeed += expectedSpeed * (air_honeySpeedBoost);
             if (movementData.getSinceSpeedPotionEffectTicks() < 15) expectedSpeed += 0.05;
             VelocityData vd = profile.getVelocityData();
 
@@ -381,6 +365,22 @@ public class SpeedA extends Check {
                 expectedSpeed += 0.004;
             }
 
+            PotionData potions = profile.getPotionData();
+
+            if (movingIceTicks > 0 && movementData.getSinceIceTicks() < 10 && !potions.isHasSpeed()) {
+                expectedSpeed += 0.35;
+            }
+
+            if (movingSlimeTicks > 0 && movementData.getLastFallDistance() > 1 && movementData.getSinceSlimeTicks() < 10) {
+                expectedSpeed += 0.3;
+            } else if (movingSlimeTicks > 0 && movementData.getLastFallDistance() < 1 && movementData.getSinceSlimeTicks() < 10) {
+                expectedSpeed += 0.08;
+            }
+
+            if (underBlockMoveTime > 0 && movementData.getSinceMovingUnderBlockTicks() < 10) {
+                expectedSpeed += potions.isHasSpeed() ? 0.36 : 0.3325;
+            }
+
             expectedSpeed += movementData.elytraMomentum();
             expectedSpeed += movementData.getDolphinGraceBoost();
 
@@ -410,11 +410,10 @@ public class SpeedA extends Check {
                     + "* moving Up Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* moving Down Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* nearStepMaterial " + movementData.isNearStepMaterial() + "\n"
-                    + "* iceMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_ICE_INCREMENT_PER_TICK + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* maxIceSpeedBoost " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_MAX_ICE_SPEED_BOOST + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* slimeMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_SLIME_INCREMENT_PER_TICK + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* maxSlimeSpeedBoost " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_MAX_SLIME_SPEED_BOOST + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* headHitMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + AIR_UNDER_BLOCK_SPEED_DECREMENT + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                    + "* iceTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movingIceTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                    + "* slimeTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movingSlimeTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                    + "* honeyTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movingHoneyTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                    + "* underblockTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + underBlockMoveTime + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributeBonus(profile) + "\n"
                     + "* potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirPotionBonus(profile) + "\n"
                     + "* comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributePotionBonus(profile) + "\n"

@@ -375,9 +375,19 @@ public class GuiManager {
                         translate("&7&oShould we enable the profiler to benchmark anticheat server cpu usage?"),
                         "",
                         translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage()
-                                + Config.Setting.GHOST_BLOCK_FIX.getBoolean()),
+                                + Config.Setting.BENCHMARK_ENABLED.getBoolean()),
                         translate(guiLine())
                 ), true, Config.Setting.BENCHMARK_ENABLED.getBoolean()));
+
+        gui.setItem(22, generateItem(createItem("IRONBLOCK", "IRON_BLOCK"), translate((Config.Setting.COMPATIBILITY.getBoolean() ? "&a" : "&c") + "Compatibility Mode"),
+                Arrays.asList(
+                        translate(guiLine()),
+                        translate("&7&oShould we enable plugin compatibility mode?"),
+                        "",
+                        translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage()
+                                + Config.Setting.COMPATIBILITY.getBoolean()),
+                        translate(guiLine())
+                ), true, Config.Setting.COMPATIBILITY.getBoolean()));
 
         gui.setItem(24, generateItem(createItem("REDSTONE_COMPARATOR", "REDSTONE_COMPARATOR_ON"), translate((Config.Setting.GHOST_BLOCK_FIX.getBoolean() ? "&a" : "&c") + "Ghost-Block Sync"),
                 Arrays.asList(

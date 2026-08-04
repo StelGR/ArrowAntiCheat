@@ -55,6 +55,7 @@ public class GravityB extends Check {
                     || movementData.isNearShulkerBox()
                     || movementData.isNearLava()
                     || movementData.isNearWater()
+                    || profile.getTick() < 120
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
                     || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
