@@ -11,8 +11,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.customutils.Math.MathUtil;
 
-// these only work on below 1.12.2, idk where they removed open inventory achievement packet, but yeah, only inventory B works
-// on modern, and since i have not worked on this since my focus is now on latest, it may have huge falses i am not aware of
+// Marked for removal
 
 public class InventoryA extends Check {
 

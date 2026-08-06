@@ -292,12 +292,12 @@ public class Checks implements Initializer {
         VELOCITY_A("VelocityA.enabled", true, "Should we enable this module?"),
         VELOCITY_A_PUNISH("VelocityA.punish", "", "Punishment settings"),
         VELOCITY_A_PUNISH_ENABLED("VelocityA.punish.enabled", true, "Should punishments be enabled for this check?"),
-        VELOCITY_A_PUNISH_MODE("VelocityA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        VELOCITY_A_PUNISH_MODE("VelocityA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         VELOCITY_A_MAX_VL("VelocityA.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        VELOCITY_B("VelocityB.enabled", false, "Should we enable this module?"),
+        VELOCITY_B("VelocityB.enabled", true, "Should we enable this module?"),
         VELOCITY_B_PUNISH("VelocityB.punish", "", "Punishment settings"),
-        VELOCITY_B_PUNISH_ENABLED("VelocityB.punish.enabled", false, "Should punishments be enabled for this check?"),
+        VELOCITY_B_PUNISH_ENABLED("VelocityB.punish.enabled", true, "Should punishments be enabled for this check?"),
         VELOCITY_B_PUNISH_MODE("VelocityB.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         VELOCITY_B_MAX_VL("VelocityB.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
