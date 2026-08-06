@@ -178,7 +178,7 @@ public class GravityC extends Check {
             return;
         }
 
-        final boolean slowFalling = profile.getPotionData().isHasSlowFalling();
+        final boolean slowFalling = profile.getPotionData().getSlowFallingTicks() > 0;
 
         if (slowFalling) return;
 
@@ -187,11 +187,12 @@ public class GravityC extends Check {
         final double JUMP_TOL = 0.046D;
 
         if (md.getSincePredictUpwardsTicks() < 10
-                || md.getSincePredictDownwardsTicks() < 5
+                || md.getSincePredictDownwardsTicks() < 10
                 || md.getSincePredictUpwardsTicksWithoutMaterial() < 10) {
             lastOffset = 0.0D;
             return;
         }
+
         if ((profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)
                 || profile.getPotionData().isHasSlowFalling()) {
             lastOffset = 0.0D;
@@ -312,7 +313,9 @@ public class GravityC extends Check {
     private static Set<EntityDamageEvent.DamageCause> buildIgnoredCauses() {
         EnumSet<EntityDamageEvent.DamageCause> set = EnumSet.noneOf(EntityDamageEvent.DamageCause.class);
         for (String name : new String[]{"VOID", "POISON", "WITHER", "FALL", "MAGIC", "FIRE", "FIRE_TICK", "CAMPFIRE", "SUFFOCATION", "LIGHTNING", "CONTACT", "THORNS", "FLY_INTO_WALL", "CRAMMING", "WORLD_BORDER"}) {
-            try { set.add(EntityDamageEvent.DamageCause.valueOf(name)); } catch (IllegalArgumentException ignored) { }
+            try {
+                set.add(EntityDamageEvent.DamageCause.valueOf(name));
+            } catch (IllegalArgumentException ignored) { }
         }
         return set;
     }

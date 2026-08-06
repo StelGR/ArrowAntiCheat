@@ -71,28 +71,21 @@ public class ElytraA extends Check {
             long profiler = Profiler.start();
 
             try {
+                MovementData movementData = profile.getMovementData();
 
                 if (profile.shouldCancel()
                         || profile.isExempt().isTeleports()
                         || profile.isExempt().isDead()
                         || PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8_8)
-                        || profile.getMovementData().getSinceRiptidingTicks() < 30
-                        || profile.getVelocityData().getTotalHorizontalVelocity() > 0
-                        || profile.getMovementData().getSinceGlitchedInsideBlockTicks() < 15 + profile.getConnectionData().getClientTickTrans()
-                        || !profile.isWearingFunctionalElytra()) {
+                        || movementData.getSinceRiptidingTicks() < 30
+                        || movementData.getSinceNearWaterTicks() < 10
+                        || movementData.isNearLava()
+                        || movementData.isNearWater()
+                        || movementData.getSinceBubbleTicks() < 15
+                        || movementData.getSinceGlidingTicks() > 0
+                        || profile.getVelocityData().getTotalHorizontalVelocity() > 0) {
                     return;
                 }
-                try {
-                    if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
-                        if (Arrow.getInstance().getNmsManager().getNmsInstance().isSwimming(profile.getPlayer()) && profile.getMovementData().isNearWater()) {
-                            return;
-                        }
-                    }
-                } catch (NoSuchMethodError ignored) {
-
-                }
-
-                MovementData movementData = profile.getMovementData();
 
                 boolean serverGround = movementData.isServerGround();
                 boolean clientGround = movementData.isOnGround();
@@ -103,9 +96,9 @@ public class ElytraA extends Check {
                 double pitch = profile.getRotationData().getPitch();
 
                 if (inAir && isMoving
-                        && !profile.getPlayer().isGliding()
                         && deltaY > -0.4f
-                        && movementData.getSinceNearWaterTicks() > 10) {
+                        && profile.isWearingFunctionalElytra()
+                        && !movementData.isNearLava()) {
                     if (deltaY != 0) {
                         samples.add(deltaY);
 
@@ -130,9 +123,7 @@ public class ElytraA extends Check {
                 );
 
 
-                if (inAir && profile.getPlayer().isGliding()
-                        && !movementData.isUnderblock()
-                        && movementData.getSinceInsideWaterTicks() > 10) {
+                if (inAir && !movementData.isUnderblock()) {
                     if (deltaY == movementData.getLastDeltaY()) {
                         fallingSamples.add(deltaY);
 
@@ -150,12 +141,7 @@ public class ElytraA extends Check {
                     }
                 }
 
-                if (inAir && profile.getPlayer().isGliding()
-                        && !movementData.isUnderblock()
-                        && !movementData.isNearWater()
-                        && !movementData.isNearLava()
-                        && movementData.getSinceInsideWaterTicks() > 10
-                        && movementData.getSinceBubbleTicks() > 15) {
+                if (inAir && !movementData.isUnderblock()) {
                     if (deltaY != movementData.getLastDeltaY()) {
                         if ((Math.abs(pitch) <= 84) && (pitch > 15 || pitch < -15) && movementData.getDeltaXZ() == 0 && movementData.getLastDeltaXZ() == 0) {
                             fail("Impossible elytra movement",

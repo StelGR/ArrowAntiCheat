@@ -179,8 +179,6 @@ public class OmniSprintA extends Check {
                             || movementData.isRiptiding()
                             || movementData.getSinceRiptidingTicks() < 20
                             || movementData.getSinceGlidingTicks() < 20
-                            || movementData.getSinceElytraEquipTicks() < 20
-
                             || profile.getVelocityData().isTakingVelocity()
                             || profile.getExempt().isVehicle()
                             || profile.getExempt().isTeleports()

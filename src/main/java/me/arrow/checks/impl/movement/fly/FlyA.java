@@ -11,6 +11,7 @@ import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.PotionData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.CustomLocation;
@@ -58,6 +59,7 @@ public class FlyA extends Check {
             try {
 
                 MovementData movementData = profile.getMovementData();
+                PotionData potionData = profile.getPotionData();
                 int serverAirTicks = movementData.getCustomAirTicks();
 
                 ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
@@ -82,7 +84,7 @@ public class FlyA extends Check {
                     return;
                 }
 
-                if ((movementData.getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)
+                if ((movementData.getSinceLevitationEffectTicks() < 10 && potionData.getLevitationTicks() > 0)
                         && ((movementData.getDeltaY() != 0 && movementData.getLastDeltaY() != 0) || movementData.isUnderblock())) {
                     movementData.setCustomAirTicks(0);
                 }
@@ -132,7 +134,7 @@ public class FlyA extends Check {
                     return;
                 }
 
-                if (profile.getMovementData().getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+                if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                     if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: is Exempting (teleports)");
                     movementData.setCustomAirTicks(0);
                     return;
@@ -159,7 +161,7 @@ public class FlyA extends Check {
                     return;
                 }
 
-                if (profile.getMovementData().getSinceOnGhostBlock() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (movementData.getSinceOnGhostBlock() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                     if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: is Exempting (ghost block)");
                     return;
                 }
@@ -169,17 +171,17 @@ public class FlyA extends Check {
                     return;
                 }
 
-                if (profile.getMovementData().getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
+                if (movementData.getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
                     if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: is Exempting (elytra glide)");
                     return;
                 }
 
-                if (profile.getMovementData().isNearHoney()) {
+                if (movementData.isNearHoney()) {
                     if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: is Exempting (honey)");
                     return;
                 }
 
-                if (profile.getMovementData().isNearShulkerBox()) {
+                if (movementData.isNearShulkerBox()) {
                     if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: is Exempting (shulker box)");
                     return;
                 }
@@ -199,7 +201,7 @@ public class FlyA extends Check {
                     return;
                 }
 
-                if (profile.getPotionData().isHasSlowFalling()) {
+                if (potionData.getSlowFallingTicks() > 0 && movementData.getSinceSlowFallingEffectTicks() < 10) {
                     if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: is Exempting (slow falling)");
                     return;
                 }
@@ -233,8 +235,8 @@ public class FlyA extends Check {
 
                 boolean hasJumpBoost = SpeedUtilities.getJumpBoostPotionLevel(profile) > 0;
                 double jumpLevel = hasJumpBoost
-                        ? profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST)
-                        + (4 + (profile.getPotionData().getJumpAmplifier()))
+                        ? potionData.getPotionEffectLevel(PotionType.JUMP_BOOST)
+                        + (4 + (potionData.getJumpAmplifier()))
                         : 0;
 
                 int clientTickTrans = profile.getConnectionData().getClientTickTrans();
@@ -260,7 +262,7 @@ public class FlyA extends Check {
 
                 boolean exempt = movementData.isInsideLiquid()
                         || movementData.isNearWebs()
-                        || (profile.getMovementData().getSinceGlidingTicks() < 10);
+                        || (movementData.getSinceGlidingTicks() < 10);
 
                 double vel = Math.max(
                         profile.getVelocityData().getTotalVerticalVelocitySustain(),
@@ -318,7 +320,7 @@ public class FlyA extends Check {
                         + "\n * velocityV " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalVerticalVelocity()
                         + "\n * velocityH Sustain " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalHorizontalVelocitySustain()
                         + "\n * velocityV Sustain " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalVerticalVelocitySustain()
-                        + "\n * jumpAmplifierMath " + MsgType.MAIN_THEME_COLOR.getMessage() + (0.42 + ((profile.getPotionData().getJumpAmplifier() + 1) * 0.1)));
+                        + "\n * jumpAmplifierMath " + MsgType.MAIN_THEME_COLOR.getMessage() + (0.42 + ((potionData.getJumpAmplifier() + 1) * 0.1)));
 
                 int maxTicks = Math.min(15, profile.getConnectionData().getClientTickTrans() == 0 ? 15 : 10 + (profile.getConnectionData().getTransPing() / 20) / profile.getConnectionData().getClientTickTrans());
 
@@ -348,7 +350,7 @@ public class FlyA extends Check {
                 }
 
 
-                if (!serverGround && !clientGround && inAir && profile.getMovementData().isUnderblock()) {
+                if (!serverGround && !clientGround && inAir && movementData.isUnderblock()) {
                     if (serverAirTicks > 10) {
                         underBlockSamples.add((double) clientAirTicks);
 

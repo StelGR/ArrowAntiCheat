@@ -415,13 +415,5 @@ public class VelocityData implements Data {
         return ticks < 1_000_000 ? ticks + 1 : ticks;
     }
 
-    private static boolean isZero(Vector vector) {
-        if (vector == null) {
-            return true;
-        }
 
-        return vector.getX() == 0.0D
-                && vector.getY() == 0.0D
-                && vector.getZ() == 0.0D;
-    }
 }

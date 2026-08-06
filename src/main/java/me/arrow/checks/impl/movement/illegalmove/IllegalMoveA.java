@@ -148,20 +148,12 @@ public class IllegalMoveA extends Check {
                     stepHeight += (SpeedUtilities.getJumpBoostPotionLevel(profile) * 0.1F);
                 }
 
-
-
                 if (Config.Setting.COMPATIBILITY.getBoolean()) {
-                    PlayerInventory playerinv = profile.getPlayer().getInventory();
-                    ItemStack playerBoots = playerinv.getBoots();
+                    PlayerInventory inventory = profile.getPlayer().getInventory();
+                    ItemStack boots = inventory.getBoots();
 
-                    if (playerBoots != null) {
-                        if (playerBoots.getItemMeta() != null) {
-                            if (playerBoots.getItemMeta().getLore() != null) {
-                                if (playerBoots.getItemMeta().getLore().contains("Traveler")) {
-                                    stepHeight += 0.5;
-                                }
-                            }
-                        }
+                    if (OtherUtility.itemContains(boots, "traveler")) {
+                        stepHeight += 0.5D;
                     }
                 }
 
@@ -178,7 +170,7 @@ public class IllegalMoveA extends Check {
                         && !profile.getVelocityData().isTakingVelocity()
                         && movementData.getSinceRiptidingTicks() > 15
                         && movementData.getSinceGlidingTicks() > 15)) {
-                    verbose(this.getClass().getSimpleName(), deltaY, 1.0, data3);
+                    verbose(this.getClass().getSimpleName(), deltaY, stepHeight, data3);
                     fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                             + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + stepHeight);
                 }

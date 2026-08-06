@@ -14,8 +14,10 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
+import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 import static org.bukkit.Bukkit.getServer;
@@ -277,7 +279,43 @@ public class OtherUtility {
     }
 
 
+    public static boolean itemContains(ItemStack item, String text) {
+        if (item == null || item.getType().isAir()) {
+            return false;
+        }
 
+        StringBuilder data = new StringBuilder();
+
+        data.append(item.serialize());
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            data.append(meta);
+
+            if (meta.hasLore()) {
+                data.append(meta.getLore());
+            }
+
+            if (meta.hasDisplayName()) {
+                data.append(meta.getDisplayName());
+            }
+        }
+
+        return data.toString()
+                .toLowerCase(Locale.ROOT)
+                .contains(text.toLowerCase(Locale.ROOT));
+    }
+
+
+    public static boolean isZero(Vector vector) {
+        if (vector == null) {
+            return true;
+        }
+
+        return vector.getX() == 0.0D
+                && vector.getY() == 0.0D
+                && vector.getZ() == 0.0D;
+    }
 }
 
 

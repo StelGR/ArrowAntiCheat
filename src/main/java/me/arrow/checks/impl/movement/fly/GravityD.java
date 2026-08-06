@@ -1555,8 +1555,8 @@ public class GravityD extends Check {
         if (!profile.isBedrockPlayer() && Double.isFinite(cachedJumpStrength)) {
             motion = cachedJumpStrength;
 
-            if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
-                motion += Math.max(0, SpeedUtilities.getJumpBoostPotionLevel(profile)) * 0.10D;
+            if (SpeedUtilities.getJumpBoostPotionLevelInstant(profile) > 0) {
+                motion += Math.max(0, SpeedUtilities.getJumpBoostPotionLevelInstant(profile)) * 0.10D;
             }
         } else {
             motion = MoveUtils.getJumpMotion(profile);
@@ -1565,8 +1565,8 @@ public class GravityD extends Check {
         if (!Double.isFinite(motion) || motion < 0.30D || motion > 1.60D) {
             motion = 0.42D;
 
-            if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
-                motion += Math.max(0, SpeedUtilities.getJumpBoostPotionLevel(profile)) * 0.10D;
+            if (SpeedUtilities.getJumpBoostPotionLevelInstant(profile) > 0) {
+                motion += Math.max(0, SpeedUtilities.getJumpBoostPotionLevelInstant(profile)) * 0.10D;
             }
         }
 

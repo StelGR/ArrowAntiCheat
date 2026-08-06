@@ -17,6 +17,8 @@ import me.arrow.utils.MoveUtils;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 import java.util.EnumSet;
 import java.util.Set;
@@ -162,15 +164,6 @@ public class MotionA extends Check {
                     return; // vanilla 1.8 tower/building up first tick
                 }
 
-                final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(movementData.getLocation(), true);
-                final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(movementData.getLastLocation(), true);
-                final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(movementData.getLastLastLocation(), true);
-
-                boolean onHoney0 = CollisionUtils.isStandingOnMaterial(movementData.getLocation(), nearbyBlocksResult, true, MaterialType.HONEY);
-                boolean onHoney1 = CollisionUtils.isStandingOnMaterial(movementData.getLastLocation(), nearbyBlocksResult_lower, true, MaterialType.HONEY);
-                boolean onHoney2 = CollisionUtils.isStandingOnMaterial(movementData.getLastLastLocation(), nearbyBlocksResult_lowest, true, MaterialType.HONEY);
-                boolean onHoney = onHoney0 || onHoney1 || onHoney2;
-
                 boolean isGround = movementData.isOnGround(),
                         lastGround = movementData.isLastOnGround();
                 boolean serverGround = movementData.isServerGround(), positionGround = movementData.isPositionYGround();
@@ -178,7 +171,7 @@ public class MotionA extends Check {
 
                 double motion = MoveUtils.getJumpMotion(profile);
 
-                double maxJumpHeight = onHoney ? motion * 0.5F : motion;
+                double maxJumpHeight = movementData.isOnHoney() ? motion * 0.5F : motion;
 
                 String data = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                         + "\n * maxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
@@ -207,14 +200,18 @@ public class MotionA extends Check {
                     return;
                 }
 
+                if (Config.Setting.COMPATIBILITY.getBoolean()) {
+                    PlayerInventory inventory = profile.getPlayer().getInventory();
+                    ItemStack boots = inventory.getBoots();
+
+                    if (OtherUtility.itemContains(boots, "traveler")) {
+                        motion += 0.5D;
+                    }
+                }
 
                 if (!isGround
                         && lastGround
                         && deltaY > motion) {
-//                if (++buffer2 > 1) {
-//
-//                }
-
                     fail("Jumping Higher Than Expected",
                             "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                     + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight
@@ -224,10 +221,6 @@ public class MotionA extends Check {
 
                     verbose(this.getClass().getSimpleName(), buffer2, 2, data);
                 }
-//            else {
-//                buffer2 -= Math.min(buffer2, 0.025);
-//            }
-
 
                 if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                     return;
@@ -245,7 +238,6 @@ public class MotionA extends Check {
                                         + "\nlastClientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + lastGround
                                         + "\nunderblock (M) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
                     }
-
 
                     verbose(this.getClass().getSimpleName(), buffer, 2, data);
                 } else {

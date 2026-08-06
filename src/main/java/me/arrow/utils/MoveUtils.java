@@ -114,8 +114,8 @@ public class MoveUtils {
         if (profile != null && profile.isBedrockPlayer() && profile.getMovementData() != null) {
             double motion = profile.getMovementData().getBEDROCK_JUMP_MOTION();
 
-            if (profile.getPotionData() != null && SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
-                int level = SpeedUtilities.getJumpBoostPotionLevel(profile);
+            if (profile.getPotionData() != null && SpeedUtilities.getJumpBoostPotionLevelInstant(profile) > 0) {
+                int level = SpeedUtilities.getJumpBoostPotionLevelInstant(profile);
                 if (level >= 0) {
                     motion += level * 0.1D;
                 }
@@ -126,8 +126,8 @@ public class MoveUtils {
 
         float motion = 0.42F;
 
-        if (profile != null && profile.getPotionData() != null && SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
-            int level = SpeedUtilities.getJumpBoostPotionLevel(profile);
+        if (profile != null && profile.getPotionData() != null && SpeedUtilities.getJumpBoostPotionLevelInstant(profile) > 0) {
+            int level = SpeedUtilities.getJumpBoostPotionLevelInstant(profile);
             if (level >= 0) {
                 motion += level * 0.1F;
             }

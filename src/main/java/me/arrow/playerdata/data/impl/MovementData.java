@@ -32,11 +32,11 @@ import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
@@ -97,7 +97,7 @@ public class MovementData implements Data {
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround,
-        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston;
+        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston, nearBlocksSlime, nearPowderSnow, nearSoulBlock;
 
 
     @Getter
@@ -106,7 +106,7 @@ public class MovementData implements Data {
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
             customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
-            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks, sinceMovingUnderBlockTicks;
+            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, sinceSlowFallingEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks, sinceMovingUnderBlockTicks;
 
     @Getter
     @Setter
@@ -412,9 +412,6 @@ public class MovementData implements Data {
         sinceOnGround = onGround ? 0 : sinceOnGround + 1;
 
         processPlayerData();
-        //this.getGhostBlockProcessor().process();
-
-
     }
 
     private void updateNearWallState() {
@@ -462,7 +459,10 @@ public class MovementData implements Data {
                 && !profile.shouldCancel()
                 && !profile.getPlayer().isInsideVehicle()
                 && !isNearBoat()
-                && !isOnBoat();
+                && !isOnBoat()
+                && !isClimb()
+                && !isNearWebs()
+                && !profile.isBouncingOnSlime();
 
         isColliding = supportsEntityCollisionCheck() && CollisionProcessor.isColliding(profile.getPlayer(), profile.getBoundingBox());
     }
@@ -476,87 +476,121 @@ public class MovementData implements Data {
             NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
             boolean async = !TaskUtils.isFoliaServer();
 
-            CustomLocation loc1 = location.clone();
-            CustomLocation loc2 = location.clone().subtract(0, 1, 0);
-            CustomLocation loc3 = location.clone().add(0, 1, 0);
+            CustomLocation loc1 = location;
+            CustomLocation loc2 = loc1.clone().subtract(0, 1, 0);
+            CustomLocation loc3 = loc1.clone().add(0, 1, 0);
 
             CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(loc1, async);
             CollisionUtils.NearbyBlocksResult nearbyBlocksResultLow = CollisionUtils.getNearbyBlocks(loc2, async);
             CollisionUtils.NearbyBlocksResult nearbyBlocksResultHigh = CollisionUtils.getNearbyBlocks(loc3, async);
 
-            boolean flag_water = false, flag_lava = false, flag_web = false, flag_climbable = false,
-                    flag_nearBuggyBlock = false, flag_bubble = false, flag_bed = false,
-                    flag_honey = false, flag_shulker = false, flag_contact = false,
-                    flag_dripleaf = false, flag_fence = false, flag_slime = false;
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, async);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation, async);
+            nearPowderSnow = containsMaterial(nearbyBlocksResult.getBlockTypes(), POWDER_SNOW);
+            boolean onIce0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, async, ICE);
+            boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, ICE);
+            boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, ICE);
 
-            World world = location.getWorld();
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lower =
+                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), async);
 
-            if (world != null) {
-                int baseX = location.getBlockX();
-                int baseY = location.getBlockY();
-                int baseZ = location.getBlockZ();
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lowest =
+                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), async);
 
-                for (int yOffset = 3; yOffset >= -1; yOffset--) {
-                    for (int xOffset = -1; xOffset <= 1; xOffset++) {
-                        for (int zOffset = -1; zOffset <= 1; zOffset++) {
 
-                            Block block = world.getBlockAt(
-                                    baseX + xOffset,
-                                    baseY + yOffset,
-                                    baseZ + zOffset
-                            );
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow =
+                    CollisionUtils.getNearbyBlocks(loc1.clone().subtract(0, 2, 0), async);
 
-                            Material material = nms.getType(block);
-                            String materialName = material.name();
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower =
+                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 2, 0), async);
 
-                            flag_water |= isMaterialEqual(materialName, MaterialType.WATER)  || nms.isWaterLogged(block);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest =
+                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 2, 0), async);
 
-                            flag_slime |= isMaterialEqual(materialName, MaterialType.SLIME) ;
-                            flag_bubble |= isMaterialEqual(materialName, MaterialType.BUBBLE);
-                            flag_lava |= isMaterialEqual(materialName, MaterialType.LAVA);
-                            flag_web |= isMaterialEqual(materialName, MaterialType.WEB);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow1 =
+                    CollisionUtils.getNearbyBlocks(loc1.clone().subtract(0, 3, 0), async);
 
-                            flag_climbable |= isMaterialEqual(materialName, MaterialType.SCAFFOLDING)
-                                    || isMaterialEqual(materialName, MaterialType.CLIMBABLE);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower1 =
+                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 3, 0), async);
 
-                            flag_nearBuggyBlock |=
-                                    isMaterialEqual(materialName, MaterialType.BUGGY_BLOCK);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest1 =
+                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 3, 0), async);
 
-                            flag_bed |= isMaterialEqual(materialName, MaterialType.BED) || MaterialType.isBed(material);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove =
+                    CollisionUtils.getNearbyBlocks(loc3, async);
 
-                            flag_honey |= isMaterialEqual(materialName, MaterialType.HONEY);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lower =
+                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().add(0, 1, 0), async);
 
-                            flag_shulker |= isMaterialEqual(materialName, MaterialType.SHULKER);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lowest =
+                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().add(0, 1, 0), async);
 
-                            flag_dripleaf |= isMaterialEqual(materialName, MaterialType.DRIP_LEAF);
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow2 =
+                    CollisionUtils.getNearbyBlocks(loc1.clone().subtract(0, 2, 0), async);
 
-                            flag_contact |=
-                                    isMaterialEqual(materialName, MaterialType.CACTUS)
-                                            || isMaterialEqual(materialName, MaterialType.BERRIES);
 
-                            flag_fence |=
-                                    isMaterialEqual(materialName, MaterialType.FENCE)
-                                            || MaterialType.isFence(material);
-                        }
-                    }
-                }
-            }
+            boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultLow, async, SLIME);
+            boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lower, async, SLIME);
+            boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lowest, async, SLIME);
 
-            nearContact = flag_contact;
-            nearWater = flag_water;
-            nearBubble = flag_bubble;
-            nearLava = flag_lava;
-            nearWebs = flag_web;
-            nearClimbable = flag_climbable;
-            nearBuggyBlock = flag_nearBuggyBlock;
-            nearBed = flag_bed;
-            nearHoney = flag_honey;
-            nearShulkerBox = flag_shulker;
-            nearDripLeaf = flag_dripleaf;
-            nearFence = flag_fence;
-            nearSlime = flag_slime;
+            boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow, async, SLIME);
+            boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower, async, SLIME);
+            boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest, async, SLIME);
 
-            isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), MaterialType.WATER);
+            boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow1, async, SLIME);
+            boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower1, async, SLIME);
+            boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest1, async, SLIME);
+
+            boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove, async, SLIME);
+            boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lower, async, SLIME);
+            boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lowest, async, SLIME);
+
+            boolean onSlime0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, SLIME);
+            boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, SLIME);
+            boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, SLIME);
+            boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, SOUL_SAND);
+            boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, SOUL_SAND);
+            boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, SOUL_SAND);
+            boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, SOUL_BLOCK);
+            boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, SOUL_BLOCK);
+            boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, SOUL_BLOCK);
+
+            boolean onHoney0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, HONEY);
+            boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, HONEY);
+            boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, HONEY);
+
+
+
+            nearSoulBlock = (onSoulBlock0 || onSoulBlock1 || onSoulBlock2);
+            onIce = onIce0 || onIce1 || onIce2;
+            onSlime = onSlime0 || onSlime1 || onSlime2;
+            onSoulSand = onSoul0 || onSoul1 || onSoul2;
+            onHoney = onHoney0 || onHoney1 || onHoney2;
+
+            nearBlocksSlime = slimeBelow0 || slimeBelow1 || slimeBelow2 || slimeBelowBelow0 || slimeBelowBelow1 || slimeBelowBelow2 || slimeBelowBelow3 || slimeBelowBelow4 || slimeBelowBelow5 || slimeAbove0 || slimeAbove1 || slimeAbove2;
+
+            nearPiston =
+                    containsMaterial(nearbyBlocksResult.getBlockTypes(), PISTON)
+                            || containsMaterial(nearbyBlocksResultLow.getBlockTypes(), PISTON)
+                            || containsMaterial(nearbyBlocksBelow2.getBlockTypes(), PISTON)
+                            || containsMaterial(nearbyBlocksResultAbove.getBlockTypes(), PISTON);
+
+            List<Material> blockTypes = nearbyBlocksResult.getBlockTypes();
+
+            nearWater = containsMaterial(blockTypes, WATER) || nearbyBlocksResult.isNearWaterLogged();
+            nearLava = containsMaterial(blockTypes, LAVA);
+            nearClimbable = containsMaterial(blockTypes, CLIMBABLE) || containsMaterial(blockTypes, CLIMBABLE);
+            nearWebs = containsMaterial(blockTypes, WEB);
+            nearBubble = containsMaterial(blockTypes, BUBBLE);
+            nearBuggyBlock = containsMaterial(blockTypes, BUGGY_BLOCK);
+            nearBed = containsMaterial(blockTypes, BED);
+            nearHoney = containsMaterial(blockTypes, HONEY);
+            nearShulker = containsMaterial(blockTypes, SHULKER);
+            nearDripLeaf = containsMaterial(blockTypes, DRIP_LEAF);
+            nearFence = containsMaterial(blockTypes, FENCE);
+            nearSlime = containsMaterial(blockTypes, SLIME);
+
+            isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), WATER);
 
 
             isInsideWater = false;
@@ -567,7 +601,7 @@ public class MovementData implements Data {
                     checkLoc.setZ(checkLoc.getZ() + z);
                     checkLoc.setY(checkLoc.getY() + 0.5);
                     String mName = nms.getType(checkLoc.getBlock()).name();
-                    if (isMaterialEqual(mName, MaterialType.WATER)) {
+                    if (isMaterialEqual(mName, WATER)) {
                         isInsideWater = true;
                         break;
                     }
@@ -610,11 +644,11 @@ public class MovementData implements Data {
 
             underblock = flag_underblock;
 
-            insideLiquid = isMaterialEqual(nms.getType(location.clone().subtract(0D, 1D, 0D).getBlock()).name(), MaterialType.LIQUID)
-                    || isMaterialEqual(nms.getType(location.clone().getBlock()).name(), MaterialType.LIQUID);
+            insideLiquid = isMaterialEqual(nms.getType(loc3.getBlock()).name(), LIQUID)
+                    || isMaterialEqual(nms.getType(loc1.getBlock()).name(), LIQUID);
 
-            climb = isMaterialEqual(nms.getType(location.clone().subtract(0D, -1D, 0D).getBlock()).name(), MaterialType.CLIMBABLE)
-                    || isMaterialEqual(nms.getType(location.clone().getBlock()).name(), MaterialType.CLIMBABLE);
+            climb = isMaterialEqual(nms.getType(loc2.getBlock()).name(), CLIMBABLE)
+                    || isMaterialEqual(nms.getType(loc1.getBlock()).name(), CLIMBABLE);
 
             nearStepMaterial =
                     containsStepMaterial(nearbyBlocksResult)
@@ -630,16 +664,16 @@ public class MovementData implements Data {
     private static boolean isStepMaterial(Material m) {
         String name = m.name();
 
-        return isMaterialEqual(name, MaterialType.HALF_BLOCK)
-                || isMaterialEqual(name, MaterialType.HEIGHT_CHANGE)
-                || isMaterial(name, MaterialType.SNOW)
-                || isMaterial(name, MaterialType.SOUL_SAND)
-                || MaterialType.isSlab(m)
-                || MaterialType.isTrapdoor(m)
-                || MaterialType.isFence(m)
-                || MaterialType.isFenceGate(m)
-                || MaterialType.isStair(m)
-                || MaterialType.isWall(m);
+        return isMaterialEqual(name, HALF_BLOCK)
+                || isMaterialEqual(name, HEIGHT_CHANGE)
+                || isMaterial(name, SNOW)
+                || isMaterial(name, SOUL_SAND)
+                || isSlab(m)
+                || isTrapdoor(m)
+                || isFence(m)
+                || isFenceGate(m)
+                || isStair(m)
+                || isWall(m);
     }
 
 
@@ -705,10 +739,10 @@ public class MovementData implements Data {
 
         String name = material.name();
 
-        return !isMaterial(name, MaterialType.LIQUID)
-                && !isMaterialEqual(name, MaterialType.WEB)
-                && !isMaterial(name, MaterialType.BUBBLE)
-                && !isMaterialEqual(name, MaterialType.WATER_PLANT);
+        return !isMaterial(name, LIQUID)
+                && !isMaterialEqual(name, WEB)
+                && !isMaterial(name, BUBBLE)
+                && !isMaterialEqual(name, WATER_PLANT);
     }
 
     private int floor(double value) {
@@ -720,11 +754,11 @@ public class MovementData implements Data {
         if (!material.isBlock()) return false;
         String name = material.name();
 
-        if (isMaterialEqual(name, MaterialType.AIR)) return true;
-        if (isMaterialEqual(name, MaterialType.WATER_PLANT)) return true;
-        if (isMaterialEqual(name, MaterialType.LIQUID)) return true;
-        if (isMaterial(name, MaterialType.BUBBLE)) return true;
-        if (isMaterialEqual(name, MaterialType.TRANSPARENT)) return true;
+        if (isMaterialEqual(name, AIR)) return true;
+        if (isMaterialEqual(name, WATER_PLANT)) return true;
+        if (isMaterialEqual(name, LIQUID)) return true;
+        if (isMaterial(name, BUBBLE)) return true;
+        if (isMaterialEqual(name, TRANSPARENT)) return true;
 
         return switch (name) {
             case "TORCH", "SOUL_TORCH", "FIRE", "SOUL_FIRE", "REDSTONE", "WHEAT", "RAIL", "LEVER", "REDSTONE_TORCH",
@@ -912,8 +946,6 @@ public class MovementData implements Data {
     }
 
 
-
-
     int tickTime;
 
     void updateTicks() {
@@ -925,108 +957,6 @@ public class MovementData implements Data {
 
             //conditions
 
-            boolean async = !TaskUtils.isFoliaServer();
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(this.location, async);
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, async);
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation, async);
-            boolean powdersnow = containsMaterial(nearbyBlocksResult.getBlockTypes(), MaterialType.POWDER_SNOW);
-            boolean onIce0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.ICE);
-            boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.ICE);
-            boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.ICE);
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow =
-                    CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lower =
-                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lowest =
-                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 1, 0), async);
-
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow =
-                    CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower =
-                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 2, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest =
-                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 2, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow1 =
-                    CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 3, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lower1 =
-                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 3, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelowBelow_lowest1 =
-                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().subtract(0, 3, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove =
-                    CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lower =
-                    CollisionUtils.getNearbyBlocks(this.lastLocation.clone().add(0, 1, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksResultAbove_lowest =
-                    CollisionUtils.getNearbyBlocks(this.lastLastLocation.clone().add(0, 1, 0), async);
-
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocks =
-                    CollisionUtils.getNearbyBlocks(this.location, async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow =
-                    CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 1, 0), async);
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow2 =
-                    CollisionUtils.getNearbyBlocks(this.location.clone().subtract(0, 2, 0), async);
-
-
-            final CollisionUtils.NearbyBlocksResult nearbyBlocksAbove =
-                    CollisionUtils.getNearbyBlocks(this.location.clone().add(0, 1, 0), async);
-
-
-            boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow, async, MaterialType.SLIME);
-            boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lower, async, MaterialType.SLIME);
-            boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lowest, async, MaterialType.SLIME);
-
-            boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow, async, MaterialType.SLIME);
-            boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower, async, MaterialType.SLIME);
-            boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest, async, MaterialType.SLIME);
-
-            boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow1, async, MaterialType.SLIME);
-            boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower1, async, MaterialType.SLIME);
-            boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest1, async, MaterialType.SLIME);
-
-            boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove, async, MaterialType.SLIME);
-            boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lower, async, MaterialType.SLIME);
-            boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lowest, async, MaterialType.SLIME);
-
-            boolean onSlime0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SLIME);
-            boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SLIME);
-            boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SLIME);
-            boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SOUL_SAND);
-            boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SOUL_SAND);
-            boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SOUL_SAND);
-            boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.SOUL_BLOCK);
-            boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.SOUL_BLOCK);
-            boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.SOUL_BLOCK);
-
-            boolean onHoney0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, MaterialType.HONEY);
-            boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, MaterialType.HONEY);
-            boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, MaterialType.HONEY);
-
-            boolean inAir = isCustomInAir()
-                    && !profile.getPlayer().isInsideVehicle()
-                    && !isClimb()
-                    && !isNearWebs()
-                    && !EntityUtil.isOnBoat(profile)
-                    && !profile.isBouncingOnSlime();
-
-            boolean nearWallNow = isNearWall()
-                    || isLastNearWall()
-                    || isLastLastNearWall()
-                    || isPacketNearWall();
-
             boolean exempt = (isNearLava() || isNearWater() || isNearWebs())
                     || profile.getPlayer().isInsideVehicle();
 
@@ -1037,33 +967,21 @@ public class MovementData implements Data {
 
             boolean glidingNow = metadataGliding
                     || glideStartTransitionTicks > 0
-                    || ReflectionUtils.isGliding(profile.getPlayer());
-
-            boolean onSoulBlock = (onSoulBlock0 || onSoulBlock1 || onSoulBlock2);
-            onIce = onIce0 || onIce1 || onIce2;
-            onSlime = onSlime0 || onSlime1 || onSlime2;
-            onSoulSand = onSoul0 || onSoul1 || onSoul2;
-            onHoney = onHoney0 || onHoney1 || onHoney2;
-
-            nearPiston =
-                    containsMaterial(nearbyBlocks.getBlockTypes(), MaterialType.PISTON)
-                            || containsMaterial(nearbyBlocksBelow.getBlockTypes(), MaterialType.PISTON)
-                            || containsMaterial(nearbyBlocksBelow2.getBlockTypes(), MaterialType.PISTON)
-                            || containsMaterial(nearbyBlocksAbove.getBlockTypes(), MaterialType.PISTON);
-
+                    //|| ReflectionUtils.isGliding(profile.getPlayer())
+                    ;
 
             boolean predictUp = verticalMove == MovementPredictionUtil.VerticalMove.UP;
             boolean predictDown = verticalMove == MovementPredictionUtil.VerticalMove.DOWN;
 
             //ticks
 
-            sincePowderSnowTicks = powdersnow ? 0 : sincePowderSnowTicks + 1;
+            sincePowderSnowTicks = nearPowderSnow ? 0 : sincePowderSnowTicks + 1;
             movingOnIceTicks = (moving && onIce) ? Math.max(movingOnIceTicks + 1, 20) : Math.max(movingOnIceTicks - 1, 0);
             iceTicks = onIce ? Math.max(iceTicks + 1, 20) : Math.max(iceTicks - 1, 0);
 
             // this is a temporary, test fix, for piston movable slime blocks, it may not work properly in all scenarios, but it will do for now
             // assuming that it even works...
-            onExtendedHitboxSlime = onSlime || slimeBelow0 || slimeBelow1 || slimeBelow2 || slimeAbove0 || slimeAbove1 || slimeAbove2 || slimeBelowBelow0 || slimeBelowBelow1 || slimeBelowBelow2 || slimeBelowBelow3 || slimeBelowBelow4 || slimeBelowBelow5
+            onExtendedHitboxSlime = onSlime || nearBlocksSlime
                     || (getMovingOnSlimeTicks() < 11 && getMovingOnSlimeTicks() > 0) || getSinceMovingOnSlimeTicks() < 10;
 
             movingOnSlimeTicks = (moving && onSlime) ? Math.max(movingOnSlimeTicks + 1, 20) : Math.max(movingOnSlimeTicks - 1, 0);
@@ -1072,7 +990,7 @@ public class MovementData implements Data {
             sinceNearPistonTicks = isNearPiston() ? 0 : sinceNearPistonTicks + 1;
             movingOnSoulTicks = (moving && onSoulSand) ? Math.max(movingOnSoulTicks + 1, 20) : Math.max(movingOnSoulTicks - 1, 0);
             soulTicks = onSoulSand ? Math.max(soulTicks + 1, 20) : Math.max(soulTicks - 1, 0);
-            movingOnSoulBlocksTicks = (moving && onSoulBlock) ? Math.max(movingOnSoulBlocksTicks + 1, 20) : Math.max(movingOnSoulBlocksTicks - 1, 0);
+            movingOnSoulBlocksTicks = (moving && nearSoulBlock) ? Math.max(movingOnSoulBlocksTicks + 1, 20) : Math.max(movingOnSoulBlocksTicks - 1, 0);
             movingOnHoneyTicks = (moving && onHoney) ? Math.max(movingOnHoneyTicks + 1, 20) : Math.max(movingOnHoneyTicks - 1, 0);
             honeyTicks = onHoney ? Math.max(honeyTicks + 1, 20) : Math.max(honeyTicks - 1, 0);
             sinceMovingOnIceTicks = movingOnIceTicks > 0 ? 0 : sinceMovingOnIceTicks + 1;
@@ -1082,8 +1000,8 @@ public class MovementData implements Data {
             sinceMovingUnderBlockTicks = movingUnderblockTicks > 0 ? 0 : sinceMovingUnderBlockTicks + 1;
 
             movingTicks = moving ? movingTicks + 1 : 0;
-            customAirTicks = inAir ? customAirTicks + 1 : 0;
-            nearWallTicks = nearWallNow && !exempt ? nearWallTicks + 1 : 0;
+            customAirTicks = customInAir ? customAirTicks + 1 : 0;
+            nearWallTicks = nearWall && !exempt ? nearWallTicks + 1 : 0;
             sinceRiptidingTicks = riptiding ? 0 : sinceRiptidingTicks + 1;
 
             tickTime++;
@@ -1093,7 +1011,7 @@ public class MovementData implements Data {
             }
 
             Vector velocity = profile.getVelocityData().getExplosionKnockback();
-            sinceExplosionTicks = velocity.isZero() ? sinceExplosionTicks + 1 : 0;
+            sinceExplosionTicks = OtherUtility.isZero(velocity) ? sinceExplosionTicks + 1 : 0;
 
             sinceCollideTicks = isColliding ? 0 : sinceCollideTicks + 1;
             sinceGlidingTicks = glidingNow ? 0 : sinceGlidingTicks + 1;
@@ -1134,6 +1052,7 @@ public class MovementData implements Data {
             sinceNearWaterTicks = isNearWater() ? 0 : sinceNearWaterTicks + 1;
             sinceLevitationEffectTicks = potion.getLevitationTicks() > 0 ? 0 : sinceLevitationEffectTicks + 1;
             sinceJumpBoostEffectTicks = potion.getJumpTicks() > 0 ? 0 : sinceJumpBoostEffectTicks + 1;
+            sinceSlowFallingEffectTicks = potion.getSlowFallingTicks() > 0 ? 0 : sinceSlowFallingEffectTicks + 1;
             sinceSpeedPotionEffectTicks = potion.getSpeedTicks() > 0 ? 0 : sinceSpeedPotionEffectTicks + 1;
             sinceOnGhostBlock = profile.isOnGhostBlock() ? 0 : sinceOnGhostBlock + 1;
 

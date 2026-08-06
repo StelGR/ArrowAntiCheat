@@ -20,6 +20,8 @@ public class PotionData implements Data {
     int speedAmplifier, jumpAmplifier, levitationAmplifier, slowFallingAmplifier;
     int speedTicks, jumpTicks, levitationTicks, slowFallingTicks;
 
+    int lastSpeedAmplifier, lastJumpAmplifier, lastLevitationAmplifier, lastSlowFallingAmplifier;
+
     public PotionData(Profile profile) {
         this.profile = profile;
     }
@@ -38,32 +40,40 @@ public class PotionData implements Data {
             // Speed
             if (hasSpeed) {
                 this.speedAmplifier = getPotionEffectLevel(PotionType.SPEED);
+                this.lastSpeedAmplifier = this.speedAmplifier;
                 this.speedTicks += (this.speedTicks < 20 ? 1 : 0);
             } else {
+                this.speedAmplifier = 0;
                 this.speedTicks -= (this.speedTicks > 0 ? 1 : 0);
             }
 
             // Jump Boost
             if (hasJump) {
                 this.jumpAmplifier = getPotionEffectLevel(PotionType.JUMP_BOOST);
+                this.lastJumpAmplifier = this.jumpAmplifier;
                 this.jumpTicks += (this.jumpTicks < 20 ? 1 : 0);
             } else {
+                this.jumpAmplifier = 0;
                 this.jumpTicks -= (this.jumpTicks > 0 ? 1 : 0);
             }
 
             // Levitation
             if (hasLevitation) {
                 this.levitationAmplifier = getPotionEffectLevel(PotionType.LEVITATION);
+                this.lastLevitationAmplifier = this.levitationAmplifier;
                 this.levitationTicks += (this.levitationTicks < 20 ? 1 : 0);
             } else {
+                this.levitationAmplifier = 0;
                 this.levitationTicks -= (this.levitationTicks > 0 ? 1 : 0);
             }
 
             // Slow Falling
             if (hasSlowFalling) {
                 this.slowFallingAmplifier = getPotionEffectLevel(PotionType.SLOW_FALLING);
+                this.lastSlowFallingAmplifier = this.slowFallingAmplifier;
                 this.slowFallingTicks += (this.slowFallingTicks < 20 ? 1 : 0);
             } else {
+                this.slowFallingAmplifier = 0;
                 this.slowFallingTicks -= (this.slowFallingTicks > 0 ? 1 : 0);
             }
         }
