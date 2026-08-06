@@ -174,11 +174,6 @@ public class GravityD extends Check {
                     return;
                 }
 
-                if (profile.getMovementData().getSinceGlidingTicks() < 20) {
-                    resetGravityD("recentGliding");
-                    return;
-                }
-
                 if (profile.getGeysersTracker().isBeingPushed()) {
                     if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity D: Exempt - geysers (26.2+)");
                     resetGravityD("geyserPush");

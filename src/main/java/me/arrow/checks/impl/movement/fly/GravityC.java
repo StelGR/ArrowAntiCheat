@@ -62,7 +62,10 @@ public class GravityC extends Check {
                     || profile.getTick() < 120
                     || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
                     || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                    || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) return;
+                    || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
+                bufferC = 0;
+                return;
+            }
 
             ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
             if (world.shouldExemptMovementChecks()
@@ -108,10 +111,7 @@ public class GravityC extends Check {
                 bufferC = 0.0D;
                 return;
             }
-            if (movementData.getSinceGlidingTicks() < 20) {
-                bufferC = 0.0D;
-                return;
-            }
+
             if (profile.getGeysersTracker().isBeingPushed()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: Exempt - geysers (26.2+)");
                 return;
@@ -134,7 +134,6 @@ public class GravityC extends Check {
         boolean nearBed = md.isNearBed();
         boolean clientGround = md.isOnGround();
         boolean serverGround = md.isServerGround();
-        boolean isGliding = md.getSinceGlidingTicks() < 10;
         boolean hasVelocity = profile.getVelocityData().isTakingVelocity()
                 && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2);
 
@@ -146,7 +145,6 @@ public class GravityC extends Check {
         if (inLiquid) { debugExempt("liquid"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (nearBed) { debugExempt("bed"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (underBlock) { debugExempt("underBlock"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (isGliding) { debugExempt("gliding"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (profile.isBouncingOnSlime()) { debugExempt("bouncingOnSlime"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (hasVelocity) { debugExempt("hasVelocity"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isRiptiding()) { debugExempt("riptiding"); lastOffset = 0.0D; bufferC = 0.0D; return; }

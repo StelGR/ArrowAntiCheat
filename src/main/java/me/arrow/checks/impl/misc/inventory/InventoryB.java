@@ -3,6 +3,7 @@ package me.arrow.checks.impl.misc.inventory;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientClickWindow;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -33,6 +34,7 @@ public class InventoryB extends Check {
     @Override
     public void handle(PacketReceiveEvent event) {
         if (event.getPacketType().equals(PacketType.Play.Client.CLICK_WINDOW)) {
+
             final long time = event.getTimestamp();
 
             final long lastTime= this.lastTime;

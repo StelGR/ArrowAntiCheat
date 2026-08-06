@@ -29,7 +29,7 @@ public class ElytraA extends Check {
     }
 
 
-    SampleList<Double> samples = new SampleList<>(20);
+    SampleList<Double> samples = new SampleList<>(50);
 
     SampleList<Double> fallingSamples = new SampleList<>(30);
 
@@ -105,7 +105,7 @@ public class ElytraA extends Check {
                         if (samples.isCollected()) {
                             final double deviation = getDevation(this.samples);
 
-                            if (deviation < 0.2D && airTicks > 10) fail("Weird Elytra movement",
+                            if (deviation < 0.6D && deviation > 0.2D && airTicks > 10 && (pitch > 30 || pitch < -30)) fail("Weird Elytra movement",
                                     "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                             + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                                             + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir

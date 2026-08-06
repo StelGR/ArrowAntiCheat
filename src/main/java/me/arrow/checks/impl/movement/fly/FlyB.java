@@ -109,8 +109,8 @@ public class FlyB extends Check {
                     return;
                 }
 
-                if (movementData.getSinceGlidingTicks() < 20) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (Gliding)");
+                if (movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (gliding)");
                     return;
                 }
 
