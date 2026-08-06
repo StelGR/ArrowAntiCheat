@@ -1,7 +1,9 @@
 package me.arrow.checks.impl.combat.reach;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
@@ -431,6 +433,17 @@ public class ReachA extends Check {
             // Reach is only a distance check. Hitbox A owns clean ray misses.
             decreaseBufferBy(cleanMiss ? 0.02D : 0.05D);
             return;
+        }
+
+        try {
+            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_21_11)) {
+                org.bukkit.enchantments.Enchantment riptide = org.bukkit.enchantments.Enchantment.RIPTIDE;
+                org.bukkit.inventory.ItemStack main = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer());
+                if (main != null && main.getItemMeta().getItemName().endsWith("_SPEAR")) {
+                    BASE_REACH_LIMIT = 4.5;
+                }
+            }
+        } catch (Throwable ignored) {
         }
 
         double allowedReach = BASE_REACH_LIMIT + reachTolerance;

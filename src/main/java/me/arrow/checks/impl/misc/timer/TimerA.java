@@ -19,8 +19,8 @@ public class TimerA extends Check {
 
     private static final long FLYING_OFFSET = 50_000_000L;
     private static final long EVIDENCE_THRESHOLD = 55_000_000L;
-    private static final long NEGATIVE_BALANCE_LIMIT = 25_000_000L;
-    private static final long POSITIVE_BALANCE_LIMIT = 250_000_000L;
+    private static final long NEGATIVE_BALANCE_LIMIT = 3_000_000_000L;
+    private static final long POSITIVE_BALANCE_LIMIT = 500_000_000L;
 
     private static final long RECOVERY_GAP = 70_000_000L;
     private static final long MAX_RECOVERY_BUDGET = 1_000_000_000L;

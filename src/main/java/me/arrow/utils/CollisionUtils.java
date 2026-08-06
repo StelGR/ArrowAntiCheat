@@ -678,30 +678,7 @@ public class CollisionUtils {
 
         private final List<Material> blockTypes = new ArrayList<>();
 
-        private boolean nearGround, exactGroundSupport, blockAbove, nearWaterLogged, nearNonFullCollision;
-        private boolean exactCollisionCandidate;
-
-        private boolean hasExactCollisionCandidate() {
-            if (this.exactCollisionCandidate) {
-                return true;
-            }
-
-            for (Material material : this.blockTypes) {
-                if (material == null || material == Material.AIR) {
-                    continue;
-                }
-
-                try {
-                    if (PEMaterials.isNonFullShape(material)
-                            || (PEMaterials.hasPotentialCollision(material) && !material.isSolid())) {
-                        return true;
-                    }
-                } catch (Throwable ignored) {
-                }
-            }
-
-            return false;
-        }
+        private boolean nearGround, exactGroundSupport, blockAbove, nearWaterLogged;
 
         private void handle(Block block, BlockPosition blockPosition, NmsInstance nms) {
 
@@ -714,18 +691,6 @@ public class CollisionUtils {
             Invalid.
              */
             if (type == null) return;
-
-            /*
-             * Ask the live block for its actual voxel shape. This catches every
-             * partial collider exposed by Bukkit without a per-block dimension
-             * table or relying on Material#isSolid.
-             */
-            try {
-                if (PEMaterials.hasCollision(block) && PEMaterials.isNonFullShape(block)) {
-                    this.exactCollisionCandidate = true;
-                }
-            } catch (Throwable ignored) {
-            }
 
             /*
              * Preserve the base's authoritative UNDER sample. The exact shape
@@ -819,10 +784,6 @@ public class CollisionUtils {
 
                         if (boxes.isEmpty()) {
                             continue;
-                        }
-
-                        if (!this.nearNonFullCollision && PEMaterials.isNonFullShape(block)) {
-                            this.nearNonFullCollision = true;
                         }
 
                         for (PEMaterials.CollisionBounds box : boxes) {

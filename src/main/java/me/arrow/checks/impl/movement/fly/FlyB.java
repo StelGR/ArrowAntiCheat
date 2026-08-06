@@ -221,8 +221,6 @@ public class FlyB extends Check {
                             verboseInfo);
                 }
 
-
-
                 final double deltaXZ = movementData.getDeltaXZ();
                 final double lastDeltaXZ = movementData.getLastDeltaXZ();
 

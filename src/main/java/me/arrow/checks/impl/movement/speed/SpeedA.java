@@ -367,17 +367,17 @@ public class SpeedA extends Check {
 
             PotionData potions = profile.getPotionData();
 
-            if (movingIceTicks > 0 && movementData.getSinceIceTicks() < 10 && !potions.isHasSpeed()) {
+            if (movingIceTicks > 0 && !potions.isHasSpeed()) {
                 expectedSpeed += 0.35;
             }
 
-            if (movingSlimeTicks > 0 && movementData.getLastFallDistance() > 1 && movementData.getSinceSlimeTicks() < 10) {
+            if (movingSlimeTicks > 0 && movementData.getLastFallDistance() > 1) {
                 expectedSpeed += 0.3;
-            } else if (movingSlimeTicks > 0 && movementData.getLastFallDistance() < 1 && movementData.getSinceSlimeTicks() < 10) {
+            } else if (movingSlimeTicks > 0 && movementData.getLastFallDistance() < 1) {
                 expectedSpeed += 0.08;
             }
 
-            if (underBlockMoveTime > 0 && movementData.getSinceMovingUnderBlockTicks() < 10) {
+            if (underBlockMoveTime > 0) {
                 expectedSpeed += potions.isHasSpeed() ? 0.36 : 0.3325;
             }
 
@@ -572,7 +572,7 @@ public class SpeedA extends Check {
         double afterJump = SpeedUtilities.getAfterJumpSpeed(profile);
 
         if (afterJump <= 0.0D || Double.isNaN(afterJump) || Double.isInfinite(afterJump)) {
-            afterJump = 0.915D;
+            afterJump = 0.73D;
         }
 
         double bounded = expectedSpeed / afterJump;

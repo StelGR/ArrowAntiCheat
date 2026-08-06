@@ -233,7 +233,7 @@ public class SpeedUtilities {
             try {
                 if (profile.getMovementData() != null
                         && profile.getMovementData().getSinceSpeedPotionEffectTicks() <= 20) {
-                    return Math.max(0, profile.getPotionData().getPotionEffectLevel(PotionType.SPEED));
+                    return Math.max(0, profile.getPotionData().getLastSpeedAmplifier());
                 }
             } catch (Throwable ignored) {
             }
@@ -241,7 +241,7 @@ public class SpeedUtilities {
             return 0;
         }
 
-        return Math.max(0, profile.getPotionData().getPotionEffectLevel(PotionType.SPEED));
+        return Math.max(0, profile.getPotionData().getSpeedAmplifier());
     }
 
     public static int getJumpBoostPotionLevel(Profile profile) {
@@ -253,7 +253,7 @@ public class SpeedUtilities {
             try {
                 if (profile.getMovementData() != null
                         && profile.getMovementData().getSinceJumpBoostEffectTicks() <= 10) {
-                    return Math.max(0, profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST));
+                    return Math.max(0, profile.getPotionData().getLastJumpAmplifier());
                 }
             } catch (Throwable ignored) {
             }
@@ -261,7 +261,15 @@ public class SpeedUtilities {
             return 0;
         }
 
-        return Math.max(0, profile.getPotionData().getPotionEffectLevel(PotionType.JUMP_BOOST));
+        return Math.max(0, profile.getPotionData().getJumpAmplifier());
+    }
+
+    public static int getJumpBoostPotionLevelInstant(Profile profile) {
+        if (profile == null || profile.getPotionData() == null) {
+            return 0;
+        }
+
+        return Math.max(0, profile.getPotionData().getJumpAmplifier());
     }
 
     public static double getPotionSpeedAirMultiplier(Profile profile) {
@@ -312,7 +320,7 @@ public class SpeedUtilities {
 
     public static double getAfterJumpSpeed(Profile profile) {
         int speedLevel = getSpeedPotionLevel(profile);
-        return 0.825D + (0.008D * speedLevel);
+        return 0.72D + (0.008D * speedLevel);
     }
 
     public static int getDepthStriderLevel(Profile profile) {
