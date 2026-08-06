@@ -437,7 +437,6 @@ public class ReachA extends Check {
 
         try {
             if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_21_11)) {
-                org.bukkit.enchantments.Enchantment riptide = org.bukkit.enchantments.Enchantment.RIPTIDE;
                 org.bukkit.inventory.ItemStack main = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer());
                 if (main != null && main.getItemMeta().getItemName().endsWith("_SPEAR")) {
                     BASE_REACH_LIMIT = 4.5;
