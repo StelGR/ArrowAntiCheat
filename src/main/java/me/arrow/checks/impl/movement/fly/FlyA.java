@@ -206,6 +206,11 @@ public class FlyA extends Check {
                     return;
                 }
 
+                if (movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly A: is Exempting (gliding)");
+                    return;
+                }
+
                 CustomLocation loc = movementData.getLocation();
 
                 if (!CollisionUtils.isChunkLoaded(loc)) {
@@ -261,8 +266,7 @@ public class FlyA extends Check {
                 clientAirTickLimit = 4 + jumpLevel;
 
                 boolean exempt = movementData.isInsideLiquid()
-                        || movementData.isNearWebs()
-                        || (movementData.getSinceGlidingTicks() < 10);
+                        || movementData.isNearWebs();
 
                 double vel = Math.max(
                         profile.getVelocityData().getTotalVerticalVelocitySustain(),

@@ -101,10 +101,7 @@ public class GravityB extends Check {
                 bufferB = 0.0D;
                 return;
             }
-            if (movementData.getSinceGlidingTicks() < 20) {
-                bufferB = 0.0D;
-                return;
-            }
+
             if (profile.getGeysersTracker().isBeingPushed()) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity B: Exempt - geysers (26.2+)");
                 return;
