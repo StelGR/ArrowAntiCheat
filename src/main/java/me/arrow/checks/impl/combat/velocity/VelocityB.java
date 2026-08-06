@@ -4,7 +4,9 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAnimation;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPong;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientWindowConfirmation;
@@ -23,7 +25,10 @@ import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.Math.MathHelper;
 import me.arrow.utils.customutils.Math.MathUtil;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
+import org.geysermc.geyser.api.item.custom.CustomRenderOffsets;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -315,6 +320,10 @@ public class VelocityB extends Check {
         }
 
         if (isNewerThan8()) {
+            minPtc -= 20.0D;
+        }
+
+        if (profile.getCombatData().isUsedSpear() && onGround) {
             minPtc -= 20.0D;
         }
 

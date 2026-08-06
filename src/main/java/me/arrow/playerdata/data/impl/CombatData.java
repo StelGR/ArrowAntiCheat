@@ -4,6 +4,8 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAnimation;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import lombok.Getter;
@@ -13,6 +15,8 @@ import me.arrow.playerdata.data.Data;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.*;
 import me.arrow.utils.customutils.Math.MathUtil;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
 
@@ -27,12 +31,10 @@ public class CombatData implements Data {
     private static final int ARM_ANIMATION_MAX_MOVEMENTS = 8;
     private static final int ARM_ANIMATION_MAX_COMBAT_TICKS = 20;
 
-    private double outlier, kurtosis, skewness, std, median, averageCps, currentCps;
+    private double outlier, kurtosis, skewness, std, median, averageCps, currentCps, armAnimationCps;
     private int lastAttackedEntityID, lastLastAttackedEntityID;
-    private int attackedTicks;
-    private int target;
+    private int attackedTicks, armAnimationMovements, target, movementTicks, cancelTicks;
 
-    private int movementTicks, cancelTicks;
     private final List<Integer> movements = new ArrayList<>();
 
     private SampleList<Double> cpsSamples = new SampleList<>(1000);
@@ -45,10 +47,7 @@ public class CombatData implements Data {
     private final Deque<Long> clickTimestamps = new ArrayDeque<>();
     private final Queue<Integer> armAnimationClickSamples = new LinkedList<>();
 
-    private boolean attacked, dropping;
-    private boolean armAnimationSamplesReady;
-    private int armAnimationMovements;
-    private double armAnimationCps;
+    private boolean attacked, dropping, usedSpear, armAnimationSamplesReady;
 
     Profile profile;
     public CombatData(Profile profile) {
@@ -58,6 +57,26 @@ public class CombatData implements Data {
 
     @Override
     public void processReceive(PacketReceiveEvent event) {
+
+        // 1. Must be the arm swing packet (fires on every left-click)
+        if (event.getPacketType() == PacketType.Play.Client.ANIMATION) {
+            Player player = event.getPlayer();
+            if (player == null) return;
+
+            WrapperPlayClientAnimation wrapper = new WrapperPlayClientAnimation(event);
+
+
+            if (wrapper.getHand() == InteractionHand.MAIN_HAND) {
+                ItemStack held = player.getInventory().getItemInMainHand();
+                if (held.getType().name().endsWith("_SPEAR")) {
+                    usedSpear = true;
+                }
+            }
+
+            //if (player.getAttackCooldown() >= 0.9f) return;
+
+
+        }
         if (event.getPacketType().equals(INTERACT_ENTITY)) {
             WrapperPlayClientInteractEntity useEntityPacket = new WrapperPlayClientInteractEntity(event);
 
@@ -70,24 +89,16 @@ public class CombatData implements Data {
                 attacked = true;
 
             }
-        } else if (event.getPacketType().equals(PLAYER_FLYING)
-                || event.getPacketType().equals(PLAYER_POSITION)
-                || event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PLAYER_ROTATION)) {
-            this.attackedTicks++;
-            attacked = false;
-            movementTicks = 0;
-            armAnimationMovements++;
-            dropping = false;
         }
-        else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
+
+        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
             WrapperPlayClientPlayerDigging digging = new WrapperPlayClientPlayerDigging(event);
 
             if (digging.getAction().equals(DiggingAction.DROP_ITEM) || digging.getAction().equals(DiggingAction.DROP_ITEM_STACK)) {
                 dropping = true;
             }
         }
-        else if (event.getPacketType().equals(ANIMATION)) {
+        if (event.getPacketType().equals(ANIMATION)) {
             collectArmAnimationSample();
 
             // Handle block actions
@@ -134,6 +145,18 @@ public class CombatData implements Data {
                 this.averageCps = average;
                 cpsSamples.clear();
             }
+        }
+
+        if (event.getPacketType().equals(PLAYER_FLYING)
+                || event.getPacketType().equals(PLAYER_POSITION)
+                || event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)
+                || event.getPacketType().equals(PLAYER_ROTATION)) {
+            this.attackedTicks++;
+            attacked = false;
+            movementTicks = 0;
+            armAnimationMovements++;
+            dropping = false;
+            usedSpear = false;
         }
     }
 
