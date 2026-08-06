@@ -324,7 +324,7 @@ public class VelocityB extends Check {
         }
 
         if (profile.getCombatData().isUsedSpear() && onGround) {
-            minPtc -= 20.0D;
+            minPtc -= 40.0D;
         }
 
         double maxVL = isNewerThan8() ? 8.0D : 5.0D;
