@@ -10,6 +10,8 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.managers.profile.Profile;
 
+// i think the way i did this, may or may not work...
+
 @Experimental
 public class BadPacketsE extends Check {
     public BadPacketsE(Profile profile) {

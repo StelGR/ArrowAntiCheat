@@ -7,9 +7,7 @@ import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
-import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
-import me.arrow.utils.MoveUtils;
 
 public class BadPacketsD extends Check {
     public BadPacketsD(Profile profile) {
