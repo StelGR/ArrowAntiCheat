@@ -529,37 +529,35 @@ public class MovementData implements Data {
                     CollisionUtils.getNearbyBlocks(loc1.clone().subtract(0, 2, 0), async);
 
 
-            boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultLow, async, SLIME);
-            boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lower, async, SLIME);
-            boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelow_lowest, async, SLIME);
+            boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultLow, async, SLIME);
+            boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelow_lower, async, SLIME);
+            boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelow_lowest, async, SLIME);
 
-            boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow, async, SLIME);
-            boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower, async, SLIME);
-            boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest, async, SLIME);
+            boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow, async, SLIME);
+            boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lower, async, SLIME);
+            boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lowest, async, SLIME);
 
-            boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow1, async, SLIME);
-            boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lower1, async, SLIME);
-            boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultBelowBelow_lowest1, async, SLIME);
+            boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow1, async, SLIME);
+            boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lower1, async, SLIME);
+            boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lowest1, async, SLIME);
 
-            boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove, async, SLIME);
-            boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lower, async, SLIME);
-            boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(this.location, nearbyBlocksResultAbove_lowest, async, SLIME);
+            boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultAbove, async, SLIME);
+            boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultAbove_lower, async, SLIME);
+            boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultAbove_lowest, async, SLIME);
 
-            boolean onSlime0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, SLIME);
+            boolean onSlime0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, async, SLIME);
             boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, SLIME);
             boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, SLIME);
-            boolean onSoul0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, SOUL_SAND);
+            boolean onSoul0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, async, SOUL_SAND);
             boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, SOUL_SAND);
             boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, SOUL_SAND);
-            boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, SOUL_BLOCK);
+            boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, async, SOUL_BLOCK);
             boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, SOUL_BLOCK);
             boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, SOUL_BLOCK);
 
-            boolean onHoney0 = CollisionUtils.isStandingOnMaterial(this.location, nearbyBlocksResult, async, HONEY);
+            boolean onHoney0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, async, HONEY);
             boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, HONEY);
             boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, HONEY);
-
-
 
             nearSoulBlock = (onSoulBlock0 || onSoulBlock1 || onSoulBlock2);
             onIce = onIce0 || onIce1 || onIce2;
@@ -668,7 +666,9 @@ public class MovementData implements Data {
                 || isMaterialEqual(name, HEIGHT_CHANGE)
                 || isMaterial(name, SNOW)
                 || isMaterial(name, SOUL_SAND)
+                || isMaterial(name, BED)
                 || isSlab(m)
+                || isBed(m)
                 || isTrapdoor(m)
                 || isFence(m)
                 || isFenceGate(m)
@@ -1024,7 +1024,7 @@ public class MovementData implements Data {
 
             sinceElytraEquipTicks = profile.isWearingFunctionalElytra() ?  0 : sinceElytraEquipTicks + 1;
             serverAirTicks = isServerGround() ? 0 : serverAirTicks + 1;
-            serverGroundTicks = isServerGround() ? serverGroundTicksPlus + 1 : 0;
+            serverGroundTicksPlus = isServerGround() ? serverGroundTicksPlus + 1 : 0;
 
             if (profile.getPlayer().isInsideVehicle()) {
                 if (profile.getVehicleData().getVehicleTicks() < 20) {
