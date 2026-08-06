@@ -197,8 +197,7 @@ public class SpeedA extends Check {
                 allowedLimit += 0.1295;
             }
 
-            if (serverGroundTicks <= 10) allowedLimit += 0.004;
-
+            if (serverGroundTicks <= 10) allowedLimit += 0.012;
 
             if (movementData.getMovingOnSlimeTicks() > 0) {
                 allowedLimit += 0.05;
