@@ -13,6 +13,8 @@ import me.arrow.utils.customutils.Math.MathUtil;
 
 import java.util.Collection;
 
+// Marked for removal/recode
+
 @Experimental
 public class InventoryB extends Check {
 

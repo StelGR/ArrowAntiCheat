@@ -15,8 +15,7 @@ import me.arrow.utils.customutils.Math.MathUtil;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
 
-// these only work on below 1.12.2, idk where they removed open inventory achievement packet, but yeah, only inventory B works
-// on modern
+// Marked for removal
 
 public class InventoryC extends Check {
 
