@@ -577,7 +577,7 @@ public class MovementData implements Data {
 
             nearWater = containsMaterial(blockTypes, WATER) || nearbyBlocksResult.isNearWaterLogged();
             nearLava = containsMaterial(blockTypes, LAVA);
-            nearClimbable = containsMaterial(blockTypes, CLIMBABLE) || containsMaterial(blockTypes, CLIMBABLE);
+            nearClimbable = containsMaterial(blockTypes, CLIMBABLE) || containsMaterial(blockTypes, SCAFFOLDING);
             nearWebs = containsMaterial(blockTypes, WEB);
             nearBubble = containsMaterial(blockTypes, BUBBLE);
             nearBuggyBlock = containsMaterial(blockTypes, BUGGY_BLOCK);

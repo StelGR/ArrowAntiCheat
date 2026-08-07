@@ -169,7 +169,7 @@ public class CollisionUtils {
     public static float getBlockSlipperiness(final Material type) {
 
         return switch (type) {
-            case SLIME_BLOCK -> .8F;
+            case SLIME_BLOCK, HONEY_BLOCK -> .8F;
             case ICE, PACKED_ICE -> .98F;
             case BLUE_ICE -> .989F;
             default -> MoveUtils.FRICTION_FACTOR;

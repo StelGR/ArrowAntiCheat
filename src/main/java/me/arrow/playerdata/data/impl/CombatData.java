@@ -1,7 +1,9 @@
 package me.arrow.playerdata.data.impl;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.player.InteractionHand;
@@ -58,13 +60,11 @@ public class CombatData implements Data {
     @Override
     public void processReceive(PacketReceiveEvent event) {
 
-        // 1. Must be the arm swing packet (fires on every left-click)
-        if (event.getPacketType() == PacketType.Play.Client.ANIMATION) {
-            Player player = event.getPlayer();
-            if (player == null) return;
+        if (event.getPacketType() == PacketType.Play.Client.ANIMATION
+                && PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_21_11)) {
 
             WrapperPlayClientAnimation wrapper = new WrapperPlayClientAnimation(event);
-
+            Player player = event.getPlayer();
 
             if (wrapper.getHand() == InteractionHand.MAIN_HAND) {
                 ItemStack held = player.getInventory().getItemInMainHand();
@@ -72,9 +72,6 @@ public class CombatData implements Data {
                     usedSpear = true;
                 }
             }
-
-            //if (player.getAttackCooldown() >= 0.9f) return;
-
 
         }
         if (event.getPacketType().equals(INTERACT_ENTITY)) {
@@ -158,6 +155,7 @@ public class CombatData implements Data {
             dropping = false;
             usedSpear = false;
         }
+
     }
 
     @Override
