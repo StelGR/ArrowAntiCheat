@@ -57,6 +57,7 @@ public class GravityC extends Check {
                     || movementData.isNearShulkerBox()
                     || movementData.isNearLava()
                     || movementData.isNearWater()
+                    || movementData.isNearClimbable()
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
                     || profile.getTick() < 120
