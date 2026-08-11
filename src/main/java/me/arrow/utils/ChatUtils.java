@@ -1,6 +1,8 @@
 package me.arrow.utils;
 
 import me.arrow.Arrow;
+import me.arrow.files.Config;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.ChatColor;
 
 import java.util.regex.Pattern;
@@ -22,5 +24,11 @@ public class ChatUtils {
 
     public static void log(final String message) {
         Arrow.getInstance().getHost().getLogger().info(message);
+    }
+
+    public static void debugExempt(String reason, String checkName) {
+        if (Config.Setting.DEBUG.getBoolean()) {
+            OtherUtility.log(checkName + ": is Exempting (" + reason + ")");
+        }
     }
 }

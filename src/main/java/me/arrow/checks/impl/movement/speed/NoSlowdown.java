@@ -42,12 +42,26 @@ public class NoSlowdown extends Check {
 
             if (profile.shouldCancel()) return;
 
-
             MovementData movementData = profile.getMovementData();
             ActionData actionData = profile.getActionData();
             PredictionData predictionData = profile.getPredictionData();
 
-            verbose(this.getClass().getSimpleName(), movementData.getDeltaXZ(), 0.08, " * Verbose\n * deltaXZ " + movementData.getDeltaXZ() + "\n * spriting " + actionData.isSprinting() + "\n * lastSpriting " + actionData.isLastSprinting() + "\n * lastLastSpriting " + actionData.isLastLastSprinting() + "\n * isGround " + movementData.isOnGround() + "\n * isUse " + predictionData.isUseItem());
+            sneakingTicks = profile.isSneaking() ? sneakingTicks + 1 : 0;
+
+            usageTicks = (predictionData.isUseItem() || predictionData.isUseShield() || predictionData.isUseSword()) ? usageTicks + 1 : 0;
+
+
+            verbose(this.getClass().getSimpleName(), movementData.getDeltaXZ(), movementData.getDeltaY(), " * Verbose\n * deltaXZ " + movementData.getDeltaXZ()
+                    + "\n * spriting " + actionData.isSprinting()
+                    + "\n * lastSpriting " + actionData.isLastSprinting()
+                    + "\n * lastLastSpriting " + actionData.isLastLastSprinting()
+                    + "\n * isGround " + movementData.isOnGround()
+                    + "\n * isUseItem " + predictionData.isUseItem()
+                    + "\n * isUseSword " + predictionData.isUseSword()
+                    + "\n * isUseShield " + predictionData.isUseShield()
+                    + "\n * honeyTicks " + movementData.getMovingOnHoneyTicks()
+                    + "\n * soulTicks " + movementData.getMovingOnSoulTicks()
+                    + "\n * slimeTicks " + movementData.getMovingOnSlimeTicks());
 
             NoSlowA(movementData, actionData, predictionData);
             //NoSlowB(movementData, actionData, predictionData);
@@ -57,7 +71,7 @@ public class NoSlowdown extends Check {
     }
 
     public void NoSlowA(MovementData movementData, ActionData actionData, PredictionData predictionData) {
-        boolean invalid1 = profile.getPlayer().getFoodLevel() < 5 && actionData.isSprinting();
+        boolean invalid1 = profile.getPlayer().getFoodLevel() < 4 && actionData.isSprinting();
 
         if (invalid1) fail("Sprinting while hungry", "(No Debug Information)");
     }
@@ -74,9 +88,6 @@ public class NoSlowdown extends Check {
     }
 
     public void NoSlowC(MovementData movementData, ActionData actionData, PredictionData predictionData) {
-        if (profile.isSneaking()) sneakingTicks++;
-        else sneakingTicks = 0;
-
         int swiftSneak = movementData.getEquipment().getSwiftSneakLevel();
 
         if (profile.getVelocityData().isTakingVelocity()) return;
@@ -101,9 +112,6 @@ public class NoSlowdown extends Check {
 
     public void NoSlowD(MovementData movementData, ActionData actionData, PredictionData predictionData) {
         if (profile.getMovementData().getSinceGlidingTicks() < 10) return;
-
-        if (predictionData.isUseItem() || predictionData.isUseShield()) usageTicks++;
-        else usageTicks = 0;
 
         boolean invalid2 = (predictionData.isUseItem() || predictionData.isUseShield())
                 && ((actionData.isSprinting()

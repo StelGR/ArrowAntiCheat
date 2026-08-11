@@ -315,7 +315,7 @@ public class VelocityB extends Check {
             minPtc -= 20.0D;
         }
 
-        if (profile.getCombatData().isUsedSpear() && onGround) {
+        if (profile.getCombatData().getSinceUsedSpear() < 30 && onGround) {
             minPtc -= 40.0D;
         }
 

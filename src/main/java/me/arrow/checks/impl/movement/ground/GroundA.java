@@ -10,6 +10,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
+import me.arrow.utils.ChatUtils;
 
 // fairly simply ground desync/spoof check, the main one is mismatched ground (1), although (2), (3) and (4) are
 // for edge cases, from clients that are able to spoof server side flooring
@@ -36,37 +37,12 @@ public class GroundA extends Check {
             try {
                 MovementData movementData = profile.getMovementData();
 
-                ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-
-                if (world.shouldExemptMovementChecks()
-                        || world.physicsMismatch
-                        || world.onGhostBlock
-                        || world.underGhostBlock
-                        || world.insideGhostBlock) {
-                    return;
-                }
-
-                if (profile.shouldCancel()
-                        || profile.getTick() < 60
-                        || profile.getMovementData().isOnBoat()
-                        || profile.getMovementData().isNearBoat()
-                        || profile.isExempt().isTeleports()
-                        || movementData.isNearWebs()
-                        || movementData.isNearShulkerBox()
-                        || movementData.isNearClimbable()
-                        || movementData.isNearGhast()
-                        || movementData.isNearShulker()
-                        || movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || movementData.getSinceCollideTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || profile.getMovementData().getSincePowderSnowTicks() < 10
-                        || profile.getVehicleData().getSinceVehicleTicks() < 1) {
-                    return;
-                }
+                if (isExempt1(movementData)) return;
 
                 boolean serverGround = movementData.isServerGround();
                 boolean clientGround = movementData.isOnGround();
                 boolean serverGround2 = movementData.isServerYGround();
-                int trans = profile.getConnectionData().getClientTickTrans();
+
 
                 boolean invalid2 = !serverGround2 && clientGround && movementData.getCustomAirTicks() != 0;
 
@@ -81,11 +57,7 @@ public class GroundA extends Check {
                         && movementData.getSincePredictUpwardsTicks() < 10
                         && !profile.isBedrockPlayer();
 
-                if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
-                        || profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
-                        || profile.getActionData().hasRecentTowerBlockPlace(10 + (trans * 2), 2 + trans)) {
-                    return;
-                }
+
 
                 if (invalid1 || invalid2
                         || invalid3
@@ -114,14 +86,8 @@ public class GroundA extends Check {
 
             try {
                 MovementData movementData = profile.getMovementData();
-                if (movementData.isOnBoat()
-                        || movementData.isNearBoat()
-                        || movementData.isNearGhast()
-                        || movementData.getSincePowderSnowTicks() < 10
-                        || movementData.getSincePredictDownwardsTicks() < 10
-                        || movementData.getSincePredictUpwardsTicks() < 10
-                        || profile.isExempt().isTeleports()
-                ) return;
+
+                if (isExempt2(movementData)) return;
 
                 boolean serverGround = movementData.isServerGround();
                 boolean clientGround = movementData.isOnGround();
@@ -149,5 +115,75 @@ public class GroundA extends Check {
                 Profiler.stop("Ground A (1)", profiler);
             }
         }
+    }
+
+
+    boolean isExempt1(MovementData movementData) {
+        ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+
+        if (world.shouldExemptMovementChecks()
+                || world.physicsMismatch
+                || world.onGhostBlock
+                || world.underGhostBlock
+                || world.insideGhostBlock) {
+            ChatUtils.debugExempt("WorldTracker", "GroundA");
+            return true;
+        }
+
+        if (profile.shouldCancel()
+                || profile.getTick() < 60
+                || profile.getMovementData().isOnBoat()
+                || profile.getMovementData().isNearBoat()
+                || profile.isExempt().isTeleports()
+                || movementData.isNearWebs()
+                || movementData.isNearShulkerBox()
+                || movementData.isNearClimbable()
+                || movementData.isNearGhast()
+                || movementData.isNearShulker()
+                || movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || movementData.getSinceCollideTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || profile.getMovementData().getSincePowderSnowTicks() < 10
+                || profile.getVehicleData().getSinceVehicleTicks() < 1) {
+            return true;
+        }
+
+        int trans = profile.getConnectionData().getClientTickTrans();
+
+        if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
+                || profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
+                || profile.getActionData().hasRecentTowerBlockPlace(10 + (trans * 2), 2 + trans)) {
+            ChatUtils.debugExempt("blockSupportAndCancel", "GroundA");
+            return true;
+        }
+
+        return false;
+    }
+
+    boolean isExempt2(MovementData movementData) {
+
+        if (movementData.isOnBoat()
+                || movementData.isNearBoat()
+                || movementData.isNearGhast()) {
+            ChatUtils.debugExempt("boat/ghast", "GroundA");
+            return true;
+        }
+
+        if (movementData.getSincePredictDownwardsTicks() < 10
+                || movementData.getSincePredictUpwardsTicks() < 10) {
+            ChatUtils.debugExempt("predict", "GroundA");
+            return true;
+        }
+
+        if (movementData.getSincePowderSnowTicks() < 10) {
+            ChatUtils.debugExempt("powderSnow", "GroundA");
+            return true;
+        }
+
+        if (profile.isExempt().isTeleports()) {
+            ChatUtils.debugExempt("teleports", "GroundA");
+            return true;
+        }
+
+        return false;
     }
 }

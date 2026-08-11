@@ -16,6 +16,7 @@ import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
+import me.arrow.utils.ChatUtils;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
@@ -345,7 +346,6 @@ public class GravityD extends Check {
 
         strictLastPositionTick = movementTick;
         strictLastDY = estimateTerminalDY(
-                previousStrictDY,
                 currentDY,
                 sampleTicks,
                 false,
@@ -632,8 +632,7 @@ public class GravityD extends Check {
                 : trajectoryMotion.terminalDY;
         final String selectedType = selectedLocal ? expectedResult.type : "trajectory";
 
-        final double currentDY = estimateTerminalDY(
-                lastObservedDY, displacementY, sampleTicks, launchSample, localMotion
+        final double currentDY = estimateTerminalDY(displacementY, sampleTicks, launchSample, localMotion
         );
         final double normalExpectedDY = launchSample
                 ? getExpectedJumpMotion()
@@ -664,7 +663,7 @@ public class GravityD extends Check {
                 : 0.0D;
 
         final double normalDoubleGravityDY = sampleTicks == 1
-                ? predictGravityDY(profile, data, selectedExpectedDY)
+                ? predictGravityDY(data, selectedExpectedDY)
                 : Double.NaN;
         final PredictionResult doubleResult = sampleTicks == 1
                 ? selectGravityPrediction(data, normalDoubleGravityDY, false)
@@ -719,7 +718,6 @@ public class GravityD extends Check {
             boolean fastFallEvidence = directFastFall || impossibleFastLanding || abruptMotionCut;
 
             if (handleGravityDFlag(data,
-                    true,
                     fallDist,
                     evidenceAirTicks,
                     selectedExpectedDY,
@@ -740,7 +738,6 @@ public class GravityD extends Check {
                     false,
                     actualGround,
                     trustedClientGround,
-                    transTicks,
                     fastFallEvidence ? 0.75D : 1.25D,
                     impossibleFastLanding ? 3.25D : abruptMotionCut ? 3.15D : directFastFall ? 3.00D : 2.25D)) {
                 return;
@@ -847,7 +844,6 @@ public class GravityD extends Check {
             if (cumulativeEvidence) added += 0.65D;
 
             if (handleGravityDFlag(data,
-                    trajectoryEvidence || cumulativeEvidence,
                     fallDist,
                     airTicks,
                     selectedExpectedDY,
@@ -868,7 +864,6 @@ public class GravityD extends Check {
                     impossibleAcceleration,
                     actualGround,
                     trustedClientGround,
-                    transTicks,
                     required,
                     added)) {
                 return;
@@ -1055,7 +1050,7 @@ public class GravityD extends Check {
         }
 
         double severity = expectedDisplacement / packetThreshold;
-        double doubleGravityDY = predictGravityDY(profile, data, expectedMotion.terminalDY);
+        double doubleGravityDY = predictGravityDY(data, expectedMotion.terminalDY);
         int airTicks = getAirTicks(data);
         String information = ChatColor.RED + "Verbose (missing position)"
                 + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
@@ -1071,7 +1066,6 @@ public class GravityD extends Check {
 
         return handleGravityDFlag(
                 data,
-                true,
                 data.getFallDistance(),
                 airTicks,
                 expectedMotion.terminalDY,
@@ -1092,7 +1086,6 @@ public class GravityD extends Check {
                 false,
                 false,
                 false,
-                transTicks,
                 strong ? 0.75D : 1.75D,
                 strong ? 3.15D : 0.90D
         );
@@ -1337,7 +1330,6 @@ public class GravityD extends Check {
     }
 
     private boolean handleGravityDFlag(MovementData data,
-                                       boolean directEvidence,
                                        double fallDist,
                                        int airTicks,
                                        double expectedDY,
@@ -1358,7 +1350,6 @@ public class GravityD extends Check {
                                        boolean impossibleAcceleration,
                                        boolean actualGround,
                                        boolean trustedClientGround,
-                                       int transTicks,
                                        double required,
                                        double added) {
         negGravStreak += added;
@@ -1464,7 +1455,7 @@ public class GravityD extends Check {
         int simulatedTicks = Math.max(1, ticks);
 
         for (int i = 0; i < simulatedTicks; i++) {
-            velocity = predictGravityDY(profile, profile.getMovementData(), velocity);
+            velocity = predictGravityDY(profile.getMovementData(), velocity);
             displacement += velocity;
         }
 
@@ -1498,7 +1489,7 @@ public class GravityD extends Check {
             double accumulatedBefore = 0.0D;
 
             for (int gravityStep = 1; gravityStep <= 20; gravityStep++) {
-                velocity = predictGravityDY(profile, data, velocity);
+                velocity = predictGravityDY(data, velocity);
 
                 double motionOffset = Math.abs(currentDY - velocity);
                 double distanceOffset = Math.abs(fallDistance - accumulatedBefore);
@@ -1521,8 +1512,7 @@ public class GravityD extends Check {
         return best;
     }
 
-    private double estimateTerminalDY(double previousDY,
-                                      double displacementY,
+    private double estimateTerminalDY(double displacementY,
                                       int ticks,
                                       boolean launchSample,
                                       GravityMotion expectedMotion) {
@@ -1899,7 +1889,7 @@ public class GravityD extends Check {
         return Math.min(0.125D, tolerance);
     }
 
-    private double predictGravityDY(Profile profile, MovementData data, double previousDY) {
+    private double predictGravityDY(MovementData data, double previousDY) {
         if (!Double.isFinite(previousDY)) {
             previousDY = 0.0D;
         }
@@ -1951,7 +1941,7 @@ public class GravityD extends Check {
                 || negGravStreak > 0.0D
                 || cumulativeNegativeGravity > 0.0D
                 || getBuffer() > 0.0D) {
-            debugExemptD(reason);
+            ChatUtils.debugExempt(reason, "GravityD");
         }
 
         negGravStreak = 0.0D;
@@ -1984,13 +1974,6 @@ public class GravityD extends Check {
         return (float) FastMath.sqrt(total);
     }
 
-    private void debugExemptD(String reason) {
-
-        if (Config.Setting.DEBUG.getBoolean()) {
-            OtherUtility.log("Gravity D: is Exempting (" + reason + ")");
-        }
-    }
-
     private boolean isVanillaMicroFallTransition(double dy, double lastDy, double expectedDY, double doubleGravityDY) {
         final double VANILLA_MICRO = 0.003016261509046103D;
         final double VANILLA_NEG = -0.07840000152587834D;
@@ -2016,7 +1999,6 @@ public class GravityD extends Check {
     }
 
     static class PredictionResult {
-
         double prediction;
         final String type;
         double offset;

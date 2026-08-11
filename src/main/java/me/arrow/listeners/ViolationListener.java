@@ -42,14 +42,14 @@ import static me.arrow.utils.customutils.OtherUtility.translate;
 // This listener keeps alert creation and fan-out away from packet/player threads.
 public class ViolationListener implements Listener {
 
-    private static final LegacyComponentSerializer LEGACY_SERIALIZER =
+    static LegacyComponentSerializer LEGACY_SERIALIZER =
             LegacyComponentSerializer.legacySection();
 
-    private final Arrow plugin;
-    private final boolean systemChatPackets;
+    Arrow plugin;
+    boolean systemChatPackets;
 
-    private final Map<UUID, Map<String, Integer>> basicAlertVLs = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> lastReset = new ConcurrentHashMap<>();
+    Map<UUID, Map<String, Integer>> basicAlertVLs = new ConcurrentHashMap<>();
+    Map<UUID, Long> lastReset = new ConcurrentHashMap<>();
 
     public ViolationListener(Arrow plugin) {
         this.plugin = plugin;
@@ -65,27 +65,27 @@ public class ViolationListener implements Listener {
     }
 
     private void processViolation(ViolationAlert alert) {
-        final Player punishedPlayer = alert.player;
+        Player punishedPlayer = alert.player;
 
         if (punishedPlayer == null || !punishedPlayer.isOnline()) {
             return;
         }
 
-        final Profile punishedProfile = this.plugin.getProfileManager().getProfile(punishedPlayer);
+        Profile punishedProfile = this.plugin.getProfileManager().getProfile(punishedPlayer);
 
         if (punishedProfile == null) {
             return;
         }
 
-        final String tps = String.valueOf(TickTask.getTPS());
-        final String ping = String.valueOf(punishedProfile.getConnectionData().getTransPing());
-        final String checkType = alert.checkType;
-        final String checkName = alert.checkName;
-        final String checkCategory = alert.checkCategory;
+        String tps = String.valueOf(TickTask.getTPS());
+        String ping = String.valueOf(punishedProfile.getConnectionData().getTransPing());
+        String checkType = alert.checkType;
+        String checkName = alert.checkName;
+        String checkCategory = alert.checkCategory;
 
         punishedProfile.setLastFlaggedCheck(checkName);
 
-        final String checkPlusCheckType;
+        String checkPlusCheckType;
 
         if (checkType.isEmpty() || checkName.equals(" ")) {
             checkPlusCheckType = checkName;
@@ -93,27 +93,27 @@ public class ViolationListener implements Listener {
             checkPlusCheckType = checkName + " (" + checkType + ")";
         }
 
-        final boolean experimental = alert.experimental;
-        final String experimentalCheck = experimental ? MsgType.EXPERIMENTAL_SYMBOL.getMessage() + " " : " ";
-        final String experimentalFormat = experimental ? MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "";
-        final String informationTitle = MsgType.MAIN_THEME_COLOR.getMessage() + alert.informationTitle;
-        final String informationTitleFormatted =
+        boolean experimental = alert.experimental;
+        String experimentalCheck = experimental ? MsgType.EXPERIMENTAL_SYMBOL.getMessage() + " " : " ";
+        String experimentalFormat = experimental ? MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "";
+        String informationTitle = MsgType.MAIN_THEME_COLOR.getMessage() + alert.informationTitle;
+        String informationTitleFormatted =
                 MsgType.MAIN_THEME_COLOR.getMessage()
                         + MsgType.HOVER_SYMBOL.getMessage()
                         + " "
                         + alert.informationTitle;
 
-        final String prefixFormatted =
+        String prefixFormatted =
                 MsgType.SECOND_THEME_COLOR.getMessage()
                         + " "
                         + MsgType.HOVER_SYMBOL.getMessage()
                         + " ";
 
-        final String informationFormatted = prefixLines(alert.information, prefixFormatted);
-        final String information = prefixLines(alert.information, MsgType.PREFIX.getMessage());
-        final String playerName = punishedPlayer.getName();
-        final int vl = alert.vl;
-        final int maxvl = alert.maxVl;
+        String informationFormatted = prefixLines(alert.information, prefixFormatted);
+        String information = prefixLines(alert.information, MsgType.PREFIX.getMessage());
+        String playerName = punishedPlayer.getName();
+        int vl = alert.vl;
+        int maxvl = alert.maxVl;
 
         String composedCheck = checkPlusCheckType
                 + (experimental ? " " + MsgType.EXPERIMENTAL_SYMBOL.getMessage() : "");
@@ -130,7 +130,7 @@ public class ViolationListener implements Listener {
                 sanitizeForLog(informationTitleFormatted + "\n" + informationFormatted)
         ));
 
-        final String hoverMessage = MsgType.ALERT_HOVER.getMessage()
+        String hoverMessage = MsgType.ALERT_HOVER.getMessage()
                 .replace("%description%", alert.description)
                 .replace("%informationtitleformatted%", informationTitleFormatted)
                 .replace("%informationformatted%", informationFormatted)
@@ -139,9 +139,9 @@ public class ViolationListener implements Listener {
                 .replace("%ping%", ping)
                 .replace("%tps%", tps);
 
-        final Component hoverComponent = legacy(format(hoverMessage));
-        final String alertMessage = MsgType.ALERT_MESSAGE.getMessage();
-        final String formattedDebugString =
+        Component hoverComponent = legacy(format(hoverMessage));
+        String alertMessage = MsgType.ALERT_MESSAGE.getMessage();
+        String formattedDebugString =
                 MsgType.SECOND_THEME_COLOR.getMessage() + "x"
                         + MsgType.MAIN_THEME_COLOR.getMessage() + "%vl%"
                         + MsgType.SECOND_THEME_COLOR.getMessage() + ", "
@@ -151,30 +151,30 @@ public class ViolationListener implements Listener {
                         + MsgType.SECOND_THEME_COLOR.getMessage() + "TPS: "
                         + MsgType.MAIN_THEME_COLOR.getMessage() + "%tps%";
 
-        final String fullDisplayCheck = checkPlusCheckType + experimentalCheck;
-        final String basicCategory = getCategory(checkName);
-        final Map<String, String> basicMessages = new HashMap<>();
-        final Map<String, Component> components = new HashMap<>();
-        final Map<String, Component> componentsWithHover = new HashMap<>();
+        String fullDisplayCheck = checkPlusCheckType + experimentalCheck;
+        String basicCategory = getCategory(checkName);
+        Map<String, String> basicMessages = new HashMap<>();
+        Map<String, Component> components = new HashMap<>();
+        Map<String, Component> componentsWithHover = new HashMap<>();
         String normalMessage = null;
         String debugMessage = null;
 
         for (UUID staffId : this.plugin.getAlertManager().getPlayersWithAlerts()) {
-            final Profile staffProfile = this.plugin.getProfileManager().getProfile(staffId);
+            Profile staffProfile = this.plugin.getProfileManager().getProfile(staffId);
 
             if (staffProfile == null || !staffProfile.isAlerts()) {
                 continue;
             }
 
-            final Player staff = staffProfile.getPlayer();
+            Player staff = staffProfile.getPlayer();
 
             if (staff == null || !staff.isOnline()
                     || !staff.hasPermission(Permissions.ALERTS.getPermission())) {
                 continue;
             }
 
-            final boolean debug = staff.hasPermission(Permissions.DEBUG.getPermission());
-            final boolean hover = staff.hasPermission(Permissions.HOVER.getPermission());
+            boolean debug = staff.hasPermission(Permissions.DEBUG.getPermission());
+            boolean hover = staff.hasPermission(Permissions.HOVER.getPermission());
             String messageToSend;
 
             if (debug) {
@@ -268,28 +268,28 @@ public class ViolationListener implements Listener {
     }
 
     private void processVerbose(VerboseAlert alert) {
-        final Player punishedPlayer = alert.player;
+        Player punishedPlayer = alert.player;
 
         if (punishedPlayer == null || !punishedPlayer.isOnline()) {
             return;
         }
 
-        final Profile punishedProfile = this.plugin.getProfileManager().getProfile(punishedPlayer);
+        Profile punishedProfile = this.plugin.getProfileManager().getProfile(punishedPlayer);
 
         if (punishedProfile == null) {
             return;
         }
 
-        final String tps = String.valueOf(TickTask.getTPS());
-        final String checkPlusCheckType = alert.checkName + " (" + alert.checkType + ")";
-        final String playerName = punishedPlayer.getName();
+        String tps = String.valueOf(TickTask.getTPS());
+        String checkPlusCheckType = alert.checkName + " (" + alert.checkType + ")";
+        String playerName = punishedPlayer.getName();
 
-        final String hoverMessage = "%information%\n Ping: %ping%, TPS: %tps%"
+        String hoverMessage = "%information%\n Ping: %ping%, TPS: %tps%"
                 .replace("%information%", alert.information)
                 .replace("%ping%", String.valueOf(punishedProfile.getConnectionData().getTransPing()))
                 .replace("%tps%", tps);
 
-        final String formattedDebugString =
+        String formattedDebugString =
                 ChatColor.DARK_GRAY + " ("
                         + MsgType.MAIN_THEME_COLOR.getMessage()
                         + calculatePercentage(alert.vl, alert.maxVl)
@@ -303,24 +303,24 @@ public class ViolationListener implements Listener {
                         + alert.maxVl
                         + ChatColor.DARK_GRAY + ")";
 
-        final String alertMessage = "&6%player% &7verbosed &6%check%%debug%"
+        String alertMessage = "&6%player% &7verbosed &6%check%%debug%"
                 .replace("%player%", playerName)
                 .replace("%debug%", formattedDebugString)
                 .replace("%check%", checkPlusCheckType);
 
-        final Component hoverComponent = legacy(format(hoverMessage));
-        final Component messageComponent = legacy(format(alertMessage))
+        Component hoverComponent = legacy(format(hoverMessage));
+        Component messageComponent = legacy(format(alertMessage))
                 .hoverEvent(HoverEvent.showText(hoverComponent))
                 .clickEvent(ClickEvent.runCommand("/tp " + playerName));
 
         for (UUID staffId : this.plugin.getAlertManager().getPlayersWithAlerts()) {
-            final Profile staffProfile = this.plugin.getProfileManager().getProfile(staffId);
+            Profile staffProfile = this.plugin.getProfileManager().getProfile(staffId);
 
             if (staffProfile == null || !staffProfile.isAlerts()) {
                 continue;
             }
 
-            final Player staff = staffProfile.getPlayer();
+            Player staff = staffProfile.getPlayer();
 
             if (staff == null || !staff.isOnline()
                     || !staff.hasPermission(Permissions.VERBOSE.getPermission())) {
@@ -555,7 +555,7 @@ public class ViolationListener implements Listener {
         String out = ChatColor.stripColor(input);
         out = out.replace("\r", "").trim();
 
-        final int max = 1500;
+        int max = 1500;
 
         if (out.length() > max) {
             out = out.substring(0, max);
@@ -576,17 +576,17 @@ public class ViolationListener implements Listener {
                 .replace("\n", "\\n");
     }
 
-    private static final class ViolationAlert {
-        private final Player player;
-        private final String checkName;
-        private final String description;
-        private final String checkCategory;
-        private final String checkType;
-        private final String information;
-        private final String informationTitle;
-        private final int vl;
-        private final int maxVl;
-        private final boolean experimental;
+    private static class ViolationAlert {
+        Player player;
+        String checkName;
+        String description;
+        String checkCategory;
+        String checkType;
+        String information;
+        String informationTitle;
+        int vl;
+        int maxVl;
+        boolean experimental;
 
         private ViolationAlert(
                 Player player,
@@ -628,13 +628,13 @@ public class ViolationListener implements Listener {
         }
     }
 
-    private static final class VerboseAlert {
-        private final Player player;
-        private final String checkName;
-        private final String checkType;
-        private final String information;
-        private final double vl;
-        private final double maxVl;
+    private static class VerboseAlert {
+        Player player;
+        String checkName;
+        String checkType;
+        String information;
+        double vl;
+        double maxVl;
 
         private VerboseAlert(
                 Player player,

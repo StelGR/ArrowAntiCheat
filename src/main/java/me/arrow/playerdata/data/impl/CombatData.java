@@ -35,7 +35,7 @@ public class CombatData implements Data {
 
     private double outlier, kurtosis, skewness, std, median, averageCps, currentCps, armAnimationCps;
     private int lastAttackedEntityID, lastLastAttackedEntityID;
-    private int attackedTicks, armAnimationMovements, target, movementTicks, cancelTicks;
+    private int attackedTicks, armAnimationMovements, target, movementTicks, cancelTicks, sinceUsedSpear;
 
     private final List<Integer> movements = new ArrayList<>();
 
@@ -154,6 +154,8 @@ public class CombatData implements Data {
             armAnimationMovements++;
             dropping = false;
             usedSpear = false;
+
+            sinceUsedSpear = usedSpear ? 0 : sinceUsedSpear + 1;
         }
 
     }

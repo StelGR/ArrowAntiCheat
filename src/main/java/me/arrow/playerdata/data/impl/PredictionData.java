@@ -59,6 +59,7 @@ public class PredictionData implements Data {
     private int riptideFailedCooldownPackets = 0;
 
 
+    int sneakingTicks, usageTicks;
 
     Profile profile;
 
@@ -132,16 +133,19 @@ public class PredictionData implements Data {
                         && wrappedInBlockPlacePacket.getBlockPosition().getY() == -1 && wrappedInBlockPlacePacket.getBlockPosition().getZ() == -1) {
 
                     if (profile.isSword(main) || profile.isSword(off)) {
-                        useSword  = true;
+                        useSword = true;
                     }
 
-                    if (MaterialType.isMaterial(mainHand.name(), MaterialType.SHIELD) || MaterialType.isMaterial(offHand.name(), MaterialType.SHIELD)) {
+                    if (MaterialType.isMaterial(mainHand.name(), MaterialType.SHIELD)
+                            || MaterialType.isMaterial(offHand.name(), MaterialType.SHIELD)) {
                         useShield  = true;
                     }
 
                 }
-                if (MaterialType.isMaterial(mainHand.name(), MaterialType.BOW) ||  MaterialType.isMaterial(offHand.name(), MaterialType.BOW)
-                        || isFood(Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer())) || isFood(Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer()))) {
+                if (MaterialType.isMaterial(mainHand.name(), MaterialType.BOW)
+                        || MaterialType.isMaterial(offHand.name(), MaterialType.BOW)
+                        || isFood(Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer()))
+                        || isFood(Arrow.getInstance().getNmsManager().getNmsInstance().getItemInOffHand(profile.getPlayer()))) {
                     useItem = true;
                 }
 
@@ -220,6 +224,10 @@ public class PredictionData implements Data {
             updateDiggingState();
 
             handleRiptideTick();
+
+            sneakingTicks = profile.isSneaking() ? sneakingTicks + 1 : 0;
+
+            usageTicks = (isUseItem() || isUseShield() || isUseSword()) ? usageTicks + 1 : 0;
 
         }
     }

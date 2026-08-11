@@ -6,7 +6,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import me.arrow.Arrow;
+import me.arrow.managers.themes.Theme;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.enchantments.Enchantment;
@@ -25,6 +28,7 @@ import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -508,6 +512,114 @@ public class GuiUtility {
         }
 
         return null;
+    }
+
+    public static List<ItemStack> createThemedSpacer(int amount) {
+        List<ItemStack> items = new ArrayList<>();
+
+        Theme theme = Arrow.getInstance().getThemeManager().getTheme();
+
+        if (theme == null) {
+            for (int i = 0; i < amount; i++) {
+                items.add(createSpacer());
+            }
+            return items;
+        }
+
+        String mainRaw = theme.getConfig().getString("main_theme_color", "&6");
+        String secondaryRaw = theme.getConfig().getString("second_theme_color", "&f");
+
+        String mainColor = ChatColor.translateAlternateColorCodes('&', mainRaw);
+        String secondaryColor = ChatColor.translateAlternateColorCodes('&', secondaryRaw);
+
+        for (int i = 0; i < amount; i++) {
+            String currentColor = (i % 2 == 0) ? secondaryColor : mainColor;
+            items.add(createColoredSpacer(currentColor, currentColor));
+        }
+        return items;
+    }
+
+    private static ItemStack createColoredSpacer(String displayColor, String translatedColor) {
+        ServerVersion version = PacketEvents.getAPI().getServerManager().getVersion();
+
+        Material mat;
+        ItemStack itemStack;
+
+        if (version.isNewerThanOrEquals(ServerVersion.V_1_13)) {
+            mat = matchModernColor(translatedColor);
+            if (mat == null) {
+                mat = Material.matchMaterial("STAINED_GLASS_PANE");
+            }
+            if (mat == null) {
+                mat = Material.GLASS_PANE;
+            }
+            itemStack = new ItemStack(mat, 1);
+        } else {
+            mat = Material.matchMaterial("STAINED_GLASS_PANE");
+            if (mat == null) {
+                mat = Material.GLASS_PANE;
+            }
+            byte colorByte = matchLegacyColor(translatedColor);
+            itemStack = new ItemStack(mat, 1, colorByte);
+        }
+
+        ItemMeta meta = itemStack.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(displayColor + " ");
+            itemStack.setItemMeta(meta);
+        }
+        return itemStack;
+    }
+
+    private static Material matchModernColor(String color) {
+        // Look for section sign (§) since translateAlternateColorCodes converts & to §
+        int index = color.lastIndexOf('§');
+        if (index != -1 && index + 1 < color.length()) {
+            char colorChar = Character.toLowerCase(color.charAt(index + 1));
+
+            return switch (colorChar) {
+                case '0' -> Material.matchMaterial("BLACK_STAINED_GLASS_PANE");
+                case '1' -> Material.matchMaterial("BLUE_STAINED_GLASS_PANE");
+                case '2' -> Material.matchMaterial("GREEN_STAINED_GLASS_PANE");
+                case '3' -> Material.matchMaterial("CYAN_STAINED_GLASS_PANE");
+                case '4', 'c' -> Material.matchMaterial("RED_STAINED_GLASS_PANE");
+                case '5' -> Material.matchMaterial("PURPLE_STAINED_GLASS_PANE");
+                case '6' -> Material.matchMaterial("ORANGE_STAINED_GLASS_PANE");
+                case '7' -> Material.matchMaterial("GRAY_STAINED_GLASS_PANE");
+                case '8' -> Material.matchMaterial("LIGHT_GRAY_STAINED_GLASS_PANE");
+                case '9', 'b' -> Material.matchMaterial("LIGHT_BLUE_STAINED_GLASS_PANE");
+                case 'a' -> Material.matchMaterial("LIME_STAINED_GLASS_PANE");
+                case 'd' -> Material.matchMaterial("PINK_STAINED_GLASS_PANE");
+                case 'e' -> Material.matchMaterial("YELLOW_STAINED_GLASS_PANE");
+                case 'f' -> Material.matchMaterial("WHITE_STAINED_GLASS_PANE");
+                default -> Material.matchMaterial("WHITE_STAINED_GLASS_PANE");
+            };
+        }
+        return Material.matchMaterial("WHITE_STAINED_GLASS_PANE");
+    }
+
+    private static byte matchLegacyColor(String color) {
+        int index = color.lastIndexOf('§');
+        if (index != -1 && index + 1 < color.length()) {
+            char colorChar = Character.toLowerCase(color.charAt(index + 1));
+
+            return switch (colorChar) {
+                case '1' -> 11;
+                case '2' -> 13;
+                case '3' -> 9;
+                case '4', 'c' -> 14;
+                case '5' -> 10;
+                case '6', 'e' -> 4;
+                case '7' -> 8;
+                case '8' -> 7;
+                case '9', 'b' -> 3;
+                case 'a' -> 5;
+                case 'd' -> 6;
+                case 'f' -> 0;
+                default -> 15;
+            };
+        }
+        return 15;
     }
 
 }

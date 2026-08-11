@@ -4,6 +4,9 @@ import me.arrow.Arrow;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
+import me.arrow.listeners.ViolationListener;
+import me.arrow.managers.themes.Theme;
+import me.arrow.managers.themes.ThemeManager;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.animationSystem.Animation;
 import org.bukkit.Bukkit;
@@ -20,6 +23,7 @@ import org.bukkit.inventory.ItemStack;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static me.arrow.utils.customutils.OtherUtility.translate;
@@ -184,6 +188,40 @@ public class GuiListener implements Listener {
             case 40:
                 openFor(player, () -> Arrow.getGuiManager().openArrowGUI(player));
                 break;
+            // Add this new case inside the switch statement in handleSettingsMenu method:
+            case 44: {
+                // Theme selector button
+                ThemeManager themeManager = Arrow.getInstance().getThemeManager();
+                List<Theme> themes = themeManager.getThemes();
+                if (themes.isEmpty()) break;
+
+                Theme current = themeManager.getTheme();
+                int currentIndex = -1;
+
+                for (int i = 0; i < themes.size(); i++) {
+                    if (themes.get(i) == current) {
+                        currentIndex = i;
+                        break;
+                    }
+                }
+
+                int nextIndex = (currentIndex + 1) % themes.size();
+                Theme nextTheme = themes.get(nextIndex);
+
+                Config.Setting.THEME.setValue(nextTheme.getThemeName());
+                themeManager.setThemeFromName(nextTheme.getThemeName());
+                themeManager.reload();
+                nextTheme.reload();
+                Arrow.getInstance().getConfiguration().reloadConfig();
+//                Arrow.getInstance().getProfileManager().shutdown();
+//                Arrow.getInstance().getProfileManager().initialize();
+                Arrow.getInstance().getAlertManager().shutdown();
+                Arrow.getInstance().getAlertManager().initialize();
+
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
+                break;
+            }
+
         }
     }
 

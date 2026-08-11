@@ -669,6 +669,7 @@ public class MovementData implements Data {
                 || isMaterial(name, BED)
                 || isSlab(m)
                 || isBed(m)
+                || isCarpet(m)
                 || isTrapdoor(m)
                 || isFence(m)
                 || isFenceGate(m)
@@ -848,10 +849,6 @@ public class MovementData implements Data {
             this.reachPastLocations.add(getLocation());
 
             moving = (deltaXZ != 0.0D && deltaXZ != lastDeltaXZ) || (deltaY != 0.0D && deltaY != lastDeltaY);
-
-            //Ghost Blocks
-
-            //this.ghostBlockProcessor.process();
 
         }  finally {
             Profiler.stop("MovementData (playerdata without ticks)", profiler);

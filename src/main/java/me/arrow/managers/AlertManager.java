@@ -2,8 +2,11 @@ package me.arrow.managers;
 
 import lombok.Getter;
 import me.arrow.Arrow;
+import me.arrow.files.Config;
+import me.arrow.managers.profile.Profile;
 import me.arrow.managers.webhook.DiscordWebhookQueue;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -22,8 +25,8 @@ import java.util.concurrent.RejectedExecutionException;
 @Getter
 public class AlertManager implements Listener, Initializer {
 
-    private final ExecutorService alertExecutor = createExecutor("Arrow-Alerts");
-    private final ExecutorService verboseExecutor = createExecutor("Arrow-Verbose-Alerts");
+    ExecutorService alertExecutor;
+    ExecutorService verboseExecutor;
 
     private final List<UUID> playersWithAlerts = new CopyOnWriteArrayList<>();
     private final DiscordWebhookQueue webhookQueue = new DiscordWebhookQueue();
@@ -31,7 +34,20 @@ public class AlertManager implements Listener, Initializer {
     @Override
     public void initialize() {
         this.webhookQueue.start();
+        this.alertExecutor = createExecutor("Arrow-Alerts");
+        this.verboseExecutor = createExecutor("Arrow-Verbose-Alerts");
         Bukkit.getPluginManager().registerEvents(this, Arrow.getInstance().getHost());
+
+        if (Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean()) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                Profile profile = Arrow.getInstance().getProfileManager().getProfile(player);
+                if (profile != null) {
+                    profile.setAlerts(true);
+                }
+                addPlayerToAlerts(player.getUniqueId());
+            }
+        }
+
     }
 
     public void queueAlert(Runnable alert) {
