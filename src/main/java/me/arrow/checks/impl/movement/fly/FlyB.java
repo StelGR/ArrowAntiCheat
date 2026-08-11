@@ -7,18 +7,18 @@ import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.VelocityData;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
-import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
 
 import java.util.EnumSet;
 import java.util.Set;
+
+import static me.arrow.utils.ChatUtils.*;
 
 // simple acceleration limit check
 
@@ -67,80 +67,7 @@ public class FlyB extends Check {
 
                 MovementData movementData = profile.getMovementData();
 
-                if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                    return;
-                }
-
-                if (profile.isExempt().isTeleports()) {
-                    resetBuffer();
-                    return;
-                }
-
-                if (profile.shouldCancel()
-                        || profile.isExempt().isVehicle()
-                        || profile.isBouncingOnSlime()
-                        || movementData.isOnBoat()
-                        || movementData.isNearBoat()
-                        || movementData.isNearGhast()
-                        || movementData.isNearWebs()
-                        || profile.getActionData().hasRecentConfirmedUnderPlace(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                        || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
-                        || movementData.isNearBed()
-                        || movementData.isNearLava()
-                        || movementData.getSinceNearWaterTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || movementData.isNearClimbable()
-                        || movementData.isOnSlime()
-                        || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                        || movementData.getSincePredictUpwardsTicks() < 10
-                        || movementData.getSincePredictDownwardsTicks() < 10
-                        || movementData.getSinceRiptidingTicks() < 30
-                        || movementData.getSinceBubbleTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                    resetBuffer();
-                    return;
-                }
-
-                if (profile.getGeysersTracker().isBeingPushed()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - geysers (26.2+)");
-                    return;
-                }
-
-                if (movementData.getSinceTeleportTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (SinceTeleports)");
-                    return;
-                }
-
-                if (movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (gliding)");
-                    return;
-                }
-
-                if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: Exempt - vehicle");
-                    return;
-                }
-
-                int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
-
-                if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-                    if (Config.Setting.DEBUG.getBoolean())
-                        OtherUtility.log("Fly B: is Exempting (ghostblock liquid/web/pending physics place)");
-                    return;
-                }
-
-                if (profile.getMovementData().getSinceOnGhostBlock() < 15 + profile.getConnectionData().getClientTickTrans()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (ghostblock)");
-                    return;
-                }
-
-                if (movementData.getSinceInsideWaterTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (sinceInsideWater)");
-                    return;
-                }
-
-                if (profile.getExempt().isReelingIn()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Fly B: is Exempting (fishingRod)");
-                    return;
-                }
+                if (isExempt(movementData)) return;
 
                 final int serverAirTicks = movementData.getServerAirTicks();
                 final int clientAirTicks = movementData.getClientAirTicks();
@@ -150,11 +77,8 @@ public class FlyB extends Check {
 
                 double acceleration = deltaY - lastDeltaY;
 
-//            acceleration = Math.abs(acceleration);
-
                 double jumpStart = MoveUtils.getJumpMotion(profile);
                 double totalVerticalVelocity = profile.getVelocityData().getTotalVerticalVelocity();
-
 
                 final boolean isNotJumpStart = Math.abs(deltaY - jumpStart) > JUMP_TOL;
 
@@ -183,10 +107,6 @@ public class FlyB extends Check {
                                 && deltaY > maxDeltaY
                                 && clientAirTicks > 8
                                 && !vd.isTakingVelocity();
-
-                //final boolean invalidY2 = deltaY > (profile.getVelocityData().getTotalVerticalVelocity() * 2.5) && serverAirTicks > 8;
-
-
 
                 String verboseInfo = "acceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
                         + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
@@ -256,5 +176,79 @@ public class FlyB extends Check {
                 Profiler.stop("Fly B", profiler);
             }
         }
+    }
+
+
+    public boolean isExempt(MovementData movementData) {
+        if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            return true;
+        }
+
+        if (profile.shouldCancel()
+                || profile.isExempt().isVehicle()
+                || profile.isBouncingOnSlime()
+                || movementData.isOnBoat()
+                || movementData.isNearBoat()
+                || movementData.isNearGhast()
+                || movementData.isNearWebs()
+                || profile.getActionData().hasRecentConfirmedUnderPlace(5 + (profile.getConnectionData().getClientTickTrans() * 2))
+                || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
+                || movementData.isNearBed()
+                || movementData.isNearLava()
+                || movementData.getSinceNearWaterTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || movementData.isNearClimbable()
+                || movementData.isOnSlime()
+                || !CollisionUtils.isChunkLoaded(movementData.getLocation())
+                || movementData.getSincePredictUpwardsTicks() < 10
+                || movementData.getSincePredictDownwardsTicks() < 10
+                || movementData.getSinceRiptidingTicks() < 30
+                || movementData.getSinceBubbleTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            resetBuffer();
+            return true;
+        }
+
+        if (profile.getGeysersTracker().isBeingPushed()) {
+            debugExempt("geysers (26.2+)", "Fly B");
+            return true;
+        }
+
+        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            debugExempt("sinceTeleports", "Fly B");
+            return true;
+        }
+
+        if (movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            debugExempt("gliding", "Fly B");
+            return true;
+        }
+
+        if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            debugExempt("vehicle", "Fly B");
+            return true;
+        }
+
+        int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+
+        if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+            debugExempt("ghostblock liquid/web/pending physics place", "Fly B");
+            return true;
+        }
+
+        if (profile.getMovementData().getSinceOnGhostBlock() < 15 + profile.getConnectionData().getClientTickTrans()) {
+            debugExempt("ghostblock", "Fly B");
+            return true;
+        }
+
+        if (movementData.getSinceInsideWaterTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
+            debugExempt("insideWater", "Fly B");
+            return true;
+        }
+
+        if (profile.getExempt().isReelingIn()) {
+            debugExempt("fishingRod", "Fly B");
+            return true;
+        }
+
+        return false;
     }
 }

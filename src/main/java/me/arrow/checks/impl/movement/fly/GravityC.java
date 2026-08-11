@@ -14,6 +14,7 @@ import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
+import me.arrow.utils.ChatUtils;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
@@ -21,6 +22,8 @@ import org.bukkit.event.entity.EntityDamageEvent;
 
 import java.util.EnumSet;
 import java.util.Set;
+
+import static me.arrow.utils.ChatUtils.debugExempt;
 
 public class GravityC extends Check {
 
@@ -139,40 +142,40 @@ public class GravityC extends Check {
                 && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2);
 
         if (onSlime) return;
-        if (onHoney) { debugExempt("honey"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (onIce) { debugExempt("ice"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (onLadder) { debugExempt("ladder"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (onWeb) { debugExempt("web"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (inLiquid) { debugExempt("liquid"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (nearBed) { debugExempt("bed"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (underBlock) { debugExempt("underBlock"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (profile.isBouncingOnSlime()) { debugExempt("bouncingOnSlime"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (hasVelocity) { debugExempt("hasVelocity"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.isRiptiding()) { debugExempt("riptiding"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (profile.isExempt().isTeleports()) { debugExempt("teleport"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.isNearContact()) { debugExempt("contact"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.isNearWater()) { debugExempt("nearWater"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.elytraMomentum() > 0) { debugExempt("elytraMomentum"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (onHoney) { debugExempt("Honey", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (onIce) { debugExempt("Ice", "GravityC");lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (onLadder) { debugExempt("ladder", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (onWeb) { debugExempt("web", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (inLiquid) { debugExempt("liquid", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (nearBed) { debugExempt("bed", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (underBlock) { debugExempt("underBlock", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (profile.isBouncingOnSlime()) { debugExempt("bouncingOnSlime", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (hasVelocity) { debugExempt("hasVelocity", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (md.isRiptiding()) { debugExempt("riptiding", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (profile.isExempt().isTeleports()) { debugExempt("teleport", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (md.isNearContact()) { debugExempt("contact", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (md.isNearWater()) { debugExempt("nearWater", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (md.elytraMomentum() > 0) { debugExempt("elytraMomentum", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
 
         if (md.isNearHoney()) {
-            debugExempt("nearHoney");
+            debugExempt("nearHoney", "GravityC");
             lastOffset = 0.0D;
             return;
         }
 
         if (md.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
                 && md.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            debugExempt("nearpiston + slime + bounce");
+            debugExempt("nearpiston + slime + bounce", "GravityC");
             return;
         }
 
         if (md.isNearShulkerBox()) {
-            debugExempt("nearShulkerBox");
+            debugExempt("nearShulkerBox", "GravityC");
             lastOffset = 0.0D;
             return;
         }
         if (profile.shouldCancel()) {
-            debugExempt("shouldCancel");
+            debugExempt("shouldCancel", "GravityC");
             lastOffset = 0.0D;
             return;
         }
@@ -400,10 +403,6 @@ public class GravityC extends Check {
             if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) motion += Math.max(0, SpeedUtilities.getJumpBoostPotionLevel(profile)) * 0.10D;
         }
         return motion;
-    }
-
-    private void debugExempt(String reason) {
-        if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: is Exempting (" + reason + ")");
     }
 
     static class PredictionResult {

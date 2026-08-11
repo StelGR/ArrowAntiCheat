@@ -24,6 +24,7 @@ import me.arrow.checks.impl.misc.phase.PhaseA;
 import me.arrow.checks.impl.misc.scaffold.*;
 import me.arrow.checks.impl.misc.timer.TimerA;
 import me.arrow.checks.impl.misc.timer.TimerB;
+import me.arrow.checks.impl.misc.timer.TimerC;
 import me.arrow.checks.impl.misc.vehicle.VehicleA;
 import me.arrow.checks.impl.movement.fly.*;
 import me.arrow.checks.impl.movement.ground.GroundA;
@@ -141,6 +142,7 @@ public class CheckHolder {
                 new GravityB(this.profile),
                 new GravityC(this.profile),
                 new GravityD(this.profile),
+                new GravityE(this.profile),
                 new FlyA(this.profile),
                 new FlyB(this.profile),
 
@@ -166,6 +168,7 @@ public class CheckHolder {
 
                 new TimerA(this.profile),
                 new TimerB(this.profile),
+                new TimerC(this.profile),
                 new VehicleA(this.profile)
 
         );

@@ -1,6 +1,6 @@
 main: me.arrow.ArrowLoader
 name: Arrow
-version: 107
+version: 108-pre1
 api-version: '1.13'
 authors: [Stel]
 prefix: Arrow

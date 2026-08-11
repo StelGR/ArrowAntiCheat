@@ -61,6 +61,11 @@ public class SpeedB extends Check {
                 return;
             }
 
+            if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMoveC: is Exempting (Piston Update)");
+                return;
+            }
+
 
 
             MovementData movementData = profile.getMovementData();

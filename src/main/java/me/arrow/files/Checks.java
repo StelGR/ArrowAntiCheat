@@ -25,7 +25,7 @@ public class Checks implements Initializer {
 
     private final JavaPlugin plugin;
     private CommentedFileConfiguration configuration;
-    private static boolean exists;
+    static boolean exists;
 
     public Checks(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -53,9 +53,6 @@ public class Checks implements Initializer {
 
         if (setHeaderFooter) this.configuration.addComments(HEADER);
 
-        if (migrateLegacyFlyChecks()) {
-            changed = true;
-        }
 
         for (Setting setting : Setting.values()) {
 
@@ -65,30 +62,6 @@ public class Checks implements Initializer {
         }
 
         if (changed) this.configuration.save();
-    }
-
-    private boolean migrateLegacyFlyChecks() {
-        if (!exists
-                || this.configuration.contains("GravityA.enabled")
-                || !this.configuration.contains("FlyA.enabled")
-                || !this.configuration.contains("FlyB.enabled")
-                || !this.configuration.contains("FlyC.enabled")) {
-            return false;
-        }
-
-        String[] paths = {"enabled", "mode", "punish.enabled", "punish.mode", "punish.vl"};
-        Object[] legacyGravity = readCheckSettings("FlyA", paths);
-        Object[] legacyFlyA = readCheckSettings("FlyB", paths);
-        Object[] legacyFlyB = readCheckSettings("FlyC", paths);
-
-        writeCheckSettings("GravityA", paths, legacyGravity);
-        writeCheckSettings("GravityB", paths, legacyGravity);
-        writeCheckSettings("GravityC", paths, legacyGravity);
-        writeCheckSettings("GravityD", paths, legacyGravity);
-        writeCheckSettings("FlyA", paths, legacyFlyA);
-        writeCheckSettings("FlyB", paths, legacyFlyB);
-        this.configuration.set("FlyC", null);
-        return true;
     }
 
     private Object[] readCheckSettings(String check, String[] paths) {
@@ -409,21 +382,21 @@ public class Checks implements Initializer {
         GRAVITY_A_PUNISH("GravityA.punish", "", "Punishment settings"),
         GRAVITY_A_PUNISH_ENABLED("GravityA.punish.enabled", true, "Should punishments be enabled for this check?"),
         GRAVITY_A_PUNISH_MODE("GravityA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
-        GRAVITY_A_MAX_VL("GravityA.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
+        GRAVITY_A_MAX_VL("GravityA.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
         GRAVITY_B("GravityB.enabled", true, "Should we enable this module?"),
         GRAVITY_B_MODE("GravityB.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
         GRAVITY_B_PUNISH("GravityB.punish", "", "Punishment settings"),
         GRAVITY_B_PUNISH_ENABLED("GravityB.punish.enabled", true, "Should punishments be enabled for this check?"),
         GRAVITY_B_PUNISH_MODE("GravityB.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
-        GRAVITY_B_MAX_VL("GravityB.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
+        GRAVITY_B_MAX_VL("GravityB.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
         GRAVITY_C("GravityC.enabled", true, "Should we enable this module?"),
         GRAVITY_C_MODE("GravityC.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
         GRAVITY_C_PUNISH("GravityC.punish", "", "Punishment settings"),
         GRAVITY_C_PUNISH_ENABLED("GravityC.punish.enabled", true, "Should punishments be enabled for this check?"),
         GRAVITY_C_PUNISH_MODE("GravityC.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
-        GRAVITY_C_MAX_VL("GravityC.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
+        GRAVITY_C_MAX_VL("GravityC.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
         GRAVITY_D("GravityD.enabled", true, "Should we enable this module?"),
         GRAVITY_D_MODE("GravityD.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
@@ -431,6 +404,13 @@ public class Checks implements Initializer {
         GRAVITY_D_PUNISH_ENABLED("GravityD.punish.enabled", true, "Should punishments be enabled for this check?"),
         GRAVITY_D_PUNISH_MODE("GravityD.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         GRAVITY_D_MAX_VL("GravityD.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        GRAVITY_E("GravityD.enabled", false, "Should we enable this module?"),
+        GRAVITY_E_MODE("GravityD.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
+        GRAVITY_E_PUNISH("GravityD.punish", "", "Punishment settings"),
+        GRAVITY_E_PUNISH_ENABLED("GravityD.punish.enabled", false, "Should punishments be enabled for this check?"),
+        GRAVITY_E_PUNISH_MODE("GravityD.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        GRAVITY_E_MAX_VL("GravityD.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
 
         FLY_A("FlyA.enabled", true, "Should we enable this module?"),
         FLY_A_MODE("FlyA.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
@@ -522,6 +502,13 @@ public class Checks implements Initializer {
         TIMER_B_PUNISH_ENABLED("TimerB.punish.enabled", true, "Should punishments be enabled for this check?"),
         TIMER_B_PUNISH_MODE("TimerB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         TIMER_B_MAX_VL("TimerB.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        TIMER_C("TimerC.enabled", true, "Should we enable this module?"),
+        TIMER_C_MODE("TimerC.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
+        TIMER_C_PUNISH("TimerC.punish", "", "Punishment settings"),
+        TIMER_C_PUNISH_ENABLED("TimerC.punish.enabled", true, "Should punishments be enabled for this check?"),
+        TIMER_C_PUNISH_MODE("TimerC.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        TIMER_C_MAX_VL("TimerC.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
         BADPACKETS_A("BadPacketsA.enabled", true, "Should we enable this module?"),
         BADPACKETS_A_MODE("BadPacketsA.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),

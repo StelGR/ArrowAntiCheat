@@ -10,6 +10,8 @@ import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.themes.Theme;
+import me.arrow.managers.themes.ThemeManager;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.TaskUtils;
@@ -85,10 +87,11 @@ public class GuiManager {
 
 
 
-        ItemStack spacer = createSpacer();
-
+        List<ItemStack> themedSpacers = createThemedSpacer(27);
         for (int slots = 0; slots < 27; slots++) {
-            if (gui.getItem(slots) == null) gui.setItem(slots, spacer);
+            if (gui.getItem(slots) == null) {
+                gui.setItem(slots, themedSpacers.get(slots));
+            }
         }
 
         player.openInventory(gui);
@@ -132,11 +135,10 @@ public class GuiManager {
                 new ArrayList<>()
         ));
 
-        ItemStack spacer = createSpacer();
-
-        for (int slot = 0; slot < 27; slot++) {
-            if (gui.getItem(slot) == null) {
-                gui.setItem(slot, spacer);
+        List<ItemStack> themedSpacers = createThemedSpacer(27);
+        for (int slots = 0; slots < 27; slots++) {
+            if (gui.getItem(slots) == null) {
+                gui.setItem(slots, themedSpacers.get(slots));
             }
         }
 
@@ -447,10 +449,32 @@ public class GuiManager {
                         translate(guiLine())
                 )));
 
-        ItemStack spacer = createSpacer();
+        ThemeManager themeManager = Arrow.getInstance().getThemeManager();
 
+        List<Theme> availableThemes = themeManager.getThemes();
+        String currentThemeName = themeManager.getTheme() != null
+                ? themeManager.getTheme().getThemeName()
+                : "default";
+
+        gui.setItem(44, generateItem(new ItemStack(Material.PAINTING, 1),
+                translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Anticheat Theme"),
+                Arrays.asList(
+                        translate(guiLine()),
+                        translate("&7Current: " + MsgType.MAIN_THEME_COLOR.getMessage() + currentThemeName),
+                        translate("&7Total Themes: " + MsgType.MAIN_THEME_COLOR.getMessage() + availableThemes.size()),
+                        "",
+                        translate("&7&oCLICKING THIS WILL RELOAD THE ENTIRE PLUGIN, PROCEED WITH CAUTION."),
+                        "",
+                        translate("&aLeft Click &7to cycle themes"),
+                        translate(guiLine())
+                )));
+
+        List<ItemStack> themedSpacers = createThemedSpacer(45);
         for (int slots = 0; slots < 45; slots++) {
-            if (gui.getItem(slots) == null) gui.setItem(slots, spacer);
+            if (gui.getItem(slots) == null) {
+                if (slots == 44) continue;
+                gui.setItem(slots, themedSpacers.get(slots));
+            }
         }
 
         player.openInventory(gui);
@@ -460,15 +484,15 @@ public class GuiManager {
         ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
         Inventory gui = Bukkit.createInventory(player, 54, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Ban Animations"));
 
-        ItemStack spacer = createSpacer();
-
-        for (int slot = 0; slot < 54; slot++) {
-            int row = slot / 9;
-            int column = slot % 9;
+        List<ItemStack> themedSpacers = createThemedSpacer(54);
+        for (int slots = 0; slots < 54; slots++) {
+            int row = slots / 9;
+            int column = slots % 9;
 
             if (row == 0 || row == 5 || column == 0 || column == 8) {
-                gui.setItem(slot, spacer);
+                gui.setItem(slots, themedSpacers.get(slots));
             }
+
         }
 
         Animation.Type currentType = getCurrentBanAnimationType();
@@ -484,11 +508,6 @@ public class GuiManager {
                         translate(guiLine())
                 )));
 
-        for (int slot = 0; slot < 54; slot++) {
-            if (gui.getItem(slot) == null) {
-                gui.setItem(slot, spacer);
-            }
-        }
 
         player.openInventory(gui);
     }
@@ -566,11 +585,12 @@ public class GuiManager {
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
 
-        ItemStack spacer = GuiUtility.createSpacer();
 
+        List<ItemStack> themedSpacers = createThemedSpacer(27);
         for (int slots = 0; slots < 27; slots++) {
-            if (gui.getItem(slots) == null)
-                gui.setItem(slots, spacer);
+            if (gui.getItem(slots) == null) {
+                gui.setItem(slots, themedSpacers.get(slots));
+            }
         }
         player.openInventory(gui);
     }
@@ -627,11 +647,11 @@ public class GuiManager {
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
 
-        ItemStack spacer = GuiUtility.createSpacer();
-
+        List<ItemStack> themedSpacers = createThemedSpacer(27);
         for (int slots = 0; slots < 27; slots++) {
-            if (gui.getItem(slots) == null)
-                gui.setItem(slots, spacer);
+            if (gui.getItem(slots) == null) {
+                gui.setItem(slots, themedSpacers.get(slots));
+            }
         }
         player.openInventory(gui);
     }
@@ -684,11 +704,11 @@ public class GuiManager {
                         OtherUtility.translate(OtherUtility.guiLine())
                 )));
 
-        ItemStack spacer = GuiUtility.createSpacer();
-
+        List<ItemStack> themedSpacers = createThemedSpacer(27);
         for (int slots = 0; slots < 27; slots++) {
-            if (gui.getItem(slots) == null) gui.setItem(slots, spacer);
-
+            if (gui.getItem(slots) == null) {
+                gui.setItem(slots, themedSpacers.get(slots));
+            }
         }
         player.openInventory(gui);
     }
@@ -750,11 +770,11 @@ public class GuiManager {
                 OtherUtility.translate(OtherUtility.guiLine())
         )));
 
-        ItemStack spacer = GuiUtility.createSpacer();
-
+        List<ItemStack> themedSpacers = createThemedSpacer(45);
         for (int slots = 0; slots < 45; slots++) {
-            if (gui.getItem(slots) == null)
-                gui.setItem(slots, spacer);
+            if (gui.getItem(slots) == null) {
+                gui.setItem(slots, themedSpacers.get(slots));
+            }
         }
         player.openInventory(gui);
     }

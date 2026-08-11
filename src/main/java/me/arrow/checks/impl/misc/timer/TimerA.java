@@ -19,13 +19,13 @@ public class TimerA extends Check {
 
     private static final long FLYING_OFFSET = 50_000_000L;
     private static final long EVIDENCE_THRESHOLD = 55_000_000L;
-    private static final long NEGATIVE_BALANCE_LIMIT = 3_000_000_000L;
-    private static final long POSITIVE_BALANCE_LIMIT = 500_000_000L;
+    private static final long NEGATIVE_BALANCE_LIMIT = 5_000_000_000L;
+    private static final long POSITIVE_BALANCE_LIMIT = 100_000_000L;
 
-    private static final long RECOVERY_GAP = 70_000_000L;
+    private static final long RECOVERY_GAP = 500_000_000L;
     private static final long MAX_RECOVERY_BUDGET = 1_000_000_000L;
     private static final long MAX_RECOVERY_WINDOW = 3_000_000_000L;
-    private static final long BUNCHED_PACKET_GAP = 5_000_000L;
+    private static final long BUNCHED_PACKET_GAP = 50_000_000L;
 
     private static final double MIN_STABLE_TPS = 19.0D;
     private static final long MAX_STABLE_TICK_TIME = 65L;
@@ -82,29 +82,6 @@ public class TimerA extends Check {
         } else {
             decreaseBufferBy(50);
         }
-
-//        if (profile.getConnectionData().getTransPing() >= 2000 && profile.getPing() > 1000 && ready() && !profile.isPingkicked()) {
-//            if (increaseBuffer() > 50) {
-//                profile.kick("Your ping is constantly high, do something about it.");
-//                profile.setPingkicked(true);
-//                for (Player staff : Bukkit.getOnlinePlayers()) {
-//
-//                    final Profile staffProfile = Arrow.getInstance().getProfileManager().getProfile(staff);
-//
-//                    if (staffProfile == null || !staffProfile.isAlerts()) {
-//                        continue;
-//                    }
-//
-//                    if (!staff.hasPermission(Permissions.ALERTS.getPermission())) {
-//                        continue;
-//                    }
-//
-//                    staff.sendMessage(OtherUtility.translate(MsgType.PREFIX.getMessage() + profile.getPlayer().getDisplayName() + MsgType.MAIN_THEME_COLOR.getMessage() + " was kicked due to ping timeout. (2)"));
-//                }
-//            }
-//        }
-//        else decreaseBufferBy(10);
-
 
         long now = System.nanoTime();
 
