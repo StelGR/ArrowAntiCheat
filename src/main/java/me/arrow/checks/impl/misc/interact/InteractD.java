@@ -19,11 +19,13 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -323,6 +325,8 @@ public class InteractD extends Check {
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
                 for (int z = minZ; z <= maxZ; z++) {
+                    if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) continue;
+
                     Block block = world.getBlockAt(x, y, z);
                     BlockKey key = BlockKey.of(block);
 

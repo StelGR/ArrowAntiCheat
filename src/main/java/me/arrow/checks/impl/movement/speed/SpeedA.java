@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.enums.CheckType;
+import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -12,7 +13,9 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.PotionData;
+import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.playerdata.data.impl.VelocityData;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.util.Vector;
@@ -73,95 +76,38 @@ public class SpeedA extends Check {
 
     double groundBuffer;
 
-    private static final double DEFAULT_BASE_PER_TICK = 0.2777285125D;
+    double DEFAULT_BASE_PER_TICK = 0.27397D;
 
-    private static final double SPRINT_BASE = 0.1477285125D;
-    private static final double NO_SPRINT_BASE = 0.1777285125D;
-    private static final double GROUND_ICE_INCREMENT_PER_TICK = 0.01;
-    private static final double GROUND_MAX_ICE_SPEED_BOOST = 4.5;
-    private static final double DIAGONAL_TOLERANCE = 1.01125;
+//    private static final double SPRINT_BASE = 0.1477285125D;
+//    private static final double NO_SPRINT_BASE = 0.1777285125D;
+    double DIAGONAL_TOLERANCE = 1.022425;
 
     public void calculateGround(MovementData movementData, VelocityData velocityData, double deltaXZ, double deltaY, float movingIceTicks, boolean serverGround, int serverGroundTicks, int airTicks, double blockFriction) {
         long profiler = Profiler.start();
 
         try {
-            if (profile.shouldCancel()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - shouldCancel");
-                return;
-            }
-
-            if (movementData.isOnBoat()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - isOnBoat");
-                return;
-            }
-
-            if (profile.isExempt().isTeleports()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - teleports");
-                return;
-            }
-
-            if (!profile.isExempt().isRespawned()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - notRespawned");
-                return;
-            }
-
-            if (profile.isExempt().vehicle()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - vehicle");
-                return;
-            }
-
-            if (profile.getExempt().isReelingIn()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - reelingIn");
-                return;
-            }
-
-            if (movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - isRiptiding");
-                groundBuffer = 0;
-                return;
-            }
-
-            if (movementData.getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) {
-                if (Config.Setting.DEBUG.getBoolean())
-                    OtherUtility.log("Speed A (Ground): Exempt - recentlyOnGhostBlock()");
-                return;
-            }
-//
-//        if (movementData.isNearBuggyBlock()) {
-//            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - nearBuggyBlock");
-//            return;
-//        }
-
-            if (movementData.isNearBed()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - nearBed");
-                return;
-            }
-
-            if (movementData.isUnderblock()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - underblock");
-                return;
-            }
-
-            if (movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - recentlyGliding");
-                return;
-            }
-
-            if (movementData.getMovingOnSoulBlocksTicks() > 0) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - soulsoil");
-                return;
-            }
-
-
-
             double predicted = deltaXZ * blockFriction;
 
-            double iceBoost = SpeedUtilities.getIceSpeedBoost(GROUND_ICE_INCREMENT_PER_TICK, movingIceTicks, GROUND_MAX_ICE_SPEED_BOOST);
-
-            double groundLimit = SpeedUtilities.computeGroundLimit(profile, velocityData, blockFriction, iceBoost, SPRINT_BASE, NO_SPRINT_BASE, DEFAULT_BASE_PER_TICK);
+            double groundLimit = SpeedUtilities.computeGroundLimit(profile, velocityData, DEFAULT_BASE_PER_TICK);
 
             double frictionMultiplier = SpeedUtilities.friction(blockFriction);
-            double allowedLimit = groundLimit * DIAGONAL_TOLERANCE * frictionMultiplier;
+            double allowedLimit = groundLimit * frictionMultiplier;
+
+            RotationData rotationData = profile.getRotationData();
+
+            double deltaX = movementData.getDeltaX();
+            double deltaZ = movementData.getDeltaZ();
+            double lastDeltaX = movementData.getLastDeltaX();
+            double lastDeltaZ = movementData.getLastDeltaZ();
+            float yaw = rotationData.getYaw();
+
+            double inputX = deltaX - (lastDeltaX * movementData.getFrictionFactor());
+            double inputZ = deltaZ - (lastDeltaZ * movementData.getFrictionFactor());
+
+            MovementPredictionUtil.DirectionalMovement inputDirection =
+                    MovementPredictionUtil.predictDirectionalMovement(inputX, inputZ, yaw);
+
+            if (inputDirection.isForwardStrafe()) allowedLimit *= DIAGONAL_TOLERANCE;
 
             allowedLimit += 0.004;
             double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
@@ -194,7 +140,7 @@ public class SpeedA extends Check {
                 allowedLimit += 0.1295;
             }
 
-            if (serverGroundTicks <= 10) allowedLimit += 0.012;
+            if (serverGroundTicks <= 20) allowedLimit += 0.03;
 
             if (movementData.getMovingOnSlimeTicks() > 0) {
                 allowedLimit += 0.05;
@@ -202,6 +148,14 @@ public class SpeedA extends Check {
 
             if (movementData.getSincePredictUpwardsTicks() < 10) {
                 allowedLimit *= 2;
+            }
+
+            if (movingIceTicks > 0) {
+                allowedLimit += 0.04;
+
+                if (movementData.getMovingUnderblockTicks() > 0 && serverGroundTicks < 23) {
+                    allowedLimit += 0.3;
+                }
             }
 
             if (serverGround && deltaXZ != 0) {
@@ -226,9 +180,10 @@ public class SpeedA extends Check {
                                 + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
                                 + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
                                 + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)
-                                + "\n * serverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGroundTicks
-                                + "\n * iceSpeedBoost " + MsgType.MAIN_THEME_COLOR.getMessage() + iceBoost);
+                                + "\n * serverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGroundTicks);
             }
+
+            if (isExemptGround(movementData)) return;
 
             double difference = predicted - allowedLimit;
             double bufferAmount = difference > 0.7 ? 0 : 10;
@@ -241,7 +196,9 @@ public class SpeedA extends Check {
                     fail("Speed limit exceeded (Ground)",
                             "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + predicted
                                     + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + allowedLimit
-                                    + "\nblockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
+                                    + "\nblock friction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
+                                    + "\nstrafe sector " + MsgType.MAIN_THEME_COLOR.getMessage() + inputDirection.getSector()
+                                    + "\nisSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
                                     + "\nserverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGroundTicks);
                     groundBuffer = Math.max(bufferAmount + 2, groundBuffer);
                 }
@@ -303,12 +260,9 @@ public class SpeedA extends Check {
             double explosionComponent = 0.0;
             if (explosionH > 0.0) {
                 explosionComponent = (explosionH * 6) + 0.2D;
-                //explosionComponent += 0.08;
             }
 
             expectedSpeed += kbComponent + explosionComponent;
-
-//        boolean inWater = movementData.isInsideWater() || movementData.isBottomOfWater() || movementData.isNearWater();
 
             double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
             if (movementData.isInsideWater()) expectedSpeed += depthStriderBoost;
@@ -393,13 +347,6 @@ public class SpeedA extends Check {
                 expectedSpeed += 0.2;
             }
 
-
-//            if (profile.getPredictionData().getUsageTicks() > 16 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-//                expectedSpeed /= 2;
-//            }
-
-            //if (profile.isSwimming() && movementData.isNearWater()) expectedSpeed += 0.137;
-
             String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
@@ -475,68 +422,7 @@ public class SpeedA extends Check {
                 }
             }
 
-
-            if (profile.shouldCancel()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - shouldCancel");
-                return;
-            }
-
-            if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - teleporting");
-                return;
-            }
-
-
-            if (profile.getMovementData().isOnBoat()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - isOnBoat");
-                return;
-            }
-
-            if (!profile.isExempt().isRespawned()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - notRespawned");
-                return;
-            }
-
-            if (profile.isExempt().vehicle()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - vehicle");
-                return;
-            }
-
-            if (movementData.isNearBoat()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - near boat");
-                return;
-            }
-
-            if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - vehicle");
-                return;
-            }
-
-            if (profile.getExempt().isReelingIn()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - reelingIn");
-                return;
-            }
-
-//        if (profile.getMovementData().isNearBuggyBlock()) {
-//            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - nearBuggyBlock");
-//            return;
-//        }
-
-            if (profile.getMovementData().isNearBed()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - nearBed");
-                return;
-            }
-
-            if (profile.getMovementData().getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - recentlyGliding");
-                return;
-            }
-
-//            if (movementData.getSincePredictUpwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-//                airBuffer = 0;
-//                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - movingUp");
-//                return;
-//            }
+            if (isExemptAir(movementData)) return;
 
             if (deltaXZ > expectedSpeed
                     && !serverGround) {
@@ -584,5 +470,128 @@ public class SpeedA extends Check {
         double jumpBoost = speedLevel > 0 ? 0.27525D + (0.006D * speedLevel) : 0.27525D;
 
         return Math.max(expectedSpeed, bounded + jumpBoost);
+    }
+
+
+    boolean isExemptGround(MovementData movementData) {
+        if (profile.shouldCancel()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - shouldCancel");
+            return true;
+        }
+
+        if (movementData.isOnBoat()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - isOnBoat");
+            return true;
+        }
+
+        if (profile.isExempt().isTeleports()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - teleports");
+            return true;
+        }
+
+        if (!profile.isExempt().isRespawned()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - notRespawned");
+            return true;
+        }
+
+        if (profile.isExempt().vehicle()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - vehicle");
+            return true;
+        }
+
+        if (profile.getExempt().isReelingIn()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - reelingIn");
+            return true;
+        }
+
+        if (movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - isRiptiding");
+            groundBuffer = 0;
+            return true;
+        }
+
+        if (movementData.getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) {
+            if (Config.Setting.DEBUG.getBoolean())
+                OtherUtility.log("Speed A (Ground): Exempt - recentlyOnGhostBlock()");
+            return true;
+        }
+
+        if (movementData.isNearBed()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - nearBed");
+            return true;
+        }
+
+//        if (movementData.isUnderblock()) {
+//            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - underblock");
+//            return true;
+//        }
+
+        if (movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - recentlyGliding");
+            return true;
+        }
+
+        if (movementData.getMovingOnSoulBlocksTicks() > 0) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - soulsoil");
+            return true;
+        }
+
+        return false;
+    }
+
+    boolean isExemptAir(MovementData movementData) {
+        if (profile.shouldCancel()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - shouldCancel");
+            return true;
+        }
+
+        if (movementData.getSinceTeleportTicks() < 5) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - teleporting");
+            return true;
+        }
+
+
+        if (profile.getMovementData().isOnBoat()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - isOnBoat");
+            return true;
+        }
+
+        if (!profile.isExempt().isRespawned()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - notRespawned");
+            return true;
+        }
+
+        if (profile.isExempt().vehicle()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - vehicle");
+            return true;
+        }
+
+        if (movementData.isNearBoat()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - near boat");
+            return true;
+        }
+
+        if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - vehicle");
+            return true;
+        }
+
+        if (profile.getExempt().isReelingIn()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - reelingIn");
+            return true;
+        }
+
+
+        if (profile.getMovementData().isNearBed()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - nearBed");
+            return true;
+        }
+
+        if (profile.getMovementData().getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - recentlyGliding");
+            return true;
+        }
+
+        return false;
     }
 }

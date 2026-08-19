@@ -113,20 +113,20 @@ public class Checks implements Initializer {
 
         AIM_E("AimE.enabled", true, "Should we enable this module?"),
         AIM_E_PUNISH("AimE.punish", "", "Punishment settings"),
-        AIM_E_PUNISH_ENABLED("AimE.punish.enabled", false, "Should punishments be enabled for this check?"),
+        AIM_E_PUNISH_ENABLED("AimE.punish.enabled", true, "Should punishments be enabled for this check?"),
         AIM_E_PUNISH_MODE("AimE.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         AIM_E_MAX_VL("AimE.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
         AIM_F("AimF.enabled", true, "Should we enable this module?"),
         AIM_F_PUNISH("AimF.punish", "", "Punishment settings"),
-        AIM_F_PUNISH_ENABLED("AimF.punish.enabled", true, "Should punishments be enabled for this check?"),
+        AIM_F_PUNISH_ENABLED("AimF.punish.enabled", false, "Should punishments be enabled for this check?"),
         AIM_F_PUNISH_MODE("AimF.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
-        AIM_F_MAX_VL("AimF.punish.vl", 5, "The maximum violation amount a player needs to reach in order to get punished"),
+        AIM_F_MAX_VL("AimF.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
         AIM_G("AimG.enabled", true, "Should we enable this module?"),
         AIM_G_PUNISH("AimG.punish", "", "Punishment settings"),
-        AIM_G_PUNISH_ENABLED("AimG.punish.enabled", false, "Should punishments be enabled for this check?"),
-        AIM_G_PUNISH_MODE("AimG.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AIM_G_PUNISH_ENABLED("AimG.punish.enabled", true, "Should punishments be enabled for this check?"),
+        AIM_G_PUNISH_MODE("AimG.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         AIM_G_MAX_VL("AimG.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
         AIM_H("AimH.enabled", false, "Should we enable this module?"),
@@ -134,6 +134,11 @@ public class Checks implements Initializer {
         AIM_H_PUNISH_ENABLED("AimH.punish.enabled", false, "Should punishments be enabled for this check?"),
         AIM_H_PUNISH_MODE("AimH.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         AIM_H_MAX_VL("AimH.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
+        AIM_I("AimI.enabled", true, "Should we enable this module?"),
+        AIM_I_PUNISH("AimI.punish", "", "Punishment settings"),
+        AIM_I_PUNISH_ENABLED("AimI.punish.enabled", false, "Should punishments be enabled for this check?"),
+        AIM_I_PUNISH_MODE("AimI.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AIM_I_MAX_VL("AimI.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
         REACH_A("ReachA.enabled", true, "Should we enable this module?"),
         REACH_A_MAX_SAMPLES("ReachA.maxSamples", 40, "Do not touch this if you don't know what you are doing."),
@@ -156,6 +161,12 @@ public class Checks implements Initializer {
         HITBOX_A_PUNISH_ENABLED("HitboxA.punish.enabled", true, "Should punishments be enabled for this check?"),
         HITBOX_A_PUNISH_MODE("HitboxA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         HITBOX_A_MAX_VL("HitboxA.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        REACH_B("ReachB.enabled", false, "Should we enable this module?"),
+        REACH_B_PUNISH("ReachB.punish", "", "Punishment settings"),
+        REACH_B_PUNISH_ENABLED("ReachB.punish.enabled", false, "Should punishments be enabled for this check?"),
+        REACH_B_PUNISH_MODE("ReachB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        REACH_B_MAX_VL("ReachB.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
 
 
         BACKTRACK_A("BackTrackA.enabled", true, "Should we enable this module?"),

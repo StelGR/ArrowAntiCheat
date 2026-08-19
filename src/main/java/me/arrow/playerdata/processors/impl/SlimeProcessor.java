@@ -3,8 +3,10 @@ package me.arrow.playerdata.processors.impl;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.PotionData;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.MaterialType;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 
@@ -192,6 +194,7 @@ public class SlimeProcessor {
                     int blockZ = (int) Math.floor(z + offsetZ);
 
                     for (int blockY = minimumBlockY; blockY <= maximumBlockY; blockY++) {
+                        if (!CollisionUtils.isChunkLoaded(new Location(world, blockX, blockY, blockZ))) continue;
                         Block block = world.getBlockAt(blockX, blockY, blockZ);
 
                         if (!MaterialType.isMaterial(block.getType().name(), MaterialType.SLIME)) {

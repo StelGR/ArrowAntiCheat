@@ -4,7 +4,7 @@
     <groupId>me.arrow</groupId>
     <artifactId>Arrow</artifactId>
     <name>Arrow</name>
-    <version>beta</version>
+    <version>b108-pre1</version>
     <description>A simple and efficient anticheat</description>
     <build>
         <plugins>

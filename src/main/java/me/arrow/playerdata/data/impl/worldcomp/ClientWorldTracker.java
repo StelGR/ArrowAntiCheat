@@ -12,6 +12,7 @@ import me.arrow.Arrow;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.MaterialType;
@@ -460,6 +461,8 @@ public class ClientWorldTracker implements Data {
             for (int x = baseX - radiusXZ; x <= baseX + radiusXZ; x++) {
                 for (int y = baseY - down; y <= baseY + up; y++) {
                     for (int z = baseZ - radiusXZ; z <= baseZ + radiusXZ; z++) {
+
+                        if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) continue;
                         Block block = world.getBlockAt(x, y, z);
                         sendBlockChangeCompat(player, block);
                         setClientMaterial(x, y, z, block.getType());
@@ -508,7 +511,7 @@ public class ClientWorldTracker implements Data {
                     if (!shouldRepairClientMirror(client, server)) {
                         continue;
                     }
-
+                    if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) continue;
                     Block block = world.getBlockAt(x, y, z);
                     sendBlockChangeCompat(profile.getPlayer(), block);
                     setClientMaterial(x, y, z, block.getType());
@@ -1769,7 +1772,7 @@ public class ClientWorldTracker implements Data {
                     if (sent >= effectiveMax) {
                         return;
                     }
-
+                    if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) continue;
                     Block block = world.getBlockAt(x, y, z);
                     sendBlockChangeCompat(player, block);
                     setClientMaterial(x, y, z, block.getType());

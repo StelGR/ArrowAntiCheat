@@ -13,6 +13,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.VehicleData;
+import me.arrow.utils.CollisionUtils;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -257,6 +258,9 @@ public class VehicleA extends Check {
         for (int y = -1; y <= 1; y++) {
             for (int x = -1; x <= 1; x++) {
                 for (int z = -1; z <= 1; z++) {
+
+                    if (!CollisionUtils.isChunkLoaded(new Location(world, baseX + x, baseY + y, baseZ + z))) continue;
+
                     if (isWaterLike(world.getBlockAt(baseX + x, baseY + y, baseZ + z))) {
                         return true;
                     }
@@ -280,6 +284,9 @@ public class VehicleA extends Check {
         for (int y = -2; y <= 2; y++) {
             for (int x = -2; x <= 2; x++) {
                 for (int z = -2; z <= 2; z++) {
+
+                    if (!CollisionUtils.isChunkLoaded(new Location(world, baseX + x, baseY + y, baseZ + z))) continue;
+
                     if (isWaterLike(world.getBlockAt(baseX + x, baseY + y, baseZ + z))) {
                         return true;
                     }
@@ -299,6 +306,8 @@ public class VehicleA extends Check {
         int baseX = location.getBlockX();
         int baseY = location.getBlockY();
         int baseZ = location.getBlockZ();
+
+        if (!CollisionUtils.isChunkLoaded(new Location(world, baseX, baseY, baseZ))) return false;
 
         return isWaterLike(world.getBlockAt(baseX, baseY - 1, baseZ))
                 || isWaterLike(world.getBlockAt(baseX + 1, baseY - 1, baseZ))

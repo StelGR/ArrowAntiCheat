@@ -9,6 +9,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.MaterialType;
@@ -218,6 +219,8 @@ public class PhaseA extends Check {
                             continue;
                         }
 
+                        if (!CollisionUtils.isChunkLoaded(new Location(world, bx, by, bz))) continue;
+
                         Block block = world.getBlockAt(bx, by, bz);
                         List<Box> blockBoxes = getBlockBoxes(block);
 
@@ -281,6 +284,8 @@ public class PhaseA extends Check {
                         if (!isPhaseCollidable(material)) {
                             continue;
                         }
+
+                        if (!CollisionUtils.isChunkLoaded(new Location(world, bx, by, bz))) continue;
 
                         Block block = world.getBlockAt(bx, by, bz);
                         List<Box> blockBoxes = getBlockBoxes(block);
@@ -560,6 +565,8 @@ public class PhaseA extends Check {
             return Arrow.getInstance().getNmsManager().getNmsInstance2().getType(world, x, y, z);
         } catch (Throwable ignored) {
             try {
+                if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) return null;
+
                 return world.getBlockAt(x, y, z).getType();
             } catch (Throwable ignored2) {
                 return null;

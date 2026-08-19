@@ -6,8 +6,10 @@ import me.arrow.managers.profiler.Profiler;
 import me.arrow.nms.NmsInstance;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.materials.PEMaterials;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -381,6 +383,8 @@ public class MovementPredictionUtil {
         try {
             try {
                 NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
+                if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) return false;
+
                 Block block = world.getBlockAt(x, y, z);
                 Material materialtype = nms.getType(block);
                 String type = materialtype.name();

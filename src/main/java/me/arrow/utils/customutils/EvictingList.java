@@ -10,7 +10,7 @@ import java.util.stream.Stream;
 
 @Getter
 public class EvictingList<T> extends LinkedList<T> {
-    private int maxSize;
+    int maxSize;
 
     public EvictingList(int maxSize) {
         this.maxSize = maxSize;
@@ -38,5 +38,9 @@ public class EvictingList<T> extends LinkedList<T> {
     @Override
     public @NotNull Stream<T> stream() {
         return new CopyOnWriteArrayList<>(this).stream();
+    }
+
+    public boolean isFull() {
+        return size() >= getMaxSize();
     }
 }
