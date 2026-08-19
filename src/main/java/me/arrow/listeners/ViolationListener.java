@@ -573,7 +573,7 @@ public class ViolationListener implements Listener {
                 + "\"fields\":["
                 + "{"
                 + "\"name\":\"Description\","
-                + "\"value\":\"" + escapeJson(description) + "\","
+                + "\"value\":\"" + escapeJson(OtherUtility.stripColorCodes(description)) + "\","
                 + "\"inline\":false"
                 + "},"
                 + "{"
