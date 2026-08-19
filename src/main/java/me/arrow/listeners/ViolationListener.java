@@ -241,7 +241,7 @@ public class ViolationListener implements Listener {
         }
 
         if (Config.Setting.WEBHOOK_ENABLED.getBoolean() && vl % frequency == 0) {
-            queueViolationWebhook(punishedPlayer, checkName, checkType, experimental, vl, maxvl, ping, tps);
+            queueViolationWebhook(punishedPlayer, checkName, checkType, experimental, vl, maxvl, ping, tps, informationTitle);
         }
 
         if (Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean()) {
@@ -505,7 +505,8 @@ public class ViolationListener implements Listener {
             int vl,
             int maxVl,
             String ping,
-            String tps
+            String tps,
+            String description
     ) {
         if (player == null) {
             return;
@@ -570,6 +571,11 @@ public class ViolationListener implements Listener {
                 + "},"
 
                 + "\"fields\":["
+                + "{"
+                + "\"name\":\"Description\","
+                + "\"value\":\"" + escapeJson(description) + "\","
+                + "\"inline\":false"
+                + "},"
                 + "{"
                 + "\"name\":\"Client Brand\","
                 + "\"value\":\"" + escapeJson(clientBrand) + "\","
