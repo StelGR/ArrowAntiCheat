@@ -16,12 +16,14 @@ import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
 import me.arrow.nms.NmsInstance;
 import me.arrow.playerdata.data.Data;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MiscUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.desync.Desync;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -407,6 +409,7 @@ public class ActionData implements Data {
 
         World world = player.getWorld();
 
+        if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) return;
         Block clicked = world.getBlockAt(x, y, z);
         Block placed = clicked.getRelative(face);
 
@@ -574,6 +577,8 @@ public class ActionData implements Data {
             return false;
         }
 
+        if (!CollisionUtils.isChunkLoaded(new Location(world, lastConfirmedUnderPlaceX, lastConfirmedUnderPlaceY, lastConfirmedUnderPlaceZ))) return false;
+
         Block block = world.getBlockAt(
                 lastConfirmedUnderPlaceX,
                 lastConfirmedUnderPlaceY,
@@ -658,6 +663,8 @@ public class ActionData implements Data {
 
             NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
 
+            if (!CollisionUtils.isChunkLoaded(new Location(world, update.x, update.y, update.z))) continue;
+
             Block block = world.getBlockAt(update.x, update.y, update.z);
             Material actualType = nms.getType(block);
 
@@ -725,6 +732,7 @@ public class ActionData implements Data {
                 continue;
             }
 
+            if (!CollisionUtils.isChunkLoaded(new Location(world, place.x, place.y, place.z))) continue;
             Block block = world.getBlockAt(place.x, place.y, place.z);
 
             if (!isConfirmedPlacedBlock(block, place.oldType)) {
@@ -1335,6 +1343,8 @@ public class ActionData implements Data {
 
         World world = player.getWorld();
 
+        if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) return;
+
         Block target = world.getBlockAt(x, y, z);
 
         lastBreakAttemptTicks = 0;
@@ -1408,7 +1418,7 @@ public class ActionData implements Data {
                 it.remove();
                 continue;
             }
-
+            if (!CollisionUtils.isChunkLoaded(new Location(world, br.x, br.y, br.z))) continue;
             Block block = world.getBlockAt(br.x, br.y, br.z);
             Material now = block.getType();
 
@@ -1492,6 +1502,7 @@ public class ActionData implements Data {
                 continue;
             }
 
+            if (!CollisionUtils.isChunkLoaded(new Location(world, place.x, place.y, place.z))) continue;
             Block block = world.getBlockAt(place.x, place.y, place.z);
             Material actual = block.getType();
 

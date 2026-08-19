@@ -30,6 +30,7 @@ import me.arrow.utils.*;
 import me.arrow.utils.custom.*;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -721,6 +722,8 @@ public class MovementData implements Data {
         for (int y = minBlockY; y <= maxBlockY; y++) {
             for (int x = minBlockX; x <= maxBlockX; x++) {
                 for (int z = minBlockZ; z <= maxBlockZ; z++) {
+                    if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) continue;
+
                     Material material = nms.getType(world.getBlockAt(x, y, z));
 
                     if (isWallMaterial(material)) {
@@ -821,13 +824,9 @@ public class MovementData implements Data {
 
             this.serverGround = serverGround;
 
-            this.serverGroundTicks = serverGround
-                    ? Math.min(this.serverGroundTicks + 1, 20)
-                    : 0;
+            this.serverGroundTicks = serverGround ? this.serverGroundTicks + 1 : 0;
 
-            this.lastServerGroundTicks = serverGround
-                    ? Math.min(this.lastServerGroundTicks + 1, 20)
-                    : 0;
+            this.lastServerGroundTicks = lastServerGround ? this.lastServerGroundTicks + 1 : 0;
 
             //Equipment
 

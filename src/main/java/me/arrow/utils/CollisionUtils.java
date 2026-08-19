@@ -6,6 +6,7 @@ import me.arrow.nms.NmsInstance;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.materials.PEMaterials;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 
@@ -444,6 +445,12 @@ public class CollisionUtils {
     }
 
     public static boolean isChunkLoaded(final CustomLocation location) {
+        return Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(
+                location.getWorld(), location.getBlockX(), location.getBlockZ()
+        );
+    }
+
+    public static boolean isChunkLoaded(final Location location) {
         return Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(
                 location.getWorld(), location.getBlockX(), location.getBlockZ()
         );

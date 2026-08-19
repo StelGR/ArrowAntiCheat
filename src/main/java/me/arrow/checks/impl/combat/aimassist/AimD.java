@@ -24,7 +24,9 @@ public class AimD extends Check {
     @Override
     public void handle(PacketReceiveEvent event) {
         if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
 
             if (profile.getCombatData().getAttackedTicks() < 40) {
                 RotationData rotationData = profile.getRotationData();

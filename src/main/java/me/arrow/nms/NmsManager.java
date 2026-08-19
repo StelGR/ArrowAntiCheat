@@ -2,6 +2,8 @@ package me.arrow.nms;
 
 import lombok.Getter;
 import me.arrow.playerdata.data.impl.worldcomp.Instance;
+import me.arrow.utils.CollisionUtils;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 
@@ -34,6 +36,8 @@ public class NmsManager {
                 int bx = (int) Math.floor(x);
                 int by = (int) Math.floor(y);
                 int bz = (int) Math.floor(z);
+
+                if (!CollisionUtils.isChunkLoaded(new Location(world, bx, by, bz))) return Material.AIR;
 
                 return world.getBlockAt(bx, by, bz).getType();
             }

@@ -13,6 +13,7 @@ import lombok.Setter;
 import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.EventTimer;
@@ -2713,6 +2714,8 @@ public class BlockProcessor implements Data {
             if (syncBlock == null) {
                 return;
             }
+
+            if (!CollisionUtils.isChunkLoaded(new Location(world, syncBlock.x, syncBlock.y, syncBlock.z))) return;
 
             Block block = world.getBlockAt(syncBlock.x, syncBlock.y, syncBlock.z);
             sendBlockChangeCompat(player, block);

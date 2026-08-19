@@ -60,17 +60,18 @@ public class AimH extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
-            return;
-        }
+        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
 
-        if (profile.getCombatData().getAttackedTicks() > COMBAT_SAMPLE_TICKS) {
-            resetWindow(false);
-            return;
-        }
+            if (profile.getCombatData().getAttackedTicks() > COMBAT_SAMPLE_TICKS) {
+                resetWindow(false);
+                return;
+            }
 
-        collect(profile.getCombatData().getTarget());
+            collect(profile.getCombatData().getTarget());
+        }
     }
 
     private void collect(int entityId) {

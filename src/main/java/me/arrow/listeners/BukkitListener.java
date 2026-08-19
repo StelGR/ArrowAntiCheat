@@ -7,6 +7,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.versionutils.VersionUtils;
@@ -948,6 +949,8 @@ public class BukkitListener implements Listener {
             double x = eye.getX() + direction.getX() * travelled;
             double y = eye.getY() + direction.getY() * travelled;
             double z = eye.getZ() + direction.getZ() * travelled;
+
+            if (!CollisionUtils.isChunkLoaded(new Location(world, floor(x), floor(y), floor(z)))) continue;
 
             Block block = world.getBlockAt(floor(x), floor(y), floor(z));
 

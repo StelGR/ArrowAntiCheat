@@ -5,7 +5,9 @@ import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import lombok.Getter;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.processors.Processor;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.type.PotentSulfur;
@@ -84,6 +86,8 @@ public class GeysersTracker implements Processor {
                 for (int x = minX; x <= maxX; x++) {
                     for (int z = minZ; z <= maxZ; z++) {
                         for (int y = topY; y >= bottomY; y--) {
+
+                            if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) continue;
                             Block block = world.getBlockAt(x, y, z);
 
                             if (!(block.getBlockData() instanceof PotentSulfur sulfur)) {

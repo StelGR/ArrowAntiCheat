@@ -332,7 +332,7 @@ public class GuiManager {
         ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
         Inventory gui = Bukkit.createInventory(player, 45, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Settings"));
 
-        gui.setItem(10, generateItem(new ItemStack(Material.FIREWORK_ROCKET), translate((Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean() ? "&a" : "&c") + "Alerts on Join"),
+        gui.setItem(10, generateItem(createItem("FIREWORK", "FIREWORK_ROCKET"), translate((Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean() ? "&a" : "&c") + "Alerts on Join"),
                 Arrays.asList(
                         translate(guiLine()),
                         translate("&7&oShould we enable alerts for admins when they join?"),

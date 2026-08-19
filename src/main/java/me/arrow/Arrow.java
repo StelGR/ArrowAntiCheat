@@ -129,6 +129,7 @@ public class Arrow {
     @Getter
     private ThemeManager themeManager;
 
+
     @Getter
     private AnimationManager animationManager;
 

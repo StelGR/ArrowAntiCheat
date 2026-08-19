@@ -3,6 +3,7 @@ package me.arrow.utils.custom;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import lombok.Getter;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.fastmath.FastMath;
 import org.bukkit.Location;
@@ -157,6 +158,7 @@ public class CustomLocation {
 
 
     public Block getBlock() {
+        if (!CollisionUtils.isChunkLoaded(this)) return null;
         if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
             return world.getBlockAt(blockX, blockY, blockZ);
         } else {

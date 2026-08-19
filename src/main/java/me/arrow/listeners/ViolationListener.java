@@ -241,7 +241,7 @@ public class ViolationListener implements Listener {
         }
 
         if (Config.Setting.WEBHOOK_ENABLED.getBoolean() && vl % frequency == 0) {
-            queueViolationWebhook(playerName, checkName, checkType, experimental, vl);
+            queueViolationWebhook(punishedPlayer, checkName, checkType, experimental, vl, maxvl, ping, tps);
         }
 
         if (Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean()) {
@@ -497,27 +497,138 @@ public class ViolationListener implements Listener {
         return null;
     }
 
-    private void queueViolationWebhook(String player, String check, String type, boolean experimental, int vl) {
-        String safePlayer = escapeJson(player);
+    private void queueViolationWebhook(
+            Player player,
+            String check,
+            String type,
+            boolean experimental,
+            int vl,
+            int maxVl,
+            String ping,
+            String tps
+    ) {
+        if (player == null) {
+            return;
+        }
+
+        Profile profile = this.plugin.getProfileManager().getProfile(player);
+
+        if (profile == null) {
+            return;
+        }
+
+        String playerName = player.getName();
+        String uuid = profile.getClient();
+
+        String safePlayer = escapeJson(playerName);
         String safeCheck = escapeJson(check);
         String safeType = escapeJson(type);
-        String title = "Player failed " + safeCheck + " | " + safePlayer;
+
+        String clientBrand = getClientBrand(player);
+        String clientVersion = getClientVersion(player);
+
+        var location = profile.getMovementData().getLocation();
+
+        String world = location.getWorld() == null
+                ? "unknown"
+                : location.getWorld().getName();
+
+        String locationText = String.format(
+                "(%s, %d, %d, %d)",
+                world,
+                location.getBlockX(),
+                location.getBlockY(),
+                location.getBlockZ()
+        );
+
+        String checkText = "**`" + safePlayer + "`** failed "
+                + "**" + safeCheck + "**";
+
+        if (type != null && !type.isEmpty()) {
+            checkText += " **(" + safeType + ")**";
+        }
+
+        if (experimental) {
+            checkText += " " + escapeJson(
+                    OtherUtility.stripColorCodes(
+                            OtherUtility.translate(
+                                    MsgType.EXPERIMENTAL_SYMBOL.getMessage()
+                            )
+                    )
+            );
+        }
+
+        checkText += " [" + vl + "/" + maxVl + "]";
 
         String json = "{"
-                + "\"embeds\": [{"
-                + "\"title\": \"" + title + "\","
-                + "\"description\": \"**" + safePlayer + "** failed **" + safeCheck + " " + safeType
-                + (experimental ? " " + OtherUtility.stripColorCodes(OtherUtility.translate(MsgType.EXPERIMENTAL_SYMBOL.getMessage())) : "")
-                + "** x" + vl + "\","
-                + "\"color\": 16711680"
+                + "\"embeds\":[{"
+                + "\"title\":\"Arrow Alert\","
+                + "\"description\":\"" + checkText + "\","
+
+                + "\"thumbnail\":{"
+                + "\"url\":\"https://mc-heads.net/avatar/" + uuid + "/100\""
+                + "},"
+
+                + "\"fields\":["
+                + "{"
+                + "\"name\":\"Client Brand\","
+                + "\"value\":\"" + escapeJson(clientBrand) + "\","
+                + "\"inline\":false"
+                + "},"
+                + "{"
+                + "\"name\":\"Client Version\","
+                + "\"value\":\"" + escapeJson(clientVersion) + "\","
+                + "\"inline\":false"
+                + "},"
+                + "{"
+                + "\"name\":\"Ping | TPS\","
+                + "\"value\":\"" + escapeJson(ping) + "ms | " + escapeJson(tps) + "\","
+                + "\"inline\":false"
+                + "},"
+                + "{"
+                + "\"name\":\"Location\","
+                + "\"value\":\"" + escapeJson(locationText) + "\","
+                + "\"inline\":false"
+                + "}"
+                + "],"
+
+                + "\"color\":16711680"
                 + "}]"
                 + "}";
 
         this.plugin.getAlertManager().queueWebhook(
                 Config.Setting.WEBHOOK_LINK.getString(),
                 json,
-                "Invalid webhook URL, failed to send alert message. please check your configuration"
+                "Invalid webhook URL, failed to send alert message. Please check your configuration"
         );
+    }
+
+    private String getClientBrand(Player player) {
+        Profile profile = this.plugin.getProfileManager().getProfile(player);
+
+        if (profile == null) {
+            return "Unresolved";
+        }
+
+        String brand = profile.getClient();
+
+        return brand == null || brand.isEmpty()
+                ? "Unresolved"
+                : brand;
+    }
+
+    private String getClientVersion(Player player) {
+        Profile profile = this.plugin.getProfileManager().getProfile(player);
+
+        if (profile == null) {
+            return "Unresolved";
+        }
+
+        String version = profile.getVersion().toString();
+
+        return version == null || version.isEmpty()
+                ? "Unresolved"
+                : version;
     }
 
     private int incrementCategoryVL(UUID uuid, String category) {
