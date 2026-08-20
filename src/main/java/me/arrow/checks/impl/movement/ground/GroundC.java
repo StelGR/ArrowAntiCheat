@@ -2,7 +2,6 @@ package me.arrow.checks.impl.movement.ground;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import lombok.Getter;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -130,15 +129,6 @@ public class GroundC extends Check {
                         OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
                     }
                 }
-
-//            if (profile.getBlockProcessor().isOnGhostBlock()) {
-//                fail("BlockProcessor: On Ghostblock?", verboseInfo);
-//
-//                //movementData.setCustomAirTicks(0);
-//                if (Config.Setting.DEBUG.getBoolean()) {
-//                    OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
-//                }
-//            }
 
                 verbose(this.getClass().getSimpleName(), movementData.getCustomAirTicks(), 2, verboseInfo);
             } finally {

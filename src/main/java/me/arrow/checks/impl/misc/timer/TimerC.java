@@ -2,12 +2,10 @@ package me.arrow.checks.impl.misc.timer;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
-import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.customutils.OtherUtility;
 
 public class TimerC extends Check {

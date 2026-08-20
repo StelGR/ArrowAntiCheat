@@ -2,7 +2,6 @@ package me.arrow.checks.impl.movement.speed;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
@@ -15,7 +14,6 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.PotionData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.playerdata.data.impl.VelocityData;
-import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.util.Vector;
@@ -27,7 +25,7 @@ import org.bukkit.util.Vector;
 // strafe also does the job but needs improvements, Speed B does most of the job for strafes
 
 // update 107-pre1, velocity issues are fixed on bedrock, but now we have a jump height issue.
-// bedrock can't stop giving me brain damage, but i wont give up.
+// bedrock can't stop giving me brain damage, but I won't give up.
 
 // strafe has moved to illegalmoveb
 

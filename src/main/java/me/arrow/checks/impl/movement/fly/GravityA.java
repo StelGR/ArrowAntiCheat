@@ -2,7 +2,6 @@ package me.arrow.checks.impl.movement.fly;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
@@ -50,18 +49,19 @@ public class GravityA extends Check {
         try {
 
             MovementData movementData = profile.getMovementData();
+            ActionData actionData = profile.getActionData();
 
             if (isExempt(movementData)) return;
 
-            GravityPredictionA(movementData, movementData.getDeltaY(), movementData.isOnGround());
+            GravityPredictionA(movementData, movementData.getDeltaY(), movementData.isOnGround(), actionData);
         } finally {
             Profiler.stop("Gravity A", profiler);
         }
     }
 
-    private void GravityPredictionA(MovementData movementData, double deltaY, boolean onGround) {
+    private void GravityPredictionA(MovementData movementData, double deltaY, boolean onGround, ActionData actionData) {
         double normalPrediction = getPrediction(profile, deltaY);
-        PredictionResult predictionResult = selectGravityPrediction(movementData, normalPrediction, !onGround);
+        PredictionResult predictionResult = selectGravityPrediction(movementData, normalPrediction, !onGround, actionData);
         double prediction = predictionResult.prediction;
         double totalUp = Math.abs(deltaY - prediction);
         double max = computeAllowedDelta(profile, deltaY);
@@ -122,10 +122,10 @@ public class GravityA extends Check {
         return set;
     }
 
-    private PredictionResult selectGravityPrediction(MovementData data, double normalPrediction, boolean allowJump) {
+    private PredictionResult selectGravityPrediction(MovementData data, double normalPrediction, boolean allowJump, ActionData actionData) {
         double actual = data.getDeltaY();
         PredictionResult best = new PredictionResult(normalPrediction, "normal", Math.abs(actual - normalPrediction));
-        double placedLanding = getPlacedBlockLandingPrediction(data, normalPrediction);
+        double placedLanding = getPlacedBlockLandingPrediction(data, normalPrediction, actionData);
 
         if (Double.isFinite(placedLanding)) {
             double offset = Math.abs(actual - placedLanding);
@@ -135,7 +135,7 @@ public class GravityA extends Check {
         }
 
         if (allowJump) {
-            double placedJump = getPlacedBlockJumpPrediction(data);
+            double placedJump = getPlacedBlockJumpPrediction(data, actionData);
             if (Double.isFinite(placedJump)) {
                 double offset = Math.abs(actual - placedJump);
                 double launchTolerance = profile.isBedrockPlayer() ? 0.090D : 0.060D;
@@ -147,8 +147,7 @@ public class GravityA extends Check {
         return best;
     }
 
-    private double getPlacedBlockLandingPrediction(MovementData data, double normalPrediction) {
-        ActionData actionData = profile.getActionData();
+    private double getPlacedBlockLandingPrediction(MovementData data, double normalPrediction, ActionData actionData) {
         if (actionData == null || data == null || data.getLocation() == null) return Double.NaN;
 
         int ticks = actionData.getBlockPlacePredictionTicks();
@@ -173,8 +172,7 @@ public class GravityA extends Check {
         return movingTowardBlock && crossesTop && actualAtTop ? topY - lastY : Double.NaN;
     }
 
-    private double getPlacedBlockJumpPrediction(MovementData data) {
-        ActionData actionData = profile.getActionData();
+    private double getPlacedBlockJumpPrediction(MovementData data, ActionData actionData) {
         if (actionData == null || data == null || data.getLocation() == null) return Double.NaN;
 
         int ticks = Math.min(5 + profile.getConnectionData().getClientTickTrans(), actionData.getBlockPlacePredictionTicks());

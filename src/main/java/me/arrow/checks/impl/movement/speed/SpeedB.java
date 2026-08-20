@@ -4,7 +4,6 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.Arrow;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
@@ -24,7 +23,7 @@ import org.bukkit.util.Vector;
 // this is a very decent check, it accounts for acceleration and deceleration, the acceleration part is based off of OpenKarhu's speed b
 // it does have alot of improvements though, but it has some issues with modified attribute speed, remember the goal of the anticheat is to work on  ALL minecraft versions.
 
-// Due to some prediction issues with this check, although i have not seen any false positives, but you never know
+// Due to some prediction issues with this check, although I have not seen any false positives, but you never know
 
 @Experimental
 public class SpeedB extends Check {

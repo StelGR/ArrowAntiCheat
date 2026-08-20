@@ -15,6 +15,7 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
+import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
 
@@ -59,6 +60,8 @@ public class GravityC extends Check {
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
                     || profile.getTick() < 120
+                    || (movementData.getNearbyBlocksResult() != null
+                    && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
                     || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
                     || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                     || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
@@ -268,38 +271,29 @@ public class GravityC extends Check {
                 && profile.getActionData().hasRecentUnderPlaceSupport(20 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
 
         String predictionType = off1 <= off2 ? pred1Result.type : pred2Result.type;
+
+        String info = "offset " + MsgType.MAIN_THEME_COLOR.getMessage() + lastOffset
+                + "\nprediction1 " + MsgType.MAIN_THEME_COLOR.getMessage() + pred1
+                + "\nprediction2 " + MsgType.MAIN_THEME_COLOR.getMessage() + pred2
+                + "\nnormalPrediction1 " + MsgType.MAIN_THEME_COLOR.getMessage() + normalPred1
+                + "\nnormalPrediction2 " + MsgType.MAIN_THEME_COLOR.getMessage() + normalPred2
+                + "\npredictionType " + MsgType.MAIN_THEME_COLOR.getMessage() + predictionType
+                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
+                + "\nground " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                + "\ntook Damage? " + MsgType.MAIN_THEME_COLOR.getMessage()
+                + (profile.getDamageData().getLastCause() == null ? "No" : profile.getDamageData().getLastCause());
         if (deltaY != 0.0D) {
             verbose(this.getClass().getSimpleName(), bufferC, 3,
                     "Verbose (3)"
-                            + "\noffset " + MsgType.MAIN_THEME_COLOR.getMessage() + lastOffset
-                            + "\nprediction1 " + MsgType.MAIN_THEME_COLOR.getMessage() + pred1
-                            + "\nprediction2 " + MsgType.MAIN_THEME_COLOR.getMessage() + pred2
-                            + "\nnormalPrediction1 " + MsgType.MAIN_THEME_COLOR.getMessage() + normalPred1
-                            + "\nnormalPrediction2 " + MsgType.MAIN_THEME_COLOR.getMessage() + normalPred2
-                            + "\npredictionType " + MsgType.MAIN_THEME_COLOR.getMessage() + predictionType
-                            + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                            + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
-                            + "\nground " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                            + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                            + "\ntook Damage? " + MsgType.MAIN_THEME_COLOR.getMessage()
-                            + (profile.getDamageData().getLastCause() == null ? "No" : profile.getDamageData().getLastCause()));
+                            + "\n"+info);
         }
 
         if (!clientGround) {
             if (++bufferC > 2.0D) {
                 fail("Not following MCP Gravity (3)",
-                        "offset " + MsgType.MAIN_THEME_COLOR.getMessage() + lastOffset
-                                + "\nprediction1 " + MsgType.MAIN_THEME_COLOR.getMessage() + pred1
-                                + "\nprediction2 " + MsgType.MAIN_THEME_COLOR.getMessage() + pred2
-                                + "\nnormalPrediction1 " + MsgType.MAIN_THEME_COLOR.getMessage() + normalPred1
-                                + "\nnormalPrediction2 " + MsgType.MAIN_THEME_COLOR.getMessage() + normalPred2
-                                + "\npredictionType " + MsgType.MAIN_THEME_COLOR.getMessage() + predictionType
-                                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
-                                + "\nground " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                + "\ntook Damage? " + MsgType.MAIN_THEME_COLOR.getMessage()
-                                + (profile.getDamageData().getLastCause() == null ? "No" : profile.getDamageData().getLastCause()));
+                        info);
                 bufferC = Math.max(5, bufferC);
             }
         } else {

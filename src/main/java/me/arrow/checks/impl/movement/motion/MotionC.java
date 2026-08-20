@@ -2,7 +2,6 @@ package me.arrow.checks.impl.movement.motion;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
@@ -12,12 +11,12 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
-import me.arrow.utils.MoveUtils;
-import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.customutils.OtherUtility;
 
-// this works, very similarly to Fly B, but near walls, it is not as good though since i haven't kept it up to date that much
+// this works, very similarly to Fly B, but near walls, it is not as good though since I haven't kept it up to date that much
 // it works very well though, for detecting wall climbs above 3 blocks, not perfect, but does the job.
+
+// update 108-pre1, this no longer works due to how CollisionUtils handles server air ticks now, so some wallclimbs will now work
 
 public class MotionC extends Check {
 

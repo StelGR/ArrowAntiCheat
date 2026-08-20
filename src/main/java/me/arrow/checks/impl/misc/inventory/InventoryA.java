@@ -3,24 +3,27 @@ package me.arrow.checks.impl.misc.inventory;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
-import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.Math.MathUtil;
-import me.arrow.utils.customutils.OtherUtility;
 
-// Marked for removal
+import java.util.Collection;
 
+// Marked for removal/recode
+
+@Experimental
 public class InventoryA extends Check {
 
     public InventoryA(Profile profile) {
-        super(profile, CheckType.INVENTORY, "A", "Checks if the player is moving while in inventory");
+        super(profile, CheckType.INVENTORY, "A", "Checks for check stealer/auto armor using samples");
     }
 
-    private double threshold, invTicks;
+    SampleList<Long> samples = new SampleList<>(50);
+    long lastTime, lastDelta;
 
     @Override
     public void handle( PacketSendEvent event) {
@@ -29,41 +32,68 @@ public class InventoryA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (OtherUtility.isFlying(event.getPacketType())) {
-            if (profile.shouldCancel()
-                    || profile.getVelocityData().getVelocityTicks() <= 9 + profile.getConnectionData().getClientTickTrans()
-                    || profile.isExempt().isTeleports()) {
-                threshold = invTicks = 0;
-                return;
+        if (event.getPacketType().equals(PacketType.Play.Client.CLICK_WINDOW)) {
+            final long time = event.getTimestamp();
+
+            final long lastTime= this.lastTime;
+
+            this.lastTime = time;
+
+            final long delta = time - lastTime;
+
+            final long lastDelta = this.lastDelta;
+
+            this.lastDelta = delta;
+
+            this.samples.add(delta);
+
+            if (!this.samples.isCollected()) return;
+
+            final double deviation = getDevation(this.samples);
+
+            final double average = getAverageLong(this.samples);
+
+            final double std = MathUtil.getStandardDeviation(this.samples);
+
+            String verboseInfo = "deviation " + MsgType.MAIN_THEME_COLOR.getMessage() + deviation
+                    + "\naverage " + MsgType.MAIN_THEME_COLOR.getMessage() + average
+                    + "\nstd " + MsgType.MAIN_THEME_COLOR.getMessage() + std
+                    + "\ndelta " + MsgType.MAIN_THEME_COLOR.getMessage() + delta
+                    + "\nlastDelta " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDelta;
+
+            verbose(this.getClass().getSimpleName(), deviation, 5.5, verboseInfo);
+
+            if (deviation > 0D && deviation < 5.5D && average < 65D) {
+                fail("Clicking in inventory too fast",
+                        verboseInfo);
             }
 
-            double max = invTicks <= 45 ? MathUtil.getBaseSpeed(profile.getPlayer()) : 0.01;
 
-            MovementData movementData = profile.getMovementData();
-
-
-            if (profile.getActionData().isInInventory() && profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_12_2)) {
-                invTicks++;
-                if (invTicks > 12) {
-                    if (movementData.getDeltaXZ() > max &&
-                            !(movementData.isNearWater()
-                                    || movementData.isNearLava()
-                                    || movementData.isNearWebs()
-                                    || profile.getVelocityData().isTakingVelocity())) {
-                        if (++threshold > 15) {
-                            fail("Moving while inside the inventory", "invTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + invTicks);
-                            profile.getPlayer().closeInventory();
-                            profile.getActionData().setInInventory(false);
-                        }
-                    } else {
-                        threshold -= Math.min(threshold, 0.5);
-                    }
-                } else {
-                    threshold -= Math.min(threshold, 0.5);
-                }
-            } else {
-                threshold = invTicks = 0;
+            if (std < 0.1)
+            {
+                fail("Impossible inventory clicks",
+                        verboseInfo);
             }
         }
+    }
+
+    public double getDevation(final Collection<? extends Number> nums){
+        if (nums.isEmpty()) return 0D;
+
+        return Math.sqrt((getVariance(nums) / (nums.size() - 1)));
+    }
+
+    public long getAverageLong(final Collection<Long> nums){
+        if (nums.isEmpty()) return 0L;
+
+        return getSumLong(nums) / nums.size();
+    }
+
+    public long getSumLong(final Collection<Long> nums){
+        return MathUtil.getSumLong(nums);
+    }
+
+    public double getVariance(final Collection<? extends Number> data) {
+        return MathUtil.getVariance(data);
     }
 }
