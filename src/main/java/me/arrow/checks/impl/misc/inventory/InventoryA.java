@@ -69,7 +69,7 @@ public class InventoryA extends Check {
             }
 
 
-            if (std < 0.1)
+            if (std < 0.1 && std != 0)
             {
                 fail("Impossible inventory clicks",
                         verboseInfo);
