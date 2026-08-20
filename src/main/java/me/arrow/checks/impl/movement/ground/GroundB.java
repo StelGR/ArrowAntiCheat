@@ -2,8 +2,6 @@ package me.arrow.checks.impl.movement.ground;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
@@ -87,7 +85,6 @@ public class GroundB extends Check {
                     recentlyPlaced
             );
 
-            //invalid 1 was a terribly made check, i removed it, invalid2 does most of the job. but it can still false, needs improvements
             double horizontal = Math.max(
                     profile.getVelocityData().getTotalHorizontalVelocitySustain(),
                     profile.getVelocityData().getStackedHorizontalVelocity()

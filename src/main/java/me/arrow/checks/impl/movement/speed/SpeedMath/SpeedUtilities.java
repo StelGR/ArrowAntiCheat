@@ -11,7 +11,7 @@ public class SpeedUtilities {
     public static final double DEFAULT_WALK_SPEED_ATTRIBUTE = 0.1D;
     public static final double VANILLA_SPRINT_MULTIPLIER = 1.3D;
     public static final double SPEED_MULTIPLIER_AIR = 0.125D;
-    public static final double SPEED_MULTIPLIER_GROUND = 0.2141D;
+    public static final double SPEED_MULTIPLIER_GROUND = 0.213D;
     public static final double MAX_REASONABLE_MOVEMENT_ATTRIBUTE = 1024.0D;
     private static final double MIN_FRICTION = 1.0E-4D;
 

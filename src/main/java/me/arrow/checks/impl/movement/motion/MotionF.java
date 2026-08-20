@@ -2,7 +2,6 @@ package me.arrow.checks.impl.movement.motion;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -10,7 +9,6 @@ import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.playerdata.data.impl.PotionData;
 import me.arrow.playerdata.data.impl.VelocityData;
 import me.arrow.utils.customutils.OtherUtility;
 
@@ -37,36 +35,34 @@ public class MotionF extends Check {
         long profiler = Profiler.start();
 
         try {
-            MovementData md = profile.getMovementData();
-            VelocityData vd = profile.getVelocityData();
-            PotionData pot = profile.getPotionData();
-
+            MovementData movementData = profile.getMovementData();
+            VelocityData velocityData = profile.getVelocityData();
 
             if (profile.shouldCancel()
                     || profile.getPlayer().isDead()
                     || !profile.isExempt().isRespawned()
                     || profile.isExempt().isTeleports()
                     || profile.isBouncingOnSlime()
-                    || md.isNearWater()
-                    || vd.getTotalVerticalVelocity() > 0
+                    || movementData.isNearWater()
+                    || velocityData.getTotalVerticalVelocity() > 0
             ) return;
 
             if (profile.getPlayer().isInsideVehicle()) return;
 
-            final double deltaY = md.getDeltaY();
-            final double lastDeltaY = md.getLastDeltaY();
-            int clientAirTicks = md.getClientAirTicks();
-            int serverAirTicks = md.getCustomAirTicks();
+            double deltaY = movementData.getDeltaY();
+            double lastDeltaY = movementData.getLastDeltaY();
+            int clientAirTicks = movementData.getClientAirTicks();
+            int serverAirTicks = movementData.getCustomAirTicks();
 
 
             boolean exempt = profile.isBouncingOnSlime()
-                    || md.isNearShulker()
-                    || md.isNearShulkerBox()
-                    || md.isNearBubble()
-                    || md.getSincePowderSnowTicks() < 5
-                    || md.getLadderTicks() < 10
-                    || md.isOnGround()
-                    || md.isLastOnGround()
+                    || movementData.isNearShulker()
+                    || movementData.isNearShulkerBox()
+                    || movementData.isNearBubble()
+                    || movementData.getSincePowderSnowTicks() < 5
+                    || movementData.getLadderTicks() < 10
+                    || movementData.isOnGround()
+                    || movementData.isLastOnGround()
                     || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)
                     || clientAirTicks < 6;
 
@@ -74,12 +70,12 @@ public class MotionF extends Check {
 
             if (!exempt) {
                 if (deltaY > expected
-                        && md.isClimb()) {
+                        && movementData.isClimb()) {
                     fail("Fast Ladder?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                             + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
                             + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                             + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
-                            + "\nladderTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + md.getLadderTicks());
+                            + "\nladderTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLadderTicks());
                 }
             }
         } finally {

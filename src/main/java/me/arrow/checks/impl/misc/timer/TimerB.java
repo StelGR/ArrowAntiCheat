@@ -3,7 +3,6 @@ package me.arrow.checks.impl.misc.timer;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -70,7 +69,7 @@ public class TimerB extends Check {
 
         // Modern clients do not provide a useful stationary cadence. Reset the
         // baseline as well as returning, otherwise the first moving packet
-        // includes all of the time that the player stood still.
+        // includes all the time that the player stood still.
         if (!profile.getMovementData().isMoving()) {
             resetTimingState();
             return;
@@ -147,7 +146,7 @@ public class TimerB extends Check {
         int lastPing = Math.max(0, profile.getConnectionData().getLastTransPing());
         int jitter = Math.abs(ping - lastPing);
 
-        if (lastPing <= 0 || jitter <= NETWORK_JITTER_THRESHOLD_MS) {
+        if (lastPing == 0 || jitter <= NETWORK_JITTER_THRESHOLD_MS) {
             return;
         }
 
@@ -227,9 +226,9 @@ public class TimerB extends Check {
     }
 
     private static class TimingWindow {
-        private final double median;
-        private final double medianAbsoluteDeviation;
-        private final double slowRatio;
+        double median;
+        double medianAbsoluteDeviation;
+        double slowRatio;
 
         private TimingWindow(double median, double medianAbsoluteDeviation, double slowRatio) {
             this.median = median;

@@ -2,7 +2,6 @@ package me.arrow.checks.impl.movement.speed;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -16,7 +15,7 @@ import me.arrow.utils.custom.desync.DesyncType;
 import me.arrow.utils.customutils.OtherUtility;
 
 
-// this is a basic NoSlow check, with some of the functions disabled as they are not complete, you can re-enable them and try to fix them but it has falses
+// this is a basic NoSlow check, with some of the functions disabled as they are not complete, you can re-enable them and try to fix them, but it has falses
 // and the useItem stuff isn't spot on either
 
 @Experimental

@@ -9,10 +9,13 @@ import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.materials.PEMaterials;
+import me.arrow.utils.customutils.Math.MathUtil;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+
+import static me.arrow.utils.customutils.Math.MathUtil.floor;
 
 public class MovementPredictionUtil {
 
@@ -418,10 +421,6 @@ public class MovementPredictionUtil {
         }
     }
 
-    private static int floor(double value) {
-        int i = (int) value;
-        return value < i ? i - 1 : i;
-    }
 
     private static double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
