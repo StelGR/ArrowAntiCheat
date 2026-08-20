@@ -8,6 +8,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.RotationData;
+import me.arrow.utils.customutils.OtherUtility;
 
 public class AimA extends Check {
 
@@ -24,10 +25,7 @@ public class AimA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             if (profile.getCombatData().getAttackedTicks() < 40) {
                 RotationData rotationData = profile.getRotationData();

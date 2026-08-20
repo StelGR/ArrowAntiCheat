@@ -15,6 +15,7 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
 
 import java.util.EnumSet;
@@ -40,10 +41,7 @@ public class GravityA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        if (!OtherUtility.isFlying(event.getPacketType())) {
             return;
         }
 

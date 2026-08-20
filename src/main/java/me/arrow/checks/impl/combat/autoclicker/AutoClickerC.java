@@ -8,6 +8,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.customutils.OtherUtility;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,11 +33,7 @@ public class AutoClickerC extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
             if (profile.getPredictionData().isDigging()) {
                 movements = 20;
                 return;

@@ -3,7 +3,6 @@ package me.arrow.checks.impl.misc.inventory;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientClickWindow;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -34,7 +33,6 @@ public class InventoryB extends Check {
     @Override
     public void handle(PacketReceiveEvent event) {
         if (event.getPacketType().equals(PacketType.Play.Client.CLICK_WINDOW)) {
-
             final long time = event.getTimestamp();
 
             final long lastTime= this.lastTime;
@@ -92,35 +90,10 @@ public class InventoryB extends Check {
     }
 
     public long getSumLong(final Collection<Long> nums){
-        if (nums.isEmpty()) return 0L;
-
-        long sum = 0;
-
-        for (long num : nums) sum += num;
-
-        return sum;
+        return MathUtil.getSumLong(nums);
     }
 
     public double getVariance(final Collection<? extends Number> data) {
-        if (data.isEmpty()) return 0D;
-
-        int count = 0;
-
-        double sum = 0.0;
-        double varience = 0.0;
-
-        double average;
-
-        for (final Number number : data){
-            sum += number.doubleValue();
-            ++count;
-        }
-        average =  sum / count;
-
-        for (final Number number : data){
-            varience += Math.pow(number.doubleValue() - average, 2.0);
-        }
-
-        return varience;
+        return MathUtil.getVariance(data);
     }
 }

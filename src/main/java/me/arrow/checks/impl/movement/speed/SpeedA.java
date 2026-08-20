@@ -45,32 +45,28 @@ public class SpeedA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
-            MovementData movementData = profile.getMovementData();
-            VelocityData velocityData = profile.getVelocityData();
+        if (!OtherUtility.isFlying(event.getPacketType())) return;
 
-            double deltaXZ = movementData.getDeltaXZ();
-            double deltaY = movementData.getDeltaY();
-            double velocityH = velocityData.getTotalHorizontalVelocity();
-            double blockFriction = movementData.getFrictionFactor();
+        MovementData movementData = profile.getMovementData();
+        VelocityData velocityData = profile.getVelocityData();
 
-            boolean serverGround = movementData.isServerGround();
-            boolean clientGround = movementData.isOnGround();
-            int clientAirTicks = movementData.getClientAirTicks();
-            int serverGroundTicks = movementData.getServerGroundTicks();
-            double movingSlimeTicks = movementData.getMovingOnSlimeTicks();
-            int movingHoneyTicks = movementData.getMovingOnHoneyTicks();
-            float movingIceTicks = movementData.getMovingOnIceTicks();
-            float underBlockMoveTime = movementData.getMovingUnderblockTicks();
+        double deltaXZ = movementData.getDeltaXZ();
+        double deltaY = movementData.getDeltaY();
+        double velocityH = velocityData.getTotalHorizontalVelocity();
+        double blockFriction = movementData.getFrictionFactor();
 
-            calculateAir(movementData, movingIceTicks, movingSlimeTicks, movingHoneyTicks, underBlockMoveTime, velocityH, deltaY, deltaXZ, clientAirTicks, clientGround, serverGround);
+        boolean serverGround = movementData.isServerGround();
+        boolean clientGround = movementData.isOnGround();
+        int clientAirTicks = movementData.getClientAirTicks();
+        int serverGroundTicks = movementData.getServerGroundTicks();
+        double movingSlimeTicks = movementData.getMovingOnSlimeTicks();
+        int movingHoneyTicks = movementData.getMovingOnHoneyTicks();
+        float movingIceTicks = movementData.getMovingOnIceTicks();
+        float underBlockMoveTime = movementData.getMovingUnderblockTicks();
 
-            calculateGround(movementData, velocityData, deltaXZ, deltaY, movingIceTicks, serverGround, serverGroundTicks, clientAirTicks, blockFriction);
+        calculateAir(movementData, movingIceTicks, movingSlimeTicks, movingHoneyTicks, underBlockMoveTime, velocityH, deltaY, deltaXZ, clientAirTicks, clientGround, serverGround);
 
-        }
+        calculateGround(movementData, velocityData, deltaXZ, deltaY, movingIceTicks, serverGround, serverGroundTicks, clientAirTicks, blockFriction);
     }
 
 
@@ -157,6 +153,8 @@ public class SpeedA extends Check {
                     allowedLimit += 0.3;
                 }
             }
+
+            allowedLimit = Math.max(DEFAULT_BASE_PER_TICK * frictionMultiplier, allowedLimit);
 
             if (serverGround && deltaXZ != 0) {
                 verbose(this.getClass().getSimpleName(), predicted, allowedLimit,
@@ -346,6 +344,12 @@ public class SpeedA extends Check {
             if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
                 expectedSpeed += 0.2;
             }
+
+            if (movementData.getSincePredictUpwardsTicks() < 10) {
+                expectedSpeed += 0.03;
+            }
+
+            expectedSpeed = Math.max(AIR_BASE_SPEED, expectedSpeed);
 
             String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()

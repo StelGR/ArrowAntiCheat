@@ -56,7 +56,7 @@ public class TimerA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!isFlyingPacket(event)) {
+        if (!OtherUtility.isFlying(event.getPacketType())) {
             return;
         }
 
@@ -286,13 +286,6 @@ public class TimerA extends Check {
 
     private static double millis(long nanos) {
         return nanos / 1_000_000.0D;
-    }
-
-    private boolean isFlyingPacket(PacketReceiveEvent event) {
-        return event.getPacketType() == PacketType.Play.Client.PLAYER_FLYING
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_ROTATION
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;
     }
 
     private boolean ready() {

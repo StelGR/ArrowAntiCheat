@@ -8,6 +8,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.utils.customutils.OtherUtility;
 
 public class TimerC extends Check {
 
@@ -30,7 +31,7 @@ public class TimerC extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!isFlyingPacket(event)
+        if (!OtherUtility.isFlying(event.getPacketType())
                 || profile.shouldCancel()
                 || profile.getTick() < 120
                 || profile.getPredictionData().isDigging()
@@ -62,11 +63,4 @@ public class TimerC extends Check {
         verbose("TimerC", newBalance, threshold, "bal " + timerBalance + "\nelapsed " + elapsed + "\nlastMS " + lastMs);
     }
 
-
-    private boolean isFlyingPacket(PacketReceiveEvent event) {
-        return event.getPacketType() == PacketType.Play.Client.PLAYER_FLYING
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_ROTATION
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;
-    }
 }

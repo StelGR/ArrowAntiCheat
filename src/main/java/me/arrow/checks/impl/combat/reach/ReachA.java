@@ -22,6 +22,7 @@ import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
@@ -85,7 +86,7 @@ public class ReachA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (isMovement(event)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
             if (isRotation(event)) {
                 recordRotation(event);
             }

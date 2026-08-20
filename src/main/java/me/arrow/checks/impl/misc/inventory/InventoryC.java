@@ -2,7 +2,6 @@ package me.arrow.checks.impl.misc.inventory;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientClickWindow;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
@@ -12,6 +11,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.Math.MathUtil;
+import me.arrow.utils.customutils.OtherUtility;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
 
@@ -70,16 +70,15 @@ public class InventoryC extends Check {
                 }
             }
         }
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PLAYER_POSITION)
-                || event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PLAYER_ROTATION)) {
+
+        if (OtherUtility.isFlying(event.getPacketType())) {
             if (profile.getActionData().isInInventory() && profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_12_2)) {
                 invTicks++;
             } else {
                 invTicks -= Math.min(invTicks, 1);
             }
         }
+
         if (event.getPacketType().equals(INTERACT_ENTITY)) {
             WrapperPlayClientInteractEntity wrapperPlayClientInteractEntity = new WrapperPlayClientInteractEntity(event);
 

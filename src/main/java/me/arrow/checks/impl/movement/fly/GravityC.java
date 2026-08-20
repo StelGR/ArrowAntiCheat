@@ -2,7 +2,6 @@ package me.arrow.checks.impl.movement.fly;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
@@ -42,16 +41,13 @@ public class GravityC extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) return;
-
+        if (!OtherUtility.isFlying(event.getPacketType())) return;
         long profiler = Profiler.start();
 
         try {
 
             MovementData movementData = profile.getMovementData();
+            ActionData actionData = profile.getActionData();
             if (movementData == null
                     || movementData.isOnBoat()
                     || movementData.isNearBoat()
@@ -120,14 +116,14 @@ public class GravityC extends Check {
                 return;
             }
             if (!profile.isBedrockPlayer()) {
-                GravityPredictionC(movementData.getDeltaY(), movementData.getLastDeltaY(), movementData.isUnderblock(), movementData);
+                GravityPredictionC(movementData.getDeltaY(), movementData.getLastDeltaY(), movementData.isUnderblock(), movementData, actionData);
             }
         } finally {
             Profiler.stop("Gravity C", profiler);
         }
     }
 
-    private void GravityPredictionC(double deltaY, double lastDeltaY, boolean underBlock, MovementData md) {
+    private void GravityPredictionC(double deltaY, double lastDeltaY, boolean underBlock, MovementData md, ActionData actionData) {
         boolean inLiquid = md.isInsideWater() || md.isBottomOfWater() || md.isInsideLiquid() || md.isNearWater() || md.isNearLava();
         boolean onWeb = md.isNearWebs();
         boolean onLadder = md.isNearClimbable();
@@ -222,14 +218,14 @@ public class GravityC extends Check {
         final double EPS = 1.0E-8D;
         double normalPred1 = (lastDeltaY - G) * DRAG;
         if (Math.abs(normalPred1) < 0.005D) normalPred1 = 0.0D;
-        PredictionResult pred1Result = selectGravityPrediction(md, normalPred1, true);
+        PredictionResult pred1Result = selectGravityPrediction(md, normalPred1, true, actionData);
         double pred1 = pred1Result.prediction;
         double off1 = Math.abs(deltaY - pred1);
         if (off1 < EPS) { lastOffset = off1; return; }
 
         double normalPred2 = (normalPred1 - G) * DRAG;
         if (Math.abs(normalPred2) < 0.005D) normalPred2 = 0.0D;
-        PredictionResult pred2Result = selectGravityPrediction(md, normalPred2, true);
+        PredictionResult pred2Result = selectGravityPrediction(md, normalPred2, true, actionData);
         double pred2 = pred2Result.prediction;
         double off2 = Math.abs(deltaY - pred2);
         if (off2 < EPS) { lastOffset = off2; return; }
@@ -321,17 +317,17 @@ public class GravityC extends Check {
         return set;
     }
 
-    private PredictionResult selectGravityPrediction(MovementData data, double normalPrediction, boolean allowJump) {
+    private PredictionResult selectGravityPrediction(MovementData data, double normalPrediction, boolean allowJump, ActionData actionData) {
         double actual = data.getDeltaY();
         PredictionResult best = new PredictionResult(normalPrediction, "normal", Math.abs(actual - normalPrediction));
-        double placedLanding = getPlacedBlockLandingPrediction(data, normalPrediction);
+        double placedLanding = getPlacedBlockLandingPrediction(data, actionData, normalPrediction);
         if (Double.isFinite(placedLanding)) {
             double offset = Math.abs(actual - placedLanding);
             if (offset + 1.0E-7D < best.offset && offset <= getPlacedBlockCollisionTolerance() + 0.015D)
                 best = new PredictionResult(placedLanding, "placedBlockLanding", offset);
         }
         if (allowJump) {
-            double placedJump = getPlacedBlockJumpPrediction(data);
+            double placedJump = getPlacedBlockJumpPrediction(data, actionData);
             if (Double.isFinite(placedJump)) {
                 double offset = Math.abs(actual - placedJump);
                 double launchTolerance = profile.isBedrockPlayer() ? 0.090D : 0.060D;
@@ -342,8 +338,7 @@ public class GravityC extends Check {
         return best;
     }
 
-    private double getPlacedBlockLandingPrediction(MovementData data, double normalPrediction) {
-        ActionData actionData = profile.getActionData();
+    private double getPlacedBlockLandingPrediction(MovementData data, ActionData actionData, double normalPrediction) {
         if (actionData == null || data == null || data.getLocation() == null) return Double.NaN;
         int ticks = actionData.getBlockPlacePredictionTicks();
         if (!actionData.hasRecentConfirmedUnderPlace(ticks)) return Double.NaN;
@@ -360,8 +355,7 @@ public class GravityC extends Check {
                 && Math.abs(currentY - topY) <= tolerance ? topY - lastY : Double.NaN;
     }
 
-    private double getPlacedBlockJumpPrediction(MovementData data) {
-        ActionData actionData = profile.getActionData();
+    private double getPlacedBlockJumpPrediction(MovementData data, ActionData actionData) {
         if (actionData == null || data == null || data.getLocation() == null) return Double.NaN;
         int ticks = Math.min(5 + profile.getConnectionData().getClientTickTrans(), actionData.getBlockPlacePredictionTicks());
         if (!actionData.hasRecentConfirmedUnderPlace(ticks) || !isHorizontallyOverPlacedBlock(data, actionData)) return Double.NaN;

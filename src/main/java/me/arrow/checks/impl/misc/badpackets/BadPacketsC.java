@@ -8,6 +8,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.customutils.OtherUtility;
 
 // never seen this flag, but tbh never seen most people use this type of disablers anyway......
 
@@ -27,10 +28,7 @@ public class BadPacketsC extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
             if (profile.getTick() < 10) {
                 return;
             }
@@ -47,7 +45,5 @@ public class BadPacketsC extends Check {
                 buffer = 0.0D;
             }
         }
-
-
     }
 }

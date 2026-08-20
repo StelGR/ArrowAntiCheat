@@ -3,7 +3,6 @@ package me.arrow.checks.impl.movement.fly;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
@@ -19,6 +18,7 @@ import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.ChatUtils;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
+import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 import org.apache.commons.math3.util.FastMath;
 import org.bukkit.ChatColor;
@@ -71,10 +71,7 @@ public class GravityD extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             long profiler = Profiler.start();
 
@@ -110,6 +107,8 @@ public class GravityD extends Check {
                         || movementData.isNearBed()
                         || profile.getExempt().isVehicle()
                         || profile.shouldCancel()
+                        || (movementData.getNearbyBlocksResult() != null
+                        && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
                         || movementData.getSinceGlidingTicks() < 30 + (transTicks * 2)
                         || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                         || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
@@ -397,14 +396,6 @@ public class GravityD extends Check {
                 + "\nevidence " + MsgType.MAIN_THEME_COLOR.getMessage() + strictNegativeEvidence;
 
         verbose(getClass().getSimpleName(), strictNegativeEvidence, required, information);
-
-        if (data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictUpwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            resetGravityD("predictUp/Down");
-            return false;
-        }
 
         if (data.isNearBoat() || data.isOnBoat()) return false;
 
@@ -944,13 +935,7 @@ public class GravityD extends Check {
         if (data.getMovingUnderblockTicks() > 0) { resetGravityD("movingUnderBlock"); return true; }
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return true; }
 
-        if (data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictUpwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            resetGravityD("predictUp/Down");
-            return true;
-        }
+        if (isMovingUp(data)) return true;
 
         if (hasRecentGravityVelocity(transTicks)) {
             resetGravityD("recentVelocity");
@@ -2008,5 +1993,16 @@ public class GravityD extends Check {
             this.type = type;
             this.offset = offset;
         }
+    }
+
+    boolean isMovingUp(MovementData data) {
+        if (data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictUpwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
+                || data.getSincePredictDownwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            resetGravityD("predictUp/Down");
+            return true;
+        }
+        return false;
     }
 }

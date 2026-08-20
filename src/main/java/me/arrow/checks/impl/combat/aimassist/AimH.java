@@ -14,6 +14,7 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.GameMode;
 
 import java.util.ArrayList;
@@ -60,10 +61,7 @@ public class AimH extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             if (profile.getCombatData().getAttackedTicks() > COMBAT_SAMPLE_TICKS) {
                 resetWindow(false);

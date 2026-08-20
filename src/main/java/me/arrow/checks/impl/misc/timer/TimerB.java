@@ -10,6 +10,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.tasks.TickTask;
+import me.arrow.utils.customutils.OtherUtility;
 
 import java.util.Arrays;
 
@@ -55,7 +56,7 @@ public class TimerB extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!isFlyingPacket(event)) {
+        if (!OtherUtility.isFlying(event.getPacketType())) {
             return;
         }
 
@@ -223,13 +224,6 @@ public class TimerB extends Check {
                 && !profile.shouldCancel()
                 && !profile.isExempt().isTeleports()
                 && !profile.isExempt().vehicle();
-    }
-
-    private boolean isFlyingPacket(PacketReceiveEvent event) {
-        return event.getPacketType() == PacketType.Play.Client.PLAYER_FLYING
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_ROTATION
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;
     }
 
     private static class TimingWindow {

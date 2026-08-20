@@ -11,6 +11,7 @@ import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.materials.MaterialType;
+import me.arrow.utils.customutils.OtherUtility;
 
 // this is a bit more complicated that Motion D, but i am getting tired, it is also basically like 3 checks in one, i have not seen it false
 // but it could false, that's why its set as experimental
@@ -37,10 +38,7 @@ public class MotionB extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             long profiler = Profiler.start();
 

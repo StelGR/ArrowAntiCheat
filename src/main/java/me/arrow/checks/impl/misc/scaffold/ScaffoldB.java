@@ -10,6 +10,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.customutils.Math.MathUtil;
+import me.arrow.utils.customutils.OtherUtility;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,7 +58,7 @@ public class ScaffoldB extends Check {
             return;
         }
 
-        if (!isFlyingPacket(event)) {
+        if (!OtherUtility.isFlying(event.getPacketType())) {
             return;
         }
 
@@ -411,13 +412,6 @@ public class ScaffoldB extends Check {
 
     private void decay() {
         buffer = Math.max(0.0D, buffer - 0.025D);
-    }
-
-    private boolean isFlyingPacket(PacketReceiveEvent event) {
-        return event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
     private boolean isRotationPacket(PacketReceiveEvent event) {

@@ -10,6 +10,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.customutils.OtherUtility;
 
 // useless above 1.9, so it's disabled
 
@@ -45,10 +46,7 @@ public class KillauraB extends Check {
 
                 this.lastTarget = target;
             }
-        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)) {
+        } else if (OtherUtility.isFlying(event.getPacketType())) {
             attacks = 0;
         }
     }

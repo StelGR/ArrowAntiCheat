@@ -8,6 +8,7 @@ import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.customutils.OtherUtility;
 
 // uh idk seems obvious...
 
@@ -62,10 +63,7 @@ public class InteractC extends Check {
 
             //else decreaseBufferBy(0.5);
         }
-        else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        else if (OtherUtility.isFlying(event.getPacketType())) {
             attacking = false;
         }
     }

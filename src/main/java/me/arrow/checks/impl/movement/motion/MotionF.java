@@ -12,6 +12,7 @@ import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.PotionData;
 import me.arrow.playerdata.data.impl.VelocityData;
+import me.arrow.utils.customutils.OtherUtility;
 
 // very basic fast ladder check, falses alot
 
@@ -31,11 +32,7 @@ public class MotionF extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!(event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                        || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                        || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                        || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-        )) return;
+        if (!OtherUtility.isFlying(event.getPacketType())) return;
 
         long profiler = Profiler.start();
 

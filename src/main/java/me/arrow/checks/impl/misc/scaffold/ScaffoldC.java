@@ -12,6 +12,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
+import me.arrow.utils.customutils.OtherUtility;
 
 @Experimental
 public class ScaffoldC extends Check {
@@ -63,7 +64,7 @@ public class ScaffoldC extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!isFlyingPacket(event)) {
+        if (!OtherUtility.isFlying(event.getPacketType())) {
             return;
         }
 
@@ -480,13 +481,6 @@ public class ScaffoldC extends Check {
         } catch (Throwable ignored) {
             return 0;
         }
-    }
-
-    private boolean isFlyingPacket(PacketReceiveEvent event) {
-        return event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
     private String round(double value) {

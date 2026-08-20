@@ -12,6 +12,7 @@ import me.arrow.playerdata.data.impl.CombatData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.playerdata.data.impl.VelocityData;
 import me.arrow.utils.customutils.EvictingList;
+import me.arrow.utils.customutils.OtherUtility;
 
 
 @Experimental
@@ -30,10 +31,7 @@ public class AimF extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             RotationData rotData = profile.getRotationData();
             CombatData attackData = profile.getCombatData();

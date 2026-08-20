@@ -10,6 +10,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.playerdata.processors.impl.SensitivityProcessor;
 import me.arrow.utils.customutils.Math.MathUtil;
+import me.arrow.utils.customutils.OtherUtility;
 
 public class AimD extends Check {
     public AimD(Profile profile) {
@@ -23,10 +24,7 @@ public class AimD extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             if (profile.getCombatData().getAttackedTicks() < 40) {
                 RotationData rotationData = profile.getRotationData();
@@ -63,13 +61,13 @@ public class AimD extends Check {
                                 fail("GCD Flaw", "gcd " + MsgType.MAIN_THEME_COLOR.getMessage() + gcd
                                         + "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + yaw
                                         + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + pitch
-                                        + "\nadjustedYaw (yaw - yaw % gcd)" + MsgType.MAIN_THEME_COLOR.getMessage() + adjustedYaw
-                                        + "\nadjustedPitch (pitch - pitch % gcd)" + MsgType.MAIN_THEME_COLOR.getMessage() + adjustedYaw
-                                        + "\nyawDifference (Math.abs(yaw - adjustedYaw))" + MsgType.MAIN_THEME_COLOR.getMessage() + yawDifference
-                                        + "\npitchDifference (Math.abs(pitch - adjustedPitch))" + MsgType.MAIN_THEME_COLOR.getMessage() + pitchDifference
+                                        + "\nadjustedYaw (yaw - yaw % gcd) " + MsgType.MAIN_THEME_COLOR.getMessage() + adjustedYaw
+                                        + "\nadjustedPitch (pitch - pitch % gcd) " + MsgType.MAIN_THEME_COLOR.getMessage() + adjustedYaw
+                                        + "\nyawDifference (Math.abs(yaw - adjustedYaw)) " + MsgType.MAIN_THEME_COLOR.getMessage() + yawDifference
+                                        + "\npitchDifference (Math.abs(pitch - adjustedPitch)) " + MsgType.MAIN_THEME_COLOR.getMessage() + pitchDifference
                                         + "\ndeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
                                         + "\ndeltaPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaPitch
-                                        + "\ncombined (dY + dP)" + MsgType.MAIN_THEME_COLOR.getMessage() + combined);
+                                        + "\ncombined (dY + dP) " + MsgType.MAIN_THEME_COLOR.getMessage() + combined);
                                 profile.getTrustFactor().decreaseTrustBy(2);
                             }
                         }

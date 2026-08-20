@@ -1,6 +1,6 @@
 package me.arrow.checks.impl.combat.aimassist.aimassistUtil;
 
-public final class LinearRegression
+public class LinearRegression
 {
     private final double intercept;
     private final double slope;
