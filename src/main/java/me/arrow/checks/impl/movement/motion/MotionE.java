@@ -13,6 +13,7 @@ import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.Math.MathUtil;
+import me.arrow.utils.customutils.OtherUtility;
 
 // sample based water walking check, most of it though is detected by the ghostblock processor, so it's kinda useless
 // it will not flag in water, only walking above it, and jumping bypasses this, so if you can bypass the ghostblock processor
@@ -32,10 +33,7 @@ public class MotionE extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             long profiler = Profiler.start();
 

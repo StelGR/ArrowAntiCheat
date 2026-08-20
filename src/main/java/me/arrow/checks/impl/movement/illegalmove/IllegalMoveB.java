@@ -27,11 +27,7 @@ public class IllegalMoveB extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
-
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             MovementData movementData = profile.getMovementData();
             ActionData actionData = profile.getActionData();

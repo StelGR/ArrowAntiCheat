@@ -43,10 +43,7 @@ public class GravityB extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                && !event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) return;
+        if (!OtherUtility.isFlying(event.getPacketType())) return;
 
         long profiler = Profiler.start();
 

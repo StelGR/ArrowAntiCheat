@@ -4,7 +4,6 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
@@ -19,6 +18,7 @@ import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.custom.SampleList;
+import me.arrow.utils.customutils.OtherUtility;
 
 import static me.arrow.utils.customutils.Math.MathUtil.getAverage;
 import static me.arrow.utils.customutils.Math.MathUtil.getDevation;
@@ -50,10 +50,7 @@ public class FlyA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             long profiler = Profiler.start();
 

@@ -34,7 +34,7 @@ public class GroundB extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!isMovementPacket(event.getPacketType())) {
+        if (!OtherUtility.isFlying(event.getPacketType())) {
             return;
         }
 
@@ -228,13 +228,6 @@ public class GroundB extends Check {
 
     private double getExpectedJumpMotion() {
         return 0.42D + (SpeedUtilities.getJumpBoostPotionLevel(profile) * 0.1D);
-    }
-
-    private boolean isMovementPacket(PacketTypeCommon packetType) {
-        return packetType.equals(PacketType.Play.Client.PLAYER_FLYING)
-                || packetType.equals(PacketType.Play.Client.PLAYER_POSITION)
-                || packetType.equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || packetType.equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
 }

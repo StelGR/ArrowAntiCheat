@@ -42,64 +42,60 @@ public class SpeedB extends Check {
     @Override
     public void handle(PacketReceiveEvent event) {
 
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) return;
 
-            if (profile.shouldCancel()
-                    || profile.getPlayer().isDead()
-                    || !profile.isExempt().isRespawned()
-                    || profile.isExempt().isTeleports()
-                    || profile.isExempt().vehicle()) {
-                vlBuffer = 0;
-                return;
-            }
-
-            if (profile.getExempt().isReelingIn()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("SpeedB: is Exempting (reelingIn)");
-                return;
-            }
-
-            if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMoveC: is Exempting (Piston Update)");
-                return;
-            }
-
-
-
-            MovementData movementData = profile.getMovementData();
-            ActionData actionData = profile.getActionData();
-            RotationData rotationData = profile.getRotationData();
-
-            double deltaX = movementData.getDeltaX();
-            double deltaZ = movementData.getDeltaZ();
-            double deltaY = movementData.getDeltaY();
-            double deltaXZ = movementData.getDeltaXZ();
-            double lastDeltaXZ = movementData.getLastDeltaXZ();
-
-            boolean serverGround = movementData.isServerGround();
-            boolean clientGround = movementData.isOnGround();
-            float movingTicks = movementData.getMovingTicks();
-            boolean sprinting = actionData.isSprinting();
-
-            double velocityH = profile.getVelocityData().getTotalHorizontalVelocity();
-            float deltaYaw = rotationData.getDeltaYaw();
-            double mdAccel = movementData.getAccelXZ();
-            double accel = Math.abs(deltaXZ - lastDeltaXZ);
-
-            calculateDeceleration(movementData, deltaXZ, lastDeltaXZ, deltaYaw, accel, mdAccel);
-
-
-            if (profile.getBlockProcessor().isNearGhostBlock()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (near Ghostblock)");
-                return;
-            }
-
-            calculateAcceleration(movementData, actionData, deltaX, deltaY, deltaZ, deltaXZ, clientGround, serverGround, movingTicks, velocityH, sprinting);
-
-            this.lastDeltaYaw = deltaYaw;
+        if (profile.shouldCancel()
+                || profile.getPlayer().isDead()
+                || !profile.isExempt().isRespawned()
+                || profile.isExempt().isTeleports()
+                || profile.isExempt().vehicle()) {
+            vlBuffer = 0;
+            return;
         }
+
+        if (profile.getExempt().isReelingIn()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("SpeedB: is Exempting (reelingIn)");
+            return;
+        }
+
+        if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMoveC: is Exempting (Piston Update)");
+            return;
+        }
+
+
+        MovementData movementData = profile.getMovementData();
+        ActionData actionData = profile.getActionData();
+        RotationData rotationData = profile.getRotationData();
+
+        double deltaX = movementData.getDeltaX();
+        double deltaZ = movementData.getDeltaZ();
+        double deltaY = movementData.getDeltaY();
+        double deltaXZ = movementData.getDeltaXZ();
+        double lastDeltaXZ = movementData.getLastDeltaXZ();
+
+        boolean serverGround = movementData.isServerGround();
+        boolean clientGround = movementData.isOnGround();
+        float movingTicks = movementData.getMovingTicks();
+        boolean sprinting = actionData.isSprinting();
+
+        double velocityH = profile.getVelocityData().getTotalHorizontalVelocity();
+        float deltaYaw = rotationData.getDeltaYaw();
+        double mdAccel = movementData.getAccelXZ();
+        double accel = Math.abs(deltaXZ - lastDeltaXZ);
+
+        calculateDeceleration(movementData, deltaXZ, lastDeltaXZ, deltaYaw, accel, mdAccel);
+
+
+        if (profile.getBlockProcessor().isNearGhostBlock()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (near Ghostblock)");
+            return;
+        }
+
+        calculateAcceleration(movementData, actionData, deltaX, deltaY, deltaZ, deltaXZ, clientGround, serverGround, movingTicks, velocityH, sprinting);
+
+        this.lastDeltaYaw = deltaYaw;
+
     }
 
 

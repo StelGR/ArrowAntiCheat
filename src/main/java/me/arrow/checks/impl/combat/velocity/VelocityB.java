@@ -22,6 +22,7 @@ import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.Math.MathHelper;
 import me.arrow.utils.customutils.Math.MathUtil;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.Material;
 import org.bukkit.util.Vector;
 
@@ -200,7 +201,7 @@ public class VelocityB extends Check {
             return;
         }
 
-        if (!isMovement(event)) {
+        if (!OtherUtility.isFlying(event.getPacketType())) {
             return;
         }
 

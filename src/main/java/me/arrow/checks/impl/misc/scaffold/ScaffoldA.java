@@ -10,6 +10,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.customutils.Math.MathUtil;
+import me.arrow.utils.customutils.OtherUtility;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -36,10 +37,7 @@ public class ScaffoldA extends Check {
         if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT)) {
             placed = true;
         }
-        else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        else if (OtherUtility.isFlying(event.getPacketType())) {
             if (profile.getMovementData().getDeltaXZ() != 0
                     || profile.getMovementData().getDeltaY() != 0
                     || profile.getRotationData().getDeltaYaw() != 0

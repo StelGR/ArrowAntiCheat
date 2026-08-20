@@ -14,6 +14,7 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.custom.SampleList;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
 
@@ -63,10 +64,7 @@ public class ElytraA extends Check {
             handlePossibleFireworkUse();
         }
 
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             long profiler = Profiler.start();
 

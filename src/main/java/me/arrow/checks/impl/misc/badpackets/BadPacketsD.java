@@ -8,6 +8,7 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPl
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.customutils.OtherUtility;
 
 public class BadPacketsD extends Check {
     public BadPacketsD(Profile profile) {
@@ -32,10 +33,7 @@ public class BadPacketsD extends Check {
                 this.sentDigging = true;
             }
         }
-        else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+        else if (OtherUtility.isFlying(event.getPacketType())) {
             this.sentDigging = false;
         }
         else if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {

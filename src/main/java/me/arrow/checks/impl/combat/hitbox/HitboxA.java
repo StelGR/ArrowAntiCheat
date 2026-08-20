@@ -17,6 +17,7 @@ import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.GameMode;
 import org.bukkit.util.Vector;
 
@@ -47,7 +48,7 @@ public class HitboxA extends Check {
     public void handle(PacketReceiveEvent event) {
         if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
             handleAttack(event);
-        } else if (isMovement(event.getPacketType())) {
+        } else if (OtherUtility.isFlying(event.getPacketType())) {
             missBuffer = Math.max(0.0D, missBuffer - 0.035D);
             decreaseBufferBy(0.02D);
         }

@@ -241,7 +241,7 @@ public class ViolationListener implements Listener {
         }
 
         if (Config.Setting.WEBHOOK_ENABLED.getBoolean() && vl % frequency == 0) {
-            queueViolationWebhook(punishedPlayer, checkName, checkType, experimental, vl, maxvl, ping, tps, informationTitle);
+            queueViolationWebhook(punishedPlayer, checkName, checkType, experimental, vl, maxvl, ping, tps, alert.informationTitle);
         }
 
         if (Config.Setting.CHECK_SETTINGS_ALERT_CONSOLE.getBoolean()) {

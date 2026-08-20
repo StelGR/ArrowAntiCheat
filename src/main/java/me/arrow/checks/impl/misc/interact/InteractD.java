@@ -23,6 +23,8 @@ import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.custom.materials.PEMaterials;
+import me.arrow.utils.customutils.Math.MathUtil;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -77,7 +79,7 @@ public class InteractD extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (isMovement(event)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
             wallHitBuffer = Math.max(0.0D, wallHitBuffer - 0.025D);
             removeExpiredBlockHistory(System.currentTimeMillis());
             return;
@@ -705,12 +707,6 @@ public class InteractD extends Check {
                 : direction.normalize();
     }
 
-    private boolean isMovement(PacketReceiveEvent event) {
-        return event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
-    }
 
     private boolean isValidBlockPosition(Vector3i position) {
         return position != null
@@ -718,8 +714,7 @@ public class InteractD extends Check {
     }
 
     private int floor(double value) {
-        int integer = (int) value;
-        return value < integer ? integer - 1 : integer;
+        return MathUtil.floor(value);
     }
 
     private static class EntityBounds {

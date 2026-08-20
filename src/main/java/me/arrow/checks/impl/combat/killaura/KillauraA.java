@@ -14,6 +14,7 @@ import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.CombatData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.customutils.Math.MathUtil;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -50,7 +51,7 @@ public class KillauraA extends Check {
             return;
         }
 
-        if (isMovement(packetType)) {
+        if (OtherUtility.isFlying(packetType)) {
             handleMovement(packetType);
         }
     }

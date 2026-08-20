@@ -22,9 +22,6 @@ import java.util.Set;
 
 @Experimental
 public class VelocityA extends Check {
-
-// this (probably) wont false in real combat, read velocity b comment for more info, but it's super basic, mainly tested only on 1.8
-
     public VelocityA(Profile profile) {
         super(profile, CheckType.VELOCITY, "A", "Checks vertical knockback");
     }

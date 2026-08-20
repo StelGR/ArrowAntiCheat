@@ -11,6 +11,7 @@ import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.ChatUtils;
+import me.arrow.utils.customutils.OtherUtility;
 
 // fairly simply ground desync/spoof check, the main one is mismatched ground (1), although (2), (3) and (4) are
 // for edge cases, from clients that are able to spoof server side flooring
@@ -27,10 +28,7 @@ public class GroundA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             long profiler = Profiler.start();
 

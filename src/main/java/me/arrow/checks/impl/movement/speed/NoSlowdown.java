@@ -13,6 +13,7 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.PredictionData;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.desync.DesyncType;
+import me.arrow.utils.customutils.OtherUtility;
 
 
 // this is a basic NoSlow check, with some of the functions disabled as they are not complete, you can re-enable them and try to fix them but it has falses
@@ -35,10 +36,7 @@ public class NoSlowdown extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
 
             if (profile.shouldCancel()) return;
 

@@ -2,6 +2,8 @@ package me.arrow.utils.customutils;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import me.arrow.Arrow;
 import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
@@ -315,6 +317,17 @@ public class OtherUtility {
         return vector.getX() == 0.0D
                 && vector.getY() == 0.0D
                 && vector.getZ() == 0.0D;
+    }
+
+    public static boolean isFlying(PacketTypeCommon packetTypeCommon) {
+        return packetTypeCommon == PacketType.Play.Client.PLAYER_FLYING
+                || packetTypeCommon == PacketType.Play.Client.PLAYER_POSITION
+                || packetTypeCommon == PacketType.Play.Client.PLAYER_ROTATION
+                || packetTypeCommon == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;
+    }
+    public static boolean isRotation(PacketTypeCommon packetTypeCommon) {
+        return packetTypeCommon == PacketType.Play.Client.PLAYER_ROTATION
+                || packetTypeCommon == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;
     }
 }
 

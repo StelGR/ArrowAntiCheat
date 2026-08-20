@@ -12,6 +12,7 @@ import me.arrow.playerdata.data.impl.CombatData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.customutils.EvictingList;
 import me.arrow.utils.customutils.Math.MathUtil;
+import me.arrow.utils.customutils.OtherUtility;
 
 import java.text.DecimalFormat;
 
@@ -31,10 +32,7 @@ public class AimI extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
             CombatData combatData = profile.getCombatData();
             RotationData rotationData = profile.getRotationData();
 
