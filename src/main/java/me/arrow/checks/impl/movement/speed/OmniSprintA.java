@@ -2,7 +2,6 @@ package me.arrow.checks.impl.movement.speed;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
@@ -15,6 +14,7 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.desync.DesyncType;
 import me.arrow.utils.customutils.Math.MathUtil;
+import me.arrow.utils.customutils.OtherUtility;
 
 import java.util.Locale;
 
@@ -80,7 +80,7 @@ public class OmniSprintA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!isPositionMovementPacket(event)) {
+        if (!OtherUtility.isRotation(event.getPacketType())) {
             return;
         }
 
@@ -375,10 +375,6 @@ public class OmniSprintA extends Check {
         }
     }
 
-    private boolean isPositionMovementPacket(PacketReceiveEvent event) {
-        return event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
-    }
 
     private void rewardAll(double amount) {
         groundBuffer = Math.max(0.0D, groundBuffer - amount);
