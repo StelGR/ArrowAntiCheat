@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "arrow",
+  "version": "108-pre1",
+  "name": "Arrow",
+  "description": "Packet based anticheat that bans sad people",
+  "authors": [
+    "Stel"
+  ],
+  "license": "AGPL-3.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "me.arrow.fabric.ArrowFabricMod"
+    ],
+    "server": [
+      "me.arrow.fabric.ArrowFabricMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "*"
+  },
+  "suggests": {
+    "fabric-api": "*",
+    "packetevents": "*"
+  }
+}
