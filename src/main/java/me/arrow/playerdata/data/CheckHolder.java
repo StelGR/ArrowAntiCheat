@@ -139,7 +139,6 @@ public class CheckHolder {
                 new GravityB(this.profile),
                 new GravityC(this.profile),
                 new GravityD(this.profile),
-                new GravityE(this.profile),
                 new FlyA(this.profile),
                 new FlyB(this.profile),
 
