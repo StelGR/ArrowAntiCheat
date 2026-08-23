@@ -34,7 +34,7 @@ public class ThreadManager implements Listener, Initializer {
 
     @Override
     public void initialize() {
-        Bukkit.getPluginManager().registerEvents(this, Arrow.getInstance().getHost());
+        me.arrow.platform.PlatformBackend.get().registerListener(this);
     }
 
     public ProfileThread getAvailableProfileThread() {

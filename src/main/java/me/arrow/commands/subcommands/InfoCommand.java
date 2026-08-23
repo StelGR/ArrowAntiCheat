@@ -3,6 +3,7 @@ package me.arrow.commands.subcommands;
 import me.arrow.Arrow;
 import me.arrow.commands.SubCommand;
 import me.arrow.enums.Permissions;
+import me.arrow.platform.PlatformBackend;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -57,7 +58,7 @@ public class InfoCommand extends SubCommand {
 
             sender.sendMessage(translate( "&cUsage: /arrow info <player>"));
         } else {
-            Player player = Bukkit.getPlayer(args[1]);
+            Player player = PlatformBackend.get().getServer().getPlayer(args[1]);
 
             if (player == null) {
                 sender.sendMessage(translate( "&cThat player is not online"));

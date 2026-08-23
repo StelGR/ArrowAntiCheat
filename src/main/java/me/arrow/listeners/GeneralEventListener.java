@@ -7,6 +7,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.materials.MaterialType;
@@ -42,7 +43,7 @@ import static me.arrow.utils.customutils.OtherUtility.*;
 
 //only really using it for the test server mode, but it needs alot of clean up, also using it for Interact B cus it's much harder to make that on a packet specific check, but yet again, i may just be retarded
 
-public class BukkitListener implements Listener {
+public class GeneralEventListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInteract(PlayerInteractEvent event) {
         this.processEvent(event);
@@ -157,7 +158,7 @@ public class BukkitListener implements Listener {
 
                 @Override
                 public void run() {
-                    Player p = Bukkit.getPlayer(joiningUuid);
+                    Player p = PlatformBackend.get().getServer().getPlayer(joiningUuid);
 
                     if (p == null || !p.isOnline()) {
                         cancelSelf();
@@ -198,7 +199,7 @@ public class BukkitListener implements Listener {
                             ? "Unknown"
                             : joiningProfile.getVersion().getReleaseName();
 
-                    for (Player receiver : Bukkit.getOnlinePlayers()) {
+                    for (Player receiver : PlatformBackend.get().getServer().getOnlinePlayers()) {
                         if (receiver == null) continue;
 
                         TaskUtils.player(receiver, () -> {
@@ -264,7 +265,7 @@ public class BukkitListener implements Listener {
             }
 
             // Remove quitting player from all other players' trackedEntities
-            for (Player online : Bukkit.getOnlinePlayers()) {
+            for (Player online : PlatformBackend.get().getServer().getOnlinePlayers()) {
                 if (online.equals(quitting)) continue; // skip self (already offline anyway)
 
                 Profile otherProfile = Arrow.getInstance().getProfileManager().getProfile(online);
@@ -684,13 +685,13 @@ public class BukkitListener implements Listener {
     public void Damage(EntityDamageEvent event) {
         if (event.getEntity().getType() == EntityType.PLAYER && event.getCause() != EntityDamageEvent.DamageCause.FALL){
             if (Config.Setting.TEST_SERVER_MODE_PREVENT_DAMAGE.getBoolean() && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()){
-                if (event.getEntity().getWorld().equals(Bukkit.getWorld(Config.Setting.TEST_SERVER_MODE_WORLD.getString())))
+                if (event.getEntity().getWorld().equals(PlatformBackend.get().getServer().getWorld(Config.Setting.TEST_SERVER_MODE_WORLD.getString())))
                     event.setDamage(0.0);
             }
         }
         if (event.getEntity() instanceof Player && event.getCause() == EntityDamageEvent.DamageCause.FALL) {
             if (Config.Setting.TEST_SERVER_MODE_PREVENT_DAMAGE.getBoolean() && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
-                if (event.getEntity().getWorld().equals(Bukkit.getWorld(Config.Setting.TEST_SERVER_MODE_WORLD.getString()))){
+                if (event.getEntity().getWorld().equals(PlatformBackend.get().getServer().getWorld(Config.Setting.TEST_SERVER_MODE_WORLD.getString()))){
                     event.getEntity().sendMessage(translate("&7You would have taken &c" + event.getDamage() + " &7fall damage."));
                     event.setDamage(0.0);
                 }
@@ -1023,7 +1024,7 @@ public class BukkitListener implements Listener {
         }
 
         return name.contains("TALL_GRASS")
-                || name.equals("GRASS")
+                || name.endsWith("_GRASS")
                 || name.contains("FLOWER")
                 || name.contains("SAPLING")
                 || name.contains("MUSHROOM")

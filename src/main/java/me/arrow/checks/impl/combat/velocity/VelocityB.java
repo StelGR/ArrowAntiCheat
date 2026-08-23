@@ -996,8 +996,8 @@ public class VelocityB extends Check {
                     : 0.5000001D;
 
             CustomLocation lookup = movementData.getLastLocation().clone().subtract(0.0D, downLookup, 0.0D);
-            Material material = lookup.getBlock().getType();
-            String name = material.name();
+            Material material = CollisionUtils.getMaterial(lookup);
+            String name = material != null ? material.name() : "AIR";
 
             float slipperiness;
             if (profile.getVersion() != null

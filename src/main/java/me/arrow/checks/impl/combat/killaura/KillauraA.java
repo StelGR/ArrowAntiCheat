@@ -10,12 +10,12 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.CombatData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.customutils.Math.MathUtil;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.Objects;
@@ -86,7 +86,7 @@ public class KillauraA extends Check {
         CombatData combatData = profile.getCombatData();
 
         try {
-            Player attacked = Bukkit.getPlayer(
+            Player attacked = PlatformBackend.get().getServer().getPlayer(
                     Objects.requireNonNull(combatData.getTrackedEntities().get(packet.getEntityId()))
             );
 
@@ -284,7 +284,7 @@ public class KillauraA extends Check {
         try {
             CombatData combatData = profile.getCombatData();
 
-            Player attacked = Bukkit.getPlayer(
+            Player attacked = PlatformBackend.get().getServer().getPlayer(
                     Objects.requireNonNull(combatData.getTrackedEntities().get(entityId))
             );
 

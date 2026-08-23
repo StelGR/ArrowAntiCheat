@@ -47,6 +47,7 @@ public class SpeedA extends Check {
 
         MovementData movementData = profile.getMovementData();
         VelocityData velocityData = profile.getVelocityData();
+        RotationData rotationData = profile.getRotationData();
 
         double deltaXZ = movementData.getDeltaXZ();
         double deltaY = movementData.getDeltaY();
@@ -64,30 +65,23 @@ public class SpeedA extends Check {
 
         calculateAir(movementData, movingIceTicks, movingSlimeTicks, movingHoneyTicks, underBlockMoveTime, velocityH, deltaY, deltaXZ, clientAirTicks, clientGround, serverGround);
 
-        calculateGround(movementData, velocityData, deltaXZ, deltaY, movingIceTicks, serverGround, serverGroundTicks, clientAirTicks, blockFriction);
+        calculateGround(movementData, velocityData, deltaXZ, deltaY, movingIceTicks, serverGround, serverGroundTicks, clientAirTicks, blockFriction, rotationData);
     }
 
 
     double groundBuffer;
 
-    double DEFAULT_BASE_PER_TICK = 0.27397D;
+    double DEFAULT_BASE_PER_TICK = 0.28063D;
 
 //    private static final double SPRINT_BASE = 0.1477285125D;
 //    private static final double NO_SPRINT_BASE = 0.1777285125D;
-    double DIAGONAL_TOLERANCE = 1.022425;
+    double DIAGONAL_TOLERANCE = 0.006;
 
-    public void calculateGround(MovementData movementData, VelocityData velocityData, double deltaXZ, double deltaY, float movingIceTicks, boolean serverGround, int serverGroundTicks, int airTicks, double blockFriction) {
+    public void calculateGround(MovementData movementData, VelocityData velocityData, double deltaXZ, double deltaY, float movingIceTicks, boolean serverGround, int serverGroundTicks, int airTicks, double blockFriction, RotationData rotationData) {
         long profiler = Profiler.start();
 
         try {
-            double predicted = deltaXZ * blockFriction;
-
-            double groundLimit = SpeedUtilities.computeGroundLimit(profile, velocityData, DEFAULT_BASE_PER_TICK);
-
-            double frictionMultiplier = SpeedUtilities.friction(blockFriction);
-            double allowedLimit = groundLimit * frictionMultiplier;
-
-            RotationData rotationData = profile.getRotationData();
+            double allowedLimit = SpeedUtilities.computeGroundLimit(profile, velocityData, DEFAULT_BASE_PER_TICK);
 
             double deltaX = movementData.getDeltaX();
             double deltaZ = movementData.getDeltaZ();
@@ -101,9 +95,8 @@ public class SpeedA extends Check {
             MovementPredictionUtil.DirectionalMovement inputDirection =
                     MovementPredictionUtil.predictDirectionalMovement(inputX, inputZ, yaw);
 
-            if (inputDirection.isForwardStrafe()) allowedLimit *= DIAGONAL_TOLERANCE;
+            if (inputDirection.isForwardStrafe()) allowedLimit += DIAGONAL_TOLERANCE;
 
-            allowedLimit += 0.004;
             double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
             if (movementData.isInsideWater()) allowedLimit += depthStriderBoost; // apply always if in water
 
@@ -134,6 +127,8 @@ public class SpeedA extends Check {
                 allowedLimit += 0.1295;
             }
 
+            if (serverGroundTicks <= 6) allowedLimit += 0.095;
+
             if (serverGroundTicks <= 20) allowedLimit += 0.03;
 
             if (movementData.getMovingOnSlimeTicks() > 0) {
@@ -152,19 +147,14 @@ public class SpeedA extends Check {
                 }
             }
 
-            allowedLimit = Math.max(DEFAULT_BASE_PER_TICK * frictionMultiplier, allowedLimit);
-
             if (serverGround && deltaXZ != 0) {
-                verbose(this.getClass().getSimpleName(), predicted, allowedLimit,
-                        MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Ground)\n * predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + predicted
+                verbose(this.getClass().getSimpleName(), deltaXZ, allowedLimit,
+                        MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Ground)\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                                 + "\n * expected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + allowedLimit
-                                + "\n * expected deltaXZ (No Friction) " + MsgType.MAIN_THEME_COLOR.getMessage() + (allowedLimit / Math.max(0.0001, frictionMultiplier))
-                                + "\n * expected deltaXZ (No Diag/No Friction) " + MsgType.MAIN_THEME_COLOR.getMessage() + groundLimit
                                 + "\n * blockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                                + "\n * frictionMultiplier " + MsgType.MAIN_THEME_COLOR.getMessage() + frictionMultiplier
                                 + "\n * movementSpeedBase " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getMovementSpeedAttribute(profile)
-                                + "\n * movementSpeedEffective " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getEffectiveMovementSpeedGround(profile)
-                                + "\n * movementSpeedScale " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getEffectiveMovementScaleGround(profile)
+                                + "\n * movementSpeedMin " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getMinMovementSpeedGround(profile)
+                                + "\n * movementSpeedScale " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getMovementScaleGround(profile)
                                 + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                 + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
                                 + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
@@ -181,16 +171,16 @@ public class SpeedA extends Check {
 
             if (isExemptGround(movementData)) return;
 
-            double difference = predicted - allowedLimit;
+            double difference = deltaXZ - allowedLimit;
             double bufferAmount = difference > 0.7 ? 0 : 10;
             double serverGroundMaxTicks = 4;
 
             if (difference > 0.6) serverGroundMaxTicks = 2;
 
-            if (serverGroundTicks > serverGroundMaxTicks && predicted > allowedLimit) {
+            if (serverGroundTicks > serverGroundMaxTicks && deltaXZ > allowedLimit) {
                 if (++groundBuffer > bufferAmount) {
                     fail("Speed limit exceeded (Ground)",
-                            "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + predicted
+                            "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                                     + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + allowedLimit
                                     + "\nblock friction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
                                     + "\nstrafe sector " + MsgType.MAIN_THEME_COLOR.getMessage() + inputDirection.getSector()
@@ -223,11 +213,6 @@ public class SpeedA extends Check {
             int speedLevel = SpeedUtilities.getSpeedPotionLevel(profile);
 
             double air_honeySpeedBoost = Math.min(AIR_HONEY_INCREMENT_PER_TICK * movingHoneyTicks, AIR_MAX_HONEY_SPEED_BOOST);
-
-            double attr = SpeedUtilities.getMovementSpeedAttribute(profile);
-            double effectiveAttr = SpeedUtilities.getEffectiveMovementSpeedAir(profile);
-            double movementScale = SpeedUtilities.getEffectiveMovementScaleAir(profile);
-
             double expectedSpeed = SpeedUtilities.computeAirLimit(profile, AIR_BASE_SPEED);
 
             int soulSpeedLevel = SpeedUtilities.getSoulSpeedLevel(profile);
@@ -317,9 +302,7 @@ public class SpeedA extends Check {
 
             PotionData potions = profile.getPotionData();
 
-            if (movingIceTicks > 0 && !potions.isHasSpeed()) {
-                expectedSpeed += 0.35;
-            }
+
 
             if (movingSlimeTicks > 0 && movementData.getLastFallDistance() > 1) {
                 expectedSpeed += 0.3;
@@ -328,7 +311,15 @@ public class SpeedA extends Check {
             }
 
             if (underBlockMoveTime > 0) {
-                expectedSpeed += potions.isHasSpeed() ? 0.36 : 0.3325;
+                expectedSpeed += potions.isHasSpeed() ? 0.36 : 0.31;
+            }
+
+            if (movingIceTicks > 0 && !potions.isHasSpeed()) {
+                expectedSpeed += 0.35;
+            }
+
+            if (movingIceTicks > 0 && underBlockMoveTime > 0) {
+                expectedSpeed += 0.23745;
             }
 
             expectedSpeed += movementData.elytraMomentum();
@@ -347,8 +338,6 @@ public class SpeedA extends Check {
                 expectedSpeed += 0.03;
             }
 
-            expectedSpeed = Math.max(AIR_BASE_SPEED, expectedSpeed);
-
             String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
@@ -357,9 +346,6 @@ public class SpeedA extends Check {
                     + "* slimeMoveTime " + MsgType.MAIN_THEME_COLOR.getMessage() + movingSlimeTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* iceMoveTime " + MsgType.MAIN_THEME_COLOR.getMessage() + movingIceTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* underBlockMoveTime " + MsgType.MAIN_THEME_COLOR.getMessage() + underBlockMoveTime + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* aSpeedBase " + MsgType.MAIN_THEME_COLOR.getMessage() + attr + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* aSpeedEffective " + MsgType.MAIN_THEME_COLOR.getMessage() + effectiveAttr + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* aSpeedScale " + MsgType.MAIN_THEME_COLOR.getMessage() + movementScale + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* bSpeed (s/ns) " + MsgType.MAIN_THEME_COLOR.getMessage() + SPRINT_BASE_SPEED + "/" + NO_SPRINT_BASE_SPEED + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* moving Up Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* moving Down Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()

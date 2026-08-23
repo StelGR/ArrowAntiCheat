@@ -9,10 +9,10 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 public class TimerA extends Check {
@@ -64,7 +64,7 @@ public class TimerA extends Check {
             if (increaseBuffer() > 750) {
                 profile.kick("Your ping is constantly very high (> 1500), do something about it.");
                 profile.setPingkicked(true);
-                for (Player staff : Bukkit.getOnlinePlayers()) {
+                for (Player staff : PlatformBackend.get().getServer().getOnlinePlayers()) {
 
                     final Profile staffProfile = Arrow.getInstance().getProfileManager().getProfile(staff);
 

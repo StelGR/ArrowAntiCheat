@@ -102,7 +102,7 @@ public class GroundB extends Check {
             double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
             airTickLimit += Math.ceil(extraFromVel);
 
-            boolean invalid = airTicks > (airTickLimit + 12) && clientGround && serverGround && inAir;
+            boolean invalid = airTicks > (airTickLimit + 12) && clientGround && serverGround && inAir && movementData.isMoving();
 
             boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
             if (nearEdge && movementData.getLastDeltaY() != 0 && deltaY == 0 && movementData.getClientAirTicks() == 0)
@@ -154,7 +154,8 @@ public class GroundB extends Check {
                     + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverYGround
                     + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                     + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
-                    + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
+                    + "\ncustomAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
+                    + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
                     + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                     + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                     + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY;

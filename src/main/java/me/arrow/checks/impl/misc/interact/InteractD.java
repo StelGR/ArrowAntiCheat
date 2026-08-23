@@ -16,6 +16,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
@@ -25,7 +26,6 @@ import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.custom.materials.PEMaterials;
 import me.arrow.utils.customutils.Math.MathUtil;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -536,7 +536,7 @@ public class InteractD extends Check {
     private Player resolveTarget(int entityId) {
         try {
             UUID targetId = profile.getCombatData().getTrackedEntities().get(entityId);
-            Player tracked = targetId == null ? null : Bukkit.getPlayer(targetId);
+            Player tracked = targetId == null ? null : PlatformBackend.get().getServer().getPlayer(targetId);
 
             if (tracked != null) {
                 return tracked;
@@ -544,7 +544,7 @@ public class InteractD extends Check {
         } catch (Throwable ignored) {
         }
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (Player player : PlatformBackend.get().getServer().getOnlinePlayers()) {
             if (player.getEntityId() == entityId) {
                 return player;
             }

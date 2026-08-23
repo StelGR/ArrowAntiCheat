@@ -1,19 +1,14 @@
 package me.arrow.checks.impl.movement.prediction;
 
 import lombok.Getter;
-import me.arrow.Arrow;
 import me.arrow.managers.profiler.Profiler;
-import me.arrow.nms.NmsInstance;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
-import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.materials.PEMaterials;
-import me.arrow.utils.customutils.Math.MathUtil;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 
 import static me.arrow.utils.customutils.Math.MathUtil.floor;
 
@@ -385,11 +380,8 @@ public class MovementPredictionUtil {
 
         try {
             try {
-                NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
-                if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) return false;
-
-                Block block = world.getBlockAt(x, y, z);
-                Material materialtype = nms.getType(block);
+                Material materialtype = ChunkCache.get().getBlock(world, x, y, z);
+                if (materialtype == null || materialtype == Material.AIR) return false;
                 String type = materialtype.name();
 
                 if (MaterialType.isMaterial(type, MaterialType.AIR)) return false;

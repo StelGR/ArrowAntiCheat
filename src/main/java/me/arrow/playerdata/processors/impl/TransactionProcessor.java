@@ -12,9 +12,9 @@ import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 // a transaction processor that has brain damage slightly, only slightly though, please fix it for bedrock players, as without this all velocity calculation
@@ -226,7 +226,7 @@ public class TransactionProcessor implements Runnable {
                                 + ", id=" + (currentModernTransaction ? currentIntId : currentShortId))
                 ));
 
-                for (Player staff : Bukkit.getOnlinePlayers()) {
+                for (Player staff : PlatformBackend.get().getServer().getOnlinePlayers()) {
 
                     final Profile staffProfile = Arrow.getInstance().getProfileManager().getProfile(staff);
 

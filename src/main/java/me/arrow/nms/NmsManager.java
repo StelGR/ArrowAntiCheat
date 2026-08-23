@@ -1,9 +1,8 @@
 package me.arrow.nms;
 
 import lombok.Getter;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.impl.worldcomp.Instance;
-import me.arrow.utils.CollisionUtils;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 
@@ -22,26 +21,10 @@ import org.bukkit.World;
 public class NmsManager {
 
     private final NmsInstance nmsInstance;
-    private final Instance nmsInstance2;
 
     public NmsManager() {
         this.nmsInstance = new InstanceDefault();
-        this.nmsInstance2 = new Instance() {
-            @Override
-            public Material getType(World world, double x, double y, double z) {
-                if (world == null) {
-                    return Material.AIR;
-                }
 
-                int bx = (int) Math.floor(x);
-                int by = (int) Math.floor(y);
-                int bz = (int) Math.floor(z);
-
-                if (!CollisionUtils.isChunkLoaded(new Location(world, bx, by, bz))) return Material.AIR;
-
-                return world.getBlockAt(bx, by, bz).getType();
-            }
-        };
     }
 
 }

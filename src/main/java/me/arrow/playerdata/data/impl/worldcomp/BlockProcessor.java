@@ -2369,7 +2369,7 @@ public class BlockProcessor implements Data {
                 || name.contains("LILY_OF_THE_VALLEY")
                 || name.contains("WITHER_ROSE")
                 || name.contains("DEAD_BUSH")
-                || name.contains("GRASS")
+                || name.endsWith("_GRASS")
                 || name.contains("FERN")
                 || name.contains("SEAGRASS")
                 || name.contains("KELP")
@@ -2465,7 +2465,7 @@ public class BlockProcessor implements Data {
         }
 
         try {
-            return Arrow.getInstance().getNmsManager().getNmsInstance2().getType(
+            return Arrow.getInstance().getNmsManager().getNmsInstance().getType(
                     world,
                     x,
                     y,
@@ -2543,7 +2543,7 @@ public class BlockProcessor implements Data {
                 || name.contains("STONECUTTER")
                 || name.contains("COMPOSTER")
                 || name.contains("CAULDRON")
-                || name.contains("BED")
+                || name.endsWith("_BED")
                 || name.contains("BELL")
                 || name.contains("RESPAWN_ANCHOR");
     }

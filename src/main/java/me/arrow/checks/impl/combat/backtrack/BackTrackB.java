@@ -10,10 +10,10 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.text.DecimalFormat;
@@ -305,7 +305,7 @@ public class BackTrackB extends Check {
     }
 
     private Player getPlayerByEntityId(int entityId) {
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (Player player : PlatformBackend.get().getServer().getOnlinePlayers()) {
             if (player.getEntityId() == entityId) {
                 return player;
             }
@@ -377,14 +377,6 @@ public class BackTrackB extends Check {
 
         deque.addLast(value);
     }
-
-    private boolean isMovement(Object packetType) {
-        return packetType.equals(PacketType.Play.Client.PLAYER_FLYING)
-                || packetType.equals(PacketType.Play.Client.PLAYER_POSITION)
-                || packetType.equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || packetType.equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
-    }
-
     private void decaySoft() {
         consecutiveSpikes = Math.max(0, consecutiveSpikes - 1);
         buffer = Math.max(0.0D, buffer - 0.04D);

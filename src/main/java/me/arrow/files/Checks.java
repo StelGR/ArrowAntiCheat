@@ -40,8 +40,11 @@ public class Checks implements Initializer {
 
     @Override
     public void initialize() {
-
-        File configFile = new File(this.plugin.getDataFolder(), "checks.yml");
+        File dataFolder = this.plugin != null ? this.plugin.getDataFolder() : Arrow.getInstance().getDataFolder();
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+        File configFile = new File(dataFolder, "checks.yml");
 
         exists = configFile.exists();
 
@@ -409,13 +412,6 @@ public class Checks implements Initializer {
         GRAVITY_D_PUNISH_ENABLED("GravityD.punish.enabled", true, "Should punishments be enabled for this check?"),
         GRAVITY_D_PUNISH_MODE("GravityD.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         GRAVITY_D_MAX_VL("GravityD.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
-
-        GRAVITY_E("GravityD.enabled", false, "Should we enable this module?"),
-        GRAVITY_E_MODE("GravityD.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
-        GRAVITY_E_PUNISH("GravityD.punish", "", "Punishment settings"),
-        GRAVITY_E_PUNISH_ENABLED("GravityD.punish.enabled", false, "Should punishments be enabled for this check?"),
-        GRAVITY_E_PUNISH_MODE("GravityD.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
-        GRAVITY_E_MAX_VL("GravityD.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
 
         FLY_A("FlyA.enabled", true, "Should we enable this module?"),
         FLY_A_MODE("FlyA.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),

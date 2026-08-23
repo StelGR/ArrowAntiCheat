@@ -13,6 +13,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.files.Config;
 import me.arrow.files.commentedfiles.CommentedFileConfiguration;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.utils.MiscUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.OtherUtility;
@@ -85,7 +86,7 @@ public abstract class AbstractCheck {
 
 
     protected void debug(Object info) {
-        Bukkit.broadcastMessage(String.valueOf(info));
+        PlatformBackend.get().getServer().broadcastMessage(String.valueOf(info));
     }
 
     public void fail(String verboseTitle, String verboseInfo) {
@@ -138,13 +139,15 @@ public abstract class AbstractCheck {
                 this.maxVl,
                 this.experimental);
 
-        Bukkit.getPluginManager().callEvent(violationEvent);
+        if (!me.arrow.platform.PlatformBackend.get().isFabric()) {
+            Bukkit.getPluginManager().callEvent(violationEvent);
 
-        if (violationEvent.isCancelled()) {
+            if (violationEvent.isCancelled()) {
 
-            this.vl--;
+                this.vl--;
 
-            return;
+                return;
+            }
         }
 
         if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
@@ -153,7 +156,7 @@ public abstract class AbstractCheck {
             if (this.vl > this.maxVl) {
                 profile.kick("Detected L");
                 TaskUtils.task(() -> profile.getPlayer().getWorld().strikeLightningEffect(profile.getPlayer().getLocation()));
-                Bukkit.broadcastMessage(OtherUtility.getPunishMessage(p));
+                PlatformBackend.get().getServer().broadcastMessage(OtherUtility.getPunishMessage(p));
                 if (Config.Setting.WEBHOOK_ENABLED.getBoolean()) sendPunishWebhook(profile.getPlayer().getName(), "KICK");
 
                 this.vl = 1;
@@ -194,7 +197,7 @@ public abstract class AbstractCheck {
                         Config.Setting.PUNISH_COMMAND.getString().replace("%player%", playerName)
                 ));
 
-                Bukkit.broadcastMessage(OtherUtility.getPunishMessage(p));
+                PlatformBackend.get().getServer().broadcastMessage(OtherUtility.getPunishMessage(p));
 
                 if (Config.Setting.WEBHOOK_ENABLED.getBoolean()) {
                     sendPunishWebhook(playerName, "BAN");
@@ -240,7 +243,11 @@ public abstract class AbstractCheck {
                         bufferCurrent,
                         maxBuffer);
 
-                Bukkit.getPluginManager().callEvent(violationEvent);
+                if (!me.arrow.platform.PlatformBackend.get().isFabric() && !TaskUtils.isFoliaServer()) {
+                    Bukkit.getPluginManager().callEvent(violationEvent);
+                } else if (Arrow.getInstance().getViolationListener() != null) {
+                    Arrow.getInstance().getViolationListener().onVerbose(violationEvent);
+                }
             }
         }
     }

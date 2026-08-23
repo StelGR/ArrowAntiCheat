@@ -650,7 +650,7 @@ public class ClientWorldTracker implements Data {
         }
 
         try {
-            return Arrow.getInstance().getNmsManager().getNmsInstance2().getType(
+            return Arrow.getInstance().getNmsManager().getNmsInstance().getType(
                     player.getWorld(),
                     x,
                     y,

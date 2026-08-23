@@ -159,8 +159,6 @@ public class PredictionData implements Data {
 
         }
         if (event.getPacketType().equals(USE_ITEM)) {
-            WrapperPlayClientUseItem wrapperPlayClientUseItem = new WrapperPlayClientUseItem(event);
-
             Material mainHandMat = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer()).getType();
             Material offHandMat = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInOffHand(profile.getPlayer()).getType();
 
@@ -413,10 +411,6 @@ public class PredictionData implements Data {
         riptidePendingPackets = -1;
         riptideActivePackets = -1;
         riptideCheckPackets = -1;
-    }
-
-    private boolean isRiptideTrident(ItemStack stack) {
-        return getRiptideLevel(stack) > 0;
     }
 
     public int getRiptideLevel(ItemStack stack) {

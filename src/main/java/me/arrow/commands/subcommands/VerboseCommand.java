@@ -5,6 +5,7 @@ import me.arrow.commands.SubCommand;
 import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.playerdata.data.CheckHolder;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -85,10 +86,10 @@ public class VerboseCommand extends SubCommand {
             return;
         }
 
-        Player targetPlayer = Bukkit.getPlayerExact(args[2]);
+        Player targetPlayer = PlatformBackend.get().getServer().getPlayerExact(args[2]);
 
         if (targetPlayer == null) {
-            targetPlayer = Bukkit.getPlayer(args[2]);
+            targetPlayer = PlatformBackend.get().getServer().getPlayer(args[2]);
         }
 
         if (targetPlayer == null || !targetPlayer.isOnline()) {

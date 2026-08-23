@@ -148,14 +148,15 @@ public class CombatData implements Data {
                 || event.getPacketType().equals(PLAYER_POSITION)
                 || event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PLAYER_ROTATION)) {
+            sinceUsedSpear = usedSpear ? 0 : sinceUsedSpear + 1;
+
+
             this.attackedTicks++;
             attacked = false;
             movementTicks = 0;
             armAnimationMovements++;
             dropping = false;
             usedSpear = false;
-
-            sinceUsedSpear = usedSpear ? 0 : sinceUsedSpear + 1;
         }
 
     }

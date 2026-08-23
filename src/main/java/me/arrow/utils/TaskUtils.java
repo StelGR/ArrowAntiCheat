@@ -1,6 +1,7 @@
 package me.arrow.utils;
 
 import me.arrow.Arrow;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.utils.custom.CustomLocation;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -34,7 +35,7 @@ public class TaskUtils {
         if (FOLIA) {
             runFoliaGlobal(runnable);
         } else {
-            Bukkit.getScheduler().runTask(PLUGIN, runnable);
+            PlatformBackend.get().runTask(runnable);
         }
     }
 
@@ -75,7 +76,7 @@ public class TaskUtils {
         if (FOLIA) {
             runFoliaGlobalLater(runnable, delay);
         } else {
-            Bukkit.getScheduler().runTaskLater(PLUGIN, runnable, delay);
+            PlatformBackend.get().runTaskLater(runnable, delay);
         }
     }
 
@@ -86,7 +87,7 @@ public class TaskUtils {
             return runFoliaGlobalTimer(runnable, safeFoliaDelay(delay), safePeriod);
         }
 
-        BukkitTask task = Bukkit.getScheduler().runTaskTimer(PLUGIN, runnable, delay, safePeriod);
+        BukkitTask task = PlatformBackend.get().getServer().getScheduler().runTaskTimer(PLUGIN, runnable, delay, safePeriod);
         return task::cancel;
     }
 

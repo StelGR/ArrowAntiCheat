@@ -30,8 +30,9 @@ public class CommentedFileConfigurationHelper {
      * @return - New SimpleConfig
      */
     public CommentedFileConfiguration getNewConfig(File file) {
-        if (!this.plugin.getDataFolder().exists())
-            this.plugin.getDataFolder().mkdir();
+        File dataFolder = this.plugin != null ? this.plugin.getDataFolder() : me.arrow.Arrow.getInstance().getDataFolder();
+        if (dataFolder != null && !dataFolder.exists())
+            dataFolder.mkdir();
 
         if (!file.exists()) {
             try {
@@ -213,7 +214,7 @@ public class CommentedFileConfigurationHelper {
     }
 
     public String getPluginName() {
-        return this.plugin.getDescription().getName();
+        return (this.plugin != null && this.plugin.getDescription() != null) ? this.plugin.getDescription().getName() : "Arrow";
     }
 
 }

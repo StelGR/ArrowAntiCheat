@@ -4,12 +4,11 @@ import me.arrow.Arrow;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
-import me.arrow.listeners.ViolationListener;
 import me.arrow.managers.themes.Theme;
 import me.arrow.managers.themes.ThemeManager;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.animationSystem.Animation;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -648,7 +647,7 @@ public class GuiListener implements Listener {
 
     private void updateAllLoadedProfiles(String baseKey, Boolean enabled, Boolean punishable) {
         try {
-            for (Player online : Bukkit.getOnlinePlayers()) {
+            for (Player online : PlatformBackend.get().getServer().getOnlinePlayers()) {
                 if (online == null) {
                     continue;
                 }

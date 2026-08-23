@@ -61,6 +61,10 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
         final Profile profile = this.plugin.getProfileManager().getProfile(player);
         if (profile == null) return;
 
+        if (player.getWorld() != null) {
+            me.arrow.playerdata.cache.ChunkCache.get().processServerPacket(event, player.getWorld());
+        }
+
         profile.handleSend(event);
 
 

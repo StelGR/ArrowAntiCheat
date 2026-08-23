@@ -2,6 +2,7 @@ package me.arrow.nms;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.utils.ReflectionUtils;
 import me.arrow.utils.TaskUtils;
 import org.bukkit.Material;
@@ -46,6 +47,9 @@ public class InstanceDefault implements NmsInstance {
 
     @Override
     public Material getType(Block block) {
+        if (block == null) {
+            return Material.AIR;
+        }
         if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(block)) {
             return Material.AIR;
         }
@@ -57,22 +61,47 @@ public class InstanceDefault implements NmsInstance {
         }
     }
 
+    @Override
+    public Material getType(World world, double x, double y, double z) {
+        if (world == null) {
+            return Material.AIR;
+        }
+
+        int bx = (int) Math.floor(x);
+        int by = (int) Math.floor(y);
+        int bz = (int) Math.floor(z);
+
+        return ChunkCache.get().getBlock(world, bx, by, bz);
+    }
 
     @Override
     public Entity[] getChunkEntities(World world, int x, int z) {
-        return world.isChunkLoaded(x >> 4, z >> 4) ? world.getChunkAt(x >> 4, z >> 4).getEntities() : new Entity[0];
+        if (world == null) return new Entity[0];
+        try {
+            return world.isChunkLoaded(x >> 4, z >> 4) ? world.getChunkAt(x >> 4, z >> 4).getEntities() : new Entity[0];
+        } catch (Throwable ignored) {
+            return new Entity[0];
+        }
     }
 
     @Override
     public boolean isWaterLogged(Block block) {
-        if (!HAS_1_13) {
+        if (!HAS_1_13 || block == null) {
             return false;
         }
 
-        BlockData data = block.getBlockData();
+        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(block)) {
+            return false;
+        }
 
-        return data instanceof Waterlogged
-                && ((Waterlogged) data).isWaterlogged() || ReflectionUtils.isWaterOrWaterlogged(block);
+        try {
+            BlockData data = block.getBlockData();
+
+            return (data instanceof Waterlogged && ((Waterlogged) data).isWaterlogged())
+                    || ReflectionUtils.isWaterOrWaterlogged(block);
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     @Override
