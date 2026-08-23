@@ -17,7 +17,6 @@ import lombok.Getter;
 import lombok.Setter;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
-import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.util.Vector;
 
 import java.util.Map;

@@ -2,6 +2,7 @@ package me.arrow.managers.profile;
 
 import me.arrow.Arrow;
 import me.arrow.managers.Initializer;
+import me.arrow.platform.PlatformBackend;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -19,12 +20,13 @@ public class ProfileManager implements Initializer {
 
     @Override
     public void initialize() {
-        if (!Arrow.getInstance().isHasLoaded()) {
+        if (PlatformBackend.get().getServer() == null) return;
 
-            Bukkit.getOnlinePlayers().stream().filter(Objects::nonNull).forEach(player -> player.kickPlayer("Server is still loading, please wait."));
+        if (!Arrow.getInstance().isHasLoaded()) {
+            PlatformBackend.get().getServer().getOnlinePlayers().stream().filter(Objects::nonNull).forEach(player -> player.kickPlayer("Server is still loading, please wait."));
             return;
         }
-        Bukkit.getOnlinePlayers()
+        PlatformBackend.get().getServer().getOnlinePlayers()
                 .stream()
                 .filter(Objects::nonNull)
                 .forEach(this::createProfile);

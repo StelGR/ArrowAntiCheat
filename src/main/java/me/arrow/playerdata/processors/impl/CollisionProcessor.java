@@ -1,5 +1,6 @@
 package me.arrow.playerdata.processors.impl;
 
+import me.arrow.platform.PlatformBackend;
 import me.arrow.playerdata.processors.Processor;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.BoundingBox;
@@ -139,7 +140,7 @@ public class CollisionProcessor implements Processor {
 
         Set<UUID> seenPlayers = new HashSet<>();
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (Player player : PlatformBackend.get().getServer().getOnlinePlayers()) {
             if (player == null || !player.isOnline()) {
                 continue;
             }

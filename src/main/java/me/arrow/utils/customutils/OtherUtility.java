@@ -8,21 +8,16 @@ import me.arrow.Arrow;
 import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.managers.profile.Profile;
-import org.anjocaido.groupmanager.GroupManager;
-import org.anjocaido.groupmanager.permissions.AnjoPermissionsHandler;
+import me.arrow.platform.PlatformBackend;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.PluginManager;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.regex.Pattern;
-
-import static org.bukkit.Bukkit.getServer;
 
 public class OtherUtility {
 
@@ -77,15 +72,6 @@ public class OtherUtility {
         return String.format("%.2f%%", percentage);
     }
 
-    public static String getCallingClassName() {
-        StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
-        if (stackTraceElements.length >= 4) {
-            String className = stackTraceElements[3].getClassName();
-            return className.substring(className.lastIndexOf('.') + 1);
-        }
-        return "Unknown";
-    }
-
     public static void setbackDebug(Profile target, String data) {
 
         String formatted = translate(
@@ -126,7 +112,7 @@ public class OtherUtility {
         double x = Double.parseDouble(parts[0]);
         double y = Double.parseDouble(parts[1]);
         double z = Double.parseDouble(parts[2]);
-        return new Location(Bukkit.getWorld(world), x, y, z);
+        return new Location(PlatformBackend.get().getServer().getWorld(world), x, y, z);
     }
 
     public static ItemStack createUnbreakableItem(Material material) {
@@ -249,30 +235,6 @@ public class OtherUtility {
             addItemFlags.invoke(meta, array);
         } catch (Throwable ignored) {
         }
-    }
-
-    private static GroupManager groupManager;
-
-    public static boolean hasGroupManager() {
-        if (groupManager != null) return true;
-
-        final PluginManager pluginManager = getServer().getPluginManager();
-        final Plugin GMplugin = pluginManager.getPlugin("GroupManager");
-
-        if (GMplugin != null && GMplugin.isEnabled()) {
-            groupManager = (GroupManager) GMplugin;
-            return true;
-        }
-        return false;
-    }
-
-    public static String getPrefix(final Player player) {
-        if (!hasGroupManager()) return null;
-
-        final AnjoPermissionsHandler handler = groupManager.getWorldsHolder().getWorldPermissions(player);
-        if (handler == null) return null;
-
-        return handler.getUserPrefix(player.getName());
     }
 
     public static String getPunishMessage(Player player) {

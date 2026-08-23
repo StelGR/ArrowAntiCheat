@@ -7,17 +7,16 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEn
 import me.arrow.Arrow;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerFishEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.UUID;
@@ -62,7 +61,7 @@ public class RodData implements Data {
     public static void init(Plugin plugin) {
         if (INITED.compareAndSet(false, true)) {
             PLUGIN = plugin;
-            plugin.getServer().getPluginManager().registerEvents(new FishListener(), plugin);
+            PlatformBackend.get().registerListener(new FishListener());
             //OtherUtility.log("[RodData] initialized (listener registered).");
         }
     }
@@ -99,12 +98,7 @@ public class RodData implements Data {
                         OtherUtility.log("[RodData] REEL_IN/CAUGHT reset ticks for target=" + target.getName() + " id=" + id + " owner=" + owner.getName());
 
                     // schedule cleanup
-                    new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            PENDING.remove(id);
-                        }
-                    }.runTaskLater(Arrow.getInstance().getHost(), AUTO_REMOVE_TICKS);
+                    TaskUtils.taskLater(() -> PENDING.remove(id), AUTO_REMOVE_TICKS);
                 }
             } catch (NoSuchMethodError | NoSuchFieldError ignored) {}
         }
@@ -130,7 +124,7 @@ public class RodData implements Data {
             return false;
         }
 
-        Player target = Bukkit.getPlayer(pending.uuid);
+        Player target = PlatformBackend.get().getServer().getPlayer(pending.uuid);
         if (target == null) {
             if (Config.Setting.DEBUG.getBoolean()) if (PLUGIN != null) OtherUtility.log("[RodData] pending player offline for uuid=" + pending.uuid);
             return false;

@@ -18,12 +18,22 @@ import org.bukkit.scheduler.BukkitRunnable;
  */
 public class Desync {
 
-    private static final Inventory CACHED_INVENTORY = Bukkit.createInventory(null, InventoryType.PLAYER);
+    private static Inventory cachedInventory;
     private final Profile profile;
     private int lastFixedTicks;
 
     public Desync(Profile profile) {
         this.profile = profile;
+    }
+
+    private static Inventory getCachedInventory() {
+        if (cachedInventory != null) return cachedInventory;
+        if (me.arrow.platform.PlatformBackend.get().isFabric()) return null;
+        try {
+            cachedInventory = Bukkit.createInventory(null, InventoryType.PLAYER);
+        } catch (Throwable ignored) {
+        }
+        return cachedInventory;
     }
 
     public void fix(DesyncType desyncType) {
@@ -56,48 +66,27 @@ public class Desync {
                 Is due to certain clients not properly un-sneaking, un-sprinting
                 If this gets executed instantly.
                  */
-                new BukkitRunnable() {
-
-                    int state = 0;
-
-                    @Override
-                    public void run() {
-
-                        switch (state++) {
-
-                            case 1:
-
-                                /*
-                                Close the inventory first to make sure they're not using any type
-                                Of inventory move alongside noslow.
-                                 */
-                                player.closeInventory();
-
-                                break;
-
-                            case 2:
-
-                                /*
-                                Open an empty inventory in order to force them
-                                To un-sprint and un-sneak.
-                                 */
-                                player.openInventory(CACHED_INVENTORY);
-
-                                break;
-
-                            case 3:
-
-                                /*
-                                Close the inventory and cancel the task
-                                 */
-                                player.closeInventory();
-
-                                this.cancel();
-
-                                break;
-                        }
+                final int[] state = {0};
+                final me.arrow.utils.TaskUtils.CancellableTask[] taskHolder = new me.arrow.utils.TaskUtils.CancellableTask[1];
+                taskHolder[0] = me.arrow.utils.TaskUtils.taskTimer(() -> {
+                    switch (state[0]++) {
+                        case 1:
+                            player.closeInventory();
+                            break;
+                        case 2:
+                            Inventory inv = getCachedInventory();
+                            if (inv != null) {
+                                player.openInventory(inv);
+                            }
+                            break;
+                        case 3:
+                            player.closeInventory();
+                            if (taskHolder[0] != null) {
+                                taskHolder[0].cancel();
+                            }
+                            break;
                     }
-                }.runTaskTimer(Arrow.getInstance().getHost(), 0, 0);
+                }, 0L, 1L);
 
                 break;
         }

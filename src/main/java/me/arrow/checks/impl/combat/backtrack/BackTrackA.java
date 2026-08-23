@@ -2,16 +2,15 @@ package me.arrow.checks.impl.combat.backtrack;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.Arrow;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.utils.customutils.Math.MathUtil;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.text.DecimalFormat;
@@ -128,7 +127,7 @@ public class BackTrackA extends Check {
     }
 
     private Player getPlayerByEntityId(int entityId) {
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (Player player : PlatformBackend.get().getServer().getOnlinePlayers()) {
             if (player.getEntityId() == entityId) {
                 return player;
             }

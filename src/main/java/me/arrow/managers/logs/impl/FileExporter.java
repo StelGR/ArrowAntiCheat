@@ -25,7 +25,8 @@ public class FileExporter extends LogExporter {
 
     public FileExporter(JavaPlugin plugin) {
         super(plugin);
-        this.logsFolder = new File(plugin.getDataFolder(), "logs");
+        File dataFolder = plugin != null ? plugin.getDataFolder() : me.arrow.Arrow.getInstance().getDataFolder();
+        this.logsFolder = new File(dataFolder, "logs");
     }
 
     @Override

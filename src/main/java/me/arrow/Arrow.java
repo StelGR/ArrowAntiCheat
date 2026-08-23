@@ -11,7 +11,7 @@ import me.arrow.commands.bukkitCommands.Stuck;
 import me.arrow.files.Checks;
 import me.arrow.files.Config;
 import me.arrow.files.commentedfiles.CommentedFileConfiguration;
-import me.arrow.listeners.BukkitListener;
+import me.arrow.listeners.GeneralEventListener;
 import me.arrow.listeners.NetworkListener;
 import me.arrow.listeners.ProfileListener;
 import me.arrow.listeners.ViolationListener;
@@ -34,9 +34,10 @@ import me.arrow.utils.customutils.GuiStuff.GuiListener;
 import me.arrow.utils.customutils.GuiStuff.GuiManager;
 import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.customutils.animationSystem.AnimationManager;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.utils.versionutils.impl.VelocityClientVersionBridge;
 import me.stel.API.ArrowAPIProvider;
-import org.bukkit.Bukkit;
+// Bukkit static calls replaced by PlatformBackend
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
@@ -49,7 +50,7 @@ import java.util.Objects;
 
 import static me.arrow.utils.customutils.OtherUtility.log;
 import static me.arrow.utils.customutils.OtherUtility.translate;
-import static org.bukkit.Bukkit.getServer;
+// static import removed, use PlatformBackend.get().getServer()
 
 // this is gonna be where i say my reasoning for open sourcing so early
 // but anyway, it was a private project and i wanted to help smaller servers
@@ -121,14 +122,19 @@ public class Arrow {
     private ThreadManager threadManager;
 
     @Getter
-    public String bukkitVersion;
+    public String serverEdition;
 
     @Getter
     private AlertManager alertManager;
 
     @Getter
+    private ViolationListener violationListener;
+
+    @Getter
     private ThemeManager themeManager;
 
+    @Getter
+    private final me.arrow.playerdata.cache.ChunkCache chunkCache = me.arrow.playerdata.cache.ChunkCache.get();
 
     @Getter
     private AnimationManager animationManager;
@@ -141,24 +147,37 @@ public class Arrow {
         this.dataFolder = dataFolder;
     }
 
+    public File getDataFolder() {
+        if (dataFolder != null) return dataFolder;
+        if (host != null) return host.getDataFolder();
+        return new File("config/arrow");
+    }
+
     // Called by ArrowPlugin (offline) or ArrowLoader (memory)
     public void onEnable() {
+        // Initialise platform backend (Bukkit/Folia/Paper/Spigot)
+        PlatformBackend.initialize(host);
         long startTime = System.currentTimeMillis();
         instance = this;
-        PluginManager pm = instance.getHost().getServer().getPluginManager();
+        PluginManager pm = PlatformBackend.get().getPluginManager();
 
-        floodgatePresent =
-                pm.getPlugin("floodgate") != null
-                        || pm.getPlugin("Floodgate") != null
-                        || pm.getPlugin("Floodgate-Spigot") != null
-                        || pm.getPlugin("floodgate-spigot") != null;
+        if (pm != null) {
+            floodgatePresent =
+                    pm.getPlugin("floodgate") != null
+                            || pm.getPlugin("Floodgate") != null
+                            || pm.getPlugin("Floodgate-Spigot") != null
+                            || pm.getPlugin("floodgate-spigot") != null;
 
-        geyserPresent =
-                pm.getPlugin("geyser") != null ||
-                        pm.getPlugin("Geyser") != null ||
-                        pm.getPlugin("Geyser-Spigot") != null ||
-                        pm.getPlugin("Geyser-Velocity") != null ||
-                        pm.getPlugin("Geyser-Velocity-Plugin") != null;
+            geyserPresent =
+                    pm.getPlugin("geyser") != null ||
+                            pm.getPlugin("Geyser") != null ||
+                            pm.getPlugin("Geyser-Spigot") != null ||
+                            pm.getPlugin("Geyser-Velocity") != null ||
+                            pm.getPlugin("Geyser-Velocity-Plugin") != null;
+        } else {
+            floodgatePresent = false;
+            geyserPresent = false;
+        }
         hasLoaded = false;
 
         TaskUtils.taskLater(() -> {
@@ -177,9 +196,19 @@ public class Arrow {
             log("");
             log(translate("&6" + "=================================================================="));
             log(translate("&6" + "➪  Version&7: &b" + getVersion()));
+            log(translate("&6" + "➪  Platform&7: &b" + PlatformBackend.get().getPlatformType().getFriendlyName()));
             log("");
             PacketEvents.getAPI().init();
-            PacketEvents.setAPI(SpigotPacketEventsBuilder.build(Arrow.getInstance().getHost()));
+            if (PlatformBackend.get().isFabric()) {
+                try {
+                    Class<?> builderClass = Class.forName("io.github.retrooper.packetevents.factory.fabric.FabricPacketEventsBuilder");
+                    Object api = builderClass.getMethod("build").invoke(null);
+                    PacketEvents.setAPI((com.github.retrooper.packetevents.PacketEventsAPI<?>) api);
+                } catch (Throwable ignored) {
+                }
+            } else if (Arrow.getInstance().getHost() != null) {
+                PacketEvents.setAPI(SpigotPacketEventsBuilder.build(Arrow.getInstance().getHost()));
+            }
             PacketEvents.getAPI().load();
 
             if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_8)) {
@@ -191,8 +220,6 @@ public class Arrow {
             log(translate("&6" + "➪  Config file Initialized"));
             (this.checks = new Checks(getHost())).initialize();
             log(translate("&6" + "➪  Checks file Initialized"));
-
-
 
             PacketEvents.getAPI().getEventManager().registerListener(new NetworkListener(this));
             log(translate("&6" + "➪  NetworkListener Initialized"));
@@ -207,54 +234,73 @@ public class Arrow {
             log(translate("&6" + "➪  Thread Manager Initialized"));
             (this.alertManager = new AlertManager()).initialize();
             log(translate("&6" + "➪  Alert Manager Initialized"));
-            this.bukkitVersion = getServer().getClass().getPackage().getName().substring(22);
+            try {
+                if (PlatformBackend.get().getServer() != null) {
+                    this.serverEdition = PlatformBackend.get().getServer().getClass().getPackage().getName().substring(22);
+                } else {
+                    this.serverEdition = "Fabric";
+                }
+            } catch (Throwable ignored) {
+                this.serverEdition = "Fabric";
+            }
 
             logBedrockSupport();
 
-            VelocityClientVersionBridge.register(getInstance().getHost());
+            if (getInstance().getHost() != null) {
+                VelocityClientVersionBridge.register(getInstance().getHost());
+            }
 
+            TickTask tickTask = new TickTask(this);
             TaskUtils.taskTimerAsync(
-                    () -> new TickTask(this).run(),
+                    tickTask,
                     50L,
                     1L
             );
             log(translate("&6" + "➪  TickTask Initialized"));
             if (Config.Setting.LOGS_ENABLED.getBoolean()) {
+                LogsTask logsTask = new LogsTask(this);
                 TaskUtils.taskTimerAsync(
-                        () -> new LogsTask(this).run(),
+                        logsTask,
                         6000L,
                         6000L
                 );
                 log(translate("&6" + "➪  LogTask Initialized"));
             }
 
+            ViolationTask violationTask = new ViolationTask(this);
             TaskUtils.taskTimerAsync(
-                    () -> new ViolationTask(this).run(),
+                    violationTask,
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L,
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L
             );
-            log(translate("&6" + "➪  ViolationTask Initialized"));
+            this.chunkCache.cacheAllLoadedChunks();
+            log(translate("&6" + "➪  ChunkCache Initialized"));
 
-            Bukkit.getPluginManager().registerEvents(new ProfileListener(this), host);
-            Bukkit.getPluginManager().registerEvents(new ViolationListener(this), host);
-            Bukkit.getPluginManager().registerEvents(new BukkitListener(), host);
-            Bukkit.getPluginManager().registerEvents(new GuiListener(), host);
+            this.violationListener = new ViolationListener(this);
+            PlatformBackend.get().registerListener(new ProfileListener(this));
+            PlatformBackend.get().registerListener(this.violationListener);
+            PlatformBackend.get().registerListener(new GeneralEventListener());
+            PlatformBackend.get().registerListener(new GuiListener());
+            PacketEvents.getAPI().getEventManager().registerListener(new me.arrow.playerdata.cache.ChunkCacheListener(this.chunkCache));
 
-            log(translate("&6" + "➪  Bukkit Listeners Initialized"));
+            log(translate("&6" + "➪  Listeners Initialized"));
 
             ArrowAPIProvider.set(new ArrowAPIImpl(profileManager));
 
             log(translate("&6" + "➪  API Initialized"));
 
-            Objects.requireNonNull(getHost().getCommand("arrow")).setExecutor(new CommandManager(this));
+            if (getHost() != null && getHost().getCommand("arrow") != null) {
+                Objects.requireNonNull(getHost().getCommand("arrow")).setExecutor(new CommandManager(this));
+                log(translate("&6" + "➪  Command Manager Initialized"));
+            }
 
-            log(translate("&6" + "➪  Command Manager Initialized"));
-
-            if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
+            if (getHost() != null && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean() && getHost().getCommand("stuck") != null) {
                 Objects.requireNonNull(getHost().getCommand("stuck")).setExecutor(new Stuck());
             }
 
-            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) System.setProperty("com.viaversion.handlePingsAsInvAcknowledgements", "true");
+            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
+                System.setProperty("com.viaversion.handlePingsAsInvAcknowledgements", "true");
+            }
             try {
                 MiscUtils.initializeClasses(
                         "me.arrow.utils.fastmath.FastMath",
@@ -277,7 +323,6 @@ public class Arrow {
             CollisionProcessor.start();
 
             long endTime = System.currentTimeMillis();
-
 
             log("");
             log(translate("&6" + "➪  Plugin loaded in &b" + (endTime - startTime) + "ms"));
@@ -327,15 +372,19 @@ public class Arrow {
             ArrowAPIProvider.clear();
 
             try {
-                VelocityClientVersionBridge.unregister(getHost());
+                if (getHost() != null) {
+                    VelocityClientVersionBridge.unregister(getHost());
+                }
             } catch (Throwable ignored) {
             }
 
             ReflectionUtils.clear();
-            HandlerList.unregisterAll(host);
+            if (host != null) {
+                HandlerList.unregisterAll(host);
+            }
 
-            if (!TaskUtils.isFoliaServer()) {
-                Bukkit.getScheduler().cancelTasks(host);
+            if (!TaskUtils.isFoliaServer() && host != null && PlatformBackend.get().getScheduler() != null) {
+                PlatformBackend.get().getScheduler().cancelTasks(host);
             }
 
             if (this.checks != null) {
@@ -375,11 +424,7 @@ public class Arrow {
     }
 
     public PluginDescriptionFile getDescription() {
-        return host.getDescription();
-    }
-
-    public File getDataFolder() {
-        return dataFolder != null ? dataFolder : host.getDataFolder();
+        return host != null ? host.getDescription() : null;
     }
 
     @Getter
@@ -389,13 +434,14 @@ public class Arrow {
         boolean enabled = floodgatePresent || geyserPresent;
         log(translate("&6➪  Bedrock support is " + (enabled ? "&aENABLED" : "&cDISABLED")));
 
-        if (Bukkit.getPluginManager().isPluginEnabled("Geyser-Spigot")
-                || Bukkit.getPluginManager().isPluginEnabled("Geyser-Bukkit")
-                || Bukkit.getPluginManager().isPluginEnabled("Geyser")) {
+        if (PlatformBackend.get().getPluginManager() != null &&
+                (PlatformBackend.get().getPluginManager().isPluginEnabled("Geyser-Spigot")
+                || PlatformBackend.get().getPluginManager().isPluginEnabled("Geyser-Bukkit")
+                || PlatformBackend.get().getPluginManager().isPluginEnabled("Geyser"))) {
 
-            GeyserConfigEnforcer.enforceForwardPlayerPing(getHost(), true);
+            if (getHost() != null) {
+                GeyserConfigEnforcer.enforceForwardPlayerPing(getHost(), true);
+            }
         }
     }
-
 }
-

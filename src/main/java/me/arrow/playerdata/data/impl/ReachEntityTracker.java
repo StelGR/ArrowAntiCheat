@@ -20,6 +20,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPi
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnPlayer;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
+import lombok.Getter;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.custom.CustomLocation;
@@ -151,9 +152,7 @@ public class ReachEntityTracker implements Data {
                 WrapperPlayServerEntityPositionSync wrapper = new WrapperPlayServerEntityPositionSync(event);
                 EntityPositionData values = wrapper.getValues();
 
-                if (values != null) {
-                    teleport(wrapper.getId(), values.getPosition(), RelativeFlag.NONE, timestamp);
-                }
+                teleport(wrapper.getId(), values.getPosition(), RelativeFlag.NONE, timestamp);
                 return;
             }
 
@@ -289,7 +288,7 @@ public class ReachEntityTracker implements Data {
         } catch (Throwable ignored) {
         }
 
-        return Math.max(0, Math.min(2_500, ping));
+        return Math.min(2_500, ping);
     }
 
     private static long normalizePacketTimestamp(long timestamp) {
@@ -312,6 +311,7 @@ public class ReachEntityTracker implements Data {
         return nowMillis;
     }
 
+    @Getter
     public static final class RenderSnapshot {
         private final CustomLocation precise;
         private final List<CustomLocation> candidates;
@@ -323,17 +323,6 @@ public class ReachEntityTracker implements Data {
             this.updates = updates;
         }
 
-        public CustomLocation getPrecise() {
-            return precise;
-        }
-
-        public List<CustomLocation> getCandidates() {
-            return candidates;
-        }
-
-        public int getUpdates() {
-            return updates;
-        }
     }
 
     private static final class TrackedEntity {

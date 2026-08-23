@@ -9,13 +9,14 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.VehicleData;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Boat;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -26,13 +27,12 @@ import java.util.Locale;
 @Experimental
 public class VehicleA extends Check {
 
-    private Location lastVehicleLocation;
-    private double lastDeltaX;
-    private double lastDeltaY;
-    private double lastDeltaZ;
-    private double lastDeltaXZ;
-
-    private double violations;
+    Location lastVehicleLocation;
+    double lastDeltaX;
+    double lastDeltaY;
+    double lastDeltaZ;
+    double lastDeltaXZ;
+    double violations;
 
     public VehicleA(Profile profile) {
         super(profile, CheckType.VEHICLE, "A", "Predicts vehicle movement and validates impossible motion");
@@ -83,7 +83,7 @@ public class VehicleA extends Check {
         }
 
         Location current = vehicle.getLocation();
-        if (current == null || current.getWorld() == null) {
+        if (current.getWorld() == null) {
             syncState();
             return;
         }
@@ -250,10 +250,7 @@ public class VehicleA extends Check {
         for (int y = -1; y <= 1; y++) {
             for (int x = -1; x <= 1; x++) {
                 for (int z = -1; z <= 1; z++) {
-
-                    if (!CollisionUtils.isChunkLoaded(new Location(world, baseX + x, baseY + y, baseZ + z))) continue;
-
-                    if (isWaterLike(world.getBlockAt(baseX + x, baseY + y, baseZ + z))) {
+                    if (isWaterLike(world, baseX + x, baseY + y, baseZ + z)) {
                         return true;
                     }
                 }
@@ -276,10 +273,7 @@ public class VehicleA extends Check {
         for (int y = -2; y <= 2; y++) {
             for (int x = -2; x <= 2; x++) {
                 for (int z = -2; z <= 2; z++) {
-
-                    if (!CollisionUtils.isChunkLoaded(new Location(world, baseX + x, baseY + y, baseZ + z))) continue;
-
-                    if (isWaterLike(world.getBlockAt(baseX + x, baseY + y, baseZ + z))) {
+                    if (isWaterLike(world, baseX + x, baseY + y, baseZ + z)) {
                         return true;
                     }
                 }
@@ -299,52 +293,33 @@ public class VehicleA extends Check {
         int baseY = location.getBlockY();
         int baseZ = location.getBlockZ();
 
-        if (!CollisionUtils.isChunkLoaded(new Location(world, baseX, baseY, baseZ))) return false;
-
-        return isWaterLike(world.getBlockAt(baseX, baseY - 1, baseZ))
-                || isWaterLike(world.getBlockAt(baseX + 1, baseY - 1, baseZ))
-                || isWaterLike(world.getBlockAt(baseX - 1, baseY - 1, baseZ))
-                || isWaterLike(world.getBlockAt(baseX, baseY - 1, baseZ + 1))
-                || isWaterLike(world.getBlockAt(baseX, baseY - 1, baseZ - 1));
+        return isWaterLike(world, baseX, baseY - 1, baseZ)
+                || isWaterLike(world, baseX + 1, baseY - 1, baseZ)
+                || isWaterLike(world, baseX - 1, baseY - 1, baseZ)
+                || isWaterLike(world, baseX, baseY - 1, baseZ + 1)
+                || isWaterLike(world, baseX, baseY - 1, baseZ - 1);
     }
 
-    private boolean isWaterLike(Block block) {
-        if (block == null) {
-            return false;
-        } else {
-            block.getType();
-        }
+    private boolean isWaterLike(World world, int x, int y, int z) {
+        if (world == null) return false;
 
-        final String name = block.getType().name();
-
-        if (name.contains("WATER")
-                || name.equals("BUBBLE_COLUMN")
-                || name.equals("KELP")
-                || name.equals("KELP_PLANT")
-                || name.equals("SEAGRASS")
-                || name.equals("TALL_SEAGRASS")
-                || name.equals("WATER_CAULDRON")
-                || name.equals("LEGACY_WATER")
-                || name.equals("LEGACY_STATIONARY_WATER")) {
-            return true;
-        }
-
-        return isWaterlogged(block);
-    }
-
-    private boolean isWaterlogged(Block block) {
-        try {
-            Object blockData = block.getClass().getMethod("getBlockData").invoke(block);
-            if (blockData == null) {
-                return false;
+        Material material = ChunkCache.get().getBlock(world, x, y, z);
+        if (material != null && material != Material.AIR) {
+            final String name = material.name();
+            if (name.contains("WATER")
+                    || name.equals("BUBBLE_COLUMN")
+                    || name.equals("KELP")
+                    || name.equals("KELP_PLANT")
+                    || name.equals("SEAGRASS")
+                    || name.equals("TALL_SEAGRASS")
+                    || name.equals("WATER_CAULDRON")
+                    || name.equals("LEGACY_WATER")
+                    || name.equals("LEGACY_STATIONARY_WATER")) {
+                return true;
             }
-
-            Method method = blockData.getClass().getMethod("isWaterlogged");
-            Object result = method.invoke(blockData);
-            return result instanceof Boolean && (Boolean) result;
-        } catch (Throwable ignored) {
-            return false;
         }
+
+        return CollisionUtils.isWaterLogged(world, x, y, z);
     }
 
     private double predictHorizontal(double lastDeltaXZ,

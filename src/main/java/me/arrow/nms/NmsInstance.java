@@ -15,6 +15,8 @@ public interface NmsInstance {
 
     Material getType(Block block);
 
+    Material getType(World world, double x, double y, double z);
+
     Entity[] getChunkEntities(World world, int x, int z);
 
     boolean isWaterLogged(Block block);

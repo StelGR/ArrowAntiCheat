@@ -15,6 +15,7 @@ import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Checks;
 import me.arrow.managers.profile.Profile;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.ReachEntityTracker;
@@ -23,7 +24,6 @@ import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.OtherUtility;
-import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -724,7 +724,7 @@ public class ReachA extends Check {
     }
 
     private Player getPlayerByEntityId(int entityId) {
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (Player player : PlatformBackend.get().getServer().getOnlinePlayers()) {
             if (player.getEntityId() == entityId) {
                 return player;
             }

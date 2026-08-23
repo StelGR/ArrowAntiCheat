@@ -40,8 +40,11 @@ public class Config implements Initializer {
 
     @Override
     public void initialize() {
-
-        File configFile = new File(this.plugin.getDataFolder(), "config.yml");
+        File dataFolder = this.plugin != null ? this.plugin.getDataFolder() : Arrow.getInstance().getDataFolder();
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+        File configFile = new File(dataFolder, "config.yml");
 
         exists = configFile.exists();
 

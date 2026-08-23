@@ -14,16 +14,14 @@ import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
-import me.arrow.nms.NmsInstance;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.Data;
-import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MiscUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.desync.Desync;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.GameMode;
-import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -409,15 +407,16 @@ public class ActionData implements Data {
 
         World world = player.getWorld();
 
-        if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) return;
-        Block clicked = world.getBlockAt(x, y, z);
-        Block placed = clicked.getRelative(face);
+        int px = x + (face != null ? face.getModX() : 0);
+        int py = y + (face != null ? face.getModY() : 0);
+        int pz = z + (face != null ? face.getModZ() : 0);
 
-        if (!isPotentialUnderPlacement(placed)) {
+        Material clickedType = ChunkCache.get().getBlock(world, x, y, z);
+        Material oldType = ChunkCache.get().getBlock(world, px, py, pz);
+
+        if (!isPotentialUnderPlacement(px, py, pz, oldType)) {
             return;
         }
-
-        Material oldType = placed.getType();
 
         /*
          * Important:
@@ -428,7 +427,7 @@ public class ActionData implements Data {
             return;
         }
 
-        if (!canTrackUnderPlace(clicked, placed, item)) {
+        if (!canTrackUnderPlace(clickedType, oldType, item)) {
             return;
         }
 
@@ -440,16 +439,15 @@ public class ActionData implements Data {
 
         addOrKeepPendingUnderPlace(
                 world.getName(),
-                placed.getX(),
-                placed.getY(),
-                placed.getZ(),
+                px,
+                py,
+                pz,
                 oldType
         );
     }
 
-
-    private boolean canTrackUnderPlace(Block clicked, Block placed, ItemStack item) {
-        if (clicked == null || placed == null || item == null) {
+    private boolean canTrackUnderPlace(Material clickedType, Material placedType, ItemStack item) {
+        if (clickedType == null || placedType == null || item == null) {
             return false;
         }
 
@@ -460,7 +458,7 @@ public class ActionData implements Data {
         /*
          * Must be placing against a real block.
          */
-        if (isReplaceable(clicked.getType())) {
+        if (isReplaceable(clickedType)) {
             return false;
         }
 
@@ -468,7 +466,7 @@ public class ActionData implements Data {
          * Must start from air/replaceable.
          * This prevents spam clicking existing blocks from resetting placement tracking.
          */
-        return isReplaceable(placed.getType());
+        return isReplaceable(placedType);
     }
 
     private void addOrKeepPendingUnderPlace(String worldName, int x, int y, int z, Material oldType) {
@@ -577,15 +575,7 @@ public class ActionData implements Data {
             return false;
         }
 
-        if (!CollisionUtils.isChunkLoaded(new Location(world, lastConfirmedUnderPlaceX, lastConfirmedUnderPlaceY, lastConfirmedUnderPlaceZ))) return false;
-
-        Block block = world.getBlockAt(
-                lastConfirmedUnderPlaceX,
-                lastConfirmedUnderPlaceY,
-                lastConfirmedUnderPlaceZ
-        );
-
-        Material actual = block.getType();
+        Material actual = ChunkCache.get().getBlock(world, lastConfirmedUnderPlaceX, lastConfirmedUnderPlaceY, lastConfirmedUnderPlaceZ);
 
         /*
          * WorldGuard / cancelled placement / corrective packet case:
@@ -600,9 +590,9 @@ public class ActionData implements Data {
          * exempting gravity or jump checks.
          */
         return isPacketPositionInFootSupportArea(
-                block.getX(),
-                block.getY(),
-                block.getZ(),
+                lastConfirmedUnderPlaceX,
+                lastConfirmedUnderPlaceY,
+                lastConfirmedUnderPlaceZ,
                 actual,
                 2.25D
         );
@@ -661,12 +651,7 @@ public class ActionData implements Data {
                 continue;
             }
 
-            NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
-
-            if (!CollisionUtils.isChunkLoaded(new Location(world, update.x, update.y, update.z))) continue;
-
-            Block block = world.getBlockAt(update.x, update.y, update.z);
-            Material actualType = nms.getType(block);
+            Material actualType = ChunkCache.get().getBlock(world, update.x, update.y, update.z);
 
             if (isCorrectiveUnderPlacePacket(update.x, update.y, update.z, actualType)) {
                 iterator.remove();
@@ -732,16 +717,13 @@ public class ActionData implements Data {
                 continue;
             }
 
-            if (!CollisionUtils.isChunkLoaded(new Location(world, place.x, place.y, place.z))) continue;
-            Block block = world.getBlockAt(place.x, place.y, place.z);
+            Material now = ChunkCache.get().getBlock(world, place.x, place.y, place.z);
 
-            if (!isConfirmedPlacedBlock(block, place.oldType)) {
+            if (!isConfirmedPlacedType(now, place.oldType)) {
                 place.stableTicks = 0;
                 place.stableType = Material.AIR;
                 continue;
             }
-
-            Material now = block.getType();
 
             if (place.stableType != now) {
                 place.stableType = now;
@@ -756,10 +738,10 @@ public class ActionData implements Data {
             }
 
             lastConfirmedUnderPlaceTicks = 0;
-            lastConfirmedUnderPlaceX = block.getX();
-            lastConfirmedUnderPlaceY = block.getY();
-            lastConfirmedUnderPlaceZ = block.getZ();
-            lastConfirmedUnderPlaceTopY = block.getY() + getBlockTopHeight(now);
+            lastConfirmedUnderPlaceX = place.x;
+            lastConfirmedUnderPlaceY = place.y;
+            lastConfirmedUnderPlaceZ = place.z;
+            lastConfirmedUnderPlaceTopY = place.y + getBlockTopHeight(now);
             lastConfirmedUnderPlaceType = now;
             lastConfirmedUnderPlaceWorldName = world.getName();
 
@@ -767,12 +749,10 @@ public class ActionData implements Data {
         }
     }
 
-    private boolean isConfirmedPlacedBlock(Block block, Material oldType) {
-        if (block == null) {
+    private boolean isConfirmedPlacedType(Material now, Material oldType) {
+        if (now == null || now == Material.AIR) {
             return false;
         }
-
-        Material now = block.getType();
 
         /*
          * Only confirm replaceable -> support.
@@ -792,6 +772,14 @@ public class ActionData implements Data {
         }
 
         return now.isBlock();
+    }
+
+    private boolean isPotentialUnderPlacement(int x, int y, int z, Material material) {
+        if (profile.getMovementData() == null) {
+            return false;
+        }
+
+        return isPacketPositionInFootSupportArea(x, y, z, material, 2.25D);
     }
 
     private boolean isPotentialUnderPlacement(Block block) {
@@ -1343,17 +1331,13 @@ public class ActionData implements Data {
 
         World world = player.getWorld();
 
-        if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) return;
-
-        Block target = world.getBlockAt(x, y, z);
+        Material oldType = ChunkCache.get().getBlock(world, x, y, z);
 
         lastBreakAttemptTicks = 0;
 
-        if (!isPotentialUnderBreak(target)) {
+        if (!isPotentialUnderBreak(x, y, z, oldType)) {
             return;
         }
-
-        Material oldType = target.getType();
 
         if (!isSupportMaterial(oldType)) {
             return;
@@ -1418,9 +1402,8 @@ public class ActionData implements Data {
                 it.remove();
                 continue;
             }
-            if (!CollisionUtils.isChunkLoaded(new Location(world, br.x, br.y, br.z))) continue;
-            Block block = world.getBlockAt(br.x, br.y, br.z);
-            Material now = block.getType();
+
+            Material now = ChunkCache.get().getBlock(world, br.x, br.y, br.z);
 
             // Confirm break: support block changed into non-support/air-like.
             if (now == br.oldType) continue;
@@ -1434,6 +1417,11 @@ public class ActionData implements Data {
 
             it.remove();
         }
+    }
+
+    private boolean isPotentialUnderBreak(int x, int y, int z, Material material) {
+        if (profile.getMovementData() == null) return false;
+        return isPacketPositionInFootSupportArea(x, y, z, material, 1.25D);
     }
 
     private boolean isPotentialUnderBreak(Block block) {
@@ -1502,9 +1490,7 @@ public class ActionData implements Data {
                 continue;
             }
 
-            if (!CollisionUtils.isChunkLoaded(new Location(world, place.x, place.y, place.z))) continue;
-            Block block = world.getBlockAt(place.x, place.y, place.z);
-            Material actual = block.getType();
+            Material actual = ChunkCache.get().getBlock(world, place.x, place.y, place.z);
 
             /*
              * WorldGuard/cancelled place case:

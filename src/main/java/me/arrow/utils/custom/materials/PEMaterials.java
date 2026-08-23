@@ -328,7 +328,6 @@ public class PEMaterials {
                 try {
                     result = material.isSolid();
                 } catch (Throwable ignored) {
-                    result = false;
                 }
             }
 
@@ -499,6 +498,52 @@ public class PEMaterials {
 
     public static boolean isChain(WrappedBlockState state) {
         return state != null && (stateName(state).equals("CHAIN") || stateName(state).endsWith("_CHAIN"));
+    }
+
+    public static boolean isWaterlogged(WrappedBlockState state) {
+        if (state == null) return false;
+        try {
+            Method m = state.getClass().getMethod("isWaterlogged");
+            Object res = m.invoke(state);
+            if (res instanceof Boolean) return (Boolean) res;
+        } catch (Throwable ignored) {}
+
+        try {
+            String str = state.toString();
+            if (str != null && str.contains("waterlogged=true")) {
+                return true;
+            }
+        } catch (Throwable ignored) {}
+
+        return false;
+    }
+
+    public static List<CollisionBounds> getCollisionBounds(Material material, int x, int y, int z) {
+        if (material == null || material == Material.AIR || !hasPotentialCollision(material)) {
+            return Collections.emptyList();
+        }
+
+        String name = material.name();
+        if (name.contains("SLAB") || name.contains("STEP")) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.5D, z + 1.0D));
+        }
+        if (name.contains("CARPET")) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.0625D, z + 1.0D));
+        }
+        if (name.contains("FENCE") || name.contains("WALL")) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.5D, z + 1.0D));
+        }
+        if (name.equals("HEAVY_CORE")) {
+            return Collections.singletonList(new CollisionBounds(x + 0.25D, y, z + 0.25D, x + 0.75D, y + 0.5D, z + 0.75D));
+        }
+        if (name.endsWith("_HEAD") || name.endsWith("_SKULL")) {
+            return Collections.singletonList(new CollisionBounds(x + 0.25D, y, z + 0.25D, x + 0.75D, y + 0.5D, z + 0.75D));
+        }
+
+        return Collections.singletonList(new CollisionBounds(
+                x, y, z,
+                x + 1.0D, y + 1.0D, z + 1.0D
+        ));
     }
 
     /**
@@ -1115,6 +1160,7 @@ public class PEMaterials {
                 || name.equals("LIGHT")
                 || name.equals("COBWEB")
                 || name.equals("WEB")
+                || name.endsWith("_GRASS")
                 || name.equals("BUBBLE_COLUMN")
                 || name.equals("REDSTONE")
                 || name.equals("REDSTONE_WIRE")
@@ -1145,7 +1191,6 @@ public class PEMaterials {
                 || name.equals("SHORT_GRASS")
                 || name.equals("TALL_GRASS")
                 || name.equals("LONG_GRASS")
-                || name.equals("GRASS")
                 || name.equals("FERN")
                 || name.equals("LARGE_FERN")
                 || name.equals("DEAD_BUSH")
@@ -1210,7 +1255,7 @@ public class PEMaterials {
                 || name.equals("STATIONARY_LAVA");
     }
 
-    private static Material materialFromState(StateType type) {
+    public static Material materialFromState(StateType type) {
         if (type == null) {
             return null;
         }

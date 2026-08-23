@@ -12,8 +12,12 @@ public abstract class BaseTheme {
     private final FileConfiguration data;
 
     public BaseTheme(JavaPlugin plugin, String themeName) {
-
-        File file = new File(plugin.getDataFolder() + "/themes", themeName + ".yml");
+        File dataFolder = plugin != null ? plugin.getDataFolder() : me.arrow.Arrow.getInstance().getDataFolder();
+        File themesFolder = new File(dataFolder, "themes");
+        if (!themesFolder.exists()) {
+            themesFolder.mkdirs();
+        }
+        File file = new File(themesFolder, themeName + ".yml");
 
         try {
 

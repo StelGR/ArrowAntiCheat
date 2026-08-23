@@ -62,7 +62,6 @@ public class SpeedB extends Check {
             return;
         }
 
-
         MovementData movementData = profile.getMovementData();
         ActionData actionData = profile.getActionData();
         RotationData rotationData = profile.getRotationData();

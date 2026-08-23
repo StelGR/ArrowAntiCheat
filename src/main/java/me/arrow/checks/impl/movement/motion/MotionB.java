@@ -141,7 +141,7 @@ public class MotionB extends Check {
                         && deltaY != 0
                         && !exempt
                         && !profile.isBouncingOnSlime()
-                        && !CollisionUtils.isStandingOnMaterial(movementData.getLocation(), movementData.getNearbyBlocksResult(), true, MaterialType.HONEY)
+                        && !CollisionUtils.isStandingOnMaterial(movementData.getLocation(), movementData.getNearbyBlocksResult(), MaterialType.HONEY)
                         && profile.getVelocityData().getTotalHorizontalVelocity() == 0 && profile.getVelocityData().getTotalVerticalVelocity() == 0
                         && movementData.getSlimeTicks() > 0
                         && fallDistance == 0) {

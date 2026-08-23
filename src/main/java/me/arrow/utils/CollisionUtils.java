@@ -3,11 +3,13 @@ package me.arrow.utils;
 import lombok.Getter;
 import me.arrow.Arrow;
 import me.arrow.nms.NmsInstance;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 
 import java.util.ArrayList;
@@ -224,7 +226,6 @@ public class CollisionUtils {
 
     public static boolean isStandingOnMaterial(final CustomLocation loc,
                                                final CollisionUtils.NearbyBlocksResult nearby,
-                                               final boolean async,
                                                final MaterialType... targets) {
         if (loc == null || targets == null || targets.length == 0) return false;
 
@@ -237,12 +238,11 @@ public class CollisionUtils {
             return false;
         };
 
-        return isStandingOnMaterial(loc, nearby, async, predicate);
+        return isStandingOnMaterial(loc, nearby, predicate);
     }
 
     public static boolean isStandingOnSlime(final CustomLocation loc,
                                             final CollisionUtils.NearbyBlocksResult nearby,
-                                            final boolean async,
                                             final MaterialType... targets) {
         if (loc == null || targets == null || targets.length == 0) return false;
 
@@ -255,7 +255,7 @@ public class CollisionUtils {
             return false;
         };
 
-        return isStandingOnSlime(loc, nearby, async, predicate);
+        return isStandingOnSlime(loc, nearby, predicate);
     }
 
 
@@ -264,7 +264,6 @@ public class CollisionUtils {
      */
     public static boolean isStandingOnMaterial(final CustomLocation loc,
                                                final CollisionUtils.NearbyBlocksResult nearby,
-                                               final boolean async,
                                                final Material... targets) {
         if (loc == null || targets == null || targets.length == 0) return false;
 
@@ -276,7 +275,7 @@ public class CollisionUtils {
             return false;
         };
 
-        return isStandingOnMaterial(loc, nearby, async, predicate);
+        return isStandingOnMaterial(loc, nearby, predicate);
     }
 
 
@@ -299,7 +298,6 @@ public class CollisionUtils {
 
     public static boolean isStandingOnWater(final CustomLocation loc,
                                             final CollisionUtils.NearbyBlocksResult nearby,
-                                            final boolean async,
                                             final MaterialType... targets) {
         if (loc == null || targets == null || targets.length == 0) return false;
 
@@ -312,12 +310,11 @@ public class CollisionUtils {
             return false;
         };
 
-        return isStandingOnWater(loc, nearby, async, predicate);
+        return isStandingOnWater(loc, nearby, predicate);
     }
 
     public static boolean isStandingOnWater(final CustomLocation loc,
                                             final CollisionUtils.NearbyBlocksResult nearby,
-                                            final boolean async,
                                             final Predicate<Material> predicate) {
         if (loc == null || predicate == null) return false;
 
@@ -334,18 +331,18 @@ public class CollisionUtils {
                 blockLoc.setY(baseY);
                 blockLoc.setZ(baseZ + dz + 0.5);
 
-                Block block = CollisionUtils.getBlock(blockLoc, async);
-                if (block == null) continue;
-
-                anyCandidateChecked = true;
-
-                if (CollisionUtils.hasWaterUnder(loc, blockLoc) && predicate.test(block.getType())) {
-                    return true;
+                Material blockMat = getMaterial(blockLoc);
+                if (blockMat != null && blockMat != Material.AIR) {
+                    anyCandidateChecked = true;
+                    if (CollisionUtils.hasWaterUnder(loc, blockLoc) && (predicate.test(blockMat) || isWaterLogged(blockLoc))) {
+                        return true;
+                    }
                 }
             }
         }
 
         if (!anyCandidateChecked && nearby != null) {
+            if (nearby.isNearWaterLogged()) return true;
             if (CollisionUtils.hasBlockUnder2(loc, loc.clone().subtract(0, 1, 0))) {
                 for (Material m : nearby.getBlockTypes()) {
                     if (predicate.test(m)) return true;
@@ -358,7 +355,6 @@ public class CollisionUtils {
 
     public static boolean isStandingOnMaterial(final CustomLocation loc,
                                                final CollisionUtils.NearbyBlocksResult nearby,
-                                               final boolean async,
                                                final Predicate<Material> predicate) {
         if (loc == null || predicate == null) return false;
 
@@ -379,13 +375,12 @@ public class CollisionUtils {
                     blockLoc.setY(y);
                     blockLoc.setZ(baseZ + dz + 0.5);
 
-                    Block block = CollisionUtils.getBlock(blockLoc, async);
-                    if (block == null) continue;
-
-                    anyCandidateChecked = true;
-
-                    if (CollisionUtils.hasBlockUnder2(loc, blockLoc) && predicate.test(block.getType())) {
-                        return true;
+                    Material blockMat = getMaterial(blockLoc);
+                    if (blockMat != null && blockMat != Material.AIR) {
+                        anyCandidateChecked = true;
+                        if (hasBlockUnder2(loc, blockLoc) && predicate.test(blockMat)) {
+                            return true;
+                        }
                     }
                 }
             }
@@ -401,8 +396,7 @@ public class CollisionUtils {
     }
 
     public static boolean isStandingOnSlime(final CustomLocation loc,
-                                            final CollisionUtils.NearbyBlocksResult nearby,
-                                            final boolean async,
+                                            final NearbyBlocksResult nearby,
                                             final Predicate<Material> predicate) {
         if (loc == null || predicate == null) return false;
 
@@ -423,13 +417,12 @@ public class CollisionUtils {
                     blockLoc.setY(y);
                     blockLoc.setZ(baseZ + dz + 0.5);
 
-                    Block block = CollisionUtils.getBlock(blockLoc, async);
-                    if (block == null) continue;
-
-                    anyCandidateChecked = true;
-
-                    if (CollisionUtils.hasBlockUnder(loc, blockLoc) && predicate.test(block.getType())) {
-                        return true;
+                    Material blockMat = getMaterial(blockLoc);
+                    if (blockMat != null && blockMat != Material.AIR) {
+                        anyCandidateChecked = true;
+                        if (hasBlockUnder(loc, blockLoc) && predicate.test(blockMat)) {
+                            return true;
+                        }
                     }
                 }
             }
@@ -444,16 +437,52 @@ public class CollisionUtils {
         return false;
     }
 
+    public static Material getMaterial(final CustomLocation location) {
+        if (location == null || location.getWorld() == null) {
+            return Material.AIR;
+        }
+        Material cached = me.arrow.playerdata.cache.ChunkCache.get().getBlock(location);
+        if (cached != null && cached != Material.AIR) {
+            return cached;
+        }
+        Block block = getBlock(location, true);
+        if (block != null) {
+            Material type = Arrow.getInstance().getNmsManager().getNmsInstance().getType(block);
+            if (type != null && type != Material.AIR) {
+                ChunkCache.get().setBlock(location, type);
+                return type;
+            }
+        }
+        return cached != null ? cached : Material.AIR;
+    }
+
     public static boolean isChunkLoaded(final CustomLocation location) {
-        return Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(
-                location.getWorld(), location.getBlockX(), location.getBlockZ()
-        );
+        if (location == null || location.getWorld() == null) return false;
+        return ChunkCache.get().isChunkLoaded(location);
     }
 
     public static boolean isChunkLoaded(final Location location) {
-        return Arrow.getInstance().getNmsManager().getNmsInstance().isChunkLoaded(
-                location.getWorld(), location.getBlockX(), location.getBlockZ()
-        );
+        if (location == null || location.getWorld() == null) return false;
+        return ChunkCache.get().isChunkLoaded(location);
+    }
+
+    public static boolean isWaterLogged(final World world, final int x, final int y, final int z) {
+        if (world == null) return false;
+        if (me.arrow.playerdata.cache.ChunkCache.get().isWaterLogged(world, x, y, z)) return true;
+        Block block = getBlock(new CustomLocation(world, x, y, z), true);
+        if (block != null) {
+            boolean wl = Arrow.getInstance().getNmsManager().getNmsInstance().isWaterLogged(block);
+            if (wl) {
+                me.arrow.playerdata.cache.ChunkCache.get().setWaterLogged(world, x, y, z, true);
+            }
+            return wl;
+        }
+        return false;
+    }
+
+    public static boolean isWaterLogged(final CustomLocation location) {
+        if (location == null || location.getWorld() == null) return false;
+        return isWaterLogged(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 
     private static Block getBlockAsync(final CustomLocation location) {
@@ -465,77 +494,25 @@ public class CollisionUtils {
             return null;
         }
 
-        return isChunkLoaded(location) ? location.getBlock() : null;
+        try {
+            return isChunkLoaded(location) ? location.getBlock() : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     public static Block getBlock(final CustomLocation location, boolean async) {
-        return async ? getBlockAsync(location) : location.getBlock();
-    }
-
-    /*
-    Get the nearby blocks around the player
-    The reason this is overly complicated and checks for duplicates
-    Is to avoid unnecessary looping within our processors
-    And to avoid certain method calls that are heavy especially in 1.9+
-     */
-
-    public static List<Block> getNearbyBlockObjects(final CustomLocation location, final boolean async) {
-        List<Block> blocks = new ArrayList<>();
-        NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
-
-        final double locationX = location.getX();
-        final double locationY = location.getY();
-        final double locationZ = location.getZ();
-
-        final double aboveY = locationY + 1.9D;
-        final double middleY = locationY + 1D;
-        /* Probe the block cell directly beneath the feet, including partial supports. */
-        final double underY = locationY - 1.0E-6D;
-
-        CustomLocation cloned = location.clone();
-
-        for (double x = -EXPAND_HORIZONTAL; x <= EXPAND_HORIZONTAL; x += EXPAND_HORIZONTAL) {
-            for (double z = -EXPAND_HORIZONTAL; z <= EXPAND_HORIZONTAL; z += EXPAND_HORIZONTAL) {
-                final double additionalX = x > 0D ? -EXPAND_ADDITIONAL : EXPAND_ADDITIONAL;
-                final double additionalZ = z > 0D ? -EXPAND_ADDITIONAL : EXPAND_ADDITIONAL;
-                final double expandX = locationX + x;
-                final double expandZ = locationZ + z;
-
-                // Check above
-                cloned.setX(expandX + additionalX);
-                cloned.setZ(expandZ + additionalZ);
-                cloned.setY(aboveY);
-                Block above = getBlock(cloned, async);
-                if (above != null && !blocks.contains(above)) {
-                    blocks.add(above);
-                }
-
-                // Check under
-                cloned.setY(underY);
-                Block under = getBlock(cloned, async);
-                if (under != null && !blocks.contains(under)) {
-                    blocks.add(under);
-                }
-
-                // Check middle
-                cloned.setX(expandX);
-                cloned.setZ(expandZ);
-                cloned.setY(middleY);
-                Block middle = getBlock(cloned, async);
-                if (middle != null && !blocks.contains(middle)) {
-                    blocks.add(middle);
-                }
-
-                // Check below
-                cloned.setY(locationY);
-                Block below = getBlock(cloned, async);
-                if (below != null && !blocks.contains(below)) {
-                    blocks.add(below);
-                }
-            }
+        if (location == null || location.getWorld() == null) {
+            return null;
         }
-
-        return blocks;
+        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(location)) {
+            return null;
+        }
+        try {
+            return async ? getBlockAsync(location) : location.getBlock();
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     public static NearbyBlocksResult getNearbyBlocks(final CustomLocation location, final boolean async) {
@@ -547,8 +524,6 @@ public class CollisionUtils {
         /*
         A list that we'll be using in order to detect duplicate blocks.
          */
-        final List<Block> blockPositions = new ArrayList<>();
-
         final double locationX = location.getX();
         final double locationY = location.getY();
         final double locationZ = location.getZ();
@@ -588,36 +563,16 @@ public class CollisionUtils {
 
                 above:
                 {
-
                     cloned.setY(aboveY);
-
                     final Block above = getBlock(cloned, async);
-
-                    if (above == null) break above;
-
-                    if (!blockPositions.contains(above)) {
-
-                        result.handle(above, BlockPosition.ABOVE, nms);
-
-                        blockPositions.add(above);
-                    }
+                    result.handle(cloned, above, BlockPosition.ABOVE, nms);
                 }
 
                 under:
                 {
-
                     cloned.setY(underY);
-
                     final Block under = getBlock(cloned, async);
-
-                    if (under == null) break under;
-
-                    if (!blockPositions.contains(under)) {
-
-                        result.handle(under, BlockPosition.UNDER, nms);
-
-                        blockPositions.add(under);
-                    }
+                    result.handle(cloned, under, BlockPosition.UNDER, nms);
                 }
 
                 /*
@@ -628,36 +583,16 @@ public class CollisionUtils {
 
                 middle:
                 {
-
                     cloned.setY(middleY);
-
                     final Block middle = getBlock(cloned, async);
-
-                    if (middle == null) break middle;
-
-                    if (!blockPositions.contains(middle)) {
-
-                        result.handle(middle, BlockPosition.MIDDLE, nms);
-
-                        blockPositions.add(middle);
-                    }
+                    result.handle(cloned, middle, BlockPosition.MIDDLE, nms);
                 }
 
                 below:
                 {
-
                     cloned.setY(locationY);
-
                     final Block below = getBlock(cloned, async);
-
-                    if (below == null) break below;
-
-                    if (!blockPositions.contains(below)) {
-
-                        result.handle(below, BlockPosition.BELOW, nms);
-
-                        blockPositions.add(below);
-                    }
+                    result.handle(cloned, below, BlockPosition.BELOW, nms);
                 }
             }
         }
@@ -687,48 +622,37 @@ public class CollisionUtils {
 
         private boolean nearGround, exactGroundSupport, blockAbove, nearWaterLogged;
 
-        private void handle(Block block, BlockPosition blockPosition, NmsInstance nms) {
+        private void handle(CustomLocation location, Block block, BlockPosition blockPosition, NmsInstance nms) {
 
-            /*
-            Get the material type.
-             */
-            Material type = nms.getType(block);
+            Material type = null;
+            if (location != null) {
+                type = me.arrow.playerdata.cache.ChunkCache.get().getBlock(location);
+            }
+            if ((type == null || type == Material.AIR) && block != null) {
+                type = nms.getType(block);
+            }
 
-            /*
-            Invalid.
-             */
-            if (type == null) return;
+            if (type == null || type == Material.AIR) return;
 
-            /*
-             * Preserve the base's authoritative UNDER sample. The exact shape
-             * pass below improves partial blocks, but must not be the only path
-             * capable of recognizing ordinary support at an overhanging edge.
-             */
             if (blockPosition == BlockPosition.UNDER) {
-                try {
-                    if (PEMaterials.hasCollision(block)) {
-                        this.nearGround = true;
-                    }
-                } catch (Throwable ignored) {
-                    if (type.isSolid()) {
-                        this.nearGround = true;
-                    }
+                if (type.isSolid()
+//                        || PEMaterials.hasCollision(type)
+//                        || PEMaterials.hasPotentialCollision(type)
+                ) {
+                    this.nearGround = true;
                 }
             }
 
-            /*
-            Handle waterlogged.
-             */
-            if (!this.nearWaterLogged) this.nearWaterLogged = nms.isWaterLogged(block);
+            if (!this.nearWaterLogged) {
+                if (type.name().contains("WATER")
+                        || (location != null && ChunkCache.get().isWaterLogged(location))
+                        || (block != null && nms.isWaterLogged(block))) {
+                    this.nearWaterLogged = true;
+                }
+            }
 
-            /*
-            Duplicate.
-             */
             if (this.blockTypes.contains(type)) return;
 
-            /*
-            Add the block type.
-             */
             this.blockTypes.add(type);
         }
 
@@ -771,25 +695,38 @@ public class CollisionUtils {
                         probe.setY(y + 0.5D);
                         probe.setZ(z + 0.5D);
 
-                        Block block = CollisionUtils.getBlock(probe, async);
+                        Material material = me.arrow.playerdata.cache.ChunkCache.get().getBlock(probe);
+                        Block block = getBlock(probe, async);
 
-                        if (block == null) {
+                        if ((material == null || material == Material.AIR) && block != null) {
+                            material = nms.getType(block);
+                        }
+
+                        if (material == null || material == Material.AIR) {
                             continue;
                         }
 
-                        Material material = nms.getType(block);
-
-                        if (material != null && !this.blockTypes.contains(material)) {
+                        if (!this.blockTypes.contains(material)) {
                             this.blockTypes.add(material);
                         }
 
                         if (!this.nearWaterLogged) {
-                            this.nearWaterLogged = nms.isWaterLogged(block);
+                            if (material.name().contains("WATER")
+                                    || me.arrow.playerdata.cache.ChunkCache.get().isWaterLogged(probe)
+                                    || (block != null && nms.isWaterLogged(block))) {
+                                this.nearWaterLogged = true;
+                            }
                         }
 
-                        List<PEMaterials.CollisionBounds> boxes = PEMaterials.getCollisionBounds(block);
+                        List<PEMaterials.CollisionBounds> boxes = null;
+                        if (block != null) {
+                            boxes = PEMaterials.getCollisionBounds(block);
+                        }
+                        if (boxes == null || boxes.isEmpty()) {
+                            boxes = PEMaterials.getCollisionBounds(material, x, y, z);
+                        }
 
-                        if (boxes.isEmpty()) {
+                        if (boxes == null || boxes.isEmpty()) {
                             continue;
                         }
 
@@ -848,65 +785,6 @@ public class CollisionUtils {
 
         public boolean hasExactGroundSupport() {
             return exactGroundSupport;
-        }
-
-        public boolean isWeirdBlock(Material material) {
-            if (material == null) return false;
-
-            return switch (material) {
-                case DAYLIGHT_DETECTOR,
-                     BIG_DRIPLEAF_STEM,
-                     BIG_DRIPLEAF,
-                     SMALL_DRIPLEAF,
-                     BREWING_STAND,
-                     LILY_PAD,
-                     COMPARATOR,
-                     REPEATER,
-                     COCOA,
-                     POWDER_SNOW,
-                     LECTERN,
-                     SCULK_SENSOR,
-                     SCULK_SHRIEKER,
-                     CALIBRATED_SCULK_SENSOR,
-                     // All shulker box variants
-                     SHULKER_BOX, WHITE_SHULKER_BOX, ORANGE_SHULKER_BOX, MAGENTA_SHULKER_BOX,
-                     LIGHT_BLUE_SHULKER_BOX, YELLOW_SHULKER_BOX, LIME_SHULKER_BOX, PINK_SHULKER_BOX,
-                     GRAY_SHULKER_BOX, LIGHT_GRAY_SHULKER_BOX, CYAN_SHULKER_BOX, PURPLE_SHULKER_BOX,
-                     BLUE_SHULKER_BOX, BROWN_SHULKER_BOX, GREEN_SHULKER_BOX, RED_SHULKER_BOX,
-                     BLACK_SHULKER_BOX -> true;
-                default -> false;
-            };
-        }
-
-        public boolean isCarpet(Material material) {
-            if (material == null) return false;
-
-            return switch (material) {
-                case WHITE_CARPET, ORANGE_CARPET, MAGENTA_CARPET, LIGHT_BLUE_CARPET,
-                     YELLOW_CARPET, LIME_CARPET, PINK_CARPET, GRAY_CARPET,
-                     LIGHT_GRAY_CARPET, CYAN_CARPET, PURPLE_CARPET, BLUE_CARPET,
-                     BROWN_CARPET, GREEN_CARPET, RED_CARPET, BLACK_CARPET -> true;
-                default -> false;
-            };
-        }
-
-        public boolean isTransparent(Material material) {
-            if (!material.isBlock()) {
-                return false;
-            } else {
-                return switch (material) {
-                    case AIR, OAK_SAPLING, SPRUCE_SAPLING, BIRCH_SAPLING, JUNGLE_SAPLING, ACACIA_SAPLING, DARK_OAK_SAPLING,
-                         BAMBOO_SAPLING, POWERED_RAIL, DETECTOR_RAIL, SHORT_GRASS, FERN, DEAD_BUSH, DANDELION, POPPY,
-                         BLUE_ORCHID, ALLIUM, AZURE_BLUET, RED_TULIP, ORANGE_TULIP, WHITE_TULIP, PINK_TULIP, OXEYE_DAISY,
-                         CORNFLOWER, LILY_OF_THE_VALLEY, WITHER_ROSE, SUNFLOWER, LILAC, ROSE_BUSH, PEONY, BROWN_MUSHROOM,
-                         RED_MUSHROOM, TORCH, SOUL_TORCH, FIRE, SOUL_FIRE, REDSTONE, WHEAT, RAIL, LEVER, REDSTONE_TORCH,
-                         STONE_BUTTON, OAK_BUTTON, SPRUCE_BUTTON, BIRCH_BUTTON, JUNGLE_BUTTON, ACACIA_BUTTON,
-                         DARK_OAK_BUTTON, MANGROVE_BUTTON, BAMBOO_BUTTON, CRIMSON_BUTTON, WARPED_BUTTON, SUGAR_CANE,
-                         PUMPKIN_STEM, MELON_STEM, VINE, NETHER_WART, NETHER_PORTAL, TRIPWIRE_HOOK,
-                         TRIPWIRE, CARROTS, POTATOES, ACTIVATOR_RAIL, TALL_GRASS, LARGE_FERN, WATER, LAVA, SCULK_VEIN -> true;
-                    default -> false;
-                };
-            }
         }
     }
 }

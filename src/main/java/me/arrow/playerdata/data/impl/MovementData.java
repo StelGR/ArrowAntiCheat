@@ -439,7 +439,7 @@ public class MovementData implements Data {
     }
 
     private void handleNearbyBlocks() {
-        boolean async = !TaskUtils.isFoliaServer();
+        boolean async = true;
 
         /*
         Handle collisions
@@ -447,15 +447,15 @@ public class MovementData implements Data {
         For a production server, DO NOT use spigot's api. It's slow. (Especially for Blocks, Chunks, Materials)
          */
         final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation(), async);
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(
-                getLocation().clone().add(0, 1, 0),
-                async
-        );
+//        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(
+//                getLocation().clone().add(0, 1, 0),
+//                async
+//        );
 
         this.nearbyBlocksResult = nearbyBlocksResult;
 
         customInAir = !nearbyBlocksResult.isNearGround()
-                && !nearbyBlocksResult2.isNearGround()
+//                && !nearbyBlocksResult2.isNearGround()
                 && !profile.isExempt().isFlight()
                 && !profile.shouldCancel()
                 && !profile.getPlayer().isInsideVehicle()
@@ -474,8 +474,10 @@ public class MovementData implements Data {
 
         try {
 
+
+            //conditions
             NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
-            boolean async = !TaskUtils.isFoliaServer();
+            boolean async = true;
 
             CustomLocation loc1 = location;
             CustomLocation loc2 = loc1.clone().subtract(0, 1, 0);
@@ -488,9 +490,9 @@ public class MovementData implements Data {
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, async);
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation, async);
             nearPowderSnow = containsMaterial(nearbyBlocksResult.getBlockTypes(), POWDER_SNOW);
-            boolean onIce0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, async, ICE);
-            boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, ICE);
-            boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, ICE);
+            boolean onIce0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, ICE);
+            boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, ICE);
+            boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, ICE);
 
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lower =
                     CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), async);
@@ -530,35 +532,35 @@ public class MovementData implements Data {
                     CollisionUtils.getNearbyBlocks(loc1.clone().subtract(0, 2, 0), async);
 
 
-            boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultLow, async, SLIME);
-            boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelow_lower, async, SLIME);
-            boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelow_lowest, async, SLIME);
+            boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultLow, SLIME);
+            boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelow_lower, SLIME);
+            boolean slimeBelow2 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelow_lowest, SLIME);
 
-            boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow, async, SLIME);
-            boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lower, async, SLIME);
-            boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lowest, async, SLIME);
+            boolean slimeBelowBelow0 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow, SLIME);
+            boolean slimeBelowBelow1 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lower, SLIME);
+            boolean slimeBelowBelow2 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lowest, SLIME);
 
-            boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow1, async, SLIME);
-            boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lower1, async, SLIME);
-            boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lowest1, async, SLIME);
+            boolean slimeBelowBelow3 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow1, SLIME);
+            boolean slimeBelowBelow4 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lower1, SLIME);
+            boolean slimeBelowBelow5 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelowBelow_lowest1, SLIME);
 
-            boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultAbove, async, SLIME);
-            boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultAbove_lower, async, SLIME);
-            boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultAbove_lowest, async, SLIME);
+            boolean slimeAbove0 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultAbove, SLIME);
+            boolean slimeAbove1 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultAbove_lower, SLIME);
+            boolean slimeAbove2 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultAbove_lowest, SLIME);
 
-            boolean onSlime0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, async, SLIME);
-            boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, SLIME);
-            boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, SLIME);
-            boolean onSoul0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, async, SOUL_SAND);
-            boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, SOUL_SAND);
-            boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, SOUL_SAND);
-            boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, async, SOUL_BLOCK);
-            boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, SOUL_BLOCK);
-            boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, SOUL_BLOCK);
+            boolean onSlime0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, SLIME);
+            boolean onSlime1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, SLIME);
+            boolean onSlime2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, SLIME);
+            boolean onSoul0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, SOUL_SAND);
+            boolean onSoul1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, SOUL_SAND);
+            boolean onSoul2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, SOUL_SAND);
+            boolean onSoulBlock0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, SOUL_BLOCK);
+            boolean onSoulBlock1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, SOUL_BLOCK);
+            boolean onSoulBlock2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, SOUL_BLOCK);
 
-            boolean onHoney0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, async, HONEY);
-            boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, async, HONEY);
-            boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, async, HONEY);
+            boolean onHoney0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, HONEY);
+            boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, HONEY);
+            boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, HONEY);
 
             nearSoulBlock = (onSoulBlock0 || onSoulBlock1 || onSoulBlock2);
             onIce = onIce0 || onIce1 || onIce2;
@@ -589,8 +591,7 @@ public class MovementData implements Data {
             nearFence = containsMaterial(blockTypes, FENCE);
             nearSlime = containsMaterial(blockTypes, SLIME);
 
-            isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, !TaskUtils.isFoliaServer(), WATER);
-
+            isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, WATER);
 
             isInsideWater = false;
             for (int x = -1; x <= 1; x++) {
@@ -599,8 +600,8 @@ public class MovementData implements Data {
                     checkLoc.setX(checkLoc.getX() + x);
                     checkLoc.setZ(checkLoc.getZ() + z);
                     checkLoc.setY(checkLoc.getY() + 0.5);
-                    String mName = nms.getType(checkLoc.getBlock()).name();
-                    if (isMaterialEqual(mName, WATER)) {
+                    Material m = CollisionUtils.getMaterial(checkLoc);
+                    if (m != null && (isMaterialEqual(m.name(), WATER) || CollisionUtils.isWaterLogged(checkLoc))) {
                         isInsideWater = true;
                         break;
                     }
@@ -615,39 +616,47 @@ public class MovementData implements Data {
 
             for (int x2 = -1; x2 <= 1; x2++) {
                 for (int z2 = -1; z2 <= 1; z2++) {
-                    flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 2, z2).getBlock()));
+                    Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 2, z2));
+                    flag_underblock = flag_underblock || !isTransparent(m);
                 }
             }
 
             for (int x2 = -1; x2 <= 1; x2++) {
                 for (int z2 = -1; z2 <= 1; z2++) {
-                    flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 1, z2).getBlock()));
+                    Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 1, z2));
+                    flag_underblock = flag_underblock || !isTransparent(m);
                 }
             }
 
             if (profile.isCrawling()) {
                 for (int x2 = -1; x2 <= 1; x2++) {
                     for (int z2 = -1; z2 <= 1; z2++) {
-                        flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 3, z2).getBlock()));
+                        Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 3, z2));
+                        flag_underblock = flag_underblock || !isTransparent(m);
                     }
                 }
 
                 for (int x2 = -1; x2 <= 1; x2++) {
                     for (int z2 = -1; z2 <= 1; z2++) {
-                        flag_underblock = flag_underblock || !isTransparent(nms.getType(getLocation().clone().add(x2, 0, z2).getBlock()));
+                        Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 0, z2));
+                        flag_underblock = flag_underblock || !isTransparent(m);
                     }
                 }
             }
 
-            //profile.getPlayer().sendMessage("isSwimming " + Arrow.getInstance().getNmsManager().getNmsInstance().isSneaking(profile.getPlayer()));
-
             underblock = flag_underblock;
 
-            insideLiquid = isMaterialEqual(nms.getType(loc3.getBlock()).name(), LIQUID)
-                    || isMaterialEqual(nms.getType(loc1.getBlock()).name(), LIQUID);
+            Material mLoc3 = CollisionUtils.getMaterial(loc3);
+            Material mLoc1 = CollisionUtils.getMaterial(loc1);
+            Material mLoc2 = CollisionUtils.getMaterial(loc2);
 
-            climb = isMaterialEqual(nms.getType(loc2.getBlock()).name(), CLIMBABLE)
-                    || isMaterialEqual(nms.getType(loc1.getBlock()).name(), CLIMBABLE);
+            insideLiquid = (mLoc3 != null && isMaterialEqual(mLoc3.name(), LIQUID))
+                    || (mLoc1 != null && isMaterialEqual(mLoc1.name(), LIQUID))
+                    || CollisionUtils.isWaterLogged(loc3)
+                    || CollisionUtils.isWaterLogged(loc1);
+
+            climb = (mLoc2 != null && isMaterialEqual(mLoc2.name(), CLIMBABLE))
+                    || (mLoc1 != null && isMaterialEqual(mLoc1.name(), CLIMBABLE));
 
             nearStepMaterial =
                     containsStepMaterial(nearbyBlocksResult)
@@ -724,7 +733,7 @@ public class MovementData implements Data {
                 for (int z = minBlockZ; z <= maxBlockZ; z++) {
                     if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) continue;
 
-                    Material material = nms.getType(world.getBlockAt(x, y, z));
+                    Material material = me.arrow.playerdata.cache.ChunkCache.get().getBlock(world, x, y, z);
 
                     if (isWallMaterial(material)) {
                         return true;
@@ -796,7 +805,7 @@ public class MovementData implements Data {
             //Friction Factor
 
             this.frictionFactor = CollisionUtils.getBlockSlipperiness(
-                    nms.getType(this.location.clone().subtract(0D, .825D, 0D).getBlock())
+                    CollisionUtils.getMaterial(this.location.clone().subtract(0D, .825D, 0D))
             );
 
             this.lastFrictionFactorUpdateTicks = this.frictionFactor != this.lastFrictionFactor ? 0 : this.lastFrictionFactorUpdateTicks + 1;

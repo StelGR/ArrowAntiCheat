@@ -60,8 +60,17 @@ public class VersionUtils {
         return ClientVersion.UNKNOWN;
     }
 
+    private static boolean isPluginEnabled(String name) {
+        if (me.arrow.platform.PlatformBackend.get().isFabric()) return false;
+        try {
+            return Bukkit.getPluginManager().isPluginEnabled(name);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private static ClientVersion getViaVersion(Player player) {
-        if (!Bukkit.getPluginManager().isPluginEnabled("ViaVersion")) {
+        if (!isPluginEnabled("ViaVersion")) {
             return ClientVersion.UNKNOWN;
         }
 
@@ -79,7 +88,7 @@ public class VersionUtils {
     }
 
     private static ClientVersion getPacketEventsVersion(Player player) {
-        if (!Bukkit.getPluginManager().isPluginEnabled("PacketEvents")) {
+        if (!me.arrow.platform.PlatformBackend.get().isFabric() && !isPluginEnabled("PacketEvents")) {
             return ClientVersion.UNKNOWN;
         }
 

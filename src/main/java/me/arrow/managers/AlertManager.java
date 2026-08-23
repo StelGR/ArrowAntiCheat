@@ -5,6 +5,7 @@ import me.arrow.Arrow;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.webhook.DiscordWebhookQueue;
+import me.arrow.platform.PlatformBackend;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -36,10 +37,10 @@ public class AlertManager implements Listener, Initializer {
         this.webhookQueue.start();
         this.alertExecutor = createExecutor("Arrow-Alerts");
         this.verboseExecutor = createExecutor("Arrow-Verbose-Alerts");
-        Bukkit.getPluginManager().registerEvents(this, Arrow.getInstance().getHost());
+        PlatformBackend.get().registerListener(this);
 
-        if (Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean()) {
-            for (Player player : Bukkit.getOnlinePlayers()) {
+        if (Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean() && PlatformBackend.get().getServer() != null) {
+            for (Player player : PlatformBackend.get().getServer().getOnlinePlayers()) {
                 Profile profile = Arrow.getInstance().getProfileManager().getProfile(player);
                 if (profile != null) {
                     profile.setAlerts(true);

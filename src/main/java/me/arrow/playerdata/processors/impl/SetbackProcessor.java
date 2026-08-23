@@ -9,6 +9,7 @@ import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import org.bukkit.Location;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
@@ -93,15 +94,14 @@ public class SetbackProcessor implements Processor {
         if (this.locations.isEmpty()) {
 
             final CustomLocation cloned = profile.getMovementData().getLastLocation().clone();
-
             int count = 0;
 
-            while (cloned.getBlock().getRelative(BlockFace.DOWN).isEmpty()) {
-
+            while (count++ < 5) {
+                Block b = cloned.getBlock();
+                if (b == null || !b.getRelative(BlockFace.DOWN).isEmpty()) {
+                    break;
+                }
                 cloned.subtract(0D, 1D, 0D);
-
-                //Prevents crashes
-                if (count++ > 5) break;
             }
 
             teleportSetback(p, cloned);

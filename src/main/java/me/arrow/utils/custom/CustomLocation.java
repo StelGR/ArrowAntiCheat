@@ -158,11 +158,16 @@ public class CustomLocation {
 
 
     public Block getBlock() {
-        if (!CollisionUtils.isChunkLoaded(this)) return null;
-        if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
-            return world.getBlockAt(blockX, blockY, blockZ);
-        } else {
-            return this.clone().toBukkit().getBlock();
+        if (world == null || !CollisionUtils.isChunkLoaded(this)) return null;
+        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(this)) return null;
+        try {
+            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
+                return world.getBlockAt(blockX, blockY, blockZ);
+            } else {
+                return this.clone().toBukkit().getBlock();
+            }
+        } catch (Throwable ignored) {
+            return null;
         }
     }
 

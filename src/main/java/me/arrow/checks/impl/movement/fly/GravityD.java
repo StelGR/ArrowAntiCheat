@@ -111,6 +111,7 @@ public class GravityD extends Check {
                         && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
                         || movementData.getSinceGlidingTicks() < 30 + (transTicks * 2)
                         || !CollisionUtils.isChunkLoaded(movementData.getLocation())
+                        || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))
                         || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
                     resetGravityD("globalMovementExempt");
                     return;
@@ -976,9 +977,7 @@ public class GravityD extends Check {
 
     private boolean hasExactGroundSupport(MovementData data) {
         try {
-            return data != null
-                    && data.getNearbyBlocksResult() != null
-                    && data.getNearbyBlocksResult().hasExactGroundSupport();
+            return data.getNearbyBlocksResult().hasExactGroundSupport();
         } catch (Throwable ignored) {
             return false;
         }

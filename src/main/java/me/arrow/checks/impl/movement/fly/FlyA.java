@@ -251,7 +251,6 @@ public class FlyA extends Check {
                 || world.nearGhostBlock
                 || world.insideGhostBlock
                 || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            movementData.setCustomAirTicks(0);
             return true;
         }
 

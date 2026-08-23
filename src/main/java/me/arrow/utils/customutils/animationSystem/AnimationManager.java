@@ -35,7 +35,7 @@ public class AnimationManager {
 
     public AnimationManager(JavaPlugin plugin) {
         this.plugin = plugin;
-        Bukkit.getPluginManager().registerEvents(new AnimationListener(this), plugin);
+        me.arrow.platform.PlatformBackend.get().registerListener(new AnimationListener(this));
     }
 
     public boolean play(Animation.Type type, Player player, Runnable finished) {

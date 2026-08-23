@@ -1,6 +1,7 @@
 package me.arrow.managers.themes;
 
 import lombok.Getter;
+import me.arrow.Arrow;
 import me.arrow.files.Config;
 import me.arrow.managers.Initializer;
 import me.arrow.managers.themes.impl.ArrowTheme;
@@ -32,8 +33,8 @@ public class ThemeManager implements Initializer {
 
     @Override
     public void initialize() {
-
-        final File folder = new File(this.plugin.getDataFolder(), "themes");
+        File dataFolder = this.plugin != null ? this.plugin.getDataFolder() : Arrow.getInstance().getDataFolder();
+        final File folder = new File(dataFolder, "themes");
 
         if (!folder.exists()) folder.mkdirs();
 

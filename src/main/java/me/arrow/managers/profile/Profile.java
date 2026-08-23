@@ -370,21 +370,9 @@ public class Profile {
 
         Location checkLocation = location.clone().subtract(0.0D, 3.0D, 0.0D);
 
-        /*
-         * Folia: do not read blocks unless this location is owned by the current region thread.
-         * If this is called from PacketEvents/Netty, return the last known value instead.
-         */
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(checkLocation)) {
-            return airBridging;
-        }
-
-        try {
-            Block block = checkLocation.getBlock();
-            airBridging = block.getType() == Material.AIR;
-            return airBridging;
-        } catch (Throwable ignored) {
-            return airBridging;
-        }
+        Material mat = me.arrow.utils.CollisionUtils.getMaterial(new me.arrow.utils.custom.CustomLocation(checkLocation));
+        airBridging = mat == Material.AIR;
+        return airBridging;
     }
 
     public void sendPacket(WrapperPlayServerWindowConfirmation wrapperPlayServerPing) {
