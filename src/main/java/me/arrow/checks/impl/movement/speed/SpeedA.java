@@ -533,7 +533,7 @@ public class SpeedA extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5) {
+        if (profile.isExempt().isTeleports()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - teleporting");
             return true;
         }

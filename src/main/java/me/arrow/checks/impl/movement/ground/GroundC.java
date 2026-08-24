@@ -86,12 +86,10 @@ public class GroundC extends Check {
                  * The place support helper verifies that the block actually exists,
                  * so cancelled/ghost tower attempts do not receive this exemption.
                  */
-                if (
-//                        profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
-//                        || profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2))
-//                        || profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans)
-//                        ||
-                                profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2))
+                if (profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
+                        || profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2))
+                        || profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans)
+                        || profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2))
 
                 ) {
                     if (Config.Setting.DEBUG.getBoolean())

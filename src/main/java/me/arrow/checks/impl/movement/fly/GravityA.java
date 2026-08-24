@@ -308,7 +308,7 @@ public class GravityA extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5) {
+        if (profile.isExempt().isTeleports()) {
             debugExempt("teleports", "GravityA");
             return true;
         }

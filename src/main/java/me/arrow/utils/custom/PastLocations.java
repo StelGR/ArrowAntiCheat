@@ -1,5 +1,6 @@
 package me.arrow.utils.custom;
 
+import lombok.Getter;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 
@@ -11,6 +12,7 @@ import java.util.List;
 /**
  * A simple tool that we're going to be using on our Reach + Hitbox Checks.
  */
+@Getter
 public class PastLocations {
 
     private final ConcurrentSampleList<CustomLocation> pastLocations = new ConcurrentSampleList<>(20, true);
@@ -75,7 +77,8 @@ public class PastLocations {
         this.pastLocations.add(new CustomLocation(location));
     }
 
-    public ConcurrentSampleList<CustomLocation> getPastLocations() {
-        return pastLocations;
+    public void addLocation(CustomLocation location) {
+        this.pastLocations.add(location);
     }
+
 }

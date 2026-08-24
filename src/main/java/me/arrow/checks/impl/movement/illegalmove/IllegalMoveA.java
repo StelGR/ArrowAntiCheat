@@ -59,10 +59,10 @@ public class IllegalMoveA extends Check {
                     return;
                 }
 
-                if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove A: is Exempting (teleports)");
-                    return;
-                }
+//                if (movementData.getSinceTeleportTicks() < 2) {
+//                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove A: is Exempting (teleports)");
+//                    return;
+//                }
 
                 double deltaY = movementData.getDeltaY();
                 double deltaXZ = movementData.getDeltaXZ();

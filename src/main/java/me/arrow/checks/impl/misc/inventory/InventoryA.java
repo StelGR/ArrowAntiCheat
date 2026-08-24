@@ -68,7 +68,6 @@ public class InventoryA extends Check {
                         verboseInfo);
             }
 
-
             if (std < 0.1 && std != 0)
             {
                 fail("Impossible inventory clicks",

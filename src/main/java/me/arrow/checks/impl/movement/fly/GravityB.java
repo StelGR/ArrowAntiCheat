@@ -261,7 +261,7 @@ public class GravityB extends Check {
         int ghostLiquidWebTicks = Math.min(profile.getBlockProcessor().getLastGhostLiquidWebTick(),
                 profile.getBlockProcessor().getLastPendingPhysicsPlaceTick());
 
-        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             debugExempt("ghost liquid/web", "GravityB");
             bufferB = 0.0D;
             return true;

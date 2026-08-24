@@ -140,7 +140,7 @@ public class TimerA extends Check {
             violations = Math.min(10.0D, violations + 1.0D + Math.min(1.0D, (double) excess / EVIDENCE_THRESHOLD));
 
             if (violations > 3.0D) {
-                fail("Speeding up game clock (uncapped)",
+                fail("Speeding up game clock",
                         "balance " + MsgType.MAIN_THEME_COLOR.getMessage() + millis(observedBalance)
                                 + "\nmaxBalance " + MsgType.MAIN_THEME_COLOR.getMessage() + millis(EVIDENCE_THRESHOLD)
                                 + "\nrate " + MsgType.MAIN_THEME_COLOR.getMessage() + rate(delta)

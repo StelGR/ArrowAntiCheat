@@ -130,7 +130,7 @@ public class GravityD extends Check {
                     return;
                 }
 
-                if (movementData.getSinceTeleportTicks() < 5) {
+                if (profile.isExempt().isTeleports()) {
                     resetGravityD("recentTeleport");
                     return;
                 }
@@ -151,7 +151,7 @@ public class GravityD extends Check {
                         profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
                 );
 
-                if (ghostLiquidWebTicks < 10 + transTicks) {
+                if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                     if (Config.Setting.DEBUG.getBoolean()) {
                         OtherUtility.log("Gravity D: is Exempting (ghostblock liquid/web)");
                     }
@@ -223,6 +223,19 @@ public class GravityD extends Check {
     private boolean handleStrictNegativeGravityInvariant(MovementData data, int transTicks) {
         if (isStrictGravityContextInvalid(data, transTicks)) {
             resetStrictGravityInvariant();
+            return false;
+        }
+
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
+
+        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+            if (Config.Setting.DEBUG.getBoolean()) {
+                OtherUtility.log("Gravity D: is Exempting (ghostblock liquid/web)");
+            }
+            resetGravityD("ghostLiquidWeb");
             return false;
         }
 
@@ -420,7 +433,7 @@ public class GravityD extends Check {
                 || profile.getExempt().isVehicle()
                 || profile.isBouncingOnSlime()
                 || profile.getGeysersTracker().isBeingPushed()
-                || data.getSinceTeleportTicks() < 5 + transTicks
+                || profile.isExempt().isTeleports()
                 || data.getSinceGlidingTicks() < 20 + transTicks
                 || data.getSinceRiptidingTicks() < 10 + transTicks
                 || data.isUnderblock()
@@ -905,7 +918,7 @@ public class GravityD extends Check {
     private boolean isGravityDExempt(MovementData data, int transTicks) {
         if (profile.shouldCancel()) { resetGravityD("shouldCancel"); return true; }
         if (profile.isBouncingOnSlime()) { resetGravityD("bouncingOnSlime"); return true; }
-        if (profile.getMovementData().getSinceTeleportTicks() < 5 + (transTicks * 2)) {
+        if (profile.isExempt().isTeleports()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("GravityD : Exempt - teleporting");
             resetGravityD("teleporting");
             return true;

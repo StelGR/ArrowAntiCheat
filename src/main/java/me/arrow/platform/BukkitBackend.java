@@ -74,4 +74,20 @@ public class BukkitBackend extends PlatformBackend {
             Bukkit.getScheduler().runTaskTimer(plugin, task, delayTicks, periodTicks);
         }
     }
+
+    /**
+     * @param command
+     */
+    @Override
+    public void dispatchCommand(String command) {
+
+    }
+
+    /**
+     * @return
+     */
+    @Override
+    public String getVersion() {
+        return "";
+    }
 }
