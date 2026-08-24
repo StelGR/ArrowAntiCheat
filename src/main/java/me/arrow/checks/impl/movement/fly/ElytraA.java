@@ -186,7 +186,7 @@ public class ElytraA extends Check {
                 || movementData.isNearLava()
                 || movementData.getSinceInsideWaterTicks() <= 10
                 || movementData.getSinceBubbleTicks() <= 15
-                || movementData.getSinceTeleportTicks() <= 10
+                || !profile.isExempt().isTeleports()
                 || movementData.getSinceRiptidingTicks() < 30
                 || profile.getVelocityData().getTotalHorizontalVelocity() > 0) {
             terminalBuffer = Math.max(0, terminalBuffer - 0.5);

@@ -25,8 +25,6 @@ public class TimerC extends Check {
 
     }
 
-
-
     @Override
     public void handle(PacketReceiveEvent event) {
         if (!OtherUtility.isFlying(event.getPacketType())

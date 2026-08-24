@@ -213,6 +213,10 @@ public abstract class PlatformBackend {
     /** Run a repeating task with delay and period in ticks. */
     public abstract void runRepeatingTask(Runnable task, long delayTicks, long periodTicks);
 
+    public abstract void dispatchCommand(String command);
+
+    public abstract String getVersion();
+
     /** Cancel all tasks belonging to the given plugin. */
     public void cancelAllTasks(Plugin plugin) {
         BukkitScheduler scheduler = getScheduler();

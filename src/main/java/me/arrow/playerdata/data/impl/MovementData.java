@@ -80,6 +80,7 @@ public class MovementData implements Data {
     @Getter
     @Setter
     SampleList<CustomLocation> pastLocations = new SampleList<>(40, true);
+    SampleList<CustomLocation> pastGroundLocations = new SampleList<>(20, true);
 
     /*
      * Precision-only timeline for reach render-time reconstruction. This is
@@ -362,7 +363,10 @@ public class MovementData implements Data {
 
         if (onGround && serverGround && !customInAir) {
             setLastGroundLocation(getLocation());
+            getPastGroundLocations().add(getLastGroundLocation());
         }
+
+
 
         predictPlayerMovement();
 
@@ -413,6 +417,9 @@ public class MovementData implements Data {
         sinceOnGround = onGround ? 0 : sinceOnGround + 1;
 
         processPlayerData();
+        if (setbackProcessor != null) {
+            setbackProcessor.process();
+        }
     }
 
     private void updateNearWallState() {
@@ -1009,10 +1016,8 @@ public class MovementData implements Data {
             nearWallTicks = nearWall && !exempt ? nearWallTicks + 1 : 0;
             sinceRiptidingTicks = riptiding ? 0 : sinceRiptidingTicks + 1;
 
-            tickTime++;
-            if (tickTime >= 20 && isOnGround() && !isCustomInAir()) {
+            if ((isOnGround() || isServerGround()) && !isCustomInAir()) {
                 this.lastSetBackLocation = getLocation();
-                tickTime = 0;  // Reset only when condition is met
             }
 
             Vector velocity = profile.getVelocityData().getExplosionKnockback();

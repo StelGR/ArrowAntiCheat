@@ -81,7 +81,7 @@ public class GravityC extends Check {
                 return;
             }
 
-            if (movementData.getSinceTeleportTicks() < 5) return;
+            if (profile.isExempt().isTeleports()) return;
             if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 lastOffset = 0.0D;
                 return;
@@ -97,7 +97,7 @@ public class GravityC extends Check {
                     profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
             );
 
-            if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+            if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                 if (Config.Setting.DEBUG.getBoolean())
                     OtherUtility.log("Gravity C: is Exempting (ghostblock liquid/web)");
                 bufferC = 0.0D;

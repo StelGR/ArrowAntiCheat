@@ -155,10 +155,12 @@ public class Arrow {
 
     // Called by ArrowPlugin (offline) or ArrowLoader (memory)
     public void onEnable() {
-        // Initialise platform backend (Bukkit/Folia/Paper/Spigot)
-        PlatformBackend.initialize(host);
+
         long startTime = System.currentTimeMillis();
+
         instance = this;
+        PlatformBackend.initialize(host);
+
         PluginManager pm = PlatformBackend.get().getPluginManager();
 
         if (pm != null) {

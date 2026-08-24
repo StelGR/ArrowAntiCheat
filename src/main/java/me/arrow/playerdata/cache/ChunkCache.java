@@ -1,7 +1,9 @@
 package me.arrow.playerdata.cache;
 
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
 import lombok.Getter;
@@ -228,13 +230,13 @@ public class ChunkCache {
         if (event == null || world == null) return;
 
         try {
-            if (event.getPacketType().equals(com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.BLOCK_CHANGE)) {
+            if (event.getPacketType().equals(PacketType.Play.Server.BLOCK_CHANGE)) {
                 WrapperPlayServerBlockChange wrapper = new WrapperPlayServerBlockChange(event);
                 int x = wrapper.getBlockPosition().getX();
                 int y = wrapper.getBlockPosition().getY();
                 int z = wrapper.getBlockPosition().getZ();
 
-                com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState state = wrapper.getBlockState();
+                WrappedBlockState state = wrapper.getBlockState();
                 Material material = PEMaterials.materialFromState(state.getType());
                 if (material != null) {
                     setBlock(world, x, y, z, material);
@@ -244,7 +246,7 @@ public class ChunkCache {
                 return;
             }
 
-            if (event.getPacketType().equals(com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Server.MULTI_BLOCK_CHANGE)) {
+            if (event.getPacketType().equals(PacketType.Play.Server.MULTI_BLOCK_CHANGE)) {
                 WrapperPlayServerMultiBlockChange wrapper = new WrapperPlayServerMultiBlockChange(event);
 
                 for (WrapperPlayServerMultiBlockChange.EncodedBlock block : wrapper.getBlocks()) {
@@ -253,7 +255,7 @@ public class ChunkCache {
                     int z = block.getZ();
 
                     try {
-                        com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState state = block.getBlockState(ClientVersion.UNKNOWN);
+                        WrappedBlockState state = block.getBlockState(ClientVersion.UNKNOWN);
                         Material material = PEMaterials.materialFromState(state.getType());
                         if (material != null) {
                             setBlock(world, x, y, z, material);

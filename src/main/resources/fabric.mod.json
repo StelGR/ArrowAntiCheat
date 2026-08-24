@@ -8,7 +8,7 @@
     "Stel"
   ],
   "license": "AGPL-3.0",
-  "environment": "*",
+  "environment": "server",
   "entrypoints": {
     "main": [
       "me.arrow.fabric.ArrowFabricMod"

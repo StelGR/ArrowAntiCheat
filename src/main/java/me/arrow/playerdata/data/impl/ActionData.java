@@ -306,11 +306,44 @@ public class ActionData implements Data {
             return;
         }
 
-        if (isPendingUnderPlacePosition(x, y, z)) {
+        Player player = profile.getPlayer();
+        World world = player != null ? player.getWorld() : null;
+        String worldName = world != null ? world.getName() : "world";
+
+        Material oldType = world != null ? ChunkCache.get().getBlock(world, x, y, z) : Material.AIR;
+
+        if (isCorrectiveUnderPlacePacket(x, y, z, newType)) {
             return;
         }
 
-        if (isCorrectiveUnderPlacePacket(x, y, z, newType)) {
+        boolean newSupportMaterial = isSupportMaterial(newType);
+        boolean wasSupportMaterial = isSupportMaterial(oldType);
+
+        // Solid block placed on the server in foot support area -> confirm place
+        if (newSupportMaterial && !wasSupportMaterial && isPacketPositionInFootSupportArea(x, y, z, newType, 2.25D)) {
+            lastConfirmedUnderPlaceTicks = 0;
+            lastConfirmedUnderPlaceX = x;
+            lastConfirmedUnderPlaceY = y;
+            lastConfirmedUnderPlaceZ = z;
+            lastConfirmedUnderPlaceTopY = y + getBlockTopHeight(newType);
+            lastConfirmedUnderPlaceType = newType;
+            lastConfirmedUnderPlaceWorldName = worldName;
+        }
+
+        // Solid block broken/removed on the server in foot support area -> confirm break
+        if (wasSupportMaterial && !newSupportMaterial && isPacketPositionInFootSupportArea(x, y, z, oldType, 1.25D)) {
+            lastConfirmedUnderBreakTicks = 0;
+            lastConfirmedUnderBreakX = x;
+            lastConfirmedUnderBreakY = y;
+            lastConfirmedUnderBreakZ = z;
+            lastConfirmedUnderBreakOldType = oldType;
+            sinceBlockUpdateUnderTicks = 0;
+        }
+
+        boolean pistonUpdate = isPistonRelated(newType) || profile.getMovementData().isNearPiston();
+        boolean supportRemoved = wasSupportMaterial && !newSupportMaterial;
+
+        if (!supportRemoved && !pistonUpdate) {
             return;
         }
 
@@ -318,20 +351,12 @@ public class ActionData implements Data {
             return;
         }
 
-        boolean newSupportMaterial = isSupportMaterial(newType);
-        boolean pistonUpdate = isPistonRelated(newType) || profile.getMovementData().isNearPiston();
-        boolean supportRemoved = !newSupportMaterial;
-
-        if (!supportRemoved && !pistonUpdate) {
-            return;
-        }
-
         pendingBlockUpdatesUnder.add(new PendingBlockUpdateUnder(
-                getPlayerWorldName(),
+                worldName,
                 x,
                 y,
                 z,
-                getKnownOldSupportType(x, y, z),
+                oldType,
                 newType,
                 supportRemoved,
                 pistonUpdate
@@ -1468,8 +1493,7 @@ public class ActionData implements Data {
     }
 
     public boolean hasRecentTowerBlockPlace(int supportTicks, int attemptTicks) {
-        return hasRecentUnderPlaceSupport(supportTicks)
-                || hasRecentPendingUnderPlaceAttempt(attemptTicks);
+        return hasRecentUnderPlaceSupport(supportTicks);
     }
 
     public boolean hasRecentPendingUnderPlaceSupport(int ticks) {
@@ -1522,42 +1546,6 @@ public class ActionData implements Data {
     }
 
     public boolean hasRecentPendingUnderPlaceAttempt(int ticks) {
-        if (lastBlockPlaceAttemptTicks > ticks) {
-            return false;
-        }
-
-        Player player = profile.getPlayer();
-
-        if (player == null || !player.isOnline() || profile.getMovementData() == null) {
-            return false;
-        }
-
-        World world = player.getWorld();
-
-        for (PendingUnderPlace place : pendingUnderPlaces) {
-            if (place.ageTicks > ticks) {
-                continue;
-            }
-
-            if (place.worldName != null && !place.worldName.equals(world.getName())) {
-                continue;
-            }
-
-            if (!isReplaceable(place.oldType)) {
-                continue;
-            }
-
-            /*
-             * This is intentionally only an attempt check.
-             * Use it only for the first exact 1.8 tower tick, not as a general gravity exempt.
-             */
-            if (!isPacketPositionInFootSupportArea(place.x, place.y, place.z, Material.STONE, 2.25D)) {
-                continue;
-            }
-
-            return true;
-        }
-
-        return false;
+        return hasRecentPendingUnderPlaceSupport(ticks);
     }
 }
