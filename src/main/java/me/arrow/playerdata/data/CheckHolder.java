@@ -33,6 +33,9 @@ import me.arrow.checks.impl.movement.illegalmove.IllegalMoveB;
 import me.arrow.checks.impl.movement.illegalmove.IllegalMoveC;
 import me.arrow.checks.impl.movement.motion.*;
 import me.arrow.checks.impl.movement.speed.*;
+import me.arrow.checks.impl.simulation.Combat;
+import me.arrow.checks.impl.simulation.Movement;
+import me.arrow.checks.impl.simulation.World;
 import me.arrow.checks.types.Check;
 import me.arrow.managers.profile.Profile;
 
@@ -46,6 +49,14 @@ public class CheckHolder {
     @Getter
     private int checksSize;
     private boolean testing; //Used for testing new checks
+
+
+    @Getter
+    private Movement movementCheck;
+    @Getter
+    private Combat combatCheck;
+    @Getter
+    private World worldCheck;
 
     public CheckHolder(Profile profile) {
         this.profile = profile;
@@ -72,11 +83,17 @@ public class CheckHolder {
     }
 
     public void registerAll() {
-
+        this.movementCheck = new Movement(this.profile);
+        this.combatCheck = new Combat(this.profile);
+        this.worldCheck = new World(this.profile);
         /*
          * Check initialization
          */
         addChecks(
+                this.combatCheck,
+                this.movementCheck,
+                this.worldCheck,
+
                 new AimA(this.profile),
                 new AimB(this.profile),
                 new AimC(this.profile),
@@ -85,6 +102,7 @@ public class CheckHolder {
                 new AimF(this.profile),
                 new AimG(this.profile),
                 new AimH(this.profile),
+                new AimH2(this.profile),
                 new AimI(this.profile),
 
                 new AutoClickerA(this.profile),

@@ -184,6 +184,11 @@ public class GuiListener implements Listener {
                 openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
                 break;
 
+            case 36:
+                Config.Setting.SIMULATION_MODE.setValue(!Config.Setting.SIMULATION_MODE.getBoolean());
+                openFor(player, () -> Arrow.getGuiManager().openSettingsGUI(player));
+                break;
+
             case 40:
                 openFor(player, () -> Arrow.getGuiManager().openArrowGUI(player));
                 break;

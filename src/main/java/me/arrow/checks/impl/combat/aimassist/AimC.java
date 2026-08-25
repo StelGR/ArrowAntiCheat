@@ -23,14 +23,12 @@ public class AimC extends Check {
     private final List<Double> yawChanges = new ArrayList<>();
     private final List<Long> timestamps = new ArrayList<>();
 
-
     public AimC(Profile profile) {
         super(profile, CheckType.AIM, "C", "Smooth Aim (2)");
     }
 
     @Override
     public void handle(PacketSendEvent event) {
-
 
     }
 
@@ -72,28 +70,20 @@ public class AimC extends Check {
     }
 
     private boolean calculateAim() {
-        // listo no fillo returno falso.
         if (pitchChanges.size() < 20 || yawChanges.size() < 20) {
             return false;
         }
 
-        // calculate mean of yaw, pitch changes.
         double avgPitchChange = MathUtil.getAverage(pitchChanges);
         double avgYawChange = MathUtil.getAverage(yawChanges);
-        // grab the deviation.
         double stdDevPitch = MathUtil.getStandardDeviation(pitchChanges);
         double stdDevYaw = MathUtil.getStandardDeviation(yawChanges);
-        // check time between aim changes.
+
         double timeBetweenChanges = getAverageTimeBetweenChanges(timestamps);
 
         float smoothnessThreshold = 0.3f;
-
         float stdDevThreshold = 0.15f;
-
         float timeThreshold = 80.0f;
-
-        verbose(this.getClass().getSimpleName(), 0, 0, "Smoothness (" + timeBetweenChanges / 1000 + ") Y|P (" + avgYawChange + " | " + avgPitchChange
-                + ") SDY|SDP (" + stdDevYaw + " | " + stdDevPitch);
 
         pitchChanges.clear();
         yawChanges.clear();
