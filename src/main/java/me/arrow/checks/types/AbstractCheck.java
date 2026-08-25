@@ -10,6 +10,9 @@ import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckCategory;
 import me.arrow.checks.enums.CheckMode;
 import me.arrow.checks.enums.CheckType;
+import me.arrow.checks.impl.misc.timer.*;
+import me.arrow.checks.impl.movement.ground.GroundC;
+import me.arrow.checks.impl.simulation.*;
 import me.arrow.files.Config;
 import me.arrow.files.commentedfiles.CommentedFileConfiguration;
 import me.arrow.managers.profile.Profile;
@@ -90,6 +93,29 @@ public abstract class AbstractCheck {
     }
 
     public void fail(String verboseTitle, String verboseInfo) {
+        if (Config.Setting.SIMULATION_MODE.getBoolean() && !(this instanceof Movement
+                || this instanceof Combat
+                || this instanceof World
+                || this instanceof GroundC
+                || this instanceof TimerA
+                || this instanceof TimerB
+                || this instanceof TimerC)) {
+
+            switch (getCategory()) {
+                case MOVEMENT -> {
+                    profile.getCheckHolder().getMovementCheck().fail(verboseTitle, verboseInfo);
+                    return;
+                }
+                case COMBAT -> {
+                    profile.getCheckHolder().getCombatCheck().fail(verboseTitle, verboseInfo);
+                    return;
+                }
+                case WORLD -> {
+                    profile.getCheckHolder().getWorldCheck().fail(verboseTitle, verboseInfo);
+                    return;
+                }
+            }
+        }
 
         this.verboseTitle = verboseTitle;
         this.verboseInfo = verboseInfo;

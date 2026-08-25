@@ -298,7 +298,7 @@ public class OmniSprintA extends Check {
             if (airInputDirection.isForward()) return;
 
             if (groundBuffer > 8.0D) {
-                fail("Sprinting in impossible direction",
+                fail("Sprinting in impossible direction (ground)",
                         "type " + MsgType.MAIN_THEME_COLOR.getMessage() + "ground" +
                                 "\nsector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
                                 "\nangle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getSignedAngle()) +
@@ -318,7 +318,7 @@ public class OmniSprintA extends Check {
             }
 
             if (airBuffer > 6.5D) {
-                fail("Sprinting in impossible air direction",
+                fail("Sprinting in impossible direction (air)",
                         "type " + MsgType.MAIN_THEME_COLOR.getMessage() + "air" +
                                 "\nvelocitySector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
                                 "\nairInputSector " + MsgType.MAIN_THEME_COLOR.getMessage() + airInputDirection.getSector() +

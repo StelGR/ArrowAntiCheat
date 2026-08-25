@@ -18,6 +18,8 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.customutils.OtherUtility;
 import org.apache.commons.math3.util.FastMath;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 // this is a very decent check, it accounts for acceleration and deceleration, the acceleration part is based off of OpenKarhu's speed b
@@ -279,8 +281,8 @@ public class SpeedB extends Check {
                             int riptideLevel = 0;
                             try {
                                 if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
-                                    org.bukkit.enchantments.Enchantment riptide = org.bukkit.enchantments.Enchantment.RIPTIDE;
-                                    org.bukkit.inventory.ItemStack main = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer());
+                                    Enchantment riptide = Enchantment.RIPTIDE;
+                                    ItemStack main = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer());
                                     if (main != null && main.containsEnchantment(riptide)) {
                                         riptideLevel = main.getEnchantmentLevel(riptide);
                                     }
@@ -314,18 +316,28 @@ public class SpeedB extends Check {
                                 bufferAddition = Math.min(4, Math.max(7D, excess * 30D));
 
                                 if ((vlBuffer += bufferAddition) >= required) {
-                                    fail("Invalid acceleration",
-                                            "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                                    + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                                    + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
-                                                    + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + limit
-                                                    + "\nexcess " + MsgType.MAIN_THEME_COLOR.getMessage() + excess
-                                                    + "\nfriction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
-                                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                                    + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                                    + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
                                     vlBuffer = Math.max(75D, vlBuffer);
+
+
+                                    String verboseTitle = "Invalid acceleration";
+
+                                    String verbose = "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                                            + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                            + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
+                                            + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + limit
+                                            + "\nexcess " + MsgType.MAIN_THEME_COLOR.getMessage() + excess
+                                            + "\nfriction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
+                                            + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                            + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                            + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH;
+
+                                    if (Config.Setting.SIMULATION_MODE.getBoolean()) {
+                                        profile.getCheckHolder().getMovementCheck().fail(verboseTitle, verbose);
+                                        return;
+                                    }
+
+                                    fail(verboseTitle, verbose);
                                 }
                             } else {
                                 vlBuffer = Math.max(0.0D, vlBuffer - 0.005D);
@@ -386,14 +398,22 @@ public class SpeedB extends Check {
                     && squaredAccel < 1.0E-5
                     && exempt) {
                 if (increaseBuffer() > 1) {
-                    fail("Invalid deceleration",
-                            "deltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
-                                    + "\nlastDeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaYaw
-                                    + "\naccel " + MsgType.MAIN_THEME_COLOR.getMessage() + accel
-                                    + "\naccel (* 100) " + MsgType.MAIN_THEME_COLOR.getMessage() + squaredAccel
-                                    + "\nmdAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + mdAccel
-                                    + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                    + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ);
+
+                    String verboseTitle = "Invalid deceleration";
+                    String verbose = "deltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
+                            + "\nlastDeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaYaw
+                            + "\naccel " + MsgType.MAIN_THEME_COLOR.getMessage() + accel
+                            + "\naccel (* 100) " + MsgType.MAIN_THEME_COLOR.getMessage() + squaredAccel
+                            + "\nmdAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + mdAccel
+                            + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                            + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ;
+
+                    if (Config.Setting.SIMULATION_MODE.getBoolean()) {
+                        profile.getCheckHolder().getMovementCheck().fail(verboseTitle, verbose);
+                        return;
+                    }
+
+                    fail(verboseTitle, verbose);
                 }
             } else decreaseBufferBy(0.005);
         } finally {

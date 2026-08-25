@@ -432,6 +432,7 @@ public class SpeedA extends Check {
                                     + "\nPUT  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicksWithoutMaterial()
                                     + "\nPDT  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicksWithoutMaterial()
                                     + "\nisSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting());
+
                     airBuffer = Math.max(8, airBuffer);
                 }
 

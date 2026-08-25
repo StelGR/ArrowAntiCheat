@@ -469,6 +469,16 @@ public class GuiManager {
                         translate(guiLine())
                 )));
 
+        gui.setItem(36, generateItem(new ItemStack(Material.WATER_BUCKET, 1),
+                translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Simulation Mode"),
+                Arrays.asList(
+                        translate(guiLine()),
+                        translate("&7&oShould we enable simulation mode?"),
+                        "",
+                        translate("&7Current Setting: " + MsgType.MAIN_THEME_COLOR.getMessage() + Config.Setting.SIMULATION_MODE.getBoolean()),
+                        translate(guiLine())
+                ), true, Config.Setting.SIMULATION_MODE.getBoolean()));
+
         List<ItemStack> themedSpacers = createThemedSpacer(45);
         for (int slots = 0; slots < 45; slots++) {
             if (gui.getItem(slots) == null) {

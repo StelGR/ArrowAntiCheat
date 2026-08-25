@@ -90,6 +90,31 @@ public class Checks implements Initializer {
 
     public enum Setting {
 
+        //Simulation Mode
+
+        MOVEMENT("Movement.enabled", true, "Should we enable this module?"),
+        MOVEMENT_MODE("Movement.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
+        MOVEMENT_PUNISH("Movement.punish", "", "Punishment settings"),
+        MOVEMENT_PUNISH_ENABLED("Movement.punish.enabled", true, "Should punishments be enabled for this check?"),
+        MOVEMENT_PUNISH_MODE("Movement.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        MOVEMENT_MAX_VL("Movement.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        COMBAT("Combat.enabled", true, "Should we enable this module?"),
+        COMBAT_PUNISH("Combat.punish", "", "Punishment settings"),
+        COMBAT_PUNISH_ENABLED("Combat.punish.enabled", true, "Should punishments be enabled for this check?"),
+        COMBAT_PUNISH_MODE("Combat.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        COMBAT_MAX_VL("Combat.punish.vl", 250, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        WORLD("World.enabled", true, "Should we enable this module?"),
+        WORLD_MODE("World.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
+        WORLD_PUNISH("World.punish", "", "Punishment settings"),
+        WORLD_PUNISH_ENABLED("World.punish.enabled", true, "Should punishments be enabled for this check?"),
+        WORLD_PUNISH_MODE("World.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        WORLD_MAX_VL("World.punish.vl", 100, "The maximum violation amount a player needs to reach in order to get punished"),
+
+
+        //Normal mode
+
         AIM_A("AimA.enabled", true, "Should we enable this module?"),
         AIM_A_PUNISH("AimA.punish", "", "Punishment settings"),
         AIM_A_PUNISH_ENABLED("AimA.punish.enabled", true, "Should punishments be enabled for this check?"),
@@ -132,11 +157,18 @@ public class Checks implements Initializer {
         AIM_G_PUNISH_MODE("AimG.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         AIM_G_MAX_VL("AimG.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        AIM_H("AimH.enabled", false, "Should we enable this module?"),
+        AIM_H("AimH.enabled", true, "Should we enable this module?"),
         AIM_H_PUNISH("AimH.punish", "", "Punishment settings"),
         AIM_H_PUNISH_ENABLED("AimH.punish.enabled", false, "Should punishments be enabled for this check?"),
         AIM_H_PUNISH_MODE("AimH.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         AIM_H_MAX_VL("AimH.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        AIM_H2("AimH2.enabled", true, "Should we enable this module?"),
+        AIM_H2_PUNISH("AimH2.punish", "", "Punishment settings"),
+        AIM_H2_PUNISH_ENABLED("AimH2.punish.enabled", false, "Should punishments be enabled for this check?"),
+        AIM_H2_PUNISH_MODE("AimH2.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AIM_H2_MAX_VL("AimH2.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
+
         AIM_I("AimI.enabled", true, "Should we enable this module?"),
         AIM_I_PUNISH("AimI.punish", "", "Punishment settings"),
         AIM_I_PUNISH_ENABLED("AimI.punish.enabled", false, "Should punishments be enabled for this check?"),

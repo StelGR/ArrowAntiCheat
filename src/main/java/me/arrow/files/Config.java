@@ -130,6 +130,8 @@ public class Config implements Initializer {
         BENCHMARK("benchmark", "", "Benchmark Settings"),
         BENCHMARK_ENABLED("benchmark.enabled", false, "Should we benchmark the anticheat? only enable if you are having performance issues, and want to diagnose"),
 
+        SIMULATION_MODE("simulation_mode", false, "Should we enable simulation mode (parody)"),
+
         DEBUG("debug", false, "DO NOT TOUCH UNLESS YOU KNOW WHAT YOU ARE DOING");
 
         @Getter
