@@ -35,6 +35,7 @@ import me.arrow.checks.impl.movement.motion.*;
 import me.arrow.checks.impl.movement.speed.*;
 import me.arrow.checks.impl.simulation.Combat;
 import me.arrow.checks.impl.simulation.Movement;
+import me.arrow.checks.impl.simulation.Network;
 import me.arrow.checks.impl.simulation.World;
 import me.arrow.checks.types.Check;
 import me.arrow.managers.profile.Profile;
@@ -57,6 +58,8 @@ public class CheckHolder {
     private Combat combatCheck;
     @Getter
     private World worldCheck;
+    @Getter
+    private Network networkCheck;
 
     public CheckHolder(Profile profile) {
         this.profile = profile;
@@ -85,6 +88,7 @@ public class CheckHolder {
     public void registerAll() {
         this.movementCheck = new Movement(this.profile);
         this.combatCheck = new Combat(this.profile);
+        this.networkCheck = new Network(this.profile);
         this.worldCheck = new World(this.profile);
         /*
          * Check initialization
@@ -93,6 +97,7 @@ public class CheckHolder {
                 this.combatCheck,
                 this.movementCheck,
                 this.worldCheck,
+                this.networkCheck,
 
                 new AimA(this.profile),
                 new AimB(this.profile),

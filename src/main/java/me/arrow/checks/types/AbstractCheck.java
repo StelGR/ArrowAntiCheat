@@ -13,6 +13,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.impl.misc.timer.*;
 import me.arrow.checks.impl.movement.ground.GroundC;
 import me.arrow.checks.impl.simulation.*;
+import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.files.commentedfiles.CommentedFileConfiguration;
 import me.arrow.managers.profile.Profile;
@@ -103,20 +104,32 @@ public abstract class AbstractCheck {
 
             switch (getCategory()) {
                 case MOVEMENT -> {
-                    profile.getCheckHolder().getMovementCheck().fail(verboseTitle, verboseInfo);
+                    profile.getCheckHolder().getMovementCheck().fail(this.checkName, verboseTitle, verboseInfo);
                     return;
                 }
                 case COMBAT -> {
-                    profile.getCheckHolder().getCombatCheck().fail(verboseTitle, verboseInfo);
+                    profile.getCheckHolder().getCombatCheck().fail(this.checkName, verboseTitle, verboseInfo);
+                    return;
+                }
+                case CONNECTION -> {
+                    profile.getCheckHolder().getNetworkCheck().fail(this.checkName, verboseTitle, verboseInfo);
                     return;
                 }
                 case WORLD -> {
-                    profile.getCheckHolder().getWorldCheck().fail(verboseTitle, verboseInfo);
+                    profile.getCheckHolder().getWorldCheck().fail(this.checkName, verboseTitle, verboseInfo);
                     return;
                 }
             }
         }
 
+        this.verboseTitle = verboseTitle;
+        this.verboseInfo = verboseInfo;
+
+        fail();
+    }
+
+    public void fail(String subCheckName, String verboseTitle, String verboseInfo) {
+        this.checkType = subCheckName;
         this.verboseTitle = verboseTitle;
         this.verboseInfo = verboseInfo;
 
@@ -165,7 +178,7 @@ public abstract class AbstractCheck {
                 this.maxVl,
                 this.experimental);
 
-        if (!me.arrow.platform.PlatformBackend.get().isFabric()) {
+        if (!PlatformBackend.get().isFabric()) {
             Bukkit.getPluginManager().callEvent(violationEvent);
 
             if (violationEvent.isCancelled()) {
@@ -269,7 +282,7 @@ public abstract class AbstractCheck {
                         bufferCurrent,
                         maxBuffer);
 
-                if (!me.arrow.platform.PlatformBackend.get().isFabric() && !TaskUtils.isFoliaServer()) {
+                if (!PlatformBackend.get().isFabric() && !TaskUtils.isFoliaServer()) {
                     Bukkit.getPluginManager().callEvent(violationEvent);
                 } else if (Arrow.getInstance().getViolationListener() != null) {
                     Arrow.getInstance().getViolationListener().onVerbose(violationEvent);

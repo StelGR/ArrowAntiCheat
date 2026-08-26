@@ -112,6 +112,12 @@ public class Checks implements Initializer {
         WORLD_PUNISH_MODE("World.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         WORLD_MAX_VL("World.punish.vl", 100, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        NETWORK("Network.enabled", true, "Should we enable this module?"),
+        NETWORK_PUNISH("Network.punish", "", "Punishment settings"),
+        NETWORK_PUNISH_ENABLED("Network.punish.enabled", true, "Should punishments be enabled for this check?"),
+        NETWORK_PUNISH_MODE("Network.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        NETWORK_MAX_VL("Network.punish.vl", 100, "The maximum violation amount a player needs to reach in order to get punished"),
+
 
         //Normal mode
 

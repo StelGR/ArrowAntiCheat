@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
+import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.*;
 import me.arrow.utils.customutils.OtherUtility;
@@ -60,12 +61,12 @@ public class AimH2 extends Check {
 
                             if (++streak > 20 && lastDeltaPitch == 0 && ++violations > 15) {
                                 fail("Consistent rotations",
-                                        "gcdPitch " + gcdPitch
-                                                + "\ngcdYaw" + gcdYaw
-                                                + "\ndeltaPitch" + deltaPitch
-                                                + "\nlastDeltaPitch " + lastDeltaPitch
-                                                + "\ndeltaYaw" + deltaYaw
-                                                + "\nlastDeltaYaw " + lastDeltaYaw);
+                                        "gcdPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + gcdPitch
+                                                + "\ngcdYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + gcdYaw
+                                                + "\ndeltaPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaPitch
+                                                + "\nlastDeltaPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaPitch
+                                                + "\ndeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
+                                                + "\nlastDeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaYaw);
                                 violations = 0;
                             }
                         }

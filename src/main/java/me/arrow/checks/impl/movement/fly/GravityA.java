@@ -308,7 +308,7 @@ public class GravityA extends Check {
             return true;
         }
 
-        if (profile.isExempt().isTeleports()) {
+        if (movementData.getSinceTeleportTicks() < 5) {
             debugExempt("teleports", "GravityA");
             return true;
         }
@@ -351,7 +351,6 @@ public class GravityA extends Check {
         }
         
         if (profile.shouldCancel()) { debugExempt("shouldCancel", "GravityA"); return true; }
-        if (profile.isExempt().isTeleports()) { debugExempt("teleport", "GravityA"); return true; }
         if (!profile.isExempt().isRespawned()) { debugExempt("notRespawned", "GravityA"); return true; }
         if (movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) { debugExempt("riptiding", "GravityA"); return true; }
         if (profile.getPlayer().isInsideVehicle()) { debugExempt("insideVehicle", "GravityA"); return true; }
@@ -375,7 +374,6 @@ public class GravityA extends Check {
         if (profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) { debugExempt("breaking block under self", "GravityA"); return true; }
         if (movementData.isNearShulkerBox()) { debugExempt("nearShulkerBox", "GravityA"); return true; }
         if (movementData.isNearShulker()) { debugExempt("nearShulker", "GravityA"); return true; }
-        if (movementData.getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) { debugExempt("sinceGhostblock", "GravityA"); return true; }
         if (movementData.isOnSlime()) return true;
 
         if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))

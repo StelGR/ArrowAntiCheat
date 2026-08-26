@@ -132,11 +132,6 @@ public class MotionA extends Check {
                     return;
                 }
 
-                if (profile.getMovementData().getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting GhostBlock");
-                    return;
-                }
-
                 if (profile.getBlockProcessor().isUnderGhostBlock()) {
                     if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: underGhostblock");
                     return;

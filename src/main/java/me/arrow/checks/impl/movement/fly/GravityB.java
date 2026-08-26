@@ -249,7 +249,11 @@ public class GravityB extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5) return true;
+        if (movementData.getSinceTeleportTicks() < 5) {
+            debugExempt("teleporting", "GravityB");
+            return true;
+        }
+
         if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2)))
             return true;
 
