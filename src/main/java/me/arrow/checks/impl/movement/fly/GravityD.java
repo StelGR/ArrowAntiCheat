@@ -924,7 +924,6 @@ public class GravityD extends Check {
             return true;
         }
         if (profile.isExempt().vehicle()) { resetGravityD("vehicle"); return true; }
-        if (profile.getMovementData().getSinceOnGhostBlock() <= 10 + transTicks) { resetGravityD("ghostBlock"); return true; }
 
         if (data.isNearWater()) { resetGravityD("nearWater"); return true; }
         if (data.isNearLava()) { resetGravityD("nearLava"); return true; }

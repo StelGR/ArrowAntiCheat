@@ -19,7 +19,7 @@ public enum CheckType {
     ANALYSIS("Analysis", CheckCategory.MOVEMENT),
     ELYTRA("Elytra", CheckCategory.MOVEMENT),
     ILLEGALMOVE("IllegalMove", CheckCategory.MOVEMENT),
-    TIMER("Timer", CheckCategory.WORLD),
+    TIMER("Timer", CheckCategory.CONNECTION),
     REACH("Reach", CheckCategory.COMBAT),
     VELOCITY("Velocity", CheckCategory.COMBAT),
     INVENTORY("Inventory", CheckCategory.WORLD),
@@ -29,13 +29,14 @@ public enum CheckType {
     PHASE("Phase", CheckCategory.WORLD),
     OMNISPRINT("OmniSprint", CheckCategory.MOVEMENT),
     NOSLOWDOWN("NoSlowdown", CheckCategory.MOVEMENT),
-    MOVEMENT("Movement", CheckCategory.MOVEMENT),
-    COMBAT("Combat", CheckCategory.COMBAT),
-    WORLD("World", CheckCategory.WORLD),
     VEHICLE("Vehicle", CheckCategory.MOVEMENT),
     BACKTRACK("BackTrack", CheckCategory.CONNECTION),
     XRAY("XRay", CheckCategory.WORLD),
-    MACRO("Macro", CheckCategory.COMBAT);
+    MACRO("Macro", CheckCategory.COMBAT),
+    MOVEMENT("Movement", CheckCategory.MOVEMENT),
+    NETWORK("Network", CheckCategory.CONNECTION),
+    COMBAT("Combat", CheckCategory.COMBAT),
+    WORLD("World", CheckCategory.WORLD);
 
     private final String checkName;
     private final CheckCategory checkCategory;

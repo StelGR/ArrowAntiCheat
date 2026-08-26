@@ -81,7 +81,13 @@ public class GravityC extends Check {
                 return;
             }
 
-            if (profile.isExempt().isTeleports()) return;
+            if (movementData.getSinceTeleportTicks() < 5) {
+                if (Config.Setting.DEBUG.getBoolean())
+                    OtherUtility.log("Gravity C: is Exempting (teleporting)");
+                bufferC = 0.0D;
+                return;
+            }
+
             if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 lastOffset = 0.0D;
                 return;

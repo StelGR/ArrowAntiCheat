@@ -84,8 +84,13 @@ public class SpeedB extends Check {
         double mdAccel = movementData.getAccelXZ();
         double accel = Math.abs(deltaXZ - lastDeltaXZ);
 
-        calculateDeceleration(movementData, deltaXZ, lastDeltaXZ, deltaYaw, accel, mdAccel);
+        int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
+        if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+            return;
+        }
+
+        calculateDeceleration(movementData, deltaXZ, lastDeltaXZ, deltaYaw, accel, mdAccel);
 
         if (profile.getBlockProcessor().isNearGhostBlock()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (near Ghostblock)");
@@ -95,7 +100,6 @@ public class SpeedB extends Check {
         calculateAcceleration(movementData, actionData, deltaX, deltaY, deltaZ, deltaXZ, clientGround, serverGround, movingTicks, velocityH, sprinting);
 
         this.lastDeltaYaw = deltaYaw;
-
     }
 
 
@@ -317,12 +321,7 @@ public class SpeedB extends Check {
 
                                 if ((vlBuffer += bufferAddition) >= required) {
 
-                                    vlBuffer = Math.max(75D, vlBuffer);
-
-
-                                    String verboseTitle = "Invalid acceleration";
-
-                                    String verbose = "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                                    fail("Invalid acceleration", "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                                             + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                             + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
                                             + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + limit
@@ -330,14 +329,9 @@ public class SpeedB extends Check {
                                             + "\nfriction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
                                             + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                                             + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                            + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH;
+                                            + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
-                                    if (Config.Setting.SIMULATION_MODE.getBoolean()) {
-                                        profile.getCheckHolder().getMovementCheck().fail(verboseTitle, verbose);
-                                        return;
-                                    }
-
-                                    fail(verboseTitle, verbose);
+                                    vlBuffer = Math.max(75D, vlBuffer);
                                 }
                             } else {
                                 vlBuffer = Math.max(0.0D, vlBuffer - 0.005D);
@@ -408,11 +402,6 @@ public class SpeedB extends Check {
                             + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                             + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ;
 
-                    if (Config.Setting.SIMULATION_MODE.getBoolean()) {
-                        profile.getCheckHolder().getMovementCheck().fail(verboseTitle, verbose);
-                        return;
-                    }
-
                     fail(verboseTitle, verbose);
                 }
             } else decreaseBufferBy(0.005);
@@ -427,7 +416,6 @@ public class SpeedB extends Check {
 
         if (profile.isExempt().isTeleports()) return false;
         if (profile.shouldCancel()) return false;
-        if (profile.getMovementData().getSinceOnGhostBlock() <= 15 + profile.getConnectionData().getClientTickTrans()) return false;
         if (!profile.isExempt().isRespawned()) return false;
         if (profile.isExempt().vehicle()) return false;
         if (movementData.isNearBoat() || movementData.isOnBoat()) return false;
