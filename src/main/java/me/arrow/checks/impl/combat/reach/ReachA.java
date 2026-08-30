@@ -14,6 +14,7 @@ import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Checks;
+import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.platform.PlatformBackend;
 import me.arrow.playerdata.data.impl.ConnectionData;
@@ -25,6 +26,9 @@ import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.GameMode;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
@@ -446,7 +450,28 @@ public class ReachA extends Check {
         } catch (Throwable ignored) {
         }
 
-        double allowedReach = BASE_REACH_LIMIT + reachTolerance;
+        // Determine minimum allowed reach based on player's interaction range attribute.
+        double attributeReach = Checks.Setting.REACH_A_MINIMUM_REACH.getDouble();
+        double extraReach = 0.0;
+        try {
+            if (profile.getPlayer() != null) {
+                AttributeInstance attr = profile.getPlayer().getAttribute(Attribute.ENTITY_INTERACTION_RANGE);
+                if (attr != null) {
+                    attributeReach = attr.getValue();
+                    if (Config.Setting.COMPATIBILITY.getBoolean()) {
+                        for (AttributeModifier mod : attr.getModifiers()) {
+                            if ("origins-reborn:origins-extra_reach_entities".equalsIgnoreCase(mod.getName())) {
+                                // Assuming ADD_NUMBER operation
+                                extraReach += mod.getAmount();
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // Fallback to config value already set.
+        }
+        double allowedReach = (attributeReach + extraReach) + reachTolerance;
         boolean validRayHit = rayHitBox || originInsideBox;
         double decisionDistance = cornerRayHit && bestValidationDistance != Double.MAX_VALUE
                 ? bestValidationDistance
