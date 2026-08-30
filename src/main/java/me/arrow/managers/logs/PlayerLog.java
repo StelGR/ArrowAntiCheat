@@ -18,7 +18,8 @@ public class PlayerLog {
         this.player = player;
         this.uuid = uuid;
         this.check = check;
-        this.information = information == null ? "" : (information.length() > 500 ? information.substring(0, 500) : information);
+        // Preserve full information without truncation; keep a generous safeguard if needed.
+        this.information = information == null ? "" : information;
         this.timeStamp = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss").format(new Date());
     }
 
