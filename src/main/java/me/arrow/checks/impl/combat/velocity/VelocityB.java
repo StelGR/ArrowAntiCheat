@@ -345,7 +345,7 @@ public class VelocityB extends Check {
             this.violations = Math.min(15.0D,
                     this.violations + Math.abs(1.975D - Math.abs(dClientKb / dKb)));
 
-            if (this.violations > maxVL) {
+            if (this.violations > maxVL && movementData.getSinceTeleportTicks() > 5) {
                 fail(
                         "Horizontal Modification",
                         "approx pct " + theme() + format(3, p)

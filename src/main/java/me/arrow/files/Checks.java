@@ -203,13 +203,6 @@ public class Checks implements Initializer {
         HITBOX_A_PUNISH_MODE("HitboxA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         HITBOX_A_MAX_VL("HitboxA.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        REACH_B("ReachB.enabled", false, "Should we enable this module?"),
-        REACH_B_PUNISH("ReachB.punish", "", "Punishment settings"),
-        REACH_B_PUNISH_ENABLED("ReachB.punish.enabled", false, "Should punishments be enabled for this check?"),
-        REACH_B_PUNISH_MODE("ReachB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        REACH_B_MAX_VL("ReachB.punish.vl", 30, "The maximum violation amount a player needs to reach in order to get punished"),
-
-
         BACKTRACK_A("BackTrackA.enabled", true, "Should we enable this module?"),
         BACKTRACK_A_PUNISH("BackTrackA.punish", "", "Punishment settings"),
         BACKTRACK_A_PUNISH_ENABLED("BackTrackA.punish.enabled", true, "Should punishments be enabled for this check?"),
@@ -350,6 +343,12 @@ public class Checks implements Initializer {
         INTERACT_D_PUNISH_MODE("InteractD.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         INTERACT_D_MAX_VL("InteractD.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        INTERACT_E("InteractE.enabled", true, "Should we enable this module?"),
+        INTERACT_E_PUNISH("InteractE.punish", "", "Punishment settings"),
+        INTERACT_E_PUNISH_ENABLED("InteractE.punish.enabled", true, "Should punishments be enabled for this check?"),
+        INTERACT_E_PUNISH_MODE("InteractE.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        INTERACT_E_MAX_VL("InteractE.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
+
         INVENTORY_A("InventoryA.enabled", true, "Should we enable this module?"),
         INVENTORY_A_PUNISH("InventoryA.punish", "", "Punishment settings"),
         INVENTORY_A_PUNISH_ENABLED("InventoryA.punish.enabled", true, "Should punishments be enabled for this check?"),
@@ -393,21 +392,21 @@ public class Checks implements Initializer {
         OMNISPRINT_A_PUNISH("OmniSprintA.punish", "", "Punishment settings"),
         OMNISPRINT_A_PUNISH_ENABLED("OmniSprintA.punish.enabled", true, "Should punishments be enabled for this check?"),
         OMNISPRINT_A_PUNISH_MODE("OmniSprintA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
-        OMNISPRINT_A_MAX_VL("OmniSprintA.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
+        OMNISPRINT_A_MAX_VL("OmniSprintA.punish.vl", 25, "The maximum violation amount a player needs to reach in order to get punished"),
 
         GROUND_A("GroundA.enabled", true, "Should we enable this module?"),
         GROUND_A_MODE("GroundA.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
         GROUND_A_PUNISH("GroundA.punish", "", "Punishment settings"),
         GROUND_A_PUNISH_ENABLED("GroundA.punish.enabled", true, "Should punishments be enabled for this check?"),
         GROUND_A_PUNISH_MODE("GroundA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
-        GROUND_A_MAX_VL("GroundA.punish.vl", 5, "The maximum violation amount a player needs to reach in order to get punished"),
+        GROUND_A_MAX_VL("GroundA.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
         GROUND_B("GroundB.enabled", true, "Should we enable this module?"),
         GROUND_B_MODE("GroundB.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
         GROUND_B_PUNISH("GroundB.punish", "", "Punishment settings"),
         GROUND_B_PUNISH_ENABLED("GroundB.punish.enabled", true, "Should punishments be enabled for this check?"),
         GROUND_B_PUNISH_MODE("GroundB.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
-        GROUND_B_MAX_VL("GroundB.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
+        GROUND_B_MAX_VL("GroundB.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
         GROUND_C("GroundC.enabled", true, "Should we enable this module? (THIS IS THE GHOSTBLOCK HANDLER)"),
         GROUND_C_MODE("GroundC.mode", CheckMode.MITIGATE.getCheckMode(), "This should never be changed unless you are debugging."),

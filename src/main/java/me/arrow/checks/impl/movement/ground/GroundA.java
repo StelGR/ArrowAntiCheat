@@ -147,8 +147,7 @@ public class GroundA extends Check {
 
         int trans = profile.getConnectionData().getClientTickTrans();
 
-        if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
-                || profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
+        if (profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
                 || profile.getActionData().hasRecentTowerBlockPlace(10 + (trans * 2), 2 + trans)) {
             ChatUtils.debugExempt("blockSupportAndCancel", "GroundA");
             return true;

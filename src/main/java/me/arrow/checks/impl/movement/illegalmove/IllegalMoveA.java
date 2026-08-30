@@ -46,7 +46,7 @@ public class IllegalMoveA extends Check {
                 if (profile.shouldCancel()
                         || !profile.isExempt().isRespawned()
                         || profile.isExempt().isDead()
-                        || movementData.getSinceTeleportTicks() < 5
+                        || (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))
                         || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                         || profile.getVehicleData().getSinceVehicleTicks() < 5
                         || movementData.isNearBed()

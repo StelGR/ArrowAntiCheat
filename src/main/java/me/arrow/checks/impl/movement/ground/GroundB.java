@@ -51,8 +51,7 @@ public class GroundB extends Check {
                     || movementData.isNearShulker()
                     || movementData.isNearShulkerBox()
                     || movementData.isNearLava()
-                    || movementData.isNearWater()
-                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2)))
+                    || movementData.isNearWater())
                 return;
             if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
 //                || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))
