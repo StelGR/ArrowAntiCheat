@@ -44,7 +44,7 @@ public class GroundB extends Check {
 
             if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()
                     || profile.getExempt().isVehicle()
-                    || profile.getExempt().isTeleports()
+                    || movementData.getSinceTeleportTicks() < 5
                     || profile.isBouncingOnSlime()
                     || profile.getVehicleData().getSinceVehicleTicks() < 5
                     || movementData.isInsideLiquid()
@@ -53,6 +53,7 @@ public class GroundB extends Check {
                     || movementData.isNearLava()
                     || movementData.isNearWater())
                 return;
+
             if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
 //                || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))
             ) {

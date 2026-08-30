@@ -320,7 +320,7 @@ public class VelocityB extends Check {
             return;
         }
 
-        double maxVL = isNewerThan8() ? 8.0D : 5.0D;
+        double maxVL = isNewerThan8() ? 12.0D : 6.5D;
         boolean reversed = dKbZ < -0.05D || dKbX < -0.05D;
 
         /*

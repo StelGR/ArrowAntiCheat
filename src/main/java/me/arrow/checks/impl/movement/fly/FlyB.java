@@ -105,6 +105,8 @@ public class FlyB extends Check {
                                 && clientAirTicks > 8
                                 && !vd.isTakingVelocity();
 
+
+
                 String verboseInfo = "acceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
                         + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                         + "\n+expected " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedY
@@ -114,6 +116,8 @@ public class FlyB extends Check {
                         + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                         + "\njumpStart " + MsgType.MAIN_THEME_COLOR.getMessage() + jumpStart
                         + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + totalVerticalVelocity;
+
+
                 if (invalidLevitation) {
                     fail("Impossible acceleration with levitation", verboseInfo);
                 }
@@ -124,7 +128,8 @@ public class FlyB extends Check {
                         && (!movementData.isNearWater()
                         || !movementData.isInsideLiquid()))
                         || invalidY) {
-                    if (increaseBuffer() > 2 || invalidY) {
+
+                    if ((increaseBuffer() > 2 || invalidY) && !(deltaY == 0 && acceleration == 0)) {
                         fail("Impossible vertical speed " + (invalid ? "(1)" : "(2)"),
                                 verboseInfo);
                         setBuffer(getBuffer() > 6 ? 6 : getBuffer());
@@ -133,7 +138,8 @@ public class FlyB extends Check {
                     decreaseBufferBy(0.25);
                 }
 
-                if (invalidNegativeY) {
+                if (invalidNegativeY && !(deltaY == 0 && acceleration == 0)) {
+
                     fail("Impossible negative vertical speed",
                             verboseInfo);
                 }

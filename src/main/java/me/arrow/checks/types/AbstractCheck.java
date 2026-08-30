@@ -94,6 +94,9 @@ public abstract class AbstractCheck {
     }
 
     public void fail(String verboseTitle, String verboseInfo) {
+        if (!enabled) return;
+        if (this.development) return;
+
         if (Config.Setting.SIMULATION_MODE.getBoolean() && !(this instanceof Movement
                 || this instanceof Combat
                 || this instanceof World
@@ -137,11 +140,6 @@ public abstract class AbstractCheck {
     }
 
     public void fail() {
-
-        if (!enabled) return;
-
-        //Development
-        if (this.development) return;
         if (profile.isBanned()) return;
         //if (profile.isBypassing()) return;
         if (profile.isBedrockPlayer() && Config.Setting.IGNORE_BEDROCK.getBoolean()) return;
