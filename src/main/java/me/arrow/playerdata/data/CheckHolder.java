@@ -18,6 +18,7 @@ import me.arrow.checks.impl.misc.interact.InteractA;
 import me.arrow.checks.impl.misc.interact.InteractB;
 import me.arrow.checks.impl.misc.interact.InteractC;
 import me.arrow.checks.impl.misc.interact.InteractD;
+import me.arrow.checks.impl.misc.interact.InteractE;
 import me.arrow.checks.impl.misc.inventory.InventoryA;
 import me.arrow.checks.impl.misc.scaffold.*;
 import me.arrow.checks.impl.misc.timer.TimerA;
@@ -140,6 +141,7 @@ public class CheckHolder {
                 new InteractB(this.profile),
                 new InteractC(this.profile),
                 new InteractD(this.profile),
+                new InteractE(this.profile),
 
                 new InventoryA(this.profile),
 

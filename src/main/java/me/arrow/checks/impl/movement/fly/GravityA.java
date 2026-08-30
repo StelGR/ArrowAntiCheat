@@ -302,7 +302,7 @@ public class GravityA extends Check {
                 || world.onGhostBlock
                 || world.insideGhostBlock
                 || world.underGhostBlock
-                || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                || profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2))) {
             debugExempt("physics/BlockCancel", "GravityA");
             bufferA = 0.0D;
             return true;

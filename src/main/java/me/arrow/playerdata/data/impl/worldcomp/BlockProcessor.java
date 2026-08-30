@@ -664,6 +664,51 @@ public class BlockProcessor implements Data {
                 || hasRecentCancelledBlockPlacement(allowedTicks);
     }
 
+    public boolean isCancelledBlockPlaceAbove(int maxTicks) {
+        return isCancelledPlacementIn3x3Area(maxTicks, 2, 3);
+    }
+
+    public boolean isCancelledBlockPlaceBelowFeet(int maxTicks) {
+        return isCancelledPlacementIn3x3Area(maxTicks, -NORMAL_PLACE_AREA_BELOW, -1);
+    }
+
+    public boolean isCancelledBlockPlaceFeetHeight(int maxTicks) {
+        return isCancelledPlacementIn3x3Area(maxTicks, 0, 0);
+    }
+
+    private boolean isCancelledPlacementIn3x3Area(int maxTicks, int minYOffset, int maxYOffset) {
+        int allowedTicks = Math.max(1, maxTicks);
+
+        boolean pending = this.pendingNormalBlockPlaceTicks < allowedTicks
+                && isCollisionPlacementMaterial(this.pendingNormalBlockPlaceMaterial)
+                && isBlockInRelative3x3(this.pendingNormalBlockPlaceVector, minYOffset, maxYOffset);
+
+        boolean recent = this.recentCancelledBlockTicks < allowedTicks
+                && isCollisionPlacementMaterial(this.recentCancelledBlockMaterial)
+                && isBlockInRelative3x3(this.recentCancelledBlockVector, minYOffset, maxYOffset);
+
+        return pending || recent;
+    }
+
+    private boolean isBlockInRelative3x3(Vector block, int minYOffset, int maxYOffset) {
+        if (block == null || data.getMovementData() == null) return false;
+        return matches3x3(block, data.getMovementData().getLocation(), minYOffset, maxYOffset)
+                || matches3x3(block, data.getMovementData().getLastLocation(), minYOffset, maxYOffset)
+                || matches3x3(block, data.getMovementData().getLastLastLocation(), minYOffset, maxYOffset);
+    }
+
+    private boolean matches3x3(Vector block, CustomLocation loc, int minYOffset, int maxYOffset) {
+        if (loc == null) return false;
+        int px = (int) Math.floor(loc.getX());
+        int py = (int) Math.floor(loc.getY());
+        int pz = (int) Math.floor(loc.getZ());
+
+        return Math.abs(block.getBlockX() - px) <= 1
+                && Math.abs(block.getBlockZ() - pz) <= 1
+                && block.getBlockY() >= py + minYOffset
+                && block.getBlockY() <= py + maxYOffset;
+    }
+
     Vector selectPhysicsPlaceVector(Vector clickedVector, Vector placedVector) {
         if (isBlockInPlayerPhysicsPlaceArea(placedVector)) {
             return placedVector;
@@ -931,10 +976,6 @@ public class BlockProcessor implements Data {
 
         if (clearIfPendingPhysicsPlacementConfirmed()) {
             return false;
-        }
-
-        if (isCancelledBlockPlacementExempt(allowedTicks)) {
-            return true;
         }
 
         if (this.pendingVineLadderWallPlace) {
@@ -2405,7 +2446,7 @@ public class BlockProcessor implements Data {
         clearPendingNormalBlockPlacementContext(null);
     }
 
-    Vector getPlacedVector(int x, int y, int z, int faceValue) {
+    public Vector getPlacedVector(int x, int y, int z, int faceValue) {
         // Converts clicked block + face into the predicted placed-block coordinate.
         if (faceValue == 1) {
             return new Vector(x, y + 1, z);
@@ -2434,7 +2475,7 @@ public class BlockProcessor implements Data {
         return new Vector(x, y, z);
     }
 
-    Material getServerMaterial(Vector vector) {
+    public Material getServerMaterial(Vector vector) {
         // Reads the authoritative server material through the NMS abstraction.
         if (vector == null) {
             return null;
@@ -2443,7 +2484,7 @@ public class BlockProcessor implements Data {
         return getServerMaterial(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ());
     }
 
-    Material getServerMaterial(int x, int y, int z) {
+    public Material getServerMaterial(int x, int y, int z) {
         Player player = data.getPlayer();
 
         if (player == null || !player.isOnline()) {

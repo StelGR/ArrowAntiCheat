@@ -43,7 +43,7 @@ public class ReachA extends Check {
     int MAX_HISTORY_SAMPLES;
     int MIN_HISTORY_SAMPLES;
 
-    double MAX_VALID_DISTANCE = 10D;
+    double MAX_VALID_DISTANCE = 20D;
 
     double BASE_BOX_EXPAND_HORIZONTAL;
     double BASE_BOX_EXPAND_VERTICAL;
@@ -547,13 +547,6 @@ public class ReachA extends Check {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
-    private boolean isMovement(PacketReceiveEvent event) {
-        return event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
-    }
-
     private void recordRotation(PacketReceiveEvent event) {
         if (profile == null || profile.getRotationData() == null) {
             return;
@@ -596,10 +589,6 @@ public class ReachA extends Check {
         double deltaYaw = Math.abs(rotationData.getDeltaYaw());
         double deltaPitch = Math.abs(rotationData.getDeltaPitch());
 
-        // Doctor evaluates the previous look, current look, and the mixed
-        // previous-yaw/current-pitch packet-order case. These are the only
-        // ordinary 1.8 possibilities; accepting a long rotation history made
-        // normal hits look artificially shorter.
         addRotationCandidate(candidates, rotationData.getYaw(), rotationData.getPitch(), deltaYaw, deltaPitch, now);
         addRotationCandidate(candidates, rotationData.getLastYaw(), rotationData.getLastPitch(), deltaYaw, deltaPitch, now);
         addRotationCandidate(candidates, rotationData.getLastYaw(), rotationData.getPitch(), deltaYaw, deltaPitch, now);

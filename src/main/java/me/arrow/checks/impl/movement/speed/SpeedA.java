@@ -473,7 +473,7 @@ public class SpeedA extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5) {
+        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - teleports");
             return true;
         }

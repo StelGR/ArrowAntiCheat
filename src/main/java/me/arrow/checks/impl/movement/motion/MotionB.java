@@ -64,7 +64,7 @@ public class MotionB extends Check {
 
                 int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
-                if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+                if (profile.getBlockProcessor().isCancelledBlockPlaceAbove(ghostPhysicsTicks)) {
                     return;
                 }
 

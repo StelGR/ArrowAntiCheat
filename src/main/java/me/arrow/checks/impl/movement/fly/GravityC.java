@@ -74,9 +74,8 @@ public class GravityC extends Check {
                     || world.nextToGhostWall
                     || world.physicsMismatch
                     || world.onGhostBlock
-                    || world.insideGhostBlock
                     || world.underGhostBlock
-                    || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                    || profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 bufferC = 0.0D;
                 return;
             }
@@ -106,16 +105,6 @@ public class GravityC extends Check {
             if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                 if (Config.Setting.DEBUG.getBoolean())
                     OtherUtility.log("Gravity C: is Exempting (ghostblock liquid/web)");
-                bufferC = 0.0D;
-                return;
-            }
-            if (profile.getBlockProcessor().isNearGhostBlock()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: is Exempting (near Ghostblock)");
-                bufferC = 0.0D;
-                return;
-            }
-            if (profile.getBlockProcessor().isUnderGhostBlock()) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity C: is Exempting (under Ghostblock)");
                 bufferC = 0.0D;
                 return;
             }

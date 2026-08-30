@@ -111,7 +111,6 @@ public class GravityD extends Check {
                         && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
                         || movementData.getSinceGlidingTicks() < 30 + (transTicks * 2)
                         || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                        || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))
                         || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
                     resetGravityD("globalMovementExempt");
                     return;
@@ -125,7 +124,7 @@ public class GravityD extends Check {
                         || world.onGhostBlock
                         || world.insideGhostBlock
                         || world.underGhostBlock
-                        || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (transTicks * 2))) {
+                        || profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (transTicks * 2))) {
                     resetGravityD("clientWorldMismatch");
                     return;
                 }
@@ -453,7 +452,6 @@ public class GravityD extends Check {
                 || world.insideGhostBlock
                 || world.underGhostBlock
                 || profile.getBlockProcessor().isUnderGhostBlock()
-                || profile.getBlockProcessor().isCancelledBlockPlacementExempt(4 + transTicks)
                 || !CollisionUtils.isChunkLoaded(data.getLocation())
                 || hasRecentGravityVelocity(transTicks)
                 || hasRecentGravitySupportChange(4 + transTicks)) {

@@ -3,7 +3,6 @@ package me.arrow.checks.impl.combat.hitbox;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import me.arrow.Arrow;
@@ -347,13 +346,6 @@ public class HitboxA extends Check {
         return point.getX() >= box.minX && point.getX() <= box.maxX
                 && point.getY() >= box.minY && point.getY() <= box.maxY
                 && point.getZ() >= box.minZ && point.getZ() <= box.maxZ;
-    }
-
-    private boolean isMovement(PacketTypeCommon packetType) {
-        return packetType.equals(PacketType.Play.Client.PLAYER_FLYING)
-                || packetType.equals(PacketType.Play.Client.PLAYER_POSITION)
-                || packetType.equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || packetType.equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
     private String format(double value) {

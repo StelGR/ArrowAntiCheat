@@ -92,11 +92,6 @@ public class SpeedB extends Check {
 
         calculateDeceleration(movementData, deltaXZ, lastDeltaXZ, deltaYaw, accel, mdAccel);
 
-        if (profile.getBlockProcessor().isNearGhostBlock()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed B: is Exempting (near Ghostblock)");
-            return;
-        }
-
         calculateAcceleration(movementData, actionData, deltaX, deltaY, deltaZ, deltaXZ, clientGround, serverGround, movingTicks, velocityH, sprinting);
 
         this.lastDeltaYaw = deltaYaw;
