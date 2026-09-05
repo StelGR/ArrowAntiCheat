@@ -38,18 +38,21 @@ public class MotionE extends Check {
 
             try {
 
-                if (profile.shouldCancel()
-                        || profile.getMovementData().isUnderblock()
-                        || profile.getMovementData().isOnBoat()
-                        || profile.getMovementData().isNearBoat()
-                        || Arrow.getInstance().getNmsManager().getNmsInstance().isSwimming(profile.getPlayer())
-                        || profile.getMovementData().getSinceRiptidingTicks() < 5
-                        || profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5
-                        || profile.getMovementData().isNearBuggyBlock()) {
-                    return;
-                }
+
 
                 MovementData movementData = profile.getMovementData();
+
+                if (profile.shouldCancel()
+                        || movementData.isUnderblock()
+                        || movementData.isOnBoat()
+                        || movementData.isNearBoat()
+                        || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
+                        || Arrow.getInstance().getNmsManager().getNmsInstance().isSwimming(profile.getPlayer())
+                        || movementData.getSinceRiptidingTicks() < 5
+                        || profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5
+                        || movementData.isNearBuggyBlock()) {
+                    return;
+                }
 
                 int clientAirTicks = movementData.getClientAirTicks();
                 int serverAirTicks = movementData.getCustomAirTicks();

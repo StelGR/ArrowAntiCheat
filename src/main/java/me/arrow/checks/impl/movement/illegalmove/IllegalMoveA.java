@@ -93,7 +93,7 @@ public class IllegalMoveA extends Check {
                         + "\n * nearWall(2) " + MsgType.MAIN_THEME_COLOR.getMessage() + CollisionUtils.isNearWall(movementData.getLocation());
 
                 if (deltaY < -3.921
-                        && !profile.isExempt().isTeleports()
+                        && !(movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))
                         && profile.getMovementData().getSinceRiptidingTicks() > 30
                         && !profile.getVelocityData().isTakingVelocity()) {
                     verbose(this.getClass().getSimpleName(), deltaY, -3.92, "DeltaY: " + data);
@@ -157,7 +157,7 @@ public class IllegalMoveA extends Check {
                 if ((deltaY > stepHeight)
                         && (movementData.isNearWall() || movementData.isLastNearWall() || movementData.isLastLastNearWall())
                         && (!profile.isBouncingOnSlime()
-                        && !profile.isExempt().isTeleports()
+                        && !(movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))
                         && movementData.getSincePowderSnowTicks() > 20
                         && !(movementData.isOnBoat()
                         || movementData.isNearBoat())

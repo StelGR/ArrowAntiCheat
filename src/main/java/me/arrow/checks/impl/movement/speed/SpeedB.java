@@ -57,7 +57,7 @@ public class SpeedB extends Check {
         if (profile.shouldCancel()
                 || profile.getPlayer().isDead()
                 || !profile.isExempt().isRespawned()
-                || profile.isExempt().isTeleports()
+                || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                 || profile.isExempt().vehicle()) {
             vlBuffer = 0;
             lastMove = new Vector(deltaX, 0.0, deltaZ);
@@ -207,7 +207,7 @@ public class SpeedB extends Check {
                     threshold += 0.15D;
                 }
 
-                if (profile.isExempt().isTeleports()) {
+                if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                     threshold += 0.3D;
                 }
 
@@ -423,7 +423,7 @@ public class SpeedB extends Check {
     private boolean checkValid() {
         MovementData movementData = profile.getMovementData();
 
-        if (profile.isExempt().isTeleports()) return false;
+        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) return false;
         if (profile.shouldCancel()) return false;
         if (!profile.isExempt().isRespawned()) return false;
         if (profile.isExempt().vehicle()) return false;

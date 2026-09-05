@@ -215,7 +215,7 @@ public class FlyB extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             debugExempt("sinceTeleports", "Fly B");
             return true;
         }

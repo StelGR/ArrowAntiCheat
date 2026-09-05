@@ -41,7 +41,7 @@ public class MotionF extends Check {
             if (profile.shouldCancel()
                     || profile.getPlayer().isDead()
                     || !profile.isExempt().isRespawned()
-                    || profile.isExempt().isTeleports()
+                    || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                     || profile.isBouncingOnSlime()
                     || movementData.isNearWater()
                     || velocityData.getTotalVerticalVelocity() > 0

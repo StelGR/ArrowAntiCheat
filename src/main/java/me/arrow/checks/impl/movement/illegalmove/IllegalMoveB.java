@@ -140,7 +140,7 @@ public class IllegalMoveB extends Check {
             return true;
         }
 
-        if (profile.isExempt().isTeleports()) {
+        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - teleport");
             return true;
         }

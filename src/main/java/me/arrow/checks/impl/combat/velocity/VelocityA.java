@@ -74,8 +74,13 @@ public class VelocityA extends Check {
             return;
         }
 
+
+
         MovementData movementData = profile.getMovementData();
         VelocityData velocityData = profile.getVelocityData();
+
+        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) return;
+
         int transition = Math.max(0, profile.getConnectionData().getClientTickTrans());
         boolean verticalCollisionLimited = movementData.isNearWall()
                 || movementData.isUnderblock()
