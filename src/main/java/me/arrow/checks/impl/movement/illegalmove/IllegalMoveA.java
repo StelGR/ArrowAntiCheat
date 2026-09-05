@@ -169,7 +169,7 @@ public class IllegalMoveA extends Check {
                         && movementData.getSinceGlidingTicks() > (20 + (profile.getConnectionData().getClientTickTrans() * 2)))) {
                     verbose(this.getClass().getSimpleName(), deltaY, stepHeight, data3);
                     fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                            + "\nmaxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + stepHeight);
+                            + "\nmaxStepHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + stepHeight);
                 }
             } finally {
                 Profiler.stop("IllegalMove A", profiler);
