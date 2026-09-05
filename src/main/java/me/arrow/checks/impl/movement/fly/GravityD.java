@@ -131,7 +131,7 @@ public class GravityD extends Check {
                     return;
                 }
 
-                if (profile.isExempt().isTeleports()) {
+                if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                     resetGravityD("recentTeleport");
                     return;
                 }
@@ -442,7 +442,7 @@ public class GravityD extends Check {
                 || profile.getExempt().isVehicle()
                 || profile.isBouncingOnSlime()
                 || profile.getGeysersTracker().isBeingPushed()
-                || profile.isExempt().isTeleports()
+                || data.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                 || data.getSinceGlidingTicks() < 20 + transTicks
                 || data.getSinceRiptidingTicks() < 10 + transTicks
                 || data.isUnderblock()
@@ -926,7 +926,7 @@ public class GravityD extends Check {
     private boolean isGravityDExempt(MovementData data, int transTicks) {
         if (profile.shouldCancel()) { resetGravityD("shouldCancel"); return true; }
         if (profile.isBouncingOnSlime()) { resetGravityD("bouncingOnSlime"); return true; }
-        if (profile.isExempt().isTeleports()) {
+        if (data.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("GravityD : Exempt - teleporting");
             resetGravityD("teleporting");
             return true;

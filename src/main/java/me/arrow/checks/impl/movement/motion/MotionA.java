@@ -96,7 +96,7 @@ public class MotionA extends Check {
                 double deltaY = movementData.getDeltaY();
 
                 if (profile.shouldCancel()
-                        || profile.isExempt().isTeleports()
+                        || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                         || !profile.isExempt().isRespawned()
                         || profile.getActionData().hasRecentConfirmedUnderPlace(6 + (profile.getConnectionData().getClientTickTrans() * 2))
                         || profile.isBouncingOnSlime()

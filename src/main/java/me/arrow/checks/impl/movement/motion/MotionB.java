@@ -45,7 +45,7 @@ public class MotionB extends Check {
                 MovementData movementData = profile.getMovementData();
 
                 if (profile.shouldCancel()
-                        || profile.isExempt().isTeleports()
+                        || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                         || profile.isBouncingOnSlime()
                         || movementData.isOnSlime()
                         || movementData.isNearShulker()

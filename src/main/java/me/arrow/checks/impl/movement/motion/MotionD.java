@@ -53,7 +53,7 @@ public class MotionD extends Check {
                         || profile.isBouncingOnSlime()
                         || movementData.isOnSlime()
                         || movementData.getMovingUnderblockTicks() > 0
-                        || profile.isExempt().isTeleports()
+                        || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                         || movementData.isUnderblock()
                         || movementData.isNearBed()
                         || movementData.isOnBoat()

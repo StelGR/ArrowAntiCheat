@@ -52,7 +52,7 @@ public class MotionC extends Check {
                         || movementData.isNearGhast()
                         || movementData.isNearShulker()
                         || movementData.getSinceNearWaterTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || profile.isExempt().isTeleports()
+                        || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                         || profile.getPlayer().isInsideVehicle()
                         || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
                     return;

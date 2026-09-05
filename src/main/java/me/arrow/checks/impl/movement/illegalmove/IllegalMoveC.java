@@ -53,7 +53,7 @@ public class IllegalMoveC extends Check {
             ActionData actionData = profile.getActionData();
 
             if (profile.shouldCancel()
-                    || profile.isExempt().isTeleports()
+                    || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                     || movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
                     || profile.getPlayer().isDead()
                     || movementData.isOnBoat()

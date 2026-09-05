@@ -99,6 +99,8 @@ public class SpeedA extends Check {
 
             if (inputDirection.isForwardStrafe()) allowedLimit += DIAGONAL_TOLERANCE;
 
+            if (profile.isBedrockPlayer()) allowedLimit += 0.001;
+
             double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
             if (movementData.isInsideWater()) allowedLimit += depthStriderBoost; // apply always if in water
 
@@ -565,7 +567,7 @@ public class SpeedA extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5) {
+        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - teleporting");
             return true;
         }

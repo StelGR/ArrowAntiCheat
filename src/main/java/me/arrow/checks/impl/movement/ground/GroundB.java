@@ -44,7 +44,7 @@ public class GroundB extends Check {
 
             if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()
                     || profile.getExempt().isVehicle()
-                    || movementData.getSinceTeleportTicks() < 5
+                    || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                     || profile.isBouncingOnSlime()
                     || profile.getVehicleData().getSinceVehicleTicks() < 5
                     || movementData.isInsideLiquid()

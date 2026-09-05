@@ -232,6 +232,7 @@ public class GravityB extends Check {
                 || movementData.isNearShulkerBox()
                 || movementData.isNearLava()
                 || movementData.isNearWater()
+                || movementData.isInsideLiquid()
                 || profile.getTick() < 120
                 || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
                 || !CollisionUtils.isChunkLoaded(movementData.getLocation())
@@ -249,7 +250,7 @@ public class GravityB extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5) {
+        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             debugExempt("teleporting", "GravityB");
             return true;
         }
@@ -292,7 +293,6 @@ public class GravityB extends Check {
                 || movementData.isNearBuggyBlock()
                 || profile.isBouncingOnSlime()
                 || movementData.isRiptiding()
-                || profile.isExempt().isTeleports()
                 || !profile.isExempt().isRespawned()) return true;
 
         if (profile.getExempt().isReelingIn()) {

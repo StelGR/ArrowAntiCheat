@@ -175,13 +175,12 @@ public class OmniSprintA extends Check {
                             || movementData.getSincePredictUpwardsTicks() < 5
                             || movementData.getSinceCollideTicks() < 3
                             || movementData.getSinceOnGhostBlock() < 5 + profile.getConnectionData().getClientTickTrans()
-                            || profile.isExempt().isTeleports()
+                            || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                             || movementData.isRiptiding()
                             || movementData.getSinceRiptidingTicks() < 20
                             || movementData.getSinceGlidingTicks() < 20
                             || profile.getVelocityData().isTakingVelocity()
                             || profile.getExempt().isVehicle()
-                            || profile.getExempt().isTeleports()
                             || profile.shouldCancel()
                             || profile.isBouncingOnSlime()
                             || profile.getPlayer().isInsideVehicle()

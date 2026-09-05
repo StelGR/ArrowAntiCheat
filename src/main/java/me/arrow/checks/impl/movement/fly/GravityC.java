@@ -56,6 +56,7 @@ public class GravityC extends Check {
                     || movementData.isNearShulkerBox()
                     || movementData.isNearLava()
                     || movementData.isNearWater()
+                    || movementData.isInsideLiquid()
                     || movementData.isNearClimbable()
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
@@ -81,7 +82,7 @@ public class GravityC extends Check {
                 return;
             }
 
-            if (movementData.getSinceTeleportTicks() < 5) {
+            if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                 if (Config.Setting.DEBUG.getBoolean())
                     OtherUtility.log("Gravity C: is Exempting (teleporting)");
                 bufferC = 0.0D;
@@ -146,7 +147,7 @@ public class GravityC extends Check {
         if (profile.isBouncingOnSlime()) { debugExempt("bouncingOnSlime", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (hasVelocity) { debugExempt("hasVelocity", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isRiptiding()) { debugExempt("riptiding", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (profile.isExempt().isTeleports()) { debugExempt("teleport", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (md.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) { debugExempt("teleport", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isNearContact()) { debugExempt("contact", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isNearWater()) { debugExempt("nearWater", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.elytraMomentum() > 0) { debugExempt("elytraMomentum", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
