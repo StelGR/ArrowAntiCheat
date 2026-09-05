@@ -134,48 +134,72 @@ public class CollisionUtils {
     };
 
     public static boolean isNearWall(final CustomLocation location) {
+        if (location == null) return false;
 
-        final double x = Math.abs(location.getX() % 1);
-        final double z = Math.abs(location.getZ() % 1);
+        final double x = location.getX() - Math.floor(location.getX());
+        final double z = location.getZ() - Math.floor(location.getZ());
 
         for (double modulo : WALL_MODULOS) {
-
             final double moduloX = Math.abs(x - modulo);
             final double moduloZ = Math.abs(z - modulo);
 
-            /*
-            This is the correct amount we need to check for
-            Since this accounts for all the collision changes.
-             */
-            if (moduloX < 1.706E-13 || moduloZ < 1.706E-13) return true;
+            if (moduloX < 1.0E-4D || moduloZ < 1.0E-4D) return true;
         }
 
         return false;
     }
 
     /*
-    Check if the player is near the edge of a block by using the modulo operator
-    NOTE: The reason we're not using the deltaX and Z is due to this being more accurate and
-    Not affected if you're only moving in one direction.
+    Check if the player is near the edge of a block by using the fractional coordinate within the block.
+    Verifies that the adjacent block below is actually empty/non-solid so flat ground is not flagged as an edge.
      */
     public static boolean isNearEdge(final CustomLocation location) {
+        if (location == null) return false;
 
-        final double x = Math.abs(location.getX() % 1);
-        final double z = Math.abs(location.getZ() % 1);
+        final double x = location.getX() - Math.floor(location.getX());
+        final double z = location.getZ() - Math.floor(location.getZ());
 
-        return (x > EDGE_MODULOS[0] && x < EDGE_MODULOS[1])
-                || (x > EDGE_MODULOS[2] && x < EDGE_MODULOS[3])
-                || (z > EDGE_MODULOS[0] && z < EDGE_MODULOS[1])
-                || (z > EDGE_MODULOS[2] && z < EDGE_MODULOS[3]);
+        boolean nearMinX = x > EDGE_MODULOS[2] && x < EDGE_MODULOS[3]; // [0.28, 0.30]
+        boolean nearMaxX = x > EDGE_MODULOS[0] && x < EDGE_MODULOS[1]; // [0.70, 0.72]
+        boolean nearMinZ = z > EDGE_MODULOS[2] && z < EDGE_MODULOS[3]; // [0.28, 0.30]
+        boolean nearMaxZ = z > EDGE_MODULOS[0] && z < EDGE_MODULOS[1]; // [0.70, 0.72]
+
+        if (!nearMinX && !nearMaxX && !nearMinZ && !nearMaxZ) {
+            return false;
+        }
+
+        if (location.getWorld() != null) {
+            int blockX = location.getBlockX();
+            int blockY = (int) Math.floor(location.getY() - 0.5D);
+            int blockZ = location.getBlockZ();
+
+            if (nearMinX && !isSolidAt(location.getWorld(), blockX - 1, blockY, blockZ)) return true;
+            if (nearMaxX && !isSolidAt(location.getWorld(), blockX + 1, blockY, blockZ)) return true;
+            if (nearMinZ && !isSolidAt(location.getWorld(), blockX, blockY, blockZ - 1)) return true;
+            if (nearMaxZ && !isSolidAt(location.getWorld(), blockX, blockY, blockZ + 1)) return true;
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private static boolean isSolidAt(World world, int x, int y, int z) {
+        Material mat = ChunkCache.get().getBlock(world.getName(), x, y, z);
+        return mat != null && mat.isSolid();
     }
 
     public static float getBlockSlipperiness(final Material type) {
+        if (type == null) return MoveUtils.FRICTION_FACTOR;
 
         return switch (type) {
-            case SLIME_BLOCK, HONEY_BLOCK -> .8F;
+            case SLIME_BLOCK -> .8F;
             case ICE, PACKED_ICE -> .98F;
             case BLUE_ICE -> .989F;
-            default -> MoveUtils.FRICTION_FACTOR;
+            default -> {
+                if ("FROSTED_ICE".equals(type.name())) yield .98F;
+                yield MoveUtils.FRICTION_FACTOR;
+            }
         };
     }
 
@@ -192,6 +216,7 @@ public class CollisionUtils {
     Without touching the block itself.
      */
     public static boolean hasBlockUnder(final CustomLocation location, final CustomLocation blockLocation) {
+        if (location == null || blockLocation == null) return false;
 
         final double locationX = location.getX();
         final double locationY = location.getY();
@@ -205,7 +230,7 @@ public class CollisionUtils {
         final double deltaY = blockY - locationY;
         final double deltaZ = MathUtils.getAbsoluteDelta(blockZ, locationZ);
 
-        return deltaX < 1.3D && deltaY < 0D && deltaZ < 1.3D;
+        return deltaX <= 0.8D && deltaY < 0D && deltaY >= -2.5D && deltaZ <= 0.8D;
     }
 
     public static boolean hasBlockUnder2(final CustomLocation location, final CustomLocation blockLocation) {
@@ -280,6 +305,7 @@ public class CollisionUtils {
 
 
     public static boolean hasWaterUnder(final CustomLocation location, final CustomLocation blockLocation) {
+        if (location == null || blockLocation == null) return false;
 
         final double locationX = location.getX();
         final double locationY = location.getY();
@@ -293,7 +319,7 @@ public class CollisionUtils {
         final double deltaY = blockY - locationY;
         final double deltaZ = MathUtils.getAbsoluteDelta(blockZ, locationZ);
 
-        return deltaX < .61D && deltaY < -0.7D && deltaZ < .61D;
+        return deltaX < .61D && deltaY <= 0.2D && deltaY >= -1.3D && deltaZ < .61D;
     }
 
     public static boolean isStandingOnWater(final CustomLocation loc,
@@ -490,7 +516,12 @@ public class CollisionUtils {
             return null;
         }
 
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(location)) {
+        if (TaskUtils.isFoliaServer()) {
+            if (!TaskUtils.isOwnedByCurrentRegion(location)) {
+                return null;
+            }
+        } else if (!org.bukkit.Bukkit.isPrimaryThread()) {
+            // Off the primary server thread on Spigot/Paper, location.getBlock() causes AsyncCatcherException
             return null;
         }
 
@@ -508,8 +539,11 @@ public class CollisionUtils {
         if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(location)) {
             return null;
         }
+        if (async || !org.bukkit.Bukkit.isPrimaryThread()) {
+            return getBlockAsync(location);
+        }
         try {
-            return async ? getBlockAsync(location) : location.getBlock();
+            return location.getBlock();
         } catch (Throwable ignored) {
             return null;
         }
