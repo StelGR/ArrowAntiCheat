@@ -110,8 +110,10 @@ public class GravityD extends Check {
                         || (movementData.getNearbyBlocksResult() != null
                         && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
                         || movementData.getSinceGlidingTicks() < 30 + (transTicks * 2)
+                        || movementData.getGlidingTicks() > 0
                         || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                         || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
+                    resetStrictGravityInvariant();
                     resetGravityD("globalMovementExempt");
                     return;
                 }
@@ -155,6 +157,14 @@ public class GravityD extends Check {
                         OtherUtility.log("Gravity D: is Exempting (ghostblock liquid/web)");
                     }
                     resetGravityD("ghostLiquidWeb");
+                    return;
+                }
+
+                if (movementData.getSinceOnGhostBlock() < 10) {
+                    if (Config.Setting.DEBUG.getBoolean()) {
+                        OtherUtility.log("Gravity D: is Exempting (on Ghostblock)");
+                    }
+                    resetGravityD("nearGhostBlock");
                     return;
                 }
 

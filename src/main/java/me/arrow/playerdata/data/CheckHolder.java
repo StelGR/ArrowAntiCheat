@@ -176,10 +176,10 @@ public class CheckHolder {
 
                 new BadPacketsA(this.profile),
                 new BadPacketsB(this.profile),
-                new BadPacketsC(this.profile),
+                new BadPacketsF(this.profile),
                 new BadPacketsD(this.profile),
                 new BadPacketsE(this.profile),
-                new BadPacketsF(this.profile),
+                new BadPacketsC(this.profile),
 
                 new IllegalMoveA(this.profile),
                 new IllegalMoveB(this.profile),

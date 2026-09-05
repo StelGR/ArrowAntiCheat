@@ -64,8 +64,8 @@ public class AutoClickerC extends Check {
                         if (++threshold > 1 && cps > 8) {
                             fail("Outliers",
                                     "outliers "+ MsgType.MAIN_THEME_COLOR.getMessage() + outliers
-                                            +"\ndelays "+ MsgType.MAIN_THEME_COLOR.getMessage() + delays.size()
-                                            +"\nmovements "+ MsgType.MAIN_THEME_COLOR.getMessage() + movements);
+                                            + "\ncps " + MsgType.MAIN_THEME_COLOR.getMessage() + cps
+                                            + "\nbuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + threshold);
                         }
                     } else {
                         threshold -= Math.min(threshold, 1.5);

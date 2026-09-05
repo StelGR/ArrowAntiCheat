@@ -49,10 +49,20 @@ public class MathHelper {
                 SIN_TABLE[(int) (p_76126_0_ * 10430.378F) & 65535];
     }
 
+    public static float sin(float value, boolean fastMath) {
+        return fastMath ? SIN_TABLE_FAST[(int) (value * 651.8986F) & 4095] :
+                SIN_TABLE[(int) (value * 10430.378F) & 65535];
+    }
+
     /**
      * cos looked up in the sin table with the appropriate offset
      */
     public static float cos(float value) {
+        return fastMath ? SIN_TABLE_FAST[(int) ((value + ((float) Math.PI / 2F)) * 651.8986F) & 4095]
+                : SIN_TABLE[(int) (value * 10430.378F + 16384.0F) & 65535];
+    }
+
+    public static float cos(float value, boolean fastMath) {
         return fastMath ? SIN_TABLE_FAST[(int) ((value + ((float) Math.PI / 2F)) * 651.8986F) & 4095]
                 : SIN_TABLE[(int) (value * 10430.378F + 16384.0F) & 65535];
     }

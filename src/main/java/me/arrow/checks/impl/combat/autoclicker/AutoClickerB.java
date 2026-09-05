@@ -52,7 +52,9 @@ public class AutoClickerB extends Check {
                     if (std <= 0.45) {
                         if (buffer++ > 2 && cps > 7) {
                             fail( "Consistent clicks (1)",
-                                    "std " + MsgType.MAIN_THEME_COLOR.getMessage() + std);
+                                    "std " + MsgType.MAIN_THEME_COLOR.getMessage() + std
+                                            + "\ncps " +  MsgType.MAIN_THEME_COLOR.getMessage() + cps
+                                            + "\nbuffer " +  MsgType.MAIN_THEME_COLOR.getMessage() + buffer);
                         }
                     } else {
                         buffer -= Math.min(buffer, 0.125);

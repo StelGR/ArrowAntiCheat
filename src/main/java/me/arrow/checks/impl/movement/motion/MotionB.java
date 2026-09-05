@@ -48,6 +48,7 @@ public class MotionB extends Check {
                         || profile.isExempt().isTeleports()
                         || profile.isBouncingOnSlime()
                         || movementData.isOnSlime()
+                        || movementData.isNearShulker()
                         || movementData.isNearShulkerBox()
                         || profile.getPlayer().isInsideVehicle()
                         || movementData.isOnBoat()
@@ -59,6 +60,10 @@ public class MotionB extends Check {
                         && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
                         || movementData.isNearBed()
                         || movementData.isNearWall()) {
+                    buffer = 0;
+                    buffer2 = 0;
+                    buffer3 = 0;
+                    buffer4 = 0;
                     return;
                 }
 

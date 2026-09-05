@@ -119,16 +119,18 @@ public class GroundC extends Check {
                 }
 
 
-                ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-
-                if (world.shouldHardSetback()) {
-                    fail("WorldTracker: Real ghostblock collision", verboseInfo);
-                    //movementData.setCustomAirTicks(0);
-
-                    if (Config.Setting.DEBUG.getBoolean()) {
-                        OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
-                    }
-                }
+//                ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+//
+//                if (world.shouldHardSetback()) {
+//                    fail("WorldTracker: Real ghostblock collision", verboseInfo);
+//                    //movementData.setCustomAirTicks(0);
+//
+//                    //movementData.setSinceOnGhostBlock(0);
+//
+//                    if (Config.Setting.DEBUG.getBoolean()) {
+//                        OtherUtility.log("[WARN] " + profile.getPlayer().getName() + " tripped the ghostblock check");
+//                    }
+//                }
 
                 verbose(this.getClass().getSimpleName(), movementData.getCustomAirTicks(), 2, verboseInfo);
             } finally {

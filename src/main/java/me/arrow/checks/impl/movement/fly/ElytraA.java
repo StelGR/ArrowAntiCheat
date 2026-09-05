@@ -29,7 +29,7 @@ public class ElytraA extends Check {
     }
 
 
-    SampleList<Double> samples = new SampleList<>(50);
+    SampleList<Double> samples = new SampleList<>(10);
 
     SampleList<Double> fallingSamples = new SampleList<>(30);
 
@@ -77,6 +77,7 @@ public class ElytraA extends Check {
                         || movementData.getSinceRiptidingTicks() < 30
                         || movementData.getSinceNearWaterTicks() < 10
                         || movementData.isNearLava()
+                        || movementData.getGlidingTicks() < 10
                         || movementData.isNearWater()
                         || movementData.getSinceBubbleTicks() < 15
                         || movementData.getSinceGlidingTicks() > 0

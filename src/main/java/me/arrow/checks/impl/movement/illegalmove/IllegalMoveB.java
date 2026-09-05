@@ -49,18 +49,20 @@ public class IllegalMoveB extends Check {
     private double strafeBuffer = 0;
     double maxStrafeBuffer = 4;
 
-    double limit = 0.25;
+
     double resetRateStrafeBuffer = 0.025;
 
     public void calculateStrafe(MovementData movementData, double deltaXZ, double deltaX, double deltaZ, double lastDeltaX, double lastDeltaZ, boolean sprinting, double blockFriction, int airTicks) {
         long profiler = Profiler.start();
 
         try {
-
             if (isExempt(movementData)) return;
+
+            double limit = 0.25;
 
             float movingSlimeTicks = movementData.getMovingOnSlimeTicks();
             float movingIceTicks = movementData.getMovingOnIceTicks();
+
             //temporeraly exempt ice until I fix it
             if (movingIceTicks > 0 || movingSlimeTicks > 0) return;
 
@@ -108,7 +110,6 @@ public class IllegalMoveB extends Check {
                     + "\n * sprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting
                     + "\n * clientGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientGroundTicks();
             if (difference != 0 && deltaXZ != 0) verbose(this.getClass().getSimpleName(), deltaXZ, limit, data);
-
 
             if (invalid) {
                 if (++strafeBuffer > maxStrafeBuffer) {

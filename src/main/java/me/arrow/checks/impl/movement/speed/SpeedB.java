@@ -17,15 +17,14 @@ import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.customutils.OtherUtility;
+import me.arrow.utils.minecraft.MathHelper;
 import org.apache.commons.math3.util.FastMath;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 // this is a very decent check, it accounts for acceleration and deceleration, the acceleration part is based off of OpenKarhu's speed b
-// it does have alot of improvements though, but it has some issues with modified attribute speed, remember the goal of the anticheat is to work on  ALL minecraft versions.
-
-// Due to some prediction issues with this check, although I have not seen any false positives, but you never know
+// it does have alot of improvements though, but it has some issues with modified attribute speed, remember the goal of the anticheat is to work on ALL minecraft versions.
 
 @Experimental
 public class SpeedB extends Check {
@@ -43,26 +42,7 @@ public class SpeedB extends Check {
     @Override
     public void handle(PacketReceiveEvent event) {
 
-        if (OtherUtility.isFlying(event.getPacketType())) return;
-
-        if (profile.shouldCancel()
-                || profile.getPlayer().isDead()
-                || !profile.isExempt().isRespawned()
-                || profile.isExempt().isTeleports()
-                || profile.isExempt().vehicle()) {
-            vlBuffer = 0;
-            return;
-        }
-
-        if (profile.getExempt().isReelingIn()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("SpeedB: is Exempting (reelingIn)");
-            return;
-        }
-
-        if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMoveC: is Exempting (Piston Update)");
-            return;
-        }
+        if (!OtherUtility.isFlying(event.getPacketType())) return;
 
         MovementData movementData = profile.getMovementData();
         ActionData actionData = profile.getActionData();
@@ -73,6 +53,28 @@ public class SpeedB extends Check {
         double deltaY = movementData.getDeltaY();
         double deltaXZ = movementData.getDeltaXZ();
         double lastDeltaXZ = movementData.getLastDeltaXZ();
+
+        if (profile.shouldCancel()
+                || profile.getPlayer().isDead()
+                || !profile.isExempt().isRespawned()
+                || profile.isExempt().isTeleports()
+                || profile.isExempt().vehicle()) {
+            vlBuffer = 0;
+            lastMove = new Vector(deltaX, 0.0, deltaZ);
+            return;
+        }
+
+        if (profile.getExempt().isReelingIn()) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("SpeedB: is Exempting (reelingIn)");
+            lastMove = new Vector(deltaX, 0.0, deltaZ);
+            return;
+        }
+
+        if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("SpeedB: is Exempting (Piston Update)");
+            lastMove = new Vector(deltaX, 0.0, deltaZ);
+            return;
+        }
 
         boolean serverGround = movementData.isServerGround();
         boolean clientGround = movementData.isOnGround();
@@ -87,6 +89,7 @@ public class SpeedB extends Check {
         int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
         if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+            lastMove = new Vector(deltaX, 0.0, deltaZ);
             return;
         }
 
@@ -166,7 +169,7 @@ public class SpeedB extends Check {
 
                 if (movementData.isLastOnGround() && !clientGround && deltaY >= 0.0) {
                     float f = (float) (yaw * Math.PI / 180.0F);
-                    compLastMove.add(new Vector(-sin(f) * 0.2, 0.0, cos(f) * 0.2));
+                    compLastMove.add(new Vector(-MathHelper.sin(f) * 0.2, 0.0, MathHelper.cos(f) * 0.2));
                 }
 
                 if (movementData.isLastOnGround()) {
@@ -177,7 +180,10 @@ public class SpeedB extends Check {
                     forceSprint = movementSpeedSP * constant / f3;
                 }
 
-                if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) return;
+                if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
+                    lastMove = new Vector(deltaX, 0.0, deltaZ);
+                    return;
+                }
 
                 double threshold = movingTicks <= 3.0F ? 0.0325D : 0.0116D;
 
@@ -272,7 +278,7 @@ public class SpeedB extends Check {
                             double limit = serverGround ? 0.23D : 0.437D;
 
                             limit += serverGround
-                                    ? SpeedUtilities.getGroundSpeedLimitBonus(profile)
+                                     ? SpeedUtilities.getGroundSpeedLimitBonus(profile)
                                     : SpeedUtilities.getAirSpeedLimitBonus(profile);
 
                             limit += air_iceSpeedBoost;
@@ -280,10 +286,12 @@ public class SpeedB extends Check {
                             int riptideLevel = 0;
                             try {
                                 if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
-                                    Enchantment riptide = Enchantment.RIPTIDE;
-                                    ItemStack main = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer());
-                                    if (main != null && main.containsEnchantment(riptide)) {
-                                        riptideLevel = main.getEnchantmentLevel(riptide);
+                                    Enchantment riptide = Enchantment.getByName("RIPTIDE");
+                                    if (riptide != null) {
+                                        ItemStack main = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer());
+                                        if (main != null && main.containsEnchantment(riptide)) {
+                                            riptideLevel = main.getEnchantmentLevel(riptide);
+                                        }
                                     }
                                 }
                             } catch (Throwable ignored) {
@@ -307,12 +315,13 @@ public class SpeedB extends Check {
                             if (movementData.getSincePredictUpwardsTicks() < 10
                                     || movementData.getSincePredictDownwardsTicks() < 5) {
                                 vlBuffer = Math.max(0.0D, vlBuffer - 0.5D);
+                                lastMove = new Vector(deltaX, 0.0, deltaZ);
                                 return;
                             }
 
                             if (invalid) {
                                 double excess = closest - limit;
-                                bufferAddition = Math.min(4, Math.max(7D, excess * 30D));
+                                bufferAddition = Math.min(4.0D, Math.max(0.5D, excess * 30.0D));
 
                                 if ((vlBuffer += bufferAddition) >= required) {
 
@@ -326,7 +335,7 @@ public class SpeedB extends Check {
                                             + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                             + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
-                                    vlBuffer = Math.max(75D, vlBuffer);
+                                    vlBuffer = Math.min(required + 5.0D, vlBuffer);
                                 }
                             } else {
                                 vlBuffer = Math.max(0.0D, vlBuffer - 0.005D);
@@ -377,29 +386,34 @@ public class SpeedB extends Check {
         long profiler = Profiler.start();
 
         try {
+            boolean exempt = movementData.isNearWater()
+                    || movementData.isNearLava()
+                    || movementData.isNearWebs()
+                    || movementData.isNearClimbable()
+                    || profile.isBouncingOnSlime();
+
             double squaredAccel = accel * 100;
-            boolean exempt = squaredAccel != 0
-                    && !(movementData.isNearWater() || movementData.isNearLava() || movementData.isNearWebs() || movementData.isNearClimbable());
 
             if (deltaYaw > 1.5f
                     && deltaYaw != lastDeltaYaw
-                    && deltaXZ > .15D
+                    && deltaXZ > 0.15D
                     && squaredAccel < 1.0E-5
-                    && exempt) {
+                    && !exempt) {
                 if (increaseBuffer() > 1) {
-
                     String verboseTitle = "Invalid deceleration";
                     String verbose = "deltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
                             + "\nlastDeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaYaw
                             + "\naccel " + MsgType.MAIN_THEME_COLOR.getMessage() + accel
-                            + "\naccel (* 100) " + MsgType.MAIN_THEME_COLOR.getMessage() + squaredAccel
+                            + "\nmdAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + mdAccel
                             + "\nmdAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + mdAccel
                             + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                             + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ;
 
                     fail(verboseTitle, verbose);
                 }
-            } else decreaseBufferBy(0.005);
+            } else {
+                decreaseBufferBy(0.005);
+            }
         } finally {
             Profiler.stop("Speed B (Decel)", profiler);
         }
@@ -428,13 +442,14 @@ public class SpeedB extends Check {
 
         for (float[] floats : KEY_COMBOS) {
             for (boolean sneaking : new boolean[]{false, true}) {
-                float strafe = floats[0];
-                float forward = floats[1];
-                Vector moveFlying = this.moveFlying(strafe, forward, blocking, sneaking, friction);
-                double diffX = Math.abs(move.getX() - moveFlying.getX());
-                double diffZ = Math.abs(move.getZ() - moveFlying.getZ());
-                double[] diffXZ = new double[]{diffX, diffZ};
-                lowestMatch = Math.min(lowestMatch, hypot(diffXZ));
+                for (boolean fastMath : new boolean[]{false, true}) {
+                    float strafe = floats[0];
+                    float forward = floats[1];
+                    Vector moveFlying = this.moveFlying(strafe, forward, blocking, sneaking, friction, fastMath);
+                    double diffX = Math.abs(move.getX() - moveFlying.getX());
+                    double diffZ = Math.abs(move.getZ() - moveFlying.getZ());
+                    lowestMatch = Math.min(lowestMatch, hypot(diffX, diffZ));
+                }
             }
         }
 
@@ -442,7 +457,7 @@ public class SpeedB extends Check {
     }
 
 
-    public Vector moveFlying(float strafe, float forward, boolean blocking, boolean sneaking, float friction) {
+    public Vector moveFlying(float strafe, float forward, boolean blocking, boolean sneaking, float friction, boolean fastMath) {
         if (sneaking) {
             strafe *= 0.3F;
             forward *= 0.3F;
@@ -465,8 +480,9 @@ public class SpeedB extends Check {
             f = friction / f;
             strafe *= f;
             forward *= f;
-            float f1 = sin(profile.getMovementData().getLocation().getYaw() * (float) Math.PI / 180.0F);
-            float f2 = cos(profile.getMovementData().getLocation().getYaw() * (float) Math.PI / 180.0F);
+            float yawRad = profile.getMovementData().getLocation().getYaw() * (float) Math.PI / 180.0F;
+            float f1 = sin(fastMath, yawRad);
+            float f2 = cos(fastMath, yawRad);
             float xAdd = strafe * f2 - forward * f1;
             float zAdd = forward * f2 + strafe * f1;
             return new Vector(xAdd, 0.0F, zAdd);
@@ -476,24 +492,20 @@ public class SpeedB extends Check {
     }
 
 
-    static final float[] SIN_TABLE_FAST = new float[4096];
-    public static boolean fastMath = false;
-    static final float[] SIN_TABLE = new float[65536];
-
     public static float sin(float value) {
-        return fastMath ? SIN_TABLE_FAST[(int)(value * 651.8986F) & 4095] : SIN_TABLE[(int)(value * 10430.378F) & 65535];
+        return MathHelper.sin(value);
     }
 
     public static float cos(float value) {
-        return fastMath ? SIN_TABLE_FAST[(int)((value + (float) (Math.PI / 2)) * 651.8986F) & 4095] : SIN_TABLE[(int)(value * 10430.378F + 16384.0F) & 65535];
+        return MathHelper.cos(value);
     }
 
     public static float sin(boolean fastMath, float value) {
-        return fastMath ? SIN_TABLE_FAST[(int)(value * 651.8986F) & 4095] : SIN_TABLE[(int)(value * 10430.378F) & 65535];
+        return MathHelper.sin(value, fastMath);
     }
 
     public static float cos(boolean fastMath, float value) {
-        return fastMath ? SIN_TABLE_FAST[(int)((value + (float) (Math.PI / 2)) * 651.8986F) & 4095] : SIN_TABLE[(int)(value * 10430.378F + 16384.0F) & 65535];
+        return MathHelper.cos(value, fastMath);
     }
 
 
@@ -508,6 +520,7 @@ public class SpeedB extends Check {
     }
 
     public static float sqrt_float(float value) {
-        return (float)Math.sqrt(value);
+        return MathHelper.sqrt_float(value);
     }
 }
+

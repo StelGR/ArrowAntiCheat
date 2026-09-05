@@ -44,18 +44,19 @@ public class GroundA extends Check {
 
                 boolean invalid2 = !serverGround2 && clientGround && movementData.getCustomAirTicks() != 0;
 
-                boolean invalid1 = !serverGround && !clientGround && movementData.isCustomInAir() && movementData.getClientAirTicks() == 0 && movementData.getServerAirTicks() > 3 && (movementData.getCustomAirTicks() == 1 || movementData.getCustomAirTicks() > 5);
+                boolean invalid1 = !serverGround && !clientGround
+                        && movementData.isCustomInAir()
+                        && movementData.getClientAirTicks() == 0
+                        && movementData.getServerAirTicks() > 3
+                        && (movementData.getCustomAirTicks() == 1 || movementData.getCustomAirTicks() > 5);
 
                 boolean invalid3 = serverGround != clientGround
                         && !movementData.isNearWater()
                         && !movementData.isNearLava()
                         && movementData.getSincePredictUpwardsTicks() > 10
+                        && movementData.getSincePredictDownwardsTicks() > 10
                         && !profile.getActionData().hasRecentUnderPlaceSupport(10 + (profile.getConnectionData().getClientTickTrans() * 2))
-                        && movementData.getSincePredictDownwardsTicks() < 10
-                        && movementData.getSincePredictUpwardsTicks() < 10
                         && !profile.isBedrockPlayer();
-
-
 
                 if (invalid1 || invalid2
                         || invalid3
@@ -72,7 +73,7 @@ public class GroundA extends Check {
                                         + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
                                         + "\nserverAirTicks (2) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks());
                     }
-                } else decreaseBufferBy(0.025);
+                } else decreaseBufferBy(0.25);
             } finally {
                 Profiler.stop("Ground A (2, 3, 4)", profiler);
             }
@@ -97,8 +98,8 @@ public class GroundA extends Check {
                                 && movementData.getCustomAirTicks() > 1
                         : (!serverGround && clientGround);
 
-                if (invalid) {
-                    if (increaseBuffer() > 1) {
+                if (invalid && movementData.getSincePredictUpwardsTicks() > 10) {
+                    if (increaseBuffer() > 2) {
                         fail("Mismatched ground status (1)",
                                 "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                         + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerYGround()
@@ -108,7 +109,7 @@ public class GroundA extends Check {
                                         + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
                                         + "\nserverAirTicks (2) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks());
                     }
-                } else decreaseBufferBy(0.01);
+                } else decreaseBuffer();
             } finally {
                 Profiler.stop("Ground A (1)", profiler);
             }
@@ -134,9 +135,9 @@ public class GroundA extends Check {
                 || profile.getMovementData().isNearBoat()
                 || profile.isExempt().isTeleports()
                 || movementData.isNearWebs()
-                || movementData.isNearShulkerBox()
                 || movementData.isNearClimbable()
                 || movementData.isNearGhast()
+                || movementData.isNearShulkerBox()
                 || movementData.isNearShulker()
                 || movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
                 || movementData.getSinceCollideTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
@@ -160,6 +161,8 @@ public class GroundA extends Check {
 
         if (movementData.isOnBoat()
                 || movementData.isNearBoat()
+                || movementData.isNearShulkerBox()
+                || movementData.isNearShulker()
                 || movementData.isNearGhast()) {
             ChatUtils.debugExempt("boat/ghast", "GroundA");
             return true;

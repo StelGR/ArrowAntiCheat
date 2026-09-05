@@ -51,7 +51,9 @@ public class AutoClickerB2 extends Check{
                     if (std <= 0.45) {
                         if (increaseBuffer() > 3) {
                             fail("Consistent clicks (2)",
-                                    "std " + MsgType.MAIN_THEME_COLOR.getMessage() + std);
+                                    "std " + MsgType.MAIN_THEME_COLOR.getMessage() + std
+                                            + "\ncps " +  MsgType.MAIN_THEME_COLOR.getMessage() + profile.getCombatData().getCurrentCps()
+                                            + "\nbuffer " +  MsgType.MAIN_THEME_COLOR.getMessage() + getBuffer());
                         }
                     } else {
                         decreaseBufferBy(0.5);

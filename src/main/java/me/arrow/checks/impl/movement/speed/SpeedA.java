@@ -31,6 +31,8 @@ import org.bukkit.util.Vector;
 
 // update 107-pre3, jump height has been somewhat been fixed
 
+// Update 108-pre1, dynamic slime and underblock and ice speed limit has been changed to a hard coded limit, like the rest of the check, more improvement is needed
+
 public class SpeedA extends Check {
     public SpeedA(Profile profile) {
         super(profile, CheckType.SPEED, "A", "Checks if the player is following vanilla speed");
@@ -100,9 +102,6 @@ public class SpeedA extends Check {
             double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
             if (movementData.isInsideWater()) allowedLimit += depthStriderBoost; // apply always if in water
 
-
-            allowedLimit += movementData.getDolphinGraceBoost();
-
             if (movementData.getSinceCollideTicks() < 12 + profile.getConnectionData().getClientTickTrans()) {
                 allowedLimit += 0.0275;
             }
@@ -111,14 +110,14 @@ public class SpeedA extends Check {
             allowedLimit += movementData.getDolphinGraceBoost();
             allowedLimit += movementData.isColliding() ? 0.05 : 0;
 
-            int ghostLiquidWebTicks = Math.min(
-                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-            );
-
-            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-                allowedLimit += 0.2;
-            }
+//            int ghostLiquidWebTicks = Math.min(
+//                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+//                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+//            );
+//
+//            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+//                allowedLimit += 0.2;
+//            }
 
             //if (profile.isSwimming() && movementData.isNearWater()) allowedLimit += 0.137;
 
@@ -200,29 +199,33 @@ public class SpeedA extends Check {
     final double SPRINT_BASE_SPEED = 0.22301212D;
     final double NO_SPRINT_BASE_SPEED = 0.25301212D;
 
-    final double AIR_HONEY_INCREMENT_PER_TICK = 0.0021;
-
-    final double AIR_MAX_HONEY_SPEED_BOOST = 1.1;
-
     private long lastDecayTick = -1L;
+
+    String airLimitDebug;
 
     public void calculateAir(MovementData movementData, float movingIceTicks, double movingSlimeTicks, int movingHoneyTicks, float underBlockMoveTime, double velocityH, double deltaY, double deltaXZ, int clientAirTicks, boolean clientGround, boolean serverGround) {
         long profiler = Profiler.start();
 
         try {
+            airLimitDebug = "default";
             int speedLevel = SpeedUtilities.getSpeedPotionLevel(profile);
-
-            double air_honeySpeedBoost = Math.min(AIR_HONEY_INCREMENT_PER_TICK * movingHoneyTicks, AIR_MAX_HONEY_SPEED_BOOST);
             double expectedSpeed = SpeedUtilities.computeAirLimit(profile, AIR_BASE_SPEED);
-
             int soulSpeedLevel = SpeedUtilities.getSoulSpeedLevel(profile);
 
             if (soulSpeedLevel > 0 && movementData.getMovingOnSoulBlocksTicks() > 0) {
                 expectedSpeed += soulSpeedLevel * 0.075D;
+                airLimitDebug += ", soulSpeed";
             }
 
-            expectedSpeed += expectedSpeed * (air_honeySpeedBoost);
-            if (movementData.getSinceSpeedPotionEffectTicks() < 15) expectedSpeed += 0.05;
+            if (movingHoneyTicks > 0) {
+                expectedSpeed += 0.125;
+                airLimitDebug += ", movingOnHoneyTicks";
+            }
+
+            if (movementData.getSinceSpeedPotionEffectTicks() < 15 && movementData.getSinceSpeedPotionEffectTicks() > 0) {
+                expectedSpeed += 0.05;
+                airLimitDebug += ", sincePotionEffectTicks < 15";
+            }
             VelocityData vd = profile.getVelocityData();
 
             double explosionH = 0.0;
@@ -236,6 +239,7 @@ public class SpeedA extends Check {
 
             if (vd.getVelocityTicks() == 1) {
                 expectedSpeed += 0.03;
+                airLimitDebug += ", velocityTick 1";
             }
 
             double explosionComponent = 0.0;
@@ -245,25 +249,45 @@ public class SpeedA extends Check {
 
             expectedSpeed += kbComponent + explosionComponent;
 
-            double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
-            if (movementData.isInsideWater()) expectedSpeed += depthStriderBoost;
+            if (kbComponent > 0) {
+                airLimitDebug += ", velocity";
+            }
 
-            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 15 + profile.getConnectionData().getClientTickTrans();
+            if (explosionComponent > 0) {
+                airLimitDebug += ", explosionVelocity";
+            }
+
+            double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
+            if (movementData.isInsideWater()) {
+                expectedSpeed += depthStriderBoost;
+                airLimitDebug += ", depthStriderBoost";
+            }
+
+            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2);
 
             if (currentlyRiptiding) {
-                double riptideCap = 3.75 + (1.5 * profile.getPredictionData().riptideLevel());
+                double riptideCap = 0.25 + (0.75 * profile.getPredictionData().riptideLevel());
+
+                if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
+                if (movementData.isInsideWater()) riptideCap += 1;
+
+                if (movementData.getSinceRiptidingTicks() > 10) riptideCap /= 2;
+
                 expectedSpeed += riptideCap;
+                airLimitDebug += ", riptide";
             }
 
             double maxJumpHeight = MoveUtils.getJumpMotion(profile);
 
             if (isVanillaJumpStart(deltaY, maxJumpHeight, clientAirTicks)) {
                 expectedSpeed = applyAfterJumpAllowance(expectedSpeed, speedLevel);
+                airLimitDebug += ", firstTickJump";
             }
 
             double expected = -0.0784000015258789D;
             if (Math.abs(deltaY - expected) < 1E-6 && clientAirTicks == 1) {
                 expectedSpeed += speedLevel > 0 ? (0.06125 + (0.008D * speedLevel)) : 0.06125;
+                airLimitDebug += ", 2ndTickJump";
             }
 
             double expected2 = 0.33319999363422426D;
@@ -271,6 +295,7 @@ public class SpeedA extends Check {
             if (clientAirTicks == 2 && Math.abs(deltaY - expected2) < 1E-6) {
                 expectedSpeed += speedLevel > 0 ? (0.002 + (0.008D * speedLevel)) : 0.01081;
                 expectedSpeed += movementData.getSincePredictUpwardsTicksWithoutMaterial() <= 7 ? 0.013 : 0;
+                airLimitDebug += ", 3rdTickJump";
             }
 
             double expected3 = 0.24813599859094637D;
@@ -278,64 +303,75 @@ public class SpeedA extends Check {
             if (clientAirTicks == 3 && Math.abs(deltaY - expected3) < 1E-6) {
                 expectedSpeed += speedLevel > 0 ? (0.007 + (0.008D * speedLevel)) : 0.007;
                 expectedSpeed += movementData.getSincePredictUpwardsTicksWithoutMaterial() <= 7 ? 0.00925 : 0;
+                airLimitDebug += ", 4thTickJump";
             }
 
             if (movementData.getSinceMovingOnIceTicks() < 20 || movementData.getSinceMovingOnSlimeTicks() < 20) {
                 expectedSpeed += 0.01D;
+                airLimitDebug += ", 20TicksSinceIce/Slime";
             }
 
             if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                 expectedSpeed += 0.125;
+                airLimitDebug += ", sinceEntityPush";
             }
 
             if (movementData.getSinceMovingOnIceTicks() > 0 && movementData.getSinceMovingOnIceTicks() < 120) {
                 expectedSpeed += 0.003;
+                airLimitDebug += ", movingOnIce";
             }
 
             if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 expectedSpeed += 0.005;
+                airLimitDebug += ", blockCancel";
             }
 
             if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
                 expectedSpeed += 0.004;
+                airLimitDebug += ", jumpBoost";
             }
 
             PotionData potions = profile.getPotionData();
 
-
-
             if (movingSlimeTicks > 0 && movementData.getLastFallDistance() > 1) {
                 expectedSpeed += 0.3;
+                airLimitDebug += ", movingSlimeBig";
             } else if (movingSlimeTicks > 0 && movementData.getLastFallDistance() < 1) {
                 expectedSpeed += 0.08;
+                airLimitDebug += ", movingSlimeSmall";
             }
 
             if (underBlockMoveTime > 0) {
                 expectedSpeed += potions.isHasSpeed() ? 0.36 : 0.31;
+                airLimitDebug += ", underBlock";
             }
 
             if (movingIceTicks > 0 && !potions.isHasSpeed()) {
                 expectedSpeed += 0.35;
+                airLimitDebug += ", movingIce";
             }
 
             if (movingIceTicks > 0 && underBlockMoveTime > 0) {
                 expectedSpeed += 0.23745;
+                airLimitDebug += ", movingIce + underBlock";
             }
 
             expectedSpeed += movementData.elytraMomentum();
             expectedSpeed += movementData.getDolphinGraceBoost();
 
-            int ghostLiquidWebTicks = Math.min(
-                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-            );
-
-            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-                expectedSpeed += 0.2;
-            }
+//            int ghostLiquidWebTicks = Math.min(
+//                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+//                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+//            );
+//
+//            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
+//                expectedSpeed += 0.2;
+//                airLimit += ", physicsCancel";
+//            }
 
             if (movementData.getSincePredictUpwardsTicks() < 10) {
                 expectedSpeed += 0.03;
+                airLimitDebug += ", predictUpwards";
             }
 
             String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()
@@ -366,8 +402,9 @@ public class SpeedA extends Check {
                     + "* isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* expectedSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedSpeed + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* elytraMomentumBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.elytraMomentum() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* dolhinGraceMomentumBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDolphinGraceBoost() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (expectedSpeed - deltaXZ);
+                    + "* dolhinGraceMomentumBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDolphinGraceBoost()
+                    + "\n" + MsgType.SECOND_THEME_COLOR.getMessage() + "* airTickAdditions " + MsgType.MAIN_THEME_COLOR.getMessage() + airLimitDebug
+                    + "\n" + MsgType.SECOND_THEME_COLOR.getMessage() + "* difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (expectedSpeed - deltaXZ);
 
             if (deltaXZ != 0 && !serverGround) {
                 verbose(this.getClass().getSimpleName(), deltaXZ, expectedSpeed, format);
@@ -418,7 +455,7 @@ public class SpeedA extends Check {
                 double difference = deltaXZ - expectedSpeed;
                 double bufferAmount = 3;
 
-                if (difference > 0.7) bufferAmount = 1;
+                if (difference > 0.7) bufferAmount = 0;
                 if (++airBuffer > bufferAmount) {
                     fail("Speed limit exceeded (Air)",
                             "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
@@ -436,7 +473,7 @@ public class SpeedA extends Check {
                     airBuffer = Math.max(8, airBuffer);
                 }
 
-            } else airBuffer = Math.max(0, airBuffer - 0.005D);
+            } else airBuffer = Math.max(0, airBuffer - 0.05D);
         } finally {
             Profiler.stop("Speed A (Air)", profiler);
         }
@@ -490,12 +527,6 @@ public class SpeedA extends Check {
 
         if (profile.getExempt().isReelingIn()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - reelingIn");
-            return true;
-        }
-
-        if (movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - isRiptiding");
-            groundBuffer = 0;
             return true;
         }
 
