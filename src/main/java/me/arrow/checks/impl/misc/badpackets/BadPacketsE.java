@@ -3,22 +3,20 @@ package me.arrow.checks.impl.misc.badpackets;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.player.DiggingAction;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
+import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
-
-// i think the way i did this, may or may not work...
+import me.arrow.utils.customutils.OtherUtility;
 
 @Experimental
 public class BadPacketsE extends Check {
     public BadPacketsE(Profile profile) {
-        super(profile, CheckType.BADPACKETS, "E", "Checks if the player is sending movement packets");
+        super(profile, CheckType.BADPACKETS, "E", "Checks if the player is sending actions without movement packets");
     }
 
-    int streak;
+    private int streak;
 
     @Override
     public void handle(PacketSendEvent event) {
@@ -27,22 +25,26 @@ public class BadPacketsE extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
             streak = 0;
+            return;
         }
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)) {
-            if (profile.getVehicleData().getSinceVehicleTicks() > 1
-                    && !profile.shouldCancel()
-                    && !profile.isExempt().isTeleports()) {
+
+        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)
+                || event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
+
+            if (profile.shouldCancel()
+                    || profile.isExempt().isTeleports()
+                    || profile.isExempt().isDead()
+                    || (profile.getVehicleData() != null && profile.getVehicleData().getSinceVehicleTicks() < 20)) {
                 streak = 0;
+                return;
             }
 
-            if (++streak > 21) {
-                fail("Did not send position packet","(No Debug Provided)");
+            if (++streak > 23) {
+                fail("Attacking/Interacting without sending a position packet",
+                        "Streak: " + MsgType.MAIN_THEME_COLOR.getMessage() + streak);
             }
         }
-
     }
 }

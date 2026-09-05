@@ -1,11 +1,5 @@
 package me.arrow.playerdata.cache;
 
-import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.player.ClientVersion;
-import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
 import lombok.Getter;
 import me.arrow.platform.PlatformBackend;
 import me.arrow.utils.custom.CustomLocation;
@@ -49,7 +43,8 @@ public class ChunkCache {
 
     /**
      * Cache all currently loaded chunks across all worlds.
-     * Called on plugin enable on the main thread.
+     * Called on plugin enable. Collects chunk references on the calling thread,
+     * then processes them asynchronously to avoid blocking server startup.
      */
     public void cacheAllLoadedChunks() {
         if (PlatformBackend.get().isFabric()) {
@@ -63,29 +58,45 @@ public class ChunkCache {
                 return;
             }
 
+            // Collect chunk references on the main thread (required by Bukkit API)
+            java.util.List<Chunk> allChunks = new java.util.ArrayList<>();
             for (World world : PlatformBackend.get().getServer().getWorlds()) {
                 if (world == null) continue;
                 Chunk[] loaded = world.getLoadedChunks();
                 if (loaded == null) continue;
-
-                for (Chunk chunk : loaded) {
-                    cacheBukkitChunk(chunk);
-                }
+                java.util.Collections.addAll(allChunks, loaded);
             }
+
+            if (allChunks.isEmpty()) {
+                this.initialized = true;
+                return;
+            }
+
+            // Process the chunks asynchronously to avoid blocking the main thread
+            me.arrow.utils.TaskUtils.taskAsync(() -> {
+                try {
+                    for (Chunk chunk : allChunks) {
+                        cacheBukkitChunk(chunk);
+                    }
+                } catch (Throwable ignored) {
+                } finally {
+                    this.initialized = true;
+                }
+            });
         } catch (Throwable ignored) {
-        } finally {
             this.initialized = true;
         }
     }
 
     /**
      * Cache a single Bukkit chunk using its fast ChunkSnapshot.
+     * Skips entirely-air sections via {@code isSectionEmpty()} to avoid
+     * iterating thousands of air blocks unnecessarily.
      */
     public void cacheBukkitChunk(Chunk chunk) {
         if (chunk == null) return;
         try {
             World world = chunk.getWorld();
-
             int cx = chunk.getX();
             int cz = chunk.getZ();
             int minY = getWorldMinY(world);
@@ -95,40 +106,80 @@ public class ChunkCache {
 
             try {
                 ChunkSnapshot snapshot = chunk.getChunkSnapshot(false, false, false);
-                for (int y = minY; y <= maxY; y++) {
-                    for (int x = 0; x < 16; x++) {
-                        for (int z = 0; z < 16; z++) {
-                            Material type = snapshot.getBlockType(x, y, z);
-                            if (type != Material.AIR) {
-                                cached.set(x, y, z, type);
-                                if (type.name().contains("WATER")) {
-                                    cached.setWaterlogged(x, y, z, true);
-                                }
-                            }
-                        }
-                    }
-                }
+                cacheFromSnapshot(snapshot, cached, minY, maxY);
             } catch (Throwable t) {
-                // Fallback: block-by-block if snapshot fails
-                for (int y = minY; y <= maxY; y++) {
-                    for (int x = 0; x < 16; x++) {
-                        for (int z = 0; z < 16; z++) {
-                            Block b = chunk.getBlock(x, y, z);
-                            Material type = b.getType();
-                            if (type != Material.AIR) {
-                                cached.set(x, y, z, type);
-                                if (type.name().contains("WATER")) {
-                                    cached.setWaterlogged(x, y, z, true);
-                                }
-                            }
-                        }
-                    }
-                }
+                // Fallback: block-by-block if snapshot fails (very old servers)
+                cacheFromBlocks(chunk, cached, minY, maxY);
             }
 
             putChunk(world.getName(), cx, cz, cached);
         } catch (Throwable ignored) {
         }
+    }
+
+    /**
+     * Fast path: iterate only non-empty sections of a ChunkSnapshot.
+     * Each section covers a 16-block vertical slice (sectionY = y >> 4).
+     */
+    private void cacheFromSnapshot(ChunkSnapshot snapshot, CachedChunk cached, int minY, int maxY) {
+        int minSection = minY >> 4;
+        int maxSection = maxY >> 4;
+
+        for (int sectionY = minSection; sectionY <= maxSection; sectionY++) {
+            // Skip entirely-air sections — avoids 4096 iterations per empty section
+            try {
+                if (snapshot.isSectionEmpty(sectionY)) continue;
+            } catch (Throwable ignored) {
+                // isSectionEmpty() may not exist on very old Bukkit versions; proceed anyway
+            }
+
+            int baseY = sectionY << 4;
+            int startY = Math.max(baseY, minY);
+            int endY = Math.min(baseY + 15, maxY);
+
+            for (int y = startY; y <= endY; y++) {
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        Material type = snapshot.getBlockType(x, y, z);
+                        if (type != Material.AIR) {
+                            cached.set(x, y, z, type);
+                            if (isWaterMaterial(type)) {
+                                cached.setWaterlogged(x, y, z, true);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Slow fallback: iterate block-by-block directly from the chunk.
+     * Used only when ChunkSnapshot is unavailable (e.g. very old server versions).
+     */
+    private void cacheFromBlocks(Chunk chunk, CachedChunk cached, int minY, int maxY) {
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    Block b = chunk.getBlock(x, y, z);
+                    Material type = b.getType();
+                    if (type != Material.AIR) {
+                        cached.set(x, y, z, type);
+                        if (isWaterMaterial(type)) {
+                            cached.setWaterlogged(x, y, z, true);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Quick check if a material name indicates water.
+     * Covers WATER, STATIONARY_WATER, and waterlogged-by-name blocks.
+     */
+    private static boolean isWaterMaterial(Material material) {
+        return material != null && material.name().contains("WATER");
     }
 
     public void putChunk(String worldName, int chunkX, int chunkZ, CachedChunk chunk) {
@@ -149,6 +200,14 @@ public class ChunkCache {
         if (map != null) {
             map.remove(chunkKey(chunkX, chunkZ));
         }
+    }
+
+    /**
+     * Evict all cached chunks for a world (e.g. on WorldUnloadEvent).
+     */
+    public void removeWorld(String worldName) {
+        if (worldName == null) return;
+        worldChunks.remove(worldName);
     }
 
     public void clear() {
@@ -202,14 +261,15 @@ public class ChunkCache {
         return getBlock(location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 
+    /**
+     * Returns true if this chunk has been sent to the client (i.e. exists in the cache).
+     * Uses only the packet-driven cache — NOT Bukkit's world.isChunkLoaded() — because
+     * the anticheat cares about what the client can see, not the server-side load state.
+     * Populated by CHUNK_DATA packets, evicted by UNLOAD_CHUNK packets.
+     */
     public boolean isChunkLoaded(World world, int chunkX, int chunkZ) {
         if (world == null) return false;
-        if (getChunk(world.getName(), chunkX, chunkZ) != null) return true;
-        try {
-            return world.isChunkLoaded(chunkX, chunkZ);
-        } catch (Throwable ignored) {
-            return false;
-        }
+        return getChunk(world.getName(), chunkX, chunkZ) != null;
     }
 
     public boolean isChunkLoaded(CustomLocation location) {
@@ -222,53 +282,6 @@ public class ChunkCache {
         return isChunkLoaded(location.getWorld(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
     }
 
-    /**
-     * Process outgoing server packets to update the chunk cache.
-     * Strictly ignores client packets (since clients can spoof block placement).
-     */
-    public void processServerPacket(PacketSendEvent event, World world) {
-        if (event == null || world == null) return;
-
-        try {
-            if (event.getPacketType().equals(PacketType.Play.Server.BLOCK_CHANGE)) {
-                WrapperPlayServerBlockChange wrapper = new WrapperPlayServerBlockChange(event);
-                int x = wrapper.getBlockPosition().getX();
-                int y = wrapper.getBlockPosition().getY();
-                int z = wrapper.getBlockPosition().getZ();
-
-                WrappedBlockState state = wrapper.getBlockState();
-                Material material = PEMaterials.materialFromState(state.getType());
-                if (material != null) {
-                    setBlock(world, x, y, z, material);
-                    boolean isWl = PEMaterials.isWaterlogged(state) || material.name().contains("WATER");
-                    setWaterLogged(world, x, y, z, isWl);
-                }
-                return;
-            }
-
-            if (event.getPacketType().equals(PacketType.Play.Server.MULTI_BLOCK_CHANGE)) {
-                WrapperPlayServerMultiBlockChange wrapper = new WrapperPlayServerMultiBlockChange(event);
-
-                for (WrapperPlayServerMultiBlockChange.EncodedBlock block : wrapper.getBlocks()) {
-                    int x = block.getX();
-                    int y = block.getY();
-                    int z = block.getZ();
-
-                    try {
-                        WrappedBlockState state = block.getBlockState(ClientVersion.UNKNOWN);
-                        Material material = PEMaterials.materialFromState(state.getType());
-                        if (material != null) {
-                            setBlock(world, x, y, z, material);
-                            boolean isWl = PEMaterials.isWaterlogged(state) || material.name().contains("WATER");
-                            setWaterLogged(world, x, y, z, isWl);
-                        }
-                    } catch (Throwable ignored) {
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-    }
 
     private static Method WORLD_GET_MIN_HEIGHT;
     private static Method WORLD_GET_MAX_HEIGHT;
@@ -351,66 +364,70 @@ public class ChunkCache {
     // ==========================================
 
     public static class CachedChunk {
+        // Covers sectionY -4 (Y=-64, 1.18+) through 23 (Y=383, theoretical max).
+        // 1.7–1.17 worlds use sectionY 0–15, 1.18+ worlds use -4–19.
+        // Any sectionY outside this range (exotic modded worlds) is silently ignored.
+        private static final int SECTION_OFFSET = 4;
+        private static final int SECTION_COUNT  = 28; // indices 0..27 = sectionY -4..23
+
         int chunkX;
         int chunkZ;
-        // Dynamically keyed by sectionY = (y >> 4), perfectly supporting ANY world height (-2048 to 4092+)
-        private final Map<Integer, CachedSection> sections = new ConcurrentHashMap<>();
+        private final CachedSection[] sections = new CachedSection[SECTION_COUNT];
 
         public CachedChunk(int chunkX, int chunkZ) {
             this.chunkX = chunkX;
             this.chunkZ = chunkZ;
         }
 
+        /** Returns true if the section array index for the given sectionY is valid. */
+        private static boolean validIndex(int idx) {
+            return idx >= 0 && idx < SECTION_COUNT;
+        }
+
         public Material get(int relX, int y, int relZ) {
-            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) {
-                return Material.AIR;
-            }
-            int sectionY = y >> 4;
-            CachedSection sec = sections.get(sectionY);
+            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) return Material.AIR;
+            int idx = (y >> 4) + SECTION_OFFSET;
+            if (!validIndex(idx)) return Material.AIR;
+            CachedSection sec = sections[idx];
             return sec != null ? sec.get(relX, y & 15, relZ) : Material.AIR;
         }
 
         public void set(int relX, int y, int relZ, Material material) {
-            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) {
-                return;
-            }
-            int sectionY = y >> 4;
+            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) return;
+            int idx = (y >> 4) + SECTION_OFFSET;
+            if (!validIndex(idx)) return;
 
             if (material == null || material == Material.AIR) {
-                CachedSection sec = sections.get(sectionY);
-                if (sec != null) {
-                    sec.set(relX, y & 15, relZ, Material.AIR);
-                }
+                CachedSection sec = sections[idx];
+                if (sec != null) sec.set(relX, y & 15, relZ, Material.AIR);
                 return;
             }
 
-            CachedSection sec = sections.computeIfAbsent(sectionY, k -> new CachedSection());
-            sec.set(relX, y & 15, relZ, material);
+            if (sections[idx] == null) sections[idx] = new CachedSection();
+            sections[idx].set(relX, y & 15, relZ, material);
         }
 
         public boolean isWaterlogged(int relX, int y, int relZ) {
-            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) {
-                return false;
-            }
-            int sectionY = y >> 4;
-            CachedSection sec = sections.get(sectionY);
+            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) return false;
+            int idx = (y >> 4) + SECTION_OFFSET;
+            if (!validIndex(idx)) return false;
+            CachedSection sec = sections[idx];
             return sec != null && sec.isWaterlogged(relX, y & 15, relZ);
         }
 
         public void setWaterlogged(int relX, int y, int relZ, boolean waterlogged) {
-            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) {
-                return;
-            }
-            int sectionY = y >> 4;
+            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) return;
+            int idx = (y >> 4) + SECTION_OFFSET;
+            if (!validIndex(idx)) return;
+
             if (!waterlogged) {
-                CachedSection sec = sections.get(sectionY);
-                if (sec != null) {
-                    sec.setWaterlogged(relX, y & 15, relZ, false);
-                }
+                CachedSection sec = sections[idx];
+                if (sec != null) sec.setWaterlogged(relX, y & 15, relZ, false);
                 return;
             }
-            CachedSection sec = sections.computeIfAbsent(sectionY, k -> new CachedSection());
-            sec.setWaterlogged(relX, y & 15, relZ, true);
+
+            if (sections[idx] == null) sections[idx] = new CachedSection();
+            sections[idx].setWaterlogged(relX, y & 15, relZ, true);
         }
     }
 

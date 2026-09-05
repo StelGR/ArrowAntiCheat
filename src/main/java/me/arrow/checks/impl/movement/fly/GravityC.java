@@ -60,6 +60,7 @@ public class GravityC extends Check {
                     || profile.getExempt().isVehicle()
                     || profile.shouldCancel()
                     || profile.getTick() < 120
+                    || movementData.getGlidingTicks() > 0
                     || (movementData.getNearbyBlocksResult() != null
                     && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
                     || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)

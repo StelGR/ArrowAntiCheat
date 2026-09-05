@@ -106,7 +106,9 @@ public class SpeedUtilities {
     public static int getDepthStriderLevel(Profile profile) {
         try {
             ItemStack boots = profile.getPlayer().getInventory().getBoots();
-            return (boots != null && boots.hasItemMeta()) ? boots.getEnchantmentLevel(Enchantment.DEPTH_STRIDER) : 0;
+            if (boots == null || !boots.hasItemMeta()) return 0;
+            Enchantment ds = Enchantment.getByName("DEPTH_STRIDER");
+            return ds != null ? boots.getEnchantmentLevel(ds) : 0;
         } catch (Throwable ignored) {
             return 0;
         }

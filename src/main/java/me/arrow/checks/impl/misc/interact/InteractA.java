@@ -41,7 +41,7 @@ public class InteractA extends Check {
 
             this.lastDelta = delta;
 
-            if (delta > 5L && delta != lastDelta) this.samples.add(delta);
+            if (delta > 5L && lastDelta > 5L) this.samples.add(delta);
 
             if (!this.samples.isCollected()) return;
 
@@ -49,12 +49,12 @@ public class InteractA extends Check {
 
             final double average = getAverageLong(this.samples);
 
-            if (deviation > 0D && deviation < 3.75D && average < 65D) {
+            if (deviation < 4D && average < 65D) {
                 fail("Placing too quickly",
                         "deviation " + MsgType.MAIN_THEME_COLOR.getMessage() + deviation
                                 + "\naverage " + MsgType.MAIN_THEME_COLOR.getMessage() + average
                                 + "\ndelta " + MsgType.MAIN_THEME_COLOR.getMessage() + delta
-                                + "\nlastDelta " + MsgType.MAIN_THEME_COLOR.getMessage() + delta);
+                                + "\nlastDelta " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDelta);
             }
         }
     }

@@ -45,7 +45,7 @@ public class InventoryA extends Check {
 
             this.lastDelta = delta;
 
-            this.samples.add(delta);
+            if (delta > 5L && lastDelta > 5L) this.samples.add(delta);
 
             if (!this.samples.isCollected()) return;
 
@@ -73,6 +73,8 @@ public class InventoryA extends Check {
                 fail("Impossible inventory clicks",
                         verboseInfo);
             }
+
+            samples.clear();
         }
     }
 

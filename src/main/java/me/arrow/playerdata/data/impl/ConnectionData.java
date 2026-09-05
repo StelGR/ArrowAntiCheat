@@ -32,6 +32,8 @@ public class ConnectionData implements Data {
     private final Profile profile;
     private final List<Integer> pingList = new ArrayList<>();
     private long transactionStamp;
+    private boolean lastTransactionAccepted = false;
+    private long lastAcceptedTransactionStamp = 0L;
 
     public ConnectionData(Profile profile) {
         this.profile = profile;
@@ -85,8 +87,12 @@ public class ConnectionData implements Data {
         }
 
         if (sentTime == null) {
+            lastTransactionAccepted = false;
             return;
         }
+
+        lastTransactionAccepted = true;
+        lastAcceptedTransactionStamp = System.currentTimeMillis();
 
         if (!profileT.isHasReceivedTransaction()) {
             transactionStamp = sentTime;

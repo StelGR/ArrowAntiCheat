@@ -107,7 +107,7 @@ public class MovementData implements Data {
     int clientAirTicks, serverAirTicks, serverGroundTicks, serverGroundTicksPlus, lastServerGroundTicks, nearGroundTicks, lastNearGroundTicks,
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
-            customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
+            customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, glidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
             sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, sinceSlowFallingEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks, sinceMovingUnderBlockTicks;
 
     @Getter
@@ -496,10 +496,7 @@ public class MovementData implements Data {
 
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lower = CollisionUtils.getNearbyBlocks(this.lastLocation, async);
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult_lowest = CollisionUtils.getNearbyBlocks(this.lastLastLocation, async);
-            nearPowderSnow = containsMaterial(nearbyBlocksResult.getBlockTypes(), POWDER_SNOW);
-            boolean onIce0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, ICE);
-            boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, ICE);
-            boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, ICE);
+
 
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResultBelow_lower =
                     CollisionUtils.getNearbyBlocks(this.lastLocation.clone().subtract(0, 1, 0), async);
@@ -538,6 +535,9 @@ public class MovementData implements Data {
             final CollisionUtils.NearbyBlocksResult nearbyBlocksBelow2 =
                     CollisionUtils.getNearbyBlocks(loc1.clone().subtract(0, 2, 0), async);
 
+            boolean onIce0 = CollisionUtils.isStandingOnMaterial(loc1, nearbyBlocksResult, ICE);
+            boolean onIce1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, ICE);
+            boolean onIce2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, ICE);
 
             boolean slimeBelow0 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultLow, SLIME);
             boolean slimeBelow1 = CollisionUtils.isStandingOnSlime(loc1, nearbyBlocksResultBelow_lower, SLIME);
@@ -569,6 +569,8 @@ public class MovementData implements Data {
             boolean onHoney1 = CollisionUtils.isStandingOnMaterial(this.lastLocation, nearbyBlocksResult_lower, HONEY);
             boolean onHoney2 = CollisionUtils.isStandingOnMaterial(this.lastLastLocation, nearbyBlocksResult_lowest, HONEY);
 
+            nearPowderSnow = containsMaterial(nearbyBlocksResult.getBlockTypes(), POWDER_SNOW);
+
             nearSoulBlock = (onSoulBlock0 || onSoulBlock1 || onSoulBlock2);
             onIce = onIce0 || onIce1 || onIce2;
             onSlime = onSlime0 || onSlime1 || onSlime2;
@@ -582,6 +584,9 @@ public class MovementData implements Data {
                             || containsMaterial(nearbyBlocksResultLow.getBlockTypes(), PISTON)
                             || containsMaterial(nearbyBlocksBelow2.getBlockTypes(), PISTON)
                             || containsMaterial(nearbyBlocksResultAbove.getBlockTypes(), PISTON);
+
+            nearShulkerBox = containsMaterial(nearbyBlocksResult.getBlockTypes(), SHULKER)
+                    || containsMaterial(nearbyBlocksResultLow.getBlockTypes(), SHULKER);
 
             List<Material> blockTypes = nearbyBlocksResult.getBlockTypes();
 
@@ -1025,6 +1030,7 @@ public class MovementData implements Data {
 
             sinceCollideTicks = isColliding ? 0 : sinceCollideTicks + 1;
             sinceGlidingTicks = glidingNow ? 0 : sinceGlidingTicks + 1;
+            glidingTicks = glidingNow ? glidingTicks + 1 : 0;
 
             updateElytraMomentum(glidingNow);
 

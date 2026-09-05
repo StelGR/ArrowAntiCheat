@@ -36,7 +36,6 @@ import me.arrow.utils.versionutils.VersionUtils;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
@@ -149,6 +148,9 @@ public class Profile {
 
     boolean verbose = false, alerts = false, banned = false, setbackDebug = false, pingkicked = false;
     String verbosingClass = "None";
+
+    private final PacketRateTracker clientPacketTracker = new PacketRateTracker();
+    private final PacketRateTracker serverPacketTracker = new PacketRateTracker();
     //---------------------------
 
     public Profile(Player player) {
@@ -208,6 +210,8 @@ public class Profile {
 
         if (this.player == null) return;
 
+        this.clientPacketTracker.addPacket();
+
         this.connectionData.processReceive(event);
         this.velocityData.processReceive(event);
         this.actionData.processReceive(event);
@@ -233,6 +237,8 @@ public class Profile {
     public void handleSend(PacketSendEvent event) {
 
         if (this.player == null) return;
+
+        this.serverPacketTracker.addPacket();
 
         this.connectionData.processSend(event);
         this.reachEntityTracker.processSend(event);
@@ -485,6 +491,66 @@ public class Profile {
         }
 
         return player.getName().contains(".");
+    }
+
+    public int getClientPPS() {
+        return clientPacketTracker.getPPS();
+    }
+
+    public int getServerPPS() {
+        return serverPacketTracker.getPPS();
+    }
+
+    public long getTotalClientPackets() {
+        return clientPacketTracker.getTotalPackets();
+    }
+
+    public long getTotalServerPackets() {
+        return serverPacketTracker.getTotalPackets();
+    }
+
+    public static class PacketRateTracker {
+        private final int[] buckets = new int[10];
+        private final long[] bucketTimes = new long[10];
+        private final Object lock = new Object();
+        private long totalPackets = 0;
+
+        public void addPacket() {
+            long now = System.currentTimeMillis();
+            long slot = now / 100L;
+            int idx = (int) (slot % 10);
+
+            synchronized (lock) {
+                totalPackets++;
+                if (bucketTimes[idx] != slot) {
+                    bucketTimes[idx] = slot;
+                    buckets[idx] = 1;
+                } else {
+                    buckets[idx]++;
+                }
+            }
+        }
+
+        public int getPPS() {
+            long now = System.currentTimeMillis();
+            long currentSlot = now / 100L;
+            int total = 0;
+
+            synchronized (lock) {
+                for (int i = 0; i < 10; i++) {
+                    if (currentSlot - bucketTimes[i] < 10) {
+                        total += buckets[i];
+                    }
+                }
+            }
+            return total;
+        }
+
+        public long getTotalPackets() {
+            synchronized (lock) {
+                return totalPackets;
+            }
+        }
     }
 
 }

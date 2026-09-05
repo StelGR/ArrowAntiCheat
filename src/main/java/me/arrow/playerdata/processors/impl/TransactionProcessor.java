@@ -107,8 +107,6 @@ public class TransactionProcessor implements Runnable {
                 kickForTransactionTimeout();
                 return;
             }
-
-            sendCurrentTransaction();
         } catch (Exception e) {
             OtherUtility.log("TransactionProcessor error: " + e.getMessage());
         }
