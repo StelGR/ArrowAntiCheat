@@ -99,7 +99,7 @@ public class SpeedA extends Check {
 
             if (inputDirection.isForwardStrafe()) allowedLimit += DIAGONAL_TOLERANCE;
 
-            if (profile.isBedrockPlayer()) allowedLimit += 0.001;
+            if (profile.isBedrockPlayer()) allowedLimit += 0.0016;
 
             double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
             if (movementData.isInsideWater()) allowedLimit += depthStriderBoost; // apply always if in water
@@ -548,7 +548,7 @@ public class SpeedA extends Check {
 //            return true;
 //        }
 
-        if (movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (movementData.isGlidingOrRecentlyGlided(30)) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - recentlyGliding");
             return true;
         }
@@ -609,7 +609,7 @@ public class SpeedA extends Check {
             return true;
         }
 
-        if (profile.getMovementData().getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (profile.getMovementData().isGlidingOrRecentlyGlided(30)) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - recentlyGliding");
             return true;
         }

@@ -71,6 +71,10 @@ public class PEMaterials {
             new ConcurrentHashMap<>();
     private static final Map<Material, Boolean> NON_FULL_CACHE =
             new ConcurrentHashMap<>();
+    private static final Map<StateType, Material> STATE_TYPE_MATERIAL_CACHE =
+            new ConcurrentHashMap<>(1024);
+    private static final Map<WrappedBlockState, Boolean> WATERLOGGED_CACHE =
+            new ConcurrentHashMap<>(1024);
 
     /*
      * Local voxel boxes are cached by complete block-state string. Connection,
@@ -502,20 +506,27 @@ public class PEMaterials {
 
     public static boolean isWaterlogged(WrappedBlockState state) {
         if (state == null) return false;
+        Boolean cached = WATERLOGGED_CACHE.get(state);
+        if (cached != null) return cached;
+
+        boolean wl = false;
         try {
             Method m = state.getClass().getMethod("isWaterlogged");
             Object res = m.invoke(state);
-            if (res instanceof Boolean) return (Boolean) res;
+            if (res instanceof Boolean) wl = (Boolean) res;
         } catch (Throwable ignored) {}
 
-        try {
-            String str = state.toString();
-            if (str != null && str.contains("waterlogged=true")) {
-                return true;
-            }
-        } catch (Throwable ignored) {}
+        if (!wl) {
+            try {
+                String str = state.toString();
+                if (str != null && str.contains("waterlogged=true")) {
+                    wl = true;
+                }
+            } catch (Throwable ignored) {}
+        }
 
-        return false;
+        WATERLOGGED_CACHE.put(state, wl);
+        return wl;
     }
 
     public static List<CollisionBounds> getCollisionBounds(Material material, int x, int y, int z) {
@@ -1259,10 +1270,21 @@ public class PEMaterials {
         if (type == null) {
             return null;
         }
+        Material cached = STATE_TYPE_MATERIAL_CACHE.get(type);
+        if (cached != null) {
+            return cached;
+        }
 
         String normalized = stateName(type);
         Material material = Material.matchMaterial(normalized);
-        return material != null ? material : Material.matchMaterial("LEGACY_" + normalized);
+        if (material == null) {
+            material = Material.matchMaterial("LEGACY_" + normalized);
+        }
+        if (material == null) {
+            material = Material.AIR;
+        }
+        STATE_TYPE_MATERIAL_CACHE.put(type, material);
+        return material;
     }
 
     private static String toMinecraftKey(Material material) {

@@ -62,7 +62,7 @@ public class MotionD extends Check {
                         || movementData.isNearWater()
                         || movementData.isNearLava()
                         || movementData.isNearClimbable()
-                        || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
+                        || movementData.isGlidingOrRecentlyGlided(30)
                         || profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2))
                         || (profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 10)
                         || profile.getPlayer().isInsideVehicle()) {

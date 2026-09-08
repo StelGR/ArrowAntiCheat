@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import me.arrow.Arrow;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
@@ -12,10 +13,16 @@ import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.OtherUtility;
+import org.bukkit.GameMode;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
+
+import java.util.Locale;
 
 import static me.arrow.utils.customutils.Math.MathUtil.getDevation;
 
@@ -29,9 +36,7 @@ public class ElytraA extends Check {
     }
 
 
-    SampleList<Double> samples = new SampleList<>(10);
-
-    SampleList<Double> fallingSamples = new SampleList<>(30);
+    SampleList<Double> fallingSamples = new SampleList<>(60);
 
     int elytraTicks;
     int rocketBoostTicks;
@@ -40,6 +45,7 @@ public class ElytraA extends Check {
 
     int pitchUpSpeedGainTicks;
     int upwardNoRocketTicks;
+    int unpoweredClimbTicks;
     int sustainedBoostTicks;
 
     double lastElytraDeltaXZ;
@@ -47,6 +53,11 @@ public class ElytraA extends Check {
 
     double terminalBuffer;
     double planeBuffer;
+    double hoverBuffer;
+    double zeroXZBuffer;
+
+    double recentDiveSpeed;
+    int diveTicks;
 
     int possibleRocketUseTicks;
     int rocketInferenceCooldownTicks;
@@ -74,10 +85,12 @@ public class ElytraA extends Check {
                         || profile.isExempt().isTeleports()
                         || profile.isExempt().isDead()
                         || PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8_8)
+                        || movementData.getLocation() == null
+                        || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                         || movementData.getSinceRiptidingTicks() < 30
                         || movementData.getSinceNearWaterTicks() < 10
                         || movementData.isNearLava()
-                        || movementData.getGlidingTicks() < 10
+                        || movementData.getGlidingTicks() < 5
                         || movementData.isNearWater()
                         || movementData.getSinceBubbleTicks() < 15
                         || movementData.getSinceGlidingTicks() > 0
@@ -93,68 +106,71 @@ public class ElytraA extends Check {
                 int airTicks = movementData.getCustomAirTicks();
                 double pitch = profile.getRotationData().getPitch();
 
-                if (inAir && isMoving
-                        && deltaY > -0.4f
-                        && profile.isWearingFunctionalElytra()
-                        && !movementData.isNearLava()) {
-                    if (deltaY != 0) {
-                        samples.add(deltaY);
-
-                        if (samples.isCollected()) {
-                            final double deviation = getDevation(this.samples);
-
-                            if (deviation < 0.6D && deviation > 0.2D && airTicks > 10 && (pitch > 30 || pitch < -30)) fail("Weird Elytra movement",
-                                    "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                            + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                            + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
-                                            + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                            + "\nairTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
-                                            + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLastDeltaY()
-                                            + "\ndeviation " + MsgType.MAIN_THEME_COLOR.getMessage() + deviation);
-                        }
-                    }
-                }
-
                 verbose(this.getClass().getSimpleName(), deltaY, movementData.getDeltaXZ(), "* Verbose\n * deltaXZ: " + movementData.getDeltaXZ()
                         + "\n * deltaY " + deltaY
                         + "\n * lastDeltaY" + movementData.getLastDeltaY()
                 );
 
-
-                if (inAir && !movementData.isUnderblock()) {
+                if (inAir && !movementData.isUnderblock()
+                        && !movementData.isNearWall()
+                        && !movementData.isColliding()
+                        && !movementData.isNearClimbable()
+                        && !movementData.isInsideLiquid()
+                        && !movementData.isNearWebs()
+                        && !movementData.isNearBoat()
+                        && !movementData.isOnBoat()
+                        && !movementData.isNearBed()
+                        && !profile.isBouncingOnSlime()) {
                     if (deltaY == movementData.getLastDeltaY()) {
                         fallingSamples.add(deltaY);
 
                         if (fallingSamples.isCollected()) {
                             final double deviation = getDevation(this.fallingSamples);
 
-                            if (deviation == 0) fail("Invalid Elytra Glide (Not Falling)",
-                                    "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                            + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                            + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
-                                            + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                            + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLastDeltaY()
-                                            + "\ndeviation " + MsgType.MAIN_THEME_COLOR.getMessage() + deviation);
+                            if (deviation == 0) {
+                                if (++hoverBuffer > 3.0D) {
+                                    fail("Invalid Elytra Glide (Hover)",
+                                            "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                                    + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
+                                                    + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                                    + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLastDeltaY()
+                                                    + "\ndeviation " + MsgType.MAIN_THEME_COLOR.getMessage() + deviation);
+                                    hoverBuffer = 0;
+                                }
+                            } else {
+                                hoverBuffer = Math.max(0, hoverBuffer - 0.25D);
+                            }
                         }
+                    } else {
+                        hoverBuffer = Math.max(0, hoverBuffer - 0.05D);
                     }
                 }
 
-                if (inAir && !movementData.isUnderblock()) {
+                if (inAir && !movementData.isUnderblock()
+                        && !movementData.isNearWall()
+                        && !movementData.isColliding()
+                        && !movementData.isNearBlocksSlime()) {
                     if (deltaY != movementData.getLastDeltaY()) {
                         if ((Math.abs(pitch) <= 84) && (pitch > 15 || pitch < -15) && movementData.getDeltaXZ() == 0 && movementData.getLastDeltaXZ() == 0) {
-                            fail("Impossible elytra movement",
-                                    "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                            + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                            + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
-                                            + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaXZ()
-                                            + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                            + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLastDeltaY()
-                                            + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + pitch);
+                            if (++zeroXZBuffer > 3.0D) {
+                                fail("Impossible elytra movement",
+                                        "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                                + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                                + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
+                                                + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaXZ()
+                                                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                                + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLastDeltaY()
+                                                + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + formatPitch(pitch));
+                                zeroXZBuffer = 0;
+                            }
+                        } else {
+                            zeroXZBuffer = Math.max(0, zeroXZBuffer - 0.25D);
                         }
                     }
                 }
 
-                tickElytraState(profile.getPlayer().isGliding());
+                tickElytraState(movementData.isGlidingNow());
 
                 handleDynamicTerminalVelocity(
                         movementData,
@@ -176,7 +192,7 @@ public class ElytraA extends Check {
                                                boolean clientGround,
                                                boolean inAir,
                                                double pitch) {
-        if (!inAir || !profile.getPlayer().isGliding()) {
+        if (!inAir || !movementData.isGlidingNow()) {
             terminalBuffer = Math.max(0, terminalBuffer - 0.25);
             planeBuffer = Math.max(0, planeBuffer - 0.25);
             return;
@@ -187,7 +203,9 @@ public class ElytraA extends Check {
                 || movementData.isNearLava()
                 || movementData.getSinceInsideWaterTicks() <= 10
                 || movementData.getSinceBubbleTicks() <= 15
-                || !profile.isExempt().isTeleports()
+                || profile.isExempt().isTeleports()
+                || movementData.getLocation() == null
+                || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                 || movementData.getSinceRiptidingTicks() < 30
                 || profile.getVelocityData().getTotalHorizontalVelocity() > 0) {
             terminalBuffer = Math.max(0, terminalBuffer - 0.5);
@@ -203,6 +221,16 @@ public class ElytraA extends Check {
         double horizontalAccel = deltaXZ - lastDeltaXZ;
         double verticalAccel = deltaY - lastDeltaY;
 
+        // Track dive speed during downward pitches to support dive-and-climb (swooping)
+        double currentSpeed = Math.hypot(deltaXZ, deltaY);
+        if ((pitch > 10.0D && deltaY < -0.15D) || (pitch > 0.0D && deltaY < -0.35D)) {
+            recentDiveSpeed = Math.max(recentDiveSpeed, currentSpeed);
+            diveTicks++;
+        } else {
+            recentDiveSpeed = Math.max(0.0D, recentDiveSpeed - 0.02D);
+            diveTicks = Math.max(0, diveTicks - 1);
+        }
+
         inferMissedRocketBoost(movementData, pitch);
 
         /*
@@ -213,8 +241,8 @@ public class ElytraA extends Check {
         boolean lookingUp = pitch < -12.5D;
         boolean lookingDown = pitch > 12.5D;
 
-        double allowedHorizontal = getAllowedElytraHorizontalSpeed(pitch, deltaY);
-        double allowedUpward = getAllowedElytraUpwardSpeed(pitch);
+        double allowedHorizontal = getAllowedElytraHorizontalSpeed(pitch, deltaY) + (recentDiveSpeed * 0.40D);
+        double allowedUpward = getAllowedElytraUpwardSpeed(pitch) + (recentDiveSpeed * 0.55D);
 
         if (hasRocketBoost()) {
             switch (lastRocketPower) {
@@ -231,18 +259,18 @@ public class ElytraA extends Check {
 
             allowedUpward += getRocketUpwardAllowance(pitch);
         } else if (hasRecentRocketBoost()) {
-            double decay = rocketBoostGraceTicks / (double) Math.max(1, 22 + profile.getConnectionData().getClientTickTrans());
+            double decay = rocketBoostGraceTicks / (double) Math.max(1, 30 + profile.getConnectionData().getClientTickTrans());
             decay = Math.max(0.0D, Math.min(1.0D, decay));
 
-            allowedHorizontal += 1.95D * decay;
-            allowedUpward += getRocketUpwardAllowance(pitch) * 0.70D * decay;
+            allowedHorizontal += 2.25D * decay;
+            allowedUpward += getRocketUpwardAllowance(pitch) * 0.85D * decay;
 
             /*
              * After rocket boost, vanilla can still have high Y for a bit,
              * but it should mostly decay instead of gaining forever.
              */
-            if (movementData.getDeltaY() <= movementData.getLastDeltaY() + 0.22D) {
-                allowedUpward = Math.max(allowedUpward, movementData.getDeltaY() + 0.05D);
+            if (movementData.getDeltaY() <= movementData.getLastDeltaY() + 0.25D) {
+                allowedUpward = Math.max(allowedUpward, movementData.getDeltaY() + 0.10D);
             }
         }
 
@@ -257,10 +285,10 @@ public class ElytraA extends Check {
         boolean hardVerticalUp = deltaY > allowedUpward;
 
         /*
-         * During rocket/recent rocket, do not hard-flag upward speed if it is only carrying momentum.
+         * During rocket/recent rocket or recent dive swoop, do not hard-flag upward speed if it is only carrying momentum.
          * The anti-plane section below handles impossible sustained gaining.
          */
-        if (hardVerticalUp && hasRecentRocketBoost() && deltaY <= lastDeltaY + 0.25D) {
+        if (hardVerticalUp && (hasRecentRocketBoost() || recentDiveSpeed > 0.6D) && deltaY <= lastDeltaY + 0.30D) {
             hardVerticalUp = false;
         }
         boolean hardVerticalDown = deltaY < -3.25D;
@@ -271,16 +299,18 @@ public class ElytraA extends Check {
                         "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                 + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                                 + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + inAir
-                                + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                + "\nmaxXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + allowedHorizontal
-                                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                + "\nmaxY " + MsgType.MAIN_THEME_COLOR.getMessage() + allowedUpward
-                                + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
-                                + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + pitch
+                                + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", deltaXZ)
+                                + "\nmaxXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", allowedHorizontal)
+                                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", deltaY)
+                                + "\nmaxY " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", allowedUpward)
+                                + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", lastDeltaY)
+                                + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + formatPitch(pitch)
+                                + "\ndiveSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", recentDiveSpeed)
                                 + "\nrocketTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + rocketBoostTicks
                                 + "\nrocketGrace " + MsgType.MAIN_THEME_COLOR.getMessage() + rocketBoostGraceTicks
                                 + "\nrocketPower " + MsgType.MAIN_THEME_COLOR.getMessage() + lastRocketPower
-                                + "\nterminalBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + terminalBuffer);
+                                + "\npossibleRockets " + MsgType.MAIN_THEME_COLOR.getMessage() + possibleRocketUseTicks
+                                + "\nterminalBuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.2f", terminalBuffer));
                 terminalBuffer = 0;
             }
         } else {
@@ -296,10 +326,51 @@ public class ElytraA extends Check {
          * - horizontal speed is increasing or not decaying
          * - vertical speed is increasing / staying positive
          *
-         * Legit elytra can convert dive speed into a short climb, but it should
-         * not keep gaining energy like a plane without rocket/riptide/external velocity.
+         * Legit elytra can convert dive speed into a climb (swoop), but total
+         * kinetic energy will decay without rockets/riptide/external velocity.
          */
         boolean noRocket = !hasRecentRocketBoost();
+
+        if (hasRecentRocketBoost()) {
+            unpoweredClimbTicks = 0;
+            upwardNoRocketTicks = 0;
+            pitchUpSpeedGainTicks = 0;
+        }
+
+        /*
+         * Unpowered ascent duration:
+         * Without rockets or external velocity, pulling up from a dive can sustain
+         * positive climb (deltaY > 0.05) for 30-50+ ticks before gravity reverses it.
+         * With prior dive momentum, we allow up to 28 + (recentDiveSpeed * 25) ticks.
+         */
+        int maxAllowedClimbTicks = 28 + (int) (recentDiveSpeed * 25.0D) + Math.max(0, profile.getConnectionData().getClientTickTrans());
+
+        double currentEnergy = deltaXZ * deltaXZ + deltaY * deltaY;
+        double lastEnergy = lastElytraDeltaXZ * lastElytraDeltaXZ + lastElytraDeltaY * lastElytraDeltaY;
+        double energyDelta = currentEnergy - lastEnergy;
+
+        if (noRocket && deltaY > 0.05D && !profile.getVelocityData().isTakingVelocity()) {
+            unpoweredClimbTicks++;
+            // Flag only if climb duration exceeds allowed dive swoop ticks AND energy is not decaying (or absurdly long duration)
+            if (unpoweredClimbTicks > maxAllowedClimbTicks && (energyDelta > -0.01D || unpoweredClimbTicks > maxAllowedClimbTicks + 20)) {
+                if (++planeBuffer > 2.0D) {
+                    fail("Impossible Elytra Ascent",
+                            "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", deltaY)
+                                    + "\nclimbTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + unpoweredClimbTicks + " (max " + maxAllowedClimbTicks + ")"
+                                    + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + formatPitch(pitch)
+                                    + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", deltaXZ)
+                                    + "\ndiveSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", recentDiveSpeed)
+                                    + "\nrocketTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + rocketBoostTicks
+                                    + "\nrocketGrace " + MsgType.MAIN_THEME_COLOR.getMessage() + rocketBoostGraceTicks
+                                    + "\npossibleRockets " + MsgType.MAIN_THEME_COLOR.getMessage() + possibleRocketUseTicks
+                                    + "\nhasRockets " + MsgType.MAIN_THEME_COLOR.getMessage() + playerHasFireworks()
+                                    + "\nenergyDelta " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.4f", energyDelta));
+                    planeBuffer = 0;
+                }
+            }
+        } else {
+            unpoweredClimbTicks = Math.max(0, unpoweredClimbTicks - 1);
+        }
 
         boolean gainingHorizontal = horizontalAccel > 0.0125D;
         boolean holdingHighHorizontal = deltaXZ > 1.65D && horizontalAccel > -0.0125D;
@@ -337,16 +408,17 @@ public class ElytraA extends Check {
             sustainedBoostTicks = Math.max(0, sustainedBoostTicks - 1);
         }
 
-        if (upwardNoRocketTicks > 5 || pitchUpSpeedGainTicks > 6 || sustainedBoostTicks > 8) {
+        if (upwardNoRocketTicks > 6 || pitchUpSpeedGainTicks > 7 || sustainedBoostTicks > 9) {
             if (++planeBuffer > 2.0D) {
                 fail("Impossible Elytra Energy",
-                        "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ
-                                + "\nhAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + horizontalAccel
-                                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
-                                + "\nyAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + verticalAccel
-                                + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + pitch
+                        "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", deltaXZ)
+                                + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", lastDeltaXZ)
+                                + "\nhAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.4f", horizontalAccel)
+                                + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", deltaY)
+                                + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", lastDeltaY)
+                                + "\nyAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.4f", verticalAccel)
+                                + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + formatPitch(pitch)
+                                + "\ndiveSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", recentDiveSpeed)
                                 + "\nrocketTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + rocketBoostTicks
                                 + "\nrocketGrace " + MsgType.MAIN_THEME_COLOR.getMessage() + rocketBoostGraceTicks
                                 + "\nupNoRocket " + MsgType.MAIN_THEME_COLOR.getMessage() + upwardNoRocketTicks
@@ -400,20 +472,24 @@ public class ElytraA extends Check {
 
     private double getAllowedElytraUpwardSpeed(double pitch) {
         /*
-         * Without rocket, upward motion is usually short and energy-limited.
-         * These are intentionally generous, because the anti-plane logic below
-         * catches sustained impossible gain.
+         * Without rocket, upward motion is energy-limited.
+         * These are intentionally generous, because the anti-plane logic
+         * catches sustained impossible gain while dive momentum is handled dynamically.
          */
         if (pitch < -55.0D) {
-            return 1.05D;
+            return 1.15D;
         }
 
         if (pitch < -30.0D) {
-            return 0.85D;
+            return 0.95D;
         }
 
         if (pitch < -10.0D) {
-            return 0.65D;
+            return 0.75D;
+        }
+
+        if (pitch < 5.0D) {
+            return 0.55D;
         }
 
         return 0.45D;
@@ -421,31 +497,57 @@ public class ElytraA extends Check {
 
     private void handlePossibleFireworkUse() {
         try {
-            if (!profile.getPlayer().isGliding()) {
+            boolean isGliding = profile.getMovementData().isGlidingNow()
+                    || profile.isWearingFunctionalElytra();
+
+            if (!isGliding) {
                 return;
             }
 
             int pingTicks = Math.max(0, profile.getConnectionData().getClientTickTrans());
 
             /*
-             * Important:
-             * Even if the cached hand item is stale, a USE_ITEM while gliding is very often a rocket.
-             * We do NOT immediately give full rocket boost here.
-             * We only arm a short detection window, then movement must confirm the boost.
+             * When USE_ITEM or PLAYER_BLOCK_PLACEMENT is received while gliding:
+             * Arm the pending rocket boost window immediately.
+             * A right-click in mid-air while gliding is almost always a firework rocket!
              */
-            this.possibleRocketUseTicks = Math.max(this.possibleRocketUseTicks, 8 + pingTicks);
+            this.possibleRocketUseTicks = Math.max(this.possibleRocketUseTicks, 25 + pingTicks);
 
-            ItemStack main = profile.getActionData().getItemInMainHand();
-            ItemStack off = profile.getActionData().getItemInOffHand();
+            Player player = profile.getPlayer();
+            ItemStack main = null;
+            ItemStack off = null;
+
+            if (player != null) {
+                try {
+                    main = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(player);
+                    off = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInOffHand(player);
+                } catch (Throwable ignored) {}
+            }
+
+            if (main == null || main.getType() == Material.AIR) {
+                try {
+                    ItemStack aMain = profile.getActionData().getItemInMainHand();
+                    if (aMain != null && aMain.getType() != Material.AIR) {
+                        main = aMain;
+                    }
+                } catch (Throwable ignored) {}
+            }
+
+            if (off == null || off.getType() == Material.AIR) {
+                try {
+                    ItemStack aOff = profile.getActionData().getItemInOffHand();
+                    if (aOff != null && aOff.getType() != Material.AIR) {
+                        off = aOff;
+                    }
+                } catch (Throwable ignored) {}
+            }
 
             ItemStack rocket = isFirework(main) ? main : isFirework(off) ? off : null;
 
-            if (rocket == null) {
-                return;
+            if (rocket != null) {
+                int power = getFireworkPower(rocket);
+                armRocketBoost(power, true);
             }
-
-            int power = getFireworkPower(rocket);
-            armRocketBoost(power, true);
         } catch (Throwable ignored) {
         }
     }
@@ -460,15 +562,20 @@ public class ElytraA extends Check {
 
         /*
          * If the item was confirmed, allow the full window.
-         * If inferred from movement, use a shorter window so cheats cannot get infinite free exemption.
+         * If inferred from movement, use a generous window so legitimate rockets are never falsely flagged.
          */
         if (!confirmedItem) {
-            boostTicks = Math.min(boostTicks, 14 + pingTicks);
-            this.rocketInferenceCooldownTicks = 35 + pingTicks;
+            boostTicks = Math.min(boostTicks, 30 + pingTicks);
+            this.rocketInferenceCooldownTicks = 15 + pingTicks;
         }
 
         this.rocketBoostTicks = Math.max(this.rocketBoostTicks, boostTicks);
-        this.rocketBoostGraceTicks = Math.max(this.rocketBoostGraceTicks, 22 + pingTicks);
+        this.rocketBoostGraceTicks = Math.max(this.rocketBoostGraceTicks, 30 + pingTicks);
+
+        // A powered rocket ascent is never an unpowered climb
+        this.unpoweredClimbTicks = 0;
+        this.upwardNoRocketTicks = 0;
+        this.pitchUpSpeedGainTicks = 0;
     }
 
     private int getRocketBoostDuration(int power) {
@@ -482,25 +589,28 @@ public class ElytraA extends Check {
     private double getRocketUpwardAllowance(double pitch) {
         /*
          * Looking straight up with rockets can legitimately produce high Y.
-         * This is why your -90 / 1.58 deltaY false happened.
          */
         if (pitch <= -80.0D) {
-            return 2.25D;
+            return 2.35D;
         }
 
         if (pitch <= -60.0D) {
-            return 2.00D;
+            return 2.10D;
         }
 
         if (pitch <= -35.0D) {
-            return 1.70D;
+            return 1.85D;
         }
 
         if (pitch <= -10.0D) {
+            return 1.65D;
+        }
+
+        if (pitch <= 10.0D) {
             return 1.45D;
         }
 
-        return 1.20D;
+        return 1.25D;
     }
 
     private boolean isFirework(ItemStack item) {
@@ -508,10 +618,12 @@ public class ElytraA extends Check {
             return false;
         }
 
-        String name = item.getType().name();
-
-        return name.equals("FIREWORK")
-                || name.equals("FIREWORK_ROCKET");
+        try {
+            String name = item.getType().name();
+            return name.contains("FIREWORK");
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private int getFireworkPower(ItemStack item) {
@@ -551,9 +663,15 @@ public class ElytraA extends Check {
             rocketInferenceCooldownTicks = 0;
             pitchUpSpeedGainTicks = 0;
             upwardNoRocketTicks = 0;
+            unpoweredClimbTicks = 0;
             sustainedBoostTicks = 0;
+            recentDiveSpeed = 0;
+            diveTicks = 0;
             terminalBuffer = Math.max(0, terminalBuffer - 0.25);
             planeBuffer = Math.max(0, planeBuffer - 0.25);
+            hoverBuffer = Math.max(0, hoverBuffer - 0.25);
+            zeroXZBuffer = Math.max(0, zeroXZBuffer - 0.25);
+            fallingSamples.clear();
             return;
         }
 
@@ -567,14 +685,14 @@ public class ElytraA extends Check {
 
         if (rocketBoostTicks > 0) {
             rocketBoostTicks--;
-            rocketBoostGraceTicks = Math.max(rocketBoostGraceTicks, 10);
+            rocketBoostGraceTicks = Math.max(rocketBoostGraceTicks, 30 + Math.max(0, profile.getConnectionData().getClientTickTrans()));
         } else if (rocketBoostGraceTicks > 0) {
             rocketBoostGraceTicks--;
         }
     }
 
     private void inferMissedRocketBoost(MovementData movementData, double pitch) {
-        if (!profile.getPlayer().isGliding()) {
+        if (!movementData.isGlidingNow()) {
             return;
         }
 
@@ -591,35 +709,23 @@ public class ElytraA extends Check {
         double horizontalAccel = deltaXZ - lastDeltaXZ;
         double verticalAccel = deltaY - lastDeltaY;
 
+        double currentEnergy = deltaXZ * deltaXZ + deltaY * deltaY;
+        double lastEnergy = lastElytraDeltaXZ * lastElytraDeltaXZ + lastElytraDeltaY * lastElytraDeltaY;
+        double energyGain = currentEnergy - lastEnergy;
+
         /*
          * Case 1:
-         * We saw a use-item packet while gliding, but the cached item did not say firework.
-         * If movement then shows boost behavior, treat it as a rocket.
+         * We saw a USE_ITEM or PLAYER_BLOCK_PLACEMENT packet while gliding.
+         * If movement confirms any upward motion, forward speed, or positive acceleration, confirm the rocket!
          */
         boolean usedItemThenBoosted =
                 possibleRocketUseTicks > 0
                         && (
-                        verticalAccel > 0.10D
-                                || horizontalAccel > 0.08D
-                                || deltaY > 0.65D
-                                || deltaXZ > 1.90D
+                        verticalAccel > 0.03D
+                                || horizontalAccel > 0.03D
+                                || deltaY > 0.10D
+                                || deltaXZ > 0.50D
                 );
-
-        /*
-         * Case 2:
-         * Extremely obvious missed rocket.
-         * Use a cooldown and shorter boost window so a fly cheat cannot keep refreshing this forever.
-         */
-        boolean obviousUpwardRocket =
-                rocketInferenceCooldownTicks <= 0
-                        && pitch <= -65.0D
-                        && deltaY > 0.95D
-                        && verticalAccel > 0.08D;
-
-        boolean obviousHorizontalRocket =
-                rocketInferenceCooldownTicks <= 0
-                        && deltaXZ > 2.15D
-                        && horizontalAccel > 0.18D;
 
         if (usedItemThenBoosted) {
             armRocketBoost(lastRocketPower, true);
@@ -627,8 +733,32 @@ public class ElytraA extends Check {
             return;
         }
 
-        if (obviousUpwardRocket || obviousHorizontalRocket) {
-            armRocketBoost(lastRocketPower, false);
+        /*
+         * Case 2:
+         * Autonomous kinematic inference.
+         * The player might be lagging, or USE_ITEM was deferred, but their movement shows clear rocket flight.
+         * Normal rocket ascent has deltaY around 0.35 - 0.75 and deltaXZ around 0.45 - 1.20 across pitches -89 to +15.
+         * Without a deep dive (recentDiveSpeed < 0.75), an unpowered elytra CANNOT maintain deltaY > 0.35 or gain energy!
+         */
+        boolean hasFireworks = playerHasFireworks();
+        boolean gainingSpeedWhileClimbing = deltaY > 0.05D && (energyGain > 0.02D || horizontalAccel > 0.04D);
+        boolean climbWithoutPriorDive = deltaY > 0.35D && recentDiveSpeed < 0.75D;
+        boolean upwardAccelerationBoost = verticalAccel > 0.06D && deltaY > 0.20D;
+        boolean horizontalRocketBoost = deltaXZ > 1.25D && horizontalAccel > 0.10D;
+
+        if (rocketInferenceCooldownTicks <= 0) {
+            if (hasFireworks) {
+                // If the player has fireworks anywhere in inventory, recognize rocket boosts reliably
+                if (climbWithoutPriorDive || gainingSpeedWhileClimbing || upwardAccelerationBoost || horizontalRocketBoost || (deltaY > 0.40D && deltaXZ > 0.45D)) {
+                    armRocketBoost(lastRocketPower, true);
+                    return;
+                }
+            } else {
+                // Even without seeing fireworks in inventory (e.g. inventory desync), infer obvious boosts
+                if ((climbWithoutPriorDive && gainingSpeedWhileClimbing) || upwardAccelerationBoost || horizontalRocketBoost) {
+                    armRocketBoost(lastRocketPower, false);
+                }
+            }
         }
     }
 
@@ -638,5 +768,34 @@ public class ElytraA extends Check {
 
     private boolean hasRecentRocketBoost() {
         return rocketBoostTicks > 0 || rocketBoostGraceTicks > 0;
+    }
+
+    private String formatPitch(double pitch) {
+        if (pitch < -0.5D) {
+            return String.format(Locale.ROOT, "%.1f [UP %.1f°]", pitch, -pitch);
+        } else if (pitch > 0.5D) {
+            return String.format(Locale.ROOT, "%.1f [DOWN %.1f°]", pitch, pitch);
+        } else {
+            return String.format(Locale.ROOT, "%.1f [LEVEL]", pitch);
+        }
+    }
+
+    private boolean playerHasFireworks() {
+        Player player = profile.getPlayer();
+        if (player == null) {
+            return false;
+        }
+        try {
+            if (player.getGameMode() == GameMode.CREATIVE) {
+                return true;
+            }
+            for (ItemStack item : player.getInventory().getContents()) {
+                if (isFirework(item)) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 }

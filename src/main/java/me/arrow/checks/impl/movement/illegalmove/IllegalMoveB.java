@@ -13,6 +13,8 @@ import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.customutils.OtherUtility;
 
+import static me.arrow.utils.ChatUtils.debugExempt;
+
 public class IllegalMoveB extends Check {
     public IllegalMoveB(Profile profile) {
         super(profile, CheckType.ILLEGALMOVE, "B", "Checks if the player is strafing correctly");
@@ -88,9 +90,12 @@ public class IllegalMoveB extends Check {
 
             double airticklimit = movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2) ? 6 : ((recentlyPlaced && holdingBlock) ? 7 : 3);
 
-            int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+            int ghostLiquidWebTicks = Math.min(
+                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+            );
 
-            if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+            if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                 limit += 0.2;
             }
 
@@ -172,7 +177,7 @@ public class IllegalMoveB extends Check {
             return true;
         }
 
-        if (movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (movementData.isGlidingOrRecentlyGlided(30)) {
             if (Config.Setting.DEBUG.getBoolean())
                 OtherUtility.log("IllegalMove B (Strafe): Exempt - just gliding");
             return true;

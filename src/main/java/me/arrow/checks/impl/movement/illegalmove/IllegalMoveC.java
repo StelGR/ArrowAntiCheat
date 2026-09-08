@@ -54,7 +54,7 @@ public class IllegalMoveC extends Check {
 
             if (profile.shouldCancel()
                     || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                    || movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
+                    || movementData.isGlidingOrRecentlyGlided(30)
                     || profile.getPlayer().isDead()
                     || movementData.isOnBoat()
                     || movementData.isNearBoat()

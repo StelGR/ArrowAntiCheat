@@ -107,7 +107,7 @@ public class MovementData implements Data {
     int clientAirTicks, serverAirTicks, serverGroundTicks, serverGroundTicksPlus, lastServerGroundTicks, nearGroundTicks, lastNearGroundTicks,
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
-            customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks, glidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
+            customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks = 100000, glidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
             sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, sinceSlowFallingEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks, sinceMovingUnderBlockTicks;
 
     @Getter
@@ -280,6 +280,7 @@ public class MovementData implements Data {
                     // Preserve the transition even if Bukkit's pose changes
                     // back before the next movement packet is processed.
                     sinceGlidingTicks = 0;
+                    glidingTicks = Math.max(glidingTicks, 1);
                     glideStartTransitionTicks = Math.max(glideStartTransitionTicks, getGlideTransitionTicks());
                     captureElytraMomentum();
                 }
@@ -982,10 +983,7 @@ public class MovementData implements Data {
                     .getNmsInstance()
                     .isRiptiding(profile.getPlayer());
 
-            boolean glidingNow = metadataGliding
-                    || glideStartTransitionTicks > 0
-                    //|| ReflectionUtils.isGliding(profile.getPlayer())
-                    ;
+            boolean glidingNow = isGlidingNow();
 
             boolean predictUp = verticalMove == MovementPredictionUtil.VerticalMove.UP;
             boolean predictDown = verticalMove == MovementPredictionUtil.VerticalMove.DOWN;
@@ -1108,15 +1106,11 @@ public class MovementData implements Data {
             return;
         }
 
-        if (action.getAction() != WrapperPlayClientEntityAction.Action.START_FLYING_WITH_ELYTRA
-                || !profile.isWearingFunctionalElytra()
-                || profile.getPlayer().isInsideVehicle()
-                || isOnGround()
-                || getClientAirTicks() <= 0
-                || getDeltaY() >= 0.0D
-                || isInsideWater()
-                || isNearWebs()
-                || isNearClimbable()) {
+        if (action.getAction() != WrapperPlayClientEntityAction.Action.START_FLYING_WITH_ELYTRA) {
+            return;
+        }
+
+        if (profile.getPlayer().isInsideVehicle()) {
             return;
         }
 
@@ -1124,13 +1118,15 @@ public class MovementData implements Data {
          * This packet is the earliest reliable indication of a real client
          * glide. A jump-glide can land and clear Bukkit pose before the next
          * movement packet, especially with transaction delay.
+         * Works with vanilla Elytra and custom plugin glide abilities (e.g. Origins).
          */
         glideStartTransitionTicks = Math.max(glideStartTransitionTicks, getGlideTransitionTicks());
+        glidingTicks = Math.max(glidingTicks, 1);
         sinceGlidingTicks = 0;
         captureElytraMomentum();
     }
 
-    private int getGlideTransitionTicks() {
+    public int getGlideTransitionTicks() {
         int transactionTicks = 0;
         int pingTicks = 0;
 
@@ -1140,7 +1136,40 @@ public class MovementData implements Data {
         } catch (Throwable ignored) {
         }
 
-        return Math.max(3, Math.min(12, 3 + Math.max(transactionTicks, pingTicks)));
+        int maxLag = Math.max(transactionTicks, pingTicks);
+        // Allow up to 250 ticks (~12.5 seconds / 10,000+ ms ping) of transition compensation
+        return Math.max(10, Math.min(250, 10 + (maxLag * 2)));
+    }
+
+    public boolean isGlidingNow() {
+        return metadataGliding
+                || glideStartTransitionTicks > 0
+                || ReflectionUtils.isGliding(profile.getPlayer());
+    }
+
+    public boolean isGlidingOrRecentlyGlided() {
+        return isGlidingOrRecentlyGlided(30);
+    }
+
+    public boolean isGlidingOrRecentlyGlided(int baseGraceTicks) {
+        if (isGlidingNow() || glidingTicks > 0) {
+            return true;
+        }
+
+        int transTicks = 0;
+        int pingTicks = 0;
+        try {
+            transTicks = Math.max(0, profile.getConnectionData().getClientTickTrans());
+            pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
+        } catch (Throwable ignored) {
+        }
+
+        int maxLag = Math.max(transTicks, pingTicks);
+        // Generous lag compensation for laggy players up to 10,000ms ping (200 ticks * 4 = 800 ticks)
+        int lagComp = Math.min(800, maxLag * 4);
+        int maxExemptTicks = baseGraceTicks + lagComp;
+
+        return sinceGlidingTicks < maxExemptTicks;
     }
 
     private void captureElytraMomentum() {

@@ -32,6 +32,8 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.server.ServerListPingEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
@@ -44,6 +46,23 @@ import static me.arrow.utils.customutils.OtherUtility.*;
 //only really using it for the test server mode, but it needs alot of clean up, also using it for Interact B cus it's much harder to make that on a packet specific check, but yet again, i may just be retarded
 
 public class GeneralEventListener implements Listener {
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChunkLoad(ChunkLoadEvent event) {
+        Chunk chunk = event.getChunk();
+        if (chunk != null) {
+            me.arrow.playerdata.cache.ChunkCache.get().queueBukkitChunk(chunk);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChunkUnload(ChunkUnloadEvent event) {
+        Chunk chunk = event.getChunk();
+        if (chunk != null && chunk.getWorld() != null) {
+            me.arrow.playerdata.cache.ChunkCache.get().removeChunk(chunk.getWorld().getName(), chunk.getX(), chunk.getZ());
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInteract(PlayerInteractEvent event) {
         this.processEvent(event);
@@ -133,11 +152,11 @@ public class GeneralEventListener implements Listener {
 
     void process(Event event) {
         if (event instanceof AsyncPlayerPreLoginEvent) {
-            if (!Arrow.getInstance().isHasLoaded()) ((AsyncPlayerPreLoginEvent) event).disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
+            if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) ((AsyncPlayerPreLoginEvent) event).disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
         }
 
         if (event instanceof PlayerPreLoginEvent) {
-            if (!Arrow.getInstance().isHasLoaded()) ((PlayerPreLoginEvent) event).disallow(PlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
+            if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) ((PlayerPreLoginEvent) event).disallow(PlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
         }
 
         if (event instanceof PlayerJoinEvent joinEvent) {

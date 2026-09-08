@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPluginMessage;
 import me.arrow.Arrow;
+import me.arrow.ArrowLoader;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.ChatUtils;
@@ -31,7 +32,7 @@ public class ClientBrandListener implements Data {
     public void processReceive(PacketReceiveEvent event) {
         if (event.getPlayer() == null) return;
 
-        if (!Arrow.getInstance().isHasLoaded()) {
+        if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) {
             return;
         }
 

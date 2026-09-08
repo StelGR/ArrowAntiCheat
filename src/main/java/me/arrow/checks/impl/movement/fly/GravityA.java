@@ -288,7 +288,7 @@ public class GravityA extends Check {
                 || movementData.isOnBoat()
                 || movementData.isNearBoat()
                 || profile.shouldCancel()
-                || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
+                || movementData.isGlidingOrRecentlyGlided(30)
                 || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                 || movementData.getSinceLevitationEffectTicks() < 10) {
             return true;

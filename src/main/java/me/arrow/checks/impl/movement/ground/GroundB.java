@@ -42,7 +42,7 @@ public class GroundB extends Check {
 
             MovementData movementData = profile.getMovementData();
 
-            if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()
+            if (movementData.isGlidingOrRecentlyGlided(30)
                     || profile.getExempt().isVehicle()
                     || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                     || profile.isBouncingOnSlime()
@@ -51,18 +51,24 @@ public class GroundB extends Check {
                     || movementData.isNearShulker()
                     || movementData.isNearShulkerBox()
                     || movementData.isNearLava()
-                    || movementData.isNearWater())
+                    || movementData.isNearWater()
+                    || movementData.getLocation() == null
+                    || !CollisionUtils.isChunkLoaded(movementData.getLocation()))
                 return;
 
-            if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-//                || profile.getActionData().hasRecentConfirmedBlockUpdateUnder(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-            ) {
+            int trans = profile.getConnectionData().getClientTickTrans();
+
+            if (profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
+                    || profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2))
+                    || profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans)
+                    || profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2))
+            )  {
                 if (Config.Setting.DEBUG.getBoolean())
                     OtherUtility.log("Ground B: is Exempting (Block Update/Piston Update)");
                 return;
             }
 
-            if (profile.getMovementData().getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
+            if (profile.getMovementData().isGlidingOrRecentlyGlided(30)) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground B: is Exempting (elytra glide)");
                 return;
             }

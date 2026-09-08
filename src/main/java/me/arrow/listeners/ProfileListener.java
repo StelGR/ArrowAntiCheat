@@ -1,6 +1,7 @@
 package me.arrow.listeners;
 
 import me.arrow.Arrow;
+import me.arrow.ArrowLoader;
 import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
@@ -24,7 +25,7 @@ public class ProfileListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
-        if (!Arrow.getInstance().isHasLoaded()) {
+        if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) {
             player.kickPlayer("Server is still loading, please wait.");
             return;
         }

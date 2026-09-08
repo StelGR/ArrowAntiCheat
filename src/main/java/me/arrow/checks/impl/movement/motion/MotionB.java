@@ -59,6 +59,7 @@ public class MotionB extends Check {
                         || (movementData.getNearbyBlocksResult() != null
                         && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
                         || movementData.isNearBed()
+                        || movementData.isGlidingOrRecentlyGlided(30)
                         || movementData.isNearWall()) {
                     buffer = 0;
                     buffer2 = 0;

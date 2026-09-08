@@ -6,6 +6,7 @@ import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
+import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
@@ -220,7 +221,7 @@ public class FlyB extends Check {
             return true;
         }
 
-        if (movementData.getSinceGlidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (movementData.isGlidingOrRecentlyGlided(30)) {
             debugExempt("gliding", "Fly B");
             return true;
         }
@@ -230,10 +231,13 @@ public class FlyB extends Check {
             return true;
         }
 
-        int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
 
-        if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-            debugExempt("ghostblock liquid/web/pending physics place", "Fly B");
+        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+            debugExempt("ghostblock Physics", "Fly B");
             return true;
         }
 

@@ -124,11 +124,16 @@ public class IllegalMoveA extends Check {
                 verbose(this.getClass().getSimpleName(), deltaY, 1, data2);
 
 
-                int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+                int ghostLiquidWebTicks = Math.min(
+                        profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                        profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+                );
 
-                if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-                    if (Config.Setting.DEBUG.getBoolean())
-                        OtherUtility.log("IllegalMoveA: is Exempting (ghostblock liquid/web/pending physics place)");
+                if (ghostLiquidWebTicks < 12 + (profile.getConnectionData().getClientTickTrans() * 4))
+                {
+                    if (Config.Setting.DEBUG.getBoolean()) {
+                        OtherUtility.log("IllegalMoveA: is Exempting (ghostblock liquid/web)");
+                    }
                     return;
                 }
 
@@ -166,7 +171,7 @@ public class IllegalMoveA extends Check {
                         && !movementData.isClimb()
                         && !profile.getVelocityData().isTakingVelocity()
                         && movementData.getSinceRiptidingTicks() > 15
-                        && movementData.getSinceGlidingTicks() > (20 + (profile.getConnectionData().getClientTickTrans() * 2)))) {
+                        && !movementData.isGlidingOrRecentlyGlided(25))) {
                     verbose(this.getClass().getSimpleName(), deltaY, stepHeight, data3);
                     fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                             + "\nmaxStepHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + stepHeight);

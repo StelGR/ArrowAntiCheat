@@ -32,7 +32,7 @@ public class GravityB extends Check {
     double bufferB;
 
     public GravityB(Profile profile) {
-        super(profile, CheckType.GRAVITY, "B", "Checks for vertical movement that does not match the expected gravity cycle.");
+        super(profile, CheckType.GRAVITY, "B", "Checks for invalid gravity");
     }
 
     @Override
@@ -58,13 +58,16 @@ public class GravityB extends Check {
 
     private void GravityPredictionB(MovementData movementData, double deltaY) {
 
-        if (isExempt(movementData)) return;
+        if (isExempt(movementData)) {
+            bufferB = 0;
+            return;
+        }
 
         double lastDeltaY = movementData.getLastDeltaY();
         boolean isClientGround = movementData.isOnGround();
         boolean isServerGround = movementData.isServerGround();
         boolean isServerYGround = movementData.isServerYGround();
-        boolean exempt = movementData.getSinceGlidingTicks() < 15
+        boolean exempt = movementData.isGlidingOrRecentlyGlided(30)
                 || Math.abs(deltaY - MoveUtils.getJumpMotion(profile)) <= 1.0E-9D;
 
         double expected = 0.33319999363422426D;
@@ -230,13 +233,17 @@ public class GravityB extends Check {
                 || movementData.isNearBoat()
                 || movementData.isNearShulker()
                 || movementData.isNearShulkerBox()
+                || movementData.isNearClimbable()
+                || movementData.isClimb()
                 || movementData.isNearLava()
                 || movementData.isNearWater()
                 || movementData.isInsideLiquid()
                 || profile.getTick() < 120
-                || movementData.getSinceGlidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 4)
+                || movementData.isGlidingOrRecentlyGlided(30)
                 || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) return true;
+                || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
+            return true;
+        }
 
         ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
         if (world.shouldExemptMovementChecks()

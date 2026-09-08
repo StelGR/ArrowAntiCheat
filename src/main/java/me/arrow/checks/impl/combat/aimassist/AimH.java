@@ -31,6 +31,8 @@ public class AimH extends Check {
     public void handle(PacketReceiveEvent event) {
         if (OtherUtility.isFlying(event.getPacketType())) {
 
+            if (profile.isBedrockPlayer()) return;
+
             MovementData movement = profile.getMovementData();
             RotationData rotation = profile.getRotationData();
             CombatData combat = profile.getCombatData();
