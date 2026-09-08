@@ -74,7 +74,7 @@ public class NoSlowdown extends Check {
     }
 
     public void NoSlowB(MovementData movementData, ActionData actionData, PredictionData predictionData) {
-        if (profile.getMovementData().getSinceGlidingTicks() < 10) return;
+        if (profile.getMovementData().isGlidingOrRecentlyGlided(20)) return;
 
         if (movementData.getMovingOnHoneyTicks() > 10 || movementData.getMovingOnSoulTicks() > 10 || movementData.getMovingOnSlimeTicks() > 10) {
 
@@ -108,7 +108,7 @@ public class NoSlowdown extends Check {
     }
 
     public void NoSlowD(MovementData movementData, ActionData actionData, PredictionData predictionData) {
-        if (profile.getMovementData().getSinceGlidingTicks() < 10) return;
+        if (profile.getMovementData().isGlidingOrRecentlyGlided(20)) return;
 
         boolean invalid2 = (predictionData.isUseItem() || predictionData.isUseShield())
                 && ((actionData.isSprinting()

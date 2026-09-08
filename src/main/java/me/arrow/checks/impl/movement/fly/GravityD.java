@@ -109,8 +109,7 @@ public class GravityD extends Check {
                         || profile.shouldCancel()
                         || (movementData.getNearbyBlocksResult() != null
                         && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
-                        || movementData.getSinceGlidingTicks() < 30 + (transTicks * 2)
-                        || movementData.getGlidingTicks() > 0
+                        || movementData.isGlidingOrRecentlyGlided(30)
                         || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                         || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
                     resetStrictGravityInvariant();
@@ -424,6 +423,19 @@ public class GravityD extends Check {
 
         if (isMovingPrediction(data)) return false;
 
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
+
+        if (ghostLiquidWebTicks < 20 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+            if (Config.Setting.DEBUG.getBoolean()) {
+                OtherUtility.log("Gravity D: is Exempting (ghostblock liquid/web)");
+            }
+            resetGravityD("ghostLiquidWeb");
+            return false;
+        }
+
         if (mathematicallyStrong || strictNegativeEvidence > required) {
             fail("Negative Gravity Modification", information);
             strictNegativeEvidence = Math.max(required, strictNegativeEvidence * 0.50D);
@@ -443,7 +455,7 @@ public class GravityD extends Check {
                 || profile.isBouncingOnSlime()
                 || profile.getGeysersTracker().isBeingPushed()
                 || data.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                || data.getSinceGlidingTicks() < 20 + transTicks
+                || data.isGlidingOrRecentlyGlided(25)
                 || data.getSinceRiptidingTicks() < 10 + transTicks
                 || data.isUnderblock()
                 || data.isNearWater()
@@ -943,7 +955,7 @@ public class GravityD extends Check {
         if (data.isNearClimbable()) { resetGravityD("nearClimbable"); return true; }
         if (data.isOnSlime()) { resetGravityD("onSlime"); return true; }
         if (data.isNearContact()) { resetGravityD("nearContact"); return true; }
-        if (data.getSinceGlidingTicks() < 20 + transTicks) { resetGravityD("gliding"); return true; }
+        if (data.isGlidingOrRecentlyGlided(25)) { resetGravityD("gliding"); return true; }
         if (data.isOnHoney()) { resetGravityD("onHoney"); return true; }
         if (data.isInsideWater()) { resetGravityD("insideWater"); return true; }
         if (data.isOnTopOfWater()) { resetGravityD("onTopOfWater"); return true; }

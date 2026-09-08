@@ -178,7 +178,7 @@ public class OmniSprintA extends Check {
                             || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
                             || movementData.isRiptiding()
                             || movementData.getSinceRiptidingTicks() < 20
-                            || movementData.getSinceGlidingTicks() < 20
+                            || movementData.isGlidingOrRecentlyGlided(30)
                             || profile.getVelocityData().isTakingVelocity()
                             || profile.getExempt().isVehicle()
                             || profile.shouldCancel()

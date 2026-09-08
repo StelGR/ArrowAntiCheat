@@ -31,6 +31,8 @@ public class AimH2 extends Check {
     public void handle(PacketReceiveEvent event) {
         if (OtherUtility.isFlying(event.getPacketType())) {
 
+            if (profile.isBedrockPlayer()) return;
+
             MovementData movement = profile.getMovementData();
             RotationData rotation = profile.getRotationData();
             CombatData combat = profile.getCombatData();
@@ -43,7 +45,6 @@ public class AimH2 extends Check {
             boolean condition = Math.abs(rotation.getPitch()) <= 80
                     && Math.abs(rotation.getLastPitch()) <= 80
                     && movement.getSinceTeleportTicks() > 5;
-
 
             if (combat.getAttackedTicks() <= 5) {
                 if (condition) {

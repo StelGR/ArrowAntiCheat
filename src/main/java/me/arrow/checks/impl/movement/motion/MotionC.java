@@ -13,6 +13,8 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.customutils.OtherUtility;
 
+import static me.arrow.utils.ChatUtils.debugExempt;
+
 // this works, very similarly to Fly B, but near walls, it is not as good though since I haven't kept it up to date that much
 // it works very well though, for detecting wall climbs above 3 blocks, not perfect, but does the job.
 
@@ -69,11 +71,13 @@ public class MotionC extends Check {
                     return;
                 }
 
-                int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+                int ghostLiquidWebTicks = Math.min(
+                        profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                        profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+                );
 
-                if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-                    if (Config.Setting.DEBUG.getBoolean())
-                        OtherUtility.log("Motion C: is Exempting (ghostblock liquid/web/pending physics place)");
+                if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+                    debugExempt("ghostphysics", "Motion C");
                     return;
                 }
 
@@ -82,7 +86,7 @@ public class MotionC extends Check {
                     return;
                 }
 
-                if (movementData.getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
+                if (movementData.isGlidingOrRecentlyGlided(30)) {
                     if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (elytra glide)");
                     return;
                 }
@@ -156,7 +160,7 @@ public class MotionC extends Check {
                         && deltaY > -0.23
                         && isNearWall
                         && nearWallTicks > 8
-                        && movementData.getSinceGlidingTicks() > 20 + (profile.getConnectionData().getClientTickTrans() * 2);
+                        && !movementData.isGlidingOrRecentlyGlided(25);
 
                 if (isNearWall)
                     verbose(this.getClass().getSimpleName(), serverAirTicks, airTickLimit, MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround

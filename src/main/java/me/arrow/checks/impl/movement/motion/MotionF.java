@@ -45,6 +45,7 @@ public class MotionF extends Check {
                     || profile.isBouncingOnSlime()
                     || movementData.isNearWater()
                     || velocityData.getTotalVerticalVelocity() > 0
+                    || movementData.isGlidingOrRecentlyGlided(30)
             ) return;
 
             if (profile.getPlayer().isInsideVehicle()) return;

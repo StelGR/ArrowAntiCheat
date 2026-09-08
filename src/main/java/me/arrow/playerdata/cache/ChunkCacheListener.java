@@ -13,6 +13,8 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBl
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkData;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUnloadChunk;
+import me.arrow.managers.profiler.Profiler;
+import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -130,58 +132,45 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
 
             int chunkX = column.getX();
             int chunkZ = column.getZ();
-            BaseChunk[] sections = column.getChunks();
-            if (sections == null) return;
 
-            ChunkCache.CachedChunk cached = new ChunkCache.CachedChunk(chunkX, chunkZ);
-
-            for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
-                BaseChunk section = sections[sectionIndex];
-                if (section == null || section.isEmpty()) continue;
-
-                // Section Y index: on 1.18+ (minY=-64) sectionIndex 0 maps to Y=-64
-                // On older versions, sectionIndex 0 maps to Y=0
-                // We store raw Y coordinates in the cache, so this works for all versions
-                int baseY = sectionIndex << 4;
-
-                for (int localX = 0; localX < 16; localX++) {
-                    for (int localY = 0; localY < 16; localY++) {
-                        for (int localZ = 0; localZ < 16; localZ++) {
-                            try {
-                                WrappedBlockState state = section.get(localX, localY, localZ);
-                                if (state == null) continue;
-
-                                Material material = PEMaterials.materialFromState(state.getType());
-                                if (material != null && material != Material.AIR) {
-                                    int worldY = baseY + localY;
-                                    cached.set(localX, worldY, localZ, material);
-
-                                    boolean waterlogged = PEMaterials.isWaterlogged(state)
-                                            || material.name().contains("WATER");
-                                    if (waterlogged) {
-                                        cached.setWaterlogged(localX, worldY, localZ, true);
-                                    }
-                                }
-                            } catch (Throwable ignored) {
-                            }
-                        }
-                    }
-                }
+            // If already cached, skip. Otherwise, allow queuing even if previously queued.
+            if (cache.getChunk(worldName, chunkX, chunkZ) != null) {
+                return;
             }
 
-            cache.putChunk(worldName, chunkX, chunkZ, cached);
-        } catch (Throwable ignored) {
-        }
+            Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
+            World world = player != null ? player.getWorld() : null;
+            if (world == null && worldName != null && !me.arrow.platform.PlatformBackend.get().isFabric()) {
+                try {
+                    world = org.bukkit.Bukkit.getWorld(worldName);
+                } catch (Throwable ignored) {}
+            }
+            // Proceed to cache the chunk regardless of world.isChunkLoaded; fallback minY handles null world
+            final int minY = ChunkCache.getWorldMinY(world);
+
+            cache.queuePacketChunk(worldName, chunkX, chunkZ, minY, column);
+        } catch (Throwable ignored) { }
     }
 
     /**
      * Evicts a chunk from the cache when the server tells the client to unload it.
-     * This prevents the cache from growing unbounded over time (memory leak fix).
+     * On Bukkit/Paper/Folia servers, chunks are only evicted if the server has actually unloaded them.
      */
     private void handleUnloadChunk(PacketSendEvent event, String worldName) {
         try {
             WrapperPlayServerUnloadChunk wrapper = new WrapperPlayServerUnloadChunk(event);
-            cache.removeChunk(worldName, wrapper.getChunkX(), wrapper.getChunkZ());
+            int cx = wrapper.getChunkX();
+            int cz = wrapper.getChunkZ();
+
+            // On Bukkit/Paper/Leaf servers, UNLOAD_CHUNK packet is sent per-player.
+            // Do NOT evict chunk from the global cache if the server still has the chunk loaded!
+            if (!me.arrow.platform.PlatformBackend.get().isFabric()) {
+                World world = org.bukkit.Bukkit.getWorld(worldName);
+                if (world != null && world.isChunkLoaded(cx, cz)) {
+                    return; // Another player or the server still has this chunk loaded
+                }
+            }
+            cache.removeChunk(worldName, cx, cz);
         } catch (Throwable ignored) {
         }
     }

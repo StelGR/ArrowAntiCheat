@@ -21,6 +21,8 @@ import org.bukkit.inventory.PlayerInventory;
 import java.util.EnumSet;
 import java.util.Set;
 
+import static me.arrow.utils.ChatUtils.debugExempt;
+
 // this is a fairly simple jump height check, for jumping lower or higher than normal, it is easy to bypass though so
 // it's only for terrible cheats, like high jump
 
@@ -84,12 +86,13 @@ public class MotionA extends Check {
                     return;
                 }
 
-                int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+                int ghostLiquidWebTicks = Math.min(
+                        profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                        profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+                );
 
-                if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-                    if (Config.Setting.DEBUG.getBoolean()) {
-                        OtherUtility.log("Motion A: is Exempting (ghostblock liquid/web)");
-                    }
+                if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+                    debugExempt("ghostphysics", "Motion A");
                     return;
                 }
 
@@ -137,7 +140,7 @@ public class MotionA extends Check {
                     return;
                 }
 
-                if (profile.getMovementData().getSinceGlidingTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (profile.getMovementData().isGlidingOrRecentlyGlided(30)) {
                     if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: Exempt - just gliding");
                     return;
                 }

@@ -347,19 +347,33 @@ public class ReflectionUtils {
     }
 
     public static boolean isGliding(Player player) {
+        if (player == null) return false;
+
         try {
-            return Arrow.getInstance().getNmsManager().getNmsInstance().isGliding(player);
+            if (Arrow.getInstance().getNmsManager().getNmsInstance().isGliding(player)) {
+                return true;
+            }
         } catch (Throwable ignored) {
         }
 
         try {
             Method isGliding = player.getClass().getMethod("isGliding");
             Object result = isGliding.invoke(player);
-
-            return result instanceof Boolean && (Boolean) result;
+            if (result instanceof Boolean && (Boolean) result) {
+                return true;
+            }
         } catch (Throwable ignored) {
-            return false;
         }
+
+        try {
+            String pose = getPoseName(player);
+            if ("FALL_FLYING".equalsIgnoreCase(pose) || "GLIDING".equalsIgnoreCase(pose)) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return false;
     }
 
 

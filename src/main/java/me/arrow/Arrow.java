@@ -1,6 +1,7 @@
 package me.arrow;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.Getter;
@@ -100,7 +101,7 @@ public class Arrow {
     private static final GuiManager guiManager = new GuiManager();
 
     @Getter
-    private final String version = "108-pre1";
+    private final String version = "108-pre2";
 
     @Getter
     private final JavaPlugin host;     // the “real” plugin, either ArrowPlugin or ArrowLoader
@@ -141,6 +142,26 @@ public class Arrow {
 
     @Getter
     public boolean hasLoaded;
+
+    @Getter
+    public static boolean reloading = false;
+
+        /**
+     * Sets the reloading flag to true.
+     */
+    public static void setReloadingTrue() {
+        reloading = true;
+        OtherUtility.log("Reloading has been set to " + reloading);
+    }
+
+    /**
+     * Resets the reloading flag to false.
+     */
+    public static void resetReloading() {
+        reloading = false;
+        OtherUtility.log("Reloading has been set to " + reloading);
+    }
+
 
     public Arrow(JavaPlugin host, File dataFolder) {
         this.host = host;
@@ -205,7 +226,7 @@ public class Arrow {
                 try {
                     Class<?> builderClass = Class.forName("io.github.retrooper.packetevents.factory.fabric.FabricPacketEventsBuilder");
                     Object api = builderClass.getMethod("build").invoke(null);
-                    PacketEvents.setAPI((com.github.retrooper.packetevents.PacketEventsAPI<?>) api);
+                    PacketEvents.setAPI((PacketEventsAPI<?>) api);
                 } catch (Throwable ignored) {
                 }
             } else if (Arrow.getInstance().getHost() != null) {
@@ -226,16 +247,19 @@ public class Arrow {
             PacketEvents.getAPI().getEventManager().registerListener(new NetworkListener(this));
             log(translate("&6" + "➪  NetworkListener Initialized"));
 
+            (this.threadManager = new ThreadManager(this)).initialize();
+            log(translate("&6" + "➪  Thread Manager Initialized"));
+
             (this.profileManager = new ProfileManager()).initialize();
             log(translate("&6" + "➪  Profile Manager Initialized"));
+
+            (this.alertManager = new AlertManager()).initialize();
+            log(translate("&6" + "➪  Alert Manager Initialized"));
+
             (this.themeManager = new ThemeManager(getHost())).initialize();
             log(translate("&6" + "➪  Theme Manager Initialized"));
             (this.logManager = new LogManager(getHost())).initialize();
             log(translate("&6" + "➪  Log Manager Initialized"));
-            (this.threadManager = new ThreadManager(this)).initialize();
-            log(translate("&6" + "➪  Thread Manager Initialized"));
-            (this.alertManager = new AlertManager()).initialize();
-            log(translate("&6" + "➪  Alert Manager Initialized"));
             try {
                 if (PlatformBackend.get().getServer() != null) {
                     this.serverEdition = PlatformBackend.get().getServer().getClass().getPackage().getName().substring(22);
@@ -243,7 +267,7 @@ public class Arrow {
                     this.serverEdition = "Fabric";
                 }
             } catch (Throwable ignored) {
-                this.serverEdition = "Fabric";
+                this.serverEdition = "Unknown";
             }
 
             logBedrockSupport();
@@ -275,8 +299,15 @@ public class Arrow {
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L,
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L
             );
-            this.chunkCache.cacheAllLoadedChunks();
-            log(translate("&6" + "➪  ChunkCache Initialized"));
+            // Load all server-loaded chunks in a dedicated thread, processing 20 chunks per batch
+            Thread cacheThread = new Thread(() -> this.chunkCache.cacheAllLoadedChunksBatched());
+            cacheThread.start();
+            try {
+                cacheThread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            log(translate("&6➪  Cached chunks: " + this.chunkCache.getCachedChunkCount()));
 
             this.violationListener = new ViolationListener(this);
             PlatformBackend.get().registerListener(new ProfileListener(this));
@@ -333,7 +364,7 @@ public class Arrow {
             log(translate("&6" + "=================================================================="));
             log("");
 
-            hasLoaded = true;
+
 
         }, 10L);
 
@@ -342,7 +373,9 @@ public class Arrow {
             if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_14_4)) {
                 log(translate("&e[WARN] This server is running a depricated version, meaning the anticheat will still work, but you will not receive any priority or proper support for updates, if there is an issue, you may still report it but do not expect any fix to be implemented."));
             }
-        }, 60L);
+
+            hasLoaded = true;
+        }, 120L);
     }
 
     public void onDisable() {
@@ -369,6 +402,10 @@ public class Arrow {
 
             if (this.themeManager != null) {
                 this.themeManager.shutdown();
+            }
+
+            if (this.chunkCache != null) {
+                this.chunkCache.shutdown();
             }
 
             ArrowAPIProvider.clear();

@@ -20,6 +20,7 @@ import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.OtherUtility;
 
+import static me.arrow.utils.ChatUtils.debugExempt;
 import static me.arrow.utils.customutils.Math.MathUtil.getAverage;
 import static me.arrow.utils.customutils.Math.MathUtil.getDevation;
 
@@ -286,10 +287,13 @@ public class FlyA extends Check {
             return true;
         }
 
-        int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
 
-        if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
-            ChatUtils.debugExempt("ghostphysics + resetting airticks", "FlyA");
+        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+            debugExempt("ghostphysics + resetting airticks", "FlyA");
             movementData.setCustomAirTicks(0);
             return true;
         }
@@ -345,7 +349,7 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (movementData.getSinceGlidingTicks() < 25 + profile.getConnectionData().getClientTickTrans()) {
+        if (movementData.isGlidingOrRecentlyGlided(30)) {
             ChatUtils.debugExempt("elytraGlide", "FlyA");
             return true;
         }

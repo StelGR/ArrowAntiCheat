@@ -23,6 +23,8 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
+import static me.arrow.utils.ChatUtils.debugExempt;
+
 // this is a very decent check, it accounts for acceleration and deceleration, the acceleration part is based off of OpenKarhu's speed b
 // it does have alot of improvements though, but it has some issues with modified attribute speed, remember the goal of the anticheat is to work on ALL minecraft versions.
 
@@ -86,9 +88,12 @@ public class SpeedB extends Check {
         double mdAccel = movementData.getAccelXZ();
         double accel = Math.abs(deltaXZ - lastDeltaXZ);
 
-        int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
 
-        if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             lastMove = new Vector(deltaX, 0.0, deltaZ);
             return;
         }
@@ -180,7 +185,7 @@ public class SpeedB extends Check {
                     forceSprint = movementSpeedSP * constant / f3;
                 }
 
-                if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
+                if (movementData.isGlidingOrRecentlyGlided(30)) {
                     lastMove = new Vector(deltaX, 0.0, deltaZ);
                     return;
                 }
@@ -211,9 +216,12 @@ public class SpeedB extends Check {
                     threshold += 0.3D;
                 }
 
-                int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
+                int ghostLiquidWebTicks = Math.min(
+                        profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                        profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+                );
 
-                if (profile.getBlockProcessor().isGhostPhysicsPlacementExempt(ghostPhysicsTicks)) {
+                if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                     threshold += 0.2D;
                 }
 

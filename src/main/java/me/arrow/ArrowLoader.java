@@ -20,6 +20,7 @@ public class ArrowLoader extends JavaPlugin {
     @Getter
     public File jarFile = getFile();
 
+
     @Override
     public void onEnable() {
         instance = this;

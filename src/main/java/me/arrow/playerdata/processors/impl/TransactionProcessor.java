@@ -12,6 +12,7 @@ import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.platform.PlatformBackend;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.OtherUtility;
@@ -73,18 +74,24 @@ public class TransactionProcessor implements Runnable {
 
     @Override
     public void run() {
-        if (profile == null) return;
-        if (profile.getTick() < 20) return;
-        if (kickedForTransaction) return;
-        if (profile.getPlayer() == null || !profile.getPlayer().isOnline()) {
-            stopTransaction();
-            return;
-        }
+        long start = Profiler.start();
+        try {
+            if (profile == null) return;
+            if (profile.getTick() < 20) return;
+            if (kickedForTransaction) return;
+            if (profile.getPlayer() == null || !profile.getPlayer().isOnline()) {
+                stopTransaction();
+                return;
+            }
 
-        processTransactions();
+            processTransactions();
+        } finally {
+            Profiler.stop("TransactionProcessor run", start);
+        }
     }
 
-    public void processTransactions() {
+        public void processTransactions() {
+        long start = Profiler.start();
         try {
             boolean useModernTransaction = shouldUseModernTransaction();
 
@@ -105,10 +112,11 @@ public class TransactionProcessor implements Runnable {
 
             if (attempts >= MAX_ATTEMPTS) {
                 kickForTransactionTimeout();
-                return;
             }
         } catch (Exception e) {
             OtherUtility.log("TransactionProcessor error: " + e.getMessage());
+        } finally {
+            Profiler.stop("TransactionProcessor processTransactions", start);
         }
     }
 

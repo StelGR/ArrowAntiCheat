@@ -50,7 +50,12 @@ public class GroundC extends Check {
                         || profile.isExempt().vehicle()
                         || movementData.isNearGhast()
                         || profile.getTick() < 120
-                        || movementData.isNearBoat()) {
+                        || movementData.isNearBoat()
+                        || movementData.getLocation() == null
+                        || (movementData.getSinceTeleportTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 4))
+                        || profile.isExempt().isTeleports()
+                        || movementData.isGlidingOrRecentlyGlided(30)
+                        || !CollisionUtils.isChunkLoaded(movementData.getLocation())) {
                     return;
                 }
 

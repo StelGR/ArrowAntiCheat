@@ -3,7 +3,6 @@ package me.arrow.managers.profile;
 import me.arrow.Arrow;
 import me.arrow.managers.Initializer;
 import me.arrow.platform.PlatformBackend;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.Map;
@@ -22,7 +21,7 @@ public class ProfileManager implements Initializer {
     public void initialize() {
         if (PlatformBackend.get().getServer() == null) return;
 
-        if (!Arrow.getInstance().isHasLoaded()) {
+        if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) {
             PlatformBackend.get().getServer().getOnlinePlayers().stream().filter(Objects::nonNull).forEach(player -> player.kickPlayer("Server is still loading, please wait."));
             return;
         }

@@ -50,7 +50,8 @@ public class MotionE extends Check {
                         || Arrow.getInstance().getNmsManager().getNmsInstance().isSwimming(profile.getPlayer())
                         || movementData.getSinceRiptidingTicks() < 5
                         || profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5
-                        || movementData.isNearBuggyBlock()) {
+                        || movementData.isNearBuggyBlock()
+                        || movementData.isGlidingOrRecentlyGlided(30)) {
                     return;
                 }
 
