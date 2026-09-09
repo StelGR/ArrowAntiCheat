@@ -1937,6 +1937,11 @@ public class BlockProcessor implements Data {
             return true;
         }
 
+        if ((server.equals("GRASS") || server.equals("GRASS_BLOCK"))
+                && (attempted.equals("GRASS") || attempted.equals("GRASS_BLOCK"))) {
+            return true;
+        }
+
         if ((server.contains("CAVE_VINES") || server.contains("CAVE_VINES_PLANT"))
                 && (attempted.contains("CAVE_VINES") || attempted.contains("GLOW_BERRIES"))) {
             return true;
@@ -2092,54 +2097,7 @@ public class BlockProcessor implements Data {
     }
 
     Material matchMaterialCompat(String raw) {
-        // Normalizes modern/legacy names into a Bukkit Material.
-        if (raw == null || raw.isEmpty()) {
-            return null;
-        }
-
-        String name = raw
-                .replace("minecraft:", "")
-                .replace("Material.", "")
-                .replace("LEGACY_", "")
-                .replace(" ", "_")
-                .replace("-", "_")
-                .toUpperCase();
-
-        Material direct = Material.matchMaterial(name);
-
-        if (direct != null) {
-            return direct;
-        }
-
-        if (name.equals("COBWEB")) {
-            Material legacy = Material.matchMaterial("WEB");
-
-            if (legacy != null) {
-                return legacy;
-            }
-        }
-
-        if (name.equals("WEB")) {
-            Material modern = Material.matchMaterial("COBWEB");
-
-            if (modern != null) {
-                return modern;
-            }
-        }
-
-        if (name.contains("WATER")) {
-            Material bucket = Material.matchMaterial("WATER_BUCKET");
-
-            if (bucket != null) {
-                return bucket;
-            }
-        }
-
-        if (name.contains("LAVA")) {
-            return Material.matchMaterial("LAVA_BUCKET");
-        }
-
-        return null;
+        return PEMaterials.matchMaterialCompat(raw);
     }
 
     boolean isValidGhostAttemptMaterial(Material material) {
