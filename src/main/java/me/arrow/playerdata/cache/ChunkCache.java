@@ -12,6 +12,8 @@ import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import me.arrow.managers.profiler.Profiler;
+import org.bukkit.entity.Player;
+
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Set;
@@ -32,8 +34,8 @@ public class ChunkCache {
         return INSTANCE;
     }
 
-    private static final int DEFAULT_MIN_Y = 0;
-    private static final int DEFAULT_MAX_Y = 256;
+    private static final int DEFAULT_MIN_Y = -64;
+    private static final int DEFAULT_MAX_Y = 320;
 
     // World Name -> (ChunkKey -> CachedChunk)
     private final Map<String, Map<Long, CachedChunk>> worldChunks = new ConcurrentHashMap<>();
@@ -81,6 +83,9 @@ public class ChunkCache {
         }
 
         try {
+            // Give server time to load worlds before gathering chunks
+
+
             if (PlatformBackend.get().getServer() == null) {
                 this.initialized = true;
                 return;
@@ -126,30 +131,130 @@ public class ChunkCache {
     }
 
     /**
+     * Load all loaded chunks with a pause between each chunk (delayMs ms).
+     * This runs on the calling thread, so it should be executed from a dedicated thread
+     * to keep the main server thread free.
+     */
+    public boolean isChunkCached(String worldName, int chunkX, int chunkZ) {
+        if (worldName == null) return false;
+        Map<Long, CachedChunk> map = worldChunks.get(worldName);
+        return map != null && map.containsKey(chunkKey(chunkX, chunkZ));
+    }
+
+    /**
+     * Load all loaded chunks with a pause between each chunk (delayMs ms).
+     * This runs on the calling thread, so it should be executed from a dedicated thread
+     * to keep the main server thread free.
+     */
+    public void cacheAllLoadedChunksWithDelay(long delayMs) {
+        if (PlatformBackend.get().isFabric()) {
+            this.initialized = true;
+            return;
+        }
+        try {
+            int retryAttempts = 0;
+            // Retry waiting for server worlds and loaded chunks if server is still starting up
+            while (retryAttempts < 20) {
+                boolean hasLoaded = false;
+                if (PlatformBackend.get().getServer() != null) {
+                    for (World world : PlatformBackend.get().getServer().getWorlds()) {
+                        if (world == null) continue;
+                        Chunk[] loaded = world.getLoadedChunks();
+                        if (loaded != null && loaded.length > 0) {
+                            hasLoaded = true;
+                            break;
+                        }
+                    }
+                }
+                if (hasLoaded) {
+                    break;
+                }
+                try {
+                    Thread.sleep(500L);
+                } catch (InterruptedException ignored) {
+                    break;
+                }
+                retryAttempts++;
+            }
+
+            boolean hasMore = true;
+            while (hasMore) {
+                java.util.List<Chunk> batch = new java.util.ArrayList<>();
+                if (PlatformBackend.get().getServer() != null) {
+                    for (World world : PlatformBackend.get().getServer().getWorlds()) {
+                        if (world == null) continue;
+                        Chunk[] loaded = world.getLoadedChunks();
+                        if (loaded == null) continue;
+                        for (Chunk c : loaded) {
+                            if (c != null && !isChunkCached(world.getName(), c.getX(), c.getZ())) {
+                                batch.add(c);
+                            }
+                        }
+                    }
+                }
+
+                if (batch.isEmpty()) {
+                    hasMore = false;
+                } else {
+                    for (Chunk chunk : batch) {
+                        ensureChunkCached(chunk);
+                        try {
+                            Thread.sleep(delayMs);
+                        } catch (InterruptedException ignored) {
+                            hasMore = false;
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // Swallow unexpected errors but still mark initialized
+        } finally {
+            this.initialized = true;
+        }
+    }
+
+    /**
      * Cache a single Bukkit chunk using its fast ChunkSnapshot.
-     * Skips entirely-air sections via {@code isSectionEmpty()} to avoid
+     * Skips entirely-air sections via SnapshotAdapter to avoid
      * iterating thousands of air blocks unnecessarily.
      */
     public void cacheBukkitChunk(Chunk chunk) {
+        cacheBukkitChunk(chunk, null);
+    }
+
+    public void cacheBukkitChunk(Chunk chunk, ChunkSnapshot snapshot) {
+        if (chunk == null) return;
         long start = Profiler.start();
         try {
             World world = chunk.getWorld();
+            if (world == null) return;
             int cx = chunk.getX();
             int cz = chunk.getZ();
             int minY = getWorldMinY(world);
             int maxY = getWorldMaxY(world);
 
-            CachedChunk cached = new CachedChunk(cx, cz);
-
-            try {
-                ChunkSnapshot snapshot = chunk.getChunkSnapshot(false, false, false);
-                cacheFromSnapshot(snapshot, cached, minY, maxY);
-            } catch (Throwable t) {
-                // Fallback: block-by-block if snapshot fails (very old servers)
-                cacheFromBlocks(chunk, cached, minY, maxY);
+            if (snapshot == null) {
+                if (Bukkit.isPrimaryThread()) {
+                    try {
+                        snapshot = chunk.getChunkSnapshot(false, false, false);
+                    } catch (Throwable ignored) {}
+                } else {
+                    try {
+                        snapshot = chunk.getChunkSnapshot(false, false, false);
+                    } catch (Throwable ignored) {
+                        try {
+                            snapshot = TaskUtils.callSync(() -> chunk.getChunkSnapshot(false, false, false));
+                        } catch (Throwable ignored2) {}
+                    }
+                }
             }
 
-            putChunk(world.getName(), cx, cz, cached);
+            if (snapshot != null) {
+                CachedChunk cached = new CachedChunk(cx, cz);
+                cacheFromSnapshot(snapshot, cached, minY, maxY);
+                putChunk(world.getName(), cx, cz, cached);
+            }
         } catch (Throwable ignored) {
         } finally {
             Profiler.stop("ChunkCache cacheBukkitChunk", start);
@@ -157,19 +262,85 @@ public class ChunkCache {
     }
 
     /**
+     * Ensures the chunk the player is currently standing in is loaded and
+     * queued for asynchronous caching.
+     *
+     * This is useful when the client/server moves into a chunk which has not
+     * yet been observed through CHUNK_DATA.
+     */
+    public void ensurePlayerChunkLoaded(CustomLocation location) {
+        if (location == null || PlatformBackend.get().isFabric()) {
+            return;
+        }
+
+        try {
+            World world = location.getWorld();
+
+            int chunkX = location.getBlockX() >> 4;
+            int chunkZ = location.getBlockZ() >> 4;
+
+            String worldName = world.getName();
+
+            // Already cached.
+            if (getChunk(worldName, chunkX, chunkZ) != null) {
+                return;
+            }
+
+            // Already waiting to be processed.
+            if (isChunkQueued(worldName, chunkX, chunkZ)) {
+                return;
+            }
+
+            // Bukkit chunk operations should happen on the server thread.
+            TaskUtils.task(() -> {
+                try {
+                    // Re-check after scheduling.
+                    if (getChunk(worldName, chunkX, chunkZ) != null) {
+                        return;
+                    }
+
+                    if (isChunkQueued(worldName, chunkX, chunkZ)) {
+                        return;
+                    }
+
+                    /*
+                     * This explicitly loads the chunk if it isn't loaded yet.
+                     */
+                    Chunk chunk = world.getChunkAt(chunkX, chunkZ);
+                    if (chunk == null) {
+                        return;
+                    }
+
+                    ChunkSnapshot snapshot = chunk.getChunkSnapshot(false, false, false);
+
+                    /*
+                     * Hand the expensive parsing/storage work to the
+                     * existing async chunk queue.
+                     */
+                    queueChunkSnapshot(world, chunkX, chunkZ, snapshot);
+
+                } catch (Throwable ignored) {
+                }
+            });
+
+        } catch (Throwable ignored) {
+        }
+    }
+
+
+    /**
      * Fast path: iterate only non-empty sections of a ChunkSnapshot.
      * Each section covers a 16-block vertical slice (sectionY = y >> 4).
+     * Fully compatible with 1.7 through 26.2 via SnapshotAdapter.
      */
     private void cacheFromSnapshot(ChunkSnapshot snapshot, CachedChunk cached, int minY, int maxY) {
+        if (snapshot == null || cached == null) return;
         int minSection = minY >> 4;
         int maxSection = maxY >> 4;
 
         for (int sectionY = minSection; sectionY <= maxSection; sectionY++) {
-            // Skip entirely-air sections — avoids 4096 iterations per empty section
-            try {
-                if (snapshot.isSectionEmpty(sectionY)) continue;
-            } catch (Throwable ignored) {
-                // isSectionEmpty() may not exist on very old Bukkit versions; proceed anyway
+            if (SnapshotAdapter.isSectionEmpty(snapshot, sectionY)) {
+                continue;
             }
 
             int baseY = sectionY << 4;
@@ -179,10 +350,10 @@ public class ChunkCache {
             for (int y = startY; y <= endY; y++) {
                 for (int x = 0; x < 16; x++) {
                     for (int z = 0; z < 16; z++) {
-                        Material type = snapshot.getBlockType(x, y, z);
-                        if (type != Material.AIR) {
+                        Material type = SnapshotAdapter.getMaterial(snapshot, x, y, z);
+                        if (type != null && type != Material.AIR) {
                             cached.set(x, y, z, type);
-                            if (isWaterMaterial(type)) {
+                            if (SnapshotAdapter.isWaterlogged(snapshot, x, y, z, type)) {
                                 cached.setWaterlogged(x, y, z, true);
                             }
                         }
@@ -192,39 +363,54 @@ public class ChunkCache {
         }
     }
 
+
+    // Detect if the server version supports the Waterlogged interface (1.13+).
+    private static final boolean WATERLOGGED_SUPPORTED;
+    static {
+        boolean supported = false;
+        try {
+            Class.forName("org.bukkit.block.data.Waterlogged");
+            supported = true;
+        } catch (Throwable ignored) {
+        }
+        WATERLOGGED_SUPPORTED = supported;
+    }
+
     /**
-     * Slow fallback: iterate block-by-block directly from the chunk.
-     * Used only when ChunkSnapshot is unavailable (e.g. very old server versions).
+     * Checks whether the given block is waterlogged using the Waterlogged interface when available.
+     * This method is safe on older versions (e.g., 1.7) where the interface does not exist.
      */
-    private void cacheFromBlocks(Chunk chunk, CachedChunk cached, int minY, int maxY) {
-        for (int y = minY; y <= maxY; y++) {
-            for (int x = 0; x < 16; x++) {
-                for (int z = 0; z < 16; z++) {
-                    Block b = chunk.getBlock(x, y, z);
-                    Material type = b.getType();
-                    if (type != Material.AIR) {
-                        cached.set(x, y, z, type);
-                        if (isWaterMaterial(type)) {
-                            cached.setWaterlogged(x, y, z, true);
-                        }
-                    }
+    private static boolean isBlockWaterlogged(Block block) {
+        // Preserve compatibility: custom water check will be performed even if Waterlogged interface is unavailable
+        // Only process tall seagrass to reduce console spam and avoid unnecessary checks
+
+        try {
+            // First, attempt the standard Waterlogged interface check when supported.
+            boolean result = false;
+            if (WATERLOGGED_SUPPORTED) {
+                Object bd = block.getBlockData();
+                Class<?> waterloggedClass = Class.forName("org.bukkit.block.data.Waterlogged");
+                if (waterloggedClass.isInstance(bd)) {
+                    result = (boolean) waterloggedClass.getMethod("isWaterlogged").invoke(bd);
                 }
             }
-        }
-    }
 
-    private static final boolean[] WATER_MATERIALS;
-    static {
-        Material[] values = Material.values();
-        WATER_MATERIALS = new boolean[values.length];
-        for (int i = 0; i < values.length; i++) {
-            Material m = values[i];
-            if (m != null && m.name().contains("WATER")) {
-                WATER_MATERIALS[i] = true;
+            // Custom handling for tall seagrass: consider it water‑logged if the block directly below is water.
+            if (block.getType() == Material.TALL_SEAGRASS) {
+                if (!result) {
+                    result = true;
+                }
+//                OtherUtility.log("[WaterlogCheck] " + block.getType()
+//                        + " @ " + block.getWorld().getName()
+//                        + "," + block.getX() + "," + block.getY() + "," + block.getZ()
+//                        + " -> " + result);
             }
-        }
-    }
 
+            return result;
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
     /**
      * Fast O(1) check if a material is water, avoiding all string allocations.
      */
@@ -234,10 +420,25 @@ public class ChunkCache {
         return ord >= 0 && ord < WATER_MATERIALS.length && WATER_MATERIALS[ord];
     }
 
-    public void putChunk(String worldName, int chunkX, int chunkZ, CachedChunk chunk) {
-        if (worldName == null || chunk == null) return;
-        worldChunks.computeIfAbsent(worldName, k -> new ConcurrentHashMap<>())
-                .put(chunkKey(chunkX, chunkZ), chunk);
+    private static final boolean[] WATER_MATERIALS;
+    static {
+        Material[] values = Material.values();
+        WATER_MATERIALS = new boolean[values.length];
+        for (int i = 0; i < values.length; i++) {
+            Material m = values[i];
+            if (m != null) {
+                String name = m.name();
+                if (name.contains("WATER")
+                        || name.equals("TALL_SEAGRASS")
+                        || name.equals("SEAGRASS")
+                        || name.equals("KELP")
+                        || name.equals("KELP_PLANT")
+                        || name.equals("BUBBLE_COLUMN")
+                        || name.equals("BUBBLE_COLUMN_CAULDRON")) {
+                    WATER_MATERIALS[i] = true;
+                }
+            }
+        }
     }
 
     public CachedChunk getChunk(String worldName, int chunkX, int chunkZ) {
@@ -246,22 +447,39 @@ public class ChunkCache {
         return map != null ? map.get(chunkKey(chunkX, chunkZ)) : null;
     }
 
-    public void removeChunk(String worldName, int chunkX, int chunkZ) {
-        if (worldName == null) return;
-        unmarkQueued(worldName, chunkX, chunkZ);
-        Map<Long, CachedChunk> map = worldChunks.get(worldName);
-        if (map != null) {
-            map.remove(chunkKey(chunkX, chunkZ));
-        }
+    public void queueMissingChunk(String worldName, int chunkX, int chunkZ) {
+        if (worldName == null || PlatformBackend.get().isFabric()) return;
+        if (getChunk(worldName, chunkX, chunkZ) != null) return;
+        if (!markQueued(worldName, chunkX, chunkZ)) return;
+        TaskUtils.task(() -> {
+            try {
+                World world = Bukkit.getWorld(worldName);
+                if (world != null && world.isChunkLoaded(chunkX, chunkZ)) {
+                    Chunk c = world.getChunkAt(chunkX, chunkZ);
+                    if (c != null) {
+                        ChunkSnapshot snapshot = c.getChunkSnapshot(false, false, false);
+                        chunkExecutor.execute(() -> {
+                            try {
+                                if (getChunk(worldName, chunkX, chunkZ) != null) return;
+                                CachedChunk cached = new CachedChunk(chunkX, chunkZ);
+                                cacheFromSnapshot(snapshot, cached, getWorldMinY(world), getWorldMaxY(world));
+                                putChunk(worldName, chunkX, chunkZ, cached);
+                            } finally {
+                                unmarkQueued(worldName, chunkX, chunkZ);
+                            }
+                        });
+                        return;
+                    }
+                }
+            } catch (Throwable ignored) {}
+            unmarkQueued(worldName, chunkX, chunkZ);
+        });
     }
 
-    /**
-     * Evict all cached chunks for a world (e.g. on WorldUnloadEvent).
-     */
-    public void removeWorld(String worldName) {
-        if (worldName == null) return;
-        pendingQueue.remove(worldName);
-        worldChunks.remove(worldName);
+    public void putChunk(String worldName, int chunkX, int chunkZ, CachedChunk chunk) {
+        if (worldName == null || chunk == null) return;
+        worldChunks.computeIfAbsent(worldName, k -> new ConcurrentHashMap<>())
+                .put(chunkKey(chunkX, chunkZ), chunk);
     }
 
     public void clear() {
@@ -308,8 +526,10 @@ public class ChunkCache {
         if (chunk != null) {
             return chunk.get(x & 15, y, z & 15);
         }
+        queueMissingChunk(worldName, cx, cz);
         return null;
     }
+
 
     public Material getBlock(CustomLocation location) {
         if (location == null || location.getWorld() == null) return Material.AIR;
@@ -475,23 +695,55 @@ public class ChunkCache {
         });
     }
 
+    public void queueChunkSnapshot(World world, int cx, int cz, ChunkSnapshot snapshot) {
+        if (world == null || snapshot == null) return;
+        String worldName = world.getName();
+        if (getChunk(worldName, cx, cz) != null) return;
+        if (!markQueued(worldName, cx, cz)) return;
+
+        int minY = getWorldMinY(world);
+        int maxY = getWorldMaxY(world);
+
+        chunkExecutor.execute(() -> {
+            try {
+                if (getChunk(worldName, cx, cz) != null) return;
+                CachedChunk cached = new CachedChunk(cx, cz);
+                cacheFromSnapshot(snapshot, cached, minY, maxY);
+                putChunk(worldName, cx, cz, cached);
+            } catch (Throwable ignored) {
+            } finally {
+                unmarkQueued(worldName, cx, cz);
+            }
+        });
+    }
+
     /**
      * Enqueues a Bukkit chunk (e.g. from ChunkLoadEvent) for asynchronous processing.
      * Deduplicates automatically: if already cached or already queued, it returns immediately.
      */
     public void queueBukkitChunk(Chunk chunk) {
         if (chunk == null) return;
-        String worldName = chunk.getWorld().getName();
+        World world = chunk.getWorld();
+        if (world == null) return;
+        String worldName = world.getName();
         int cx = chunk.getX();
         int cz = chunk.getZ();
 
         if (getChunk(worldName, cx, cz) != null) return;
         if (!markQueued(worldName, cx, cz)) return;
 
+        ChunkSnapshot directSnapshot = null;
+        if (Bukkit.isPrimaryThread()) {
+            try {
+                directSnapshot = chunk.getChunkSnapshot();
+            } catch (Throwable ignored) {}
+        }
+        final ChunkSnapshot snapshot = directSnapshot;
+
         chunkExecutor.execute(() -> {
             try {
                 if (getChunk(worldName, cx, cz) != null) return;
-                cacheBukkitChunk(chunk);
+                cacheBukkitChunk(chunk, snapshot);
             } catch (Throwable ignored) {
             } finally {
                 unmarkQueued(worldName, cx, cz);
@@ -505,7 +757,6 @@ public class ChunkCache {
     public CachedChunk parsePacketColumn(int chunkX, int chunkZ, int minY, Column column) {
         if (column == null) return null;
         BaseChunk[] sections = column.getChunks();
-        if (sections == null) return null;
 
         CachedChunk cached = new CachedChunk(chunkX, chunkZ);
         int minSection = minY >> 4;

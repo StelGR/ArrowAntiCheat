@@ -484,12 +484,70 @@ public class CollisionUtils {
 
     public static boolean isChunkLoaded(final CustomLocation location) {
         if (location == null || location.getWorld() == null) return false;
-        return ChunkCache.get().isChunkLoaded(location);
+        String worldName = location.getWorld().getName();
+        double x = location.getX();
+        double z = location.getZ();
+        int cx = (int) Math.floor(x) >> 4;
+        int cz = (int) Math.floor(z) >> 4;
+        if (!ChunkCache.get().isChunkLoaded(location.getWorld(), cx, cz)) {
+            ChunkCache.get().queueMissingChunk(worldName, cx, cz);
+            return false;
+        }
+        int minCx = (int) Math.floor(x - 0.3) >> 4;
+        int maxCx = (int) Math.floor(x + 0.3) >> 4;
+        int minCz = (int) Math.floor(z - 0.3) >> 4;
+        int maxCz = (int) Math.floor(z + 0.3) >> 4;
+        if (minCx != cx && !ChunkCache.get().isChunkLoaded(location.getWorld(), minCx, cz)) {
+            ChunkCache.get().queueMissingChunk(worldName, minCx, cz);
+            return false;
+        }
+        if (maxCx != cx && !ChunkCache.get().isChunkLoaded(location.getWorld(), maxCx, cz)) {
+            ChunkCache.get().queueMissingChunk(worldName, maxCx, cz);
+            return false;
+        }
+        if (minCz != cz && !ChunkCache.get().isChunkLoaded(location.getWorld(), cx, minCz)) {
+            ChunkCache.get().queueMissingChunk(worldName, cx, minCz);
+            return false;
+        }
+        if (maxCz != cz && !ChunkCache.get().isChunkLoaded(location.getWorld(), cx, maxCz)) {
+            ChunkCache.get().queueMissingChunk(worldName, cx, maxCz);
+            return false;
+        }
+        return true;
     }
 
     public static boolean isChunkLoaded(final Location location) {
         if (location == null || location.getWorld() == null) return false;
-        return ChunkCache.get().isChunkLoaded(location);
+        String worldName = location.getWorld().getName();
+        double x = location.getX();
+        double z = location.getZ();
+        int cx = (int) Math.floor(x) >> 4;
+        int cz = (int) Math.floor(z) >> 4;
+        if (!ChunkCache.get().isChunkLoaded(location.getWorld(), cx, cz)) {
+            ChunkCache.get().queueMissingChunk(worldName, cx, cz);
+            return false;
+        }
+        int minCx = (int) Math.floor(x - 0.3) >> 4;
+        int maxCx = (int) Math.floor(x + 0.3) >> 4;
+        int minCz = (int) Math.floor(z - 0.3) >> 4;
+        int maxCz = (int) Math.floor(z + 0.3) >> 4;
+        if (minCx != cx && !ChunkCache.get().isChunkLoaded(location.getWorld(), minCx, cz)) {
+            ChunkCache.get().queueMissingChunk(worldName, minCx, cz);
+            return false;
+        }
+        if (maxCx != cx && !ChunkCache.get().isChunkLoaded(location.getWorld(), maxCx, cz)) {
+            ChunkCache.get().queueMissingChunk(worldName, maxCx, cz);
+            return false;
+        }
+        if (minCz != cz && !ChunkCache.get().isChunkLoaded(location.getWorld(), cx, minCz)) {
+            ChunkCache.get().queueMissingChunk(worldName, cx, minCz);
+            return false;
+        }
+        if (maxCz != cz && !ChunkCache.get().isChunkLoaded(location.getWorld(), cx, maxCz)) {
+            ChunkCache.get().queueMissingChunk(worldName, cx, maxCz);
+            return false;
+        }
+        return true;
     }
 
     public static boolean isWaterLogged(final World world, final int x, final int y, final int z) {
@@ -520,13 +578,10 @@ public class CollisionUtils {
             if (!TaskUtils.isOwnedByCurrentRegion(location)) {
                 return null;
             }
-        } else if (!org.bukkit.Bukkit.isPrimaryThread()) {
-            // Off the primary server thread on Spigot/Paper, location.getBlock() causes AsyncCatcherException
-            return null;
         }
 
         try {
-            return isChunkLoaded(location) ? location.getBlock() : null;
+            return location.getBlock();
         } catch (Throwable ignored) {
             return null;
         }
@@ -539,7 +594,7 @@ public class CollisionUtils {
         if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(location)) {
             return null;
         }
-        if (async || !org.bukkit.Bukkit.isPrimaryThread()) {
+        if (async) {
             return getBlockAsync(location);
         }
         try {

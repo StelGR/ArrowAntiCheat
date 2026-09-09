@@ -11,11 +11,13 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMu
 import me.arrow.Arrow;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.MaterialType;
+import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -312,9 +314,12 @@ public class ClientWorldTracker implements Data {
                     Material client = getClientMaterial(x, y, z);
                     Material server = getServerMaterial(x, y, z);
 
-                    if (client == null) {
+                    if (client == null || server == null) {
                         result.unknownClientChunk = true;
                         markUnknownChunk(x >> 4, z >> 4);
+                        if (server == null && profile.getPlayer() != null && profile.getPlayer().getWorld() != null) {
+                            ChunkCache.get().queueMissingChunk(profile.getPlayer().getWorld().getName(), x >> 4, z >> 4);
+                        }
                         continue;
                     }
 
@@ -922,6 +927,10 @@ public class ClientWorldTracker implements Data {
             Material clientNow = getClientMaterial(update.x, update.y, update.z);
             Material serverNow = getServerMaterial(update.x, update.y, update.z);
 
+            if (clientNow == null || serverNow == null) {
+                continue;
+            }
+
             if (sameMaterialFamily(clientNow, serverNow)) {
                 clearHistoryAt(update.x, update.y, update.z);
                 continue;
@@ -1075,45 +1084,13 @@ public class ClientWorldTracker implements Data {
     private Material materialFromState(StateType type) {
         if (type == null) {
             return null;
-        } else {
-            type.getName();
         }
 
-        return matchMaterialCompat(type.getName());
+        return PEMaterials.materialFromState(type);
     }
 
     private Material matchMaterialCompat(String raw) {
-        if (raw == null || raw.isEmpty()) {
-            return null;
-        }
-
-        String name = raw
-                .replace("minecraft:", "")
-                .replace("Material.", "")
-                .replace("LEGACY_", "")
-                .replace(" ", "_")
-                .replace("-", "_")
-                .toUpperCase();
-
-        Material direct = Material.matchMaterial(name);
-
-        if (direct != null) {
-            return direct;
-        }
-
-        if (name.equals("COBWEB")) {
-            Material legacy = Material.matchMaterial("WEB");
-
-            if (legacy != null) {
-                return legacy;
-            }
-        }
-
-        if (name.equals("WEB")) {
-            return Material.matchMaterial("COBWEB");
-        }
-
-        return null;
+        return PEMaterials.matchMaterialCompat(raw);
     }
 
     private boolean isCollidableForAnticheat(Material material) {
@@ -1188,11 +1165,108 @@ public class ClientWorldTracker implements Data {
         String aa = a.name();
         String bb = b.name();
 
+        if (aa.equals(bb)) {
+            return true;
+        }
+
+        // Web / Cobweb
         if ((aa.equals("WEB") || aa.equals("COBWEB")) && (bb.equals("WEB") || bb.equals("COBWEB"))) {
             return true;
         }
 
-        return aa.equals(bb);
+        // Grass / Grass Block cross-version parity (1.8 Material.GRASS is the solid block, 1.13+ Material.GRASS_BLOCK is the block)
+        if ((aa.equals("GRASS") || aa.equals("GRASS_BLOCK")) && (bb.equals("GRASS") || bb.equals("GRASS_BLOCK"))) {
+            return true;
+        }
+
+        // Water & Stationary Water
+        if ((aa.equals("WATER") || aa.equals("STATIONARY_WATER")) && (bb.equals("WATER") || bb.equals("STATIONARY_WATER"))) {
+            return true;
+        }
+
+        // Lava & Stationary Lava
+        if ((aa.equals("LAVA") || aa.equals("STATIONARY_LAVA")) && (bb.equals("LAVA") || bb.equals("STATIONARY_LAVA"))) {
+            return true;
+        }
+
+        // Redstone components: On/Off states
+        if ((aa.equals("REDSTONE_TORCH_ON") || aa.equals("REDSTONE_TORCH_OFF") || aa.equals("REDSTONE_TORCH") || aa.equals("REDSTONE_WALL_TORCH"))
+                && (bb.equals("REDSTONE_TORCH_ON") || bb.equals("REDSTONE_TORCH_OFF") || bb.equals("REDSTONE_TORCH") || bb.equals("REDSTONE_WALL_TORCH"))) {
+            return true;
+        }
+
+        if ((aa.equals("DIODE_BLOCK_ON") || aa.equals("DIODE_BLOCK_OFF") || aa.equals("DIODE") || aa.equals("REPEATER"))
+                && (bb.equals("DIODE_BLOCK_ON") || bb.equals("DIODE_BLOCK_OFF") || bb.equals("DIODE") || bb.equals("REPEATER"))) {
+            return true;
+        }
+
+        if ((aa.equals("REDSTONE_COMPARATOR_ON") || aa.equals("REDSTONE_COMPARATOR_OFF") || aa.equals("REDSTONE_COMPARATOR") || aa.equals("COMPARATOR"))
+                && (bb.equals("REDSTONE_COMPARATOR_ON") || bb.equals("REDSTONE_COMPARATOR_OFF") || bb.equals("REDSTONE_COMPARATOR") || bb.equals("COMPARATOR"))) {
+            return true;
+        }
+
+        if ((aa.equals("REDSTONE_LAMP_ON") || aa.equals("REDSTONE_LAMP_OFF") || aa.equals("REDSTONE_LAMP"))
+                && (bb.equals("REDSTONE_LAMP_ON") || bb.equals("REDSTONE_LAMP_OFF") || bb.equals("REDSTONE_LAMP"))) {
+            return true;
+        }
+
+        if ((aa.equals("GLOWING_REDSTONE_ORE") || aa.equals("REDSTONE_ORE"))
+                && (bb.equals("GLOWING_REDSTONE_ORE") || bb.equals("REDSTONE_ORE"))) {
+            return true;
+        }
+
+        if ((aa.equals("FURNACE") || aa.equals("BURNING_FURNACE"))
+                && (bb.equals("FURNACE") || bb.equals("BURNING_FURNACE"))) {
+            return true;
+        }
+
+        // Common legacy / modern cross-version naming equivalences
+        if ((aa.equals("WORKBENCH") || aa.equals("CRAFTING_TABLE"))
+                && (bb.equals("WORKBENCH") || bb.equals("CRAFTING_TABLE"))) {
+            return true;
+        }
+
+        if ((aa.equals("SMOOTH_BRICK") || aa.equals("STONE_BRICKS"))
+                && (bb.equals("SMOOTH_BRICK") || bb.equals("STONE_BRICKS"))) {
+            return true;
+        }
+
+        if ((aa.equals("SOIL") || aa.equals("FARMLAND"))
+                && (bb.equals("SOIL") || bb.equals("FARMLAND"))) {
+            return true;
+        }
+
+        if ((aa.equals("MOB_SPAWNER") || aa.equals("SPAWNER"))
+                && (bb.equals("MOB_SPAWNER") || bb.equals("SPAWNER"))) {
+            return true;
+        }
+
+        if ((aa.equals("PORTAL") || aa.equals("NETHER_PORTAL"))
+                && (bb.equals("PORTAL") || bb.equals("NETHER_PORTAL"))) {
+            return true;
+        }
+
+        if ((aa.equals("ENDER_PORTAL") || aa.equals("END_PORTAL"))
+                && (bb.equals("ENDER_PORTAL") || bb.equals("END_PORTAL"))) {
+            return true;
+        }
+
+        if ((aa.equals("ENDER_PORTAL_FRAME") || aa.equals("END_PORTAL_FRAME"))
+                && (bb.equals("ENDER_PORTAL_FRAME") || bb.equals("END_PORTAL_FRAME"))) {
+            return true;
+        }
+
+        if ((aa.equals("WOOD") || aa.equals("OAK_PLANKS") || aa.equals("PLANKS"))
+                && (bb.equals("WOOD") || bb.equals("OAK_PLANKS") || bb.equals("PLANKS"))) {
+            return true;
+        }
+
+        if ((aa.equals("ENCHANTMENT_TABLE") || aa.equals("ENCHANTING_TABLE"))
+                && (bb.equals("ENCHANTMENT_TABLE") || bb.equals("ENCHANTING_TABLE"))) {
+            return true;
+        }
+
+        return false;
     }
 
     private boolean isAirLike(Material material) {

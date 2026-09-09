@@ -43,6 +43,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.Bukkit;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -299,16 +300,19 @@ public class Arrow {
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L,
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L
             );
-            // Load all server-loaded chunks in a dedicated thread, processing 20 chunks per batch
-            Thread cacheThread = new Thread(() -> this.chunkCache.cacheAllLoadedChunksBatched());
+            // Start cache thread to load chunks with delay
+            Thread cacheThread = new Thread(() -> this.chunkCache.cacheAllLoadedChunksWithDelay(20L));
             cacheThread.start();
-            try {
-                cacheThread.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            log(translate("&6➪  Cached chunks: " + this.chunkCache.getCachedChunkCount()));
-
+            // Separate thread to wait for cache completion without blocking main thread
+            new Thread(() -> {
+                try {
+                    cacheThread.join();
+                    log(translate("[Arrow] " + "&6➪  Chunk cache loaded: " + this.chunkCache.getCachedChunkCount() + " chunks"));
+                } catch (InterruptedException ignored) {
+                    // If interrupted, skip logging
+                }
+            }).start();
+            
             this.violationListener = new ViolationListener(this);
             PlatformBackend.get().registerListener(new ProfileListener(this));
             PlatformBackend.get().registerListener(this.violationListener);

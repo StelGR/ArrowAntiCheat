@@ -6,16 +6,14 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
-import com.github.retrooper.packetevents.protocol.world.chunk.BaseChunk;
 import com.github.retrooper.packetevents.protocol.world.chunk.Column;
 import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkData;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUnloadChunk;
-import me.arrow.managers.profiler.Profiler;
-import me.arrow.utils.TaskUtils;
+import me.arrow.platform.PlatformBackend;
 import me.arrow.utils.custom.materials.PEMaterials;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -62,12 +60,6 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
         // --- Full chunk load: populate cache from packet data ---
         if (packetType.equals(PacketType.Play.Server.CHUNK_DATA)) {
             handleChunkData(event, worldName);
-            return;
-        }
-
-        // --- Chunk unload: evict from cache to prevent memory leak ---
-        if (packetType.equals(PacketType.Play.Server.UNLOAD_CHUNK)) {
-            handleUnloadChunk(event, worldName);
         }
     }
 
@@ -128,8 +120,6 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
         try {
             WrapperPlayServerChunkData wrapper = new WrapperPlayServerChunkData(event);
             Column column = wrapper.getColumn();
-            if (column == null) return;
-
             int chunkX = column.getX();
             int chunkZ = column.getZ();
 
@@ -140,9 +130,9 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
 
             Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
             World world = player != null ? player.getWorld() : null;
-            if (world == null && worldName != null && !me.arrow.platform.PlatformBackend.get().isFabric()) {
+            if (world == null && worldName != null && !PlatformBackend.get().isFabric()) {
                 try {
-                    world = org.bukkit.Bukkit.getWorld(worldName);
+                    world = Bukkit.getWorld(worldName);
                 } catch (Throwable ignored) {}
             }
             // Proceed to cache the chunk regardless of world.isChunkLoaded; fallback minY handles null world
@@ -150,28 +140,5 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
 
             cache.queuePacketChunk(worldName, chunkX, chunkZ, minY, column);
         } catch (Throwable ignored) { }
-    }
-
-    /**
-     * Evicts a chunk from the cache when the server tells the client to unload it.
-     * On Bukkit/Paper/Folia servers, chunks are only evicted if the server has actually unloaded them.
-     */
-    private void handleUnloadChunk(PacketSendEvent event, String worldName) {
-        try {
-            WrapperPlayServerUnloadChunk wrapper = new WrapperPlayServerUnloadChunk(event);
-            int cx = wrapper.getChunkX();
-            int cz = wrapper.getChunkZ();
-
-            // On Bukkit/Paper/Leaf servers, UNLOAD_CHUNK packet is sent per-player.
-            // Do NOT evict chunk from the global cache if the server still has the chunk loaded!
-            if (!me.arrow.platform.PlatformBackend.get().isFabric()) {
-                World world = org.bukkit.Bukkit.getWorld(worldName);
-                if (world != null && world.isChunkLoaded(cx, cz)) {
-                    return; // Another player or the server still has this chunk loaded
-                }
-            }
-            cache.removeChunk(worldName, cx, cz);
-        } catch (Throwable ignored) {
-        }
     }
 }
