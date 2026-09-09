@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Arrow">
+    <output-path>$PROJECT_DIR$/../../../Arrow Anticheat/Jars</output-path>
+    <root id="archive" name="Arrow.jar">
+      <element id="module-output" name="Arrow" />
+    </root>
+  </artifact>
+</component>
