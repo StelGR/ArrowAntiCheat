@@ -1275,16 +1275,222 @@ public class PEMaterials {
             return cached;
         }
 
-        String normalized = stateName(type);
-        Material material = Material.matchMaterial(normalized);
-        if (material == null) {
-            material = Material.matchMaterial("LEGACY_" + normalized);
-        }
+        Material material = matchMaterialCompat(type.getName());
         if (material == null) {
             material = Material.AIR;
         }
         STATE_TYPE_MATERIAL_CACHE.put(type, material);
         return material;
+    }
+
+    public static Material matchMaterialCompat(String raw) {
+        if (raw == null || raw.isEmpty()) {
+            return null;
+        }
+
+        String name = normalize(raw);
+        if (name.isEmpty()) {
+            return null;
+        }
+
+        name = name.replace("MATERIAL.", "")
+                .replace("LEGACY_", "")
+                .replace(" ", "_")
+                .replace("-", "_");
+
+        Material direct = Material.matchMaterial(name);
+        if (direct != null) {
+            return direct;
+        }
+
+        direct = Material.matchMaterial("LEGACY_" + name);
+        if (direct != null) {
+            return direct;
+        }
+
+        // Modern <-> Legacy mappings for cross-version support (1.7 - 26.2)
+        switch (name) {
+            case "GRASS_BLOCK":
+                Material grass = Material.matchMaterial("GRASS");
+                if (grass != null) return grass;
+                break;
+            case "SHORT_GRASS":
+                Material shortGrass = Material.matchMaterial("LONG_GRASS");
+                if (shortGrass != null) return shortGrass;
+                shortGrass = Material.matchMaterial("GRASS");
+                if (shortGrass != null) return shortGrass;
+                break;
+            case "COBWEB":
+                Material web = Material.matchMaterial("WEB");
+                if (web != null) return web;
+                break;
+            case "WEB":
+                Material cobweb = Material.matchMaterial("COBWEB");
+                if (cobweb != null) return cobweb;
+                break;
+            case "STONE_BRICKS":
+            case "CRACKED_STONE_BRICKS":
+            case "MOSSY_STONE_BRICKS":
+            case "CHISELED_STONE_BRICKS":
+                Material brick = Material.matchMaterial("SMOOTH_BRICK");
+                if (brick != null) return brick;
+                break;
+            case "SMOOTH_BRICK":
+                Material stoneBricks = Material.matchMaterial("STONE_BRICKS");
+                if (stoneBricks != null) return stoneBricks;
+                break;
+            case "WORKBENCH":
+                Material ct = Material.matchMaterial("CRAFTING_TABLE");
+                if (ct != null) return ct;
+                break;
+            case "CRAFTING_TABLE":
+                Material wb = Material.matchMaterial("WORKBENCH");
+                if (wb != null) return wb;
+                break;
+            case "SOIL":
+                Material fl = Material.matchMaterial("FARMLAND");
+                if (fl != null) return fl;
+                break;
+            case "FARMLAND":
+                Material soil = Material.matchMaterial("SOIL");
+                if (soil != null) return soil;
+                break;
+            case "MOB_SPAWNER":
+                Material spawner = Material.matchMaterial("SPAWNER");
+                if (spawner != null) return spawner;
+                break;
+            case "SPAWNER":
+                Material mobSpawner = Material.matchMaterial("MOB_SPAWNER");
+                if (mobSpawner != null) return mobSpawner;
+                break;
+            case "PORTAL":
+                Material netherPortal = Material.matchMaterial("NETHER_PORTAL");
+                if (netherPortal != null) return netherPortal;
+                break;
+            case "NETHER_PORTAL":
+                Material portal = Material.matchMaterial("PORTAL");
+                if (portal != null) return portal;
+                break;
+            case "ENDER_PORTAL":
+                Material endPortal = Material.matchMaterial("END_PORTAL");
+                if (endPortal != null) return endPortal;
+                break;
+            case "END_PORTAL":
+                Material enderPortal = Material.matchMaterial("ENDER_PORTAL");
+                if (enderPortal != null) return enderPortal;
+                break;
+            case "ENDER_PORTAL_FRAME":
+                Material endPortalFrame = Material.matchMaterial("END_PORTAL_FRAME");
+                if (endPortalFrame != null) return endPortalFrame;
+                break;
+            case "END_PORTAL_FRAME":
+                Material enderPortalFrame = Material.matchMaterial("ENDER_PORTAL_FRAME");
+                if (enderPortalFrame != null) return enderPortalFrame;
+                break;
+            case "OAK_PLANKS":
+            case "SPRUCE_PLANKS":
+            case "BIRCH_PLANKS":
+            case "JUNGLE_PLANKS":
+            case "ACACIA_PLANKS":
+            case "DARK_OAK_PLANKS":
+            case "PLANKS":
+                Material wood = Material.matchMaterial("WOOD");
+                if (wood != null) return wood;
+                break;
+            case "WOOD":
+                Material oakPlanks = Material.matchMaterial("OAK_PLANKS");
+                if (oakPlanks != null) return oakPlanks;
+                break;
+            case "OAK_LOG":
+            case "SPRUCE_LOG":
+            case "BIRCH_LOG":
+            case "JUNGLE_LOG":
+                Material log = Material.matchMaterial("LOG");
+                if (log != null) return log;
+                break;
+            case "ACACIA_LOG":
+            case "DARK_OAK_LOG":
+                Material log2 = Material.matchMaterial("LOG_2");
+                if (log2 != null) return log2;
+                break;
+            case "OAK_LEAVES":
+            case "SPRUCE_LEAVES":
+            case "BIRCH_LEAVES":
+            case "JUNGLE_LEAVES":
+                Material leaves = Material.matchMaterial("LEAVES");
+                if (leaves != null) return leaves;
+                break;
+            case "ACACIA_LEAVES":
+            case "DARK_OAK_LEAVES":
+                Material leaves2 = Material.matchMaterial("LEAVES_2");
+                if (leaves2 != null) return leaves2;
+                break;
+            case "TERRACOTTA":
+            case "WHITE_TERRACOTTA":
+                Material hardClay = Material.matchMaterial("HARD_CLAY");
+                if (hardClay != null) return hardClay;
+                break;
+            case "HARD_CLAY":
+                Material terracotta = Material.matchMaterial("TERRACOTTA");
+                if (terracotta != null) return terracotta;
+                break;
+            case "WHITE_WOOL":
+                Material wool = Material.matchMaterial("WOOL");
+                if (wool != null) return wool;
+                break;
+            case "WHITE_BED":
+                Material bed = Material.matchMaterial("BED_BLOCK");
+                if (bed != null) return bed;
+                bed = Material.matchMaterial("BED");
+                if (bed != null) return bed;
+                break;
+            case "REPEATER":
+                Material repeater = Material.matchMaterial("DIODE_BLOCK_OFF");
+                if (repeater != null) return repeater;
+                repeater = Material.matchMaterial("DIODE");
+                if (repeater != null) return repeater;
+                break;
+            case "COMPARATOR":
+                Material comparator = Material.matchMaterial("REDSTONE_COMPARATOR_OFF");
+                if (comparator != null) return comparator;
+                comparator = Material.matchMaterial("REDSTONE_COMPARATOR");
+                if (comparator != null) return comparator;
+                break;
+            case "ENCHANTING_TABLE":
+                Material enchTable = Material.matchMaterial("ENCHANTMENT_TABLE");
+                if (enchTable != null) return enchTable;
+                break;
+            case "ENCHANTMENT_TABLE":
+                Material enchTableMod = Material.matchMaterial("ENCHANTING_TABLE");
+                if (enchTableMod != null) return enchTableMod;
+                break;
+            case "OAK_FENCE":
+                Material fence = Material.matchMaterial("FENCE");
+                if (fence != null) return fence;
+                break;
+            case "OAK_FENCE_GATE":
+                Material fenceGate = Material.matchMaterial("FENCE_GATE");
+                if (fenceGate != null) return fenceGate;
+                break;
+            case "WATER":
+            case "FLOWING_WATER":
+                Material water = Material.matchMaterial("WATER");
+                if (water != null) return water;
+                return Material.matchMaterial("STATIONARY_WATER");
+            case "STATIONARY_WATER":
+                return Material.matchMaterial("WATER");
+            case "LAVA":
+            case "FLOWING_LAVA":
+                Material lava = Material.matchMaterial("LAVA");
+                if (lava != null) return lava;
+                return Material.matchMaterial("STATIONARY_LAVA");
+            case "STATIONARY_LAVA":
+                return Material.matchMaterial("LAVA");
+            default:
+                break;
+        }
+
+        return null;
     }
 
     private static String toMinecraftKey(Material material) {

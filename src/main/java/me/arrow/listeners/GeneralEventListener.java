@@ -8,6 +8,7 @@ import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.platform.PlatformBackend;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.materials.MaterialType;
@@ -34,6 +35,7 @@ import org.bukkit.event.player.*;
 import org.bukkit.event.server.ServerListPingEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
@@ -50,16 +52,29 @@ public class GeneralEventListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChunkLoad(ChunkLoadEvent event) {
         Chunk chunk = event.getChunk();
-        if (chunk != null) {
-            me.arrow.playerdata.cache.ChunkCache.get().queueBukkitChunk(chunk);
+        try {
+            ChunkSnapshot snapshot = chunk.getChunkSnapshot();
+            ChunkCache.get().queueChunkSnapshot(chunk.getWorld(), chunk.getX(), chunk.getZ(), snapshot);
+        } catch (Throwable ignored) {
+            ChunkCache.get().queueBukkitChunk(chunk);
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void onChunkUnload(ChunkUnloadEvent event) {
-        Chunk chunk = event.getChunk();
-        if (chunk != null && chunk.getWorld() != null) {
-            me.arrow.playerdata.cache.ChunkCache.get().removeChunk(chunk.getWorld().getName(), chunk.getX(), chunk.getZ());
+    public void onWorldLoad(WorldLoadEvent event) {
+        World world = event.getWorld();
+        try {
+            for (Chunk chunk : world.getLoadedChunks()) {
+                if (chunk != null) {
+                    try {
+                        ChunkSnapshot snapshot = chunk.getChunkSnapshot();
+                        ChunkCache.get().queueChunkSnapshot(world, chunk.getX(), chunk.getZ(), snapshot);
+                    } catch (Throwable ignored) {
+                        ChunkCache.get().queueBukkitChunk(chunk);
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
         }
     }
 

@@ -1118,30 +1118,11 @@ public class ActionData implements Data {
             return null;
         }
 
-        return materialFromStateName(type.getName());
+        return PEMaterials.materialFromState(type);
     }
 
     private Material materialFromStateName(String stateName) {
-        if (stateName == null) {
-            return null;
-        }
-
-        String name = stateName.trim();
-
-        int namespace = name.indexOf(':');
-        if (namespace != -1) {
-            name = name.substring(namespace + 1);
-        }
-
-        name = name.toUpperCase(Locale.ROOT).replace(' ', '_');
-
-        Material material = Material.matchMaterial(name);
-
-        if (material != null) {
-            return material;
-        }
-
-        return Material.matchMaterial("LEGACY_" + name);
+        return PEMaterials.matchMaterialCompat(stateName);
     }
 
     private String getPlayerWorldName() {

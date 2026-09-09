@@ -22,6 +22,7 @@ import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.nms.NmsInstance;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.Data;
 import me.arrow.playerdata.processors.impl.CollisionProcessor;
 import me.arrow.playerdata.processors.impl.SetbackProcessor;
@@ -356,6 +357,8 @@ public class MovementData implements Data {
 
         lastServerYGround = serverYGround;
 
+        ChunkCache.get().ensurePlayerChunkLoaded(location);
+
         serverYGround = getLocation().getY() % 0.015625 == 0.0
                 || getLocation().getY() % 0.015625 <= 0.009;
 
@@ -366,8 +369,6 @@ public class MovementData implements Data {
             setLastGroundLocation(getLocation());
             getPastGroundLocations().add(getLastGroundLocation());
         }
-
-
 
         predictPlayerMovement();
 

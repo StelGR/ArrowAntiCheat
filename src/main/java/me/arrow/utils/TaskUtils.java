@@ -39,6 +39,29 @@ public class TaskUtils {
         }
     }
 
+    public static <T> T callSync(Callable<T> callable) {
+        if (Bukkit.isPrimaryThread()) {
+            try {
+                return callable.call();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        CompletableFuture<T> future = new CompletableFuture<>();
+        task(() -> {
+            try {
+                future.complete(callable.call());
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
+        try {
+            return future.get(5, TimeUnit.SECONDS);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
     public static CancellableTask taskAsync(Runnable runnable) {
         ScheduledFuture<?> future = ASYNC_POOL.schedule(runnable, 0L, TimeUnit.MILLISECONDS);
         return () -> future.cancel(false);
