@@ -355,6 +355,8 @@ public class MovementData implements Data {
         this.lastAccelY = lastAccelY;
         this.accelY = accelY;
 
+
+
         lastServerYGround = serverYGround;
 
         ChunkCache.get().ensurePlayerChunkLoaded(location);
@@ -1070,6 +1072,10 @@ public class MovementData implements Data {
             sinceSlowFallingEffectTicks = potion.getSlowFallingTicks() > 0 ? 0 : sinceSlowFallingEffectTicks + 1;
             sinceSpeedPotionEffectTicks = potion.getSpeedTicks() > 0 ? 0 : sinceSpeedPotionEffectTicks + 1;
             sinceOnGhostBlock = profile.isOnGhostBlock() ? 0 : sinceOnGhostBlock + 1;
+            sinceSlimeTicks = isOnSlime() ? 0 : sinceSlimeTicks + 1;
+            sinceSoulTicks = isOnSoulSand() ? 0 : sinceSoulTicks + 1;
+            sinceHoneyTicks = isOnHoney() ? 0 : sinceHoneyTicks + 1;
+            sinceIceTicks = isOnIce() ? 0 : sinceIceTicks + 1;
 
             dolphinGraceBoost = dolphinGraceMomentum();
 

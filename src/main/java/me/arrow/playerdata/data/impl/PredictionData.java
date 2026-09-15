@@ -70,6 +70,33 @@ public class PredictionData implements Data {
     @Override
     public void processReceive(PacketReceiveEvent event) {
 
+        if (event.getPacketType().equals(PLAYER_INPUT)) {
+            final WrapperPlayClientPlayerInput input = new WrapperPlayClientPlayerInput(event);
+
+            int forward = 0;
+            int strafe = 0;
+
+            if (input.isForward()) {
+                forward++;
+            }
+
+            if (input.isBackward()) {
+                forward--;
+            }
+
+            if (input.isLeft()) {
+                strafe++;
+            }
+
+            if (input.isRight()) {
+                strafe--;
+            }
+
+            profile.getSimulation().setKnownInputF(forward);
+            profile.getSimulation().setKnownInputS(strafe);
+        }
+
+
         if (event.getPacketType().equals(PLAYER_DIGGING)) {
             WrapperPlayClientPlayerDigging wrappedInBlockDigPacket = new WrapperPlayClientPlayerDigging(event);
 

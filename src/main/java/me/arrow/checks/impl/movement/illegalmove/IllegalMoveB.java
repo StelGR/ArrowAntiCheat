@@ -126,7 +126,7 @@ public class IllegalMoveB extends Check {
                                     + "\ndifference " + MsgType.MAIN_THEME_COLOR.getMessage() + difference
                                     + "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting);
 
-                    strafeBuffer = Math.max(maxStrafeBuffer + 2, strafeBuffer);
+                    strafeBuffer = Math.max(7, strafeBuffer);
                 }
             } else {
                 strafeBuffer -= Math.min(strafeBuffer, resetRateStrafeBuffer);

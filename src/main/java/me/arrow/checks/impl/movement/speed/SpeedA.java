@@ -237,7 +237,7 @@ public class SpeedA extends Check {
                 explosionH = Math.hypot(expFvc.getX(), expFvc.getZ());
             }
 
-            double kbComponent = Math.max(vd.getVelocityH(), 0.0);
+            double kbComponent = Math.max(Math.abs(vd.getVelocityH()), 0.0);
 
             if (vd.getVelocityTicks() == 1) {
                 expectedSpeed += 0.03;
@@ -538,11 +538,6 @@ public class SpeedA extends Check {
             return true;
         }
 
-        if (movementData.isNearBed()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - nearBed");
-            return true;
-        }
-
 //        if (movementData.isUnderblock()) {
 //            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - underblock");
 //            return true;
@@ -600,17 +595,6 @@ public class SpeedA extends Check {
 
         if (profile.getExempt().isReelingIn()) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - reelingIn");
-            return true;
-        }
-
-
-        if (profile.getMovementData().isNearBed()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - nearBed");
-            return true;
-        }
-
-        if (profile.getMovementData().isGlidingOrRecentlyGlided(30)) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - recentlyGliding");
             return true;
         }
 

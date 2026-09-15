@@ -62,9 +62,9 @@ public class BlockProcessor implements Data {
     int PLACE_CONFIRMATION_GRACE_TICKS = 4;
     int PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS = 10;
     int RECENT_PLACE_BLOCK_CHANGE_GRACE_TICKS = 8;
-    int PHYSICS_PLACE_AREA_RADIUS = 1;
-    int PHYSICS_PLACE_AREA_BELOW = 1;
-    int PHYSICS_PLACE_AREA_ABOVE = 2;
+    int PHYSICS_PLACE_AREA_RADIUS = 2;
+    int PHYSICS_PLACE_AREA_BELOW = 2;
+    int PHYSICS_PLACE_AREA_ABOVE = 3;
 
     /*
      * Solid/collision block attempts use their own wider body area. This is

@@ -10,7 +10,6 @@ import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.customutils.OtherUtility;
 
@@ -52,7 +51,7 @@ public class GroundC extends Check {
                         || profile.getTick() < 120
                         || movementData.isNearBoat()
                         || movementData.getLocation() == null
-                        || (movementData.getSinceTeleportTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 4))
+                        || (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))
                         || profile.isExempt().isTeleports()
                         || movementData.isGlidingOrRecentlyGlided(30)
                         || !CollisionUtils.isChunkLoaded(movementData.getLocation())) {

@@ -14,6 +14,7 @@ import io.github.retrooper.packetevents.adventure.serializer.legacy.LegacyCompon
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
+import me.arrow.checks.impl.movement.speed.SpeedMath.MovementMath;
 import me.arrow.checks.types.TrustFactor;
 import me.arrow.files.Config;
 import me.arrow.listeners.ClientBrandListener;
@@ -76,6 +77,7 @@ public class Profile {
     private final NMSProcessor nmsProcessor;
     private final GeysersTracker geysersTracker;
     private final DamageData damageData;
+    private final MovementMath simulation;
     //-------------------------------------------
 
     //--------------------------------------
@@ -187,6 +189,7 @@ public class Profile {
         this.clientBrandListener = new ClientBrandListener(Arrow.getInstance());
         this.geysersTracker = new GeysersTracker(this);
         this.damageData = new DamageData(this);
+        this.simulation = new MovementMath(this);
 
 
         //Check Holder
@@ -230,6 +233,8 @@ public class Profile {
 
         this.exempt.handleExempts(event.getTimestamp());
 
+        if (OtherUtility.isFlying(event.getPacketType())) simulation.simulateMovement(0, 0, false);
+
         this.checkHolder.runChecks(event);
         this.reachEntityTracker.processReceive(event);
     }
@@ -256,6 +261,8 @@ public class Profile {
         this.blockProcessor.processSend(event);
         this.clientBrandListener.processSend(event);
         this.nmsProcessor.processSend(event);
+
+       // if (OtherUtility.isFlying(event.getPacketType())) simulation.simulateMovement(0, 0, true);
 
         this.exempt.handleExempts(event.getTimestamp());
 
