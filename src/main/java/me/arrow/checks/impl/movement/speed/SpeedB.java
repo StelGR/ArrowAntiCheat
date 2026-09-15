@@ -147,7 +147,7 @@ public class SpeedB extends Check {
         final double leniency = getLeniency(profile, threshold, movementData);
         double predicted = sim.getOutputXZ();
 
-        // current issues, sim.getLowestMatch() returns way higher than the default leniency on the 2nd tick (sometimes on the first) after a jump, which is why i had to increase it to 0.157, karhu sets the default to always be 0.009
+        // current issues, sim.getLowestMatch() returns way higher than the default leniency on the 2nd tick (sometimes on the first) after a jump, which is why i had to increase it to 0.157, karhu sets the default to always be 0.003
         // strafing left and right very fast also fcks it up, same with rotating in some ways either fast or very slow, it's weird to explain through text, so i increase the leniency when strafing in getLeniency
 
         double diff = movementData.getDeltaXZ() - predicted;
