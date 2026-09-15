@@ -243,7 +243,7 @@ public class SpeedB extends Check {
             leniencyReason += ", lastInLiquid/Bubble";
         }
 
-        if (profile.getActionData().getSinceLastSprintingTicks() > 0) {
+        if (profile.getActionData().getSinceLastSprintingTicks() > 0 && profile.getActionData().getSinceLastSprintingTicks() < 8) {
             leniency += 0.06;
             leniencyReason += ", sinceSprint";
             ++sprintVl;
@@ -437,7 +437,7 @@ public class SpeedB extends Check {
                 }
 
                 double tMult = 1.00001D;
-                verbose(this.getClass().getSimpleName(), vlBuffer, threshold, "* Verbose (accel) (1)\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                if (movementData.isMoving()) verbose(this.getClass().getSimpleName(), vlBuffer, threshold, "* Verbose (accel) (1)\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                         + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                         + "\n * sprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sprinting
                         + "\n * threshold " + MsgType.MAIN_THEME_COLOR.getMessage() + threshold
