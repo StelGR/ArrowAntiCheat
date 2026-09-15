@@ -4,9 +4,12 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import me.arrow.Arrow;
 import me.arrow.checks.annotations.Experimental;
 import me.arrow.checks.enums.CheckType;
+import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
+import me.arrow.checks.impl.movement.speed.SpeedMath.MovementMath;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -16,14 +19,13 @@ import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
+import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.minecraft.MathHelper;
 import org.apache.commons.math3.util.FastMath;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
-
-import static me.arrow.utils.ChatUtils.debugExempt;
 
 // this is a very decent check, it accounts for acceleration and deceleration, the acceleration part is based off of OpenKarhu's speed b
 // it does have alot of improvements though, but it has some issues with modified attribute speed, remember the goal of the anticheat is to work on ALL minecraft versions.
@@ -88,6 +90,9 @@ public class SpeedB extends Check {
         double mdAccel = movementData.getAccelXZ();
         double accel = Math.abs(deltaXZ - lastDeltaXZ);
 
+
+        runPrediction(movementData, actionData);
+
         int ghostLiquidWebTicks = Math.min(
                 profile.getBlockProcessor().getLastGhostLiquidWebTick(),
                 profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
@@ -105,6 +110,200 @@ public class SpeedB extends Check {
         this.lastDeltaYaw = deltaYaw;
     }
 
+    private double bucketVl, sprintVl;
+
+    String leniencyReason;
+
+    public void runPrediction(MovementData movementData, ActionData actionData) {
+
+        MovementMath sim = profile.getSimulation();
+
+        // Use the final attribute value, which includes all modifiers (potions, beacons, status effects)
+
+
+        if (movementData.getDeltaXZ() < sim.getAttributeSpeed()
+                || movementData.getLastDeltaXZ() < offsetMove() + 0.01
+                || movementData.isNearClimbable()
+                || profile.shouldCancel()
+                || profile.getVelocityData().isTakingVelocity()
+                || movementData.getSinceGlidingTicks() < 30
+                || movementData.getSinceRiptidingTicks() < 15
+                || movementData.isNearBed()
+                || movementData.isNearWall()
+                || movementData.getSinceOnGhostBlock() < 2) {
+            decreaseBufferBy(0.005D);
+            bucketVl = Math.max(0, bucketVl - 0.2);
+            sprintVl = Math.max(0, sprintVl - 0.3);
+            return;
+        }
+
+        leniencyReason = "default";
+
+        boolean justJumped = ((movementData.getClientAirTicks() == 2 && movementData.isLastLastOnGround())
+                || (movementData.getClientAirTicks() == 1 && movementData.isLastOnGround()) );
+
+        double threshold = justJumped ? 0.157 : 0.011;
+
+        final double leniency = getLeniency(profile, threshold, movementData);
+        double predicted = sim.getOutputXZ();
+
+        // current issues, sim.getLowestMatch() returns way higher than the default leniency on the 2nd tick (sometimes on the first) after a jump, which is why i had to increase it to 0.157, karhu sets the default to always be 0.009
+        // strafing left and right very fast also fcks it up, same with rotating in some ways either fast or very slow, it's weird to explain through text, so i increase the leniency when strafing in getLeniency
+
+        double diff = movementData.getDeltaXZ() - predicted;
+
+        verbose(this.getClass().getSimpleName(), getBuffer(), 2, "Verbose" + "\npredicted " + predicted
+                + "\nlowest " + sim.getLowestMatch()
+                + "\nattribute " + sim.getAttributeSpeed()
+                + "\ndiff " + diff
+                + "\nstrafe " + sim.getMoveStrafe()
+                + "\nforward " + sim.getMoveForward()
+                + "\nonGround " + movementData.isOnGround()
+                + "\nlastOnGround " + movementData.isLastOnGround()
+                + "\nlastLastOnGround " + movementData.isLastLastOnGround()
+                + "\nclientAirTicks " + movementData.getClientAirTicks()
+                + "\njumped " + sim.isJumped()
+                + "\nleniency " + leniency
+                + "\nleniencyReason " + leniencyReason
+                + "\nsprinting " + sim.isSprinting()
+                + "\ndeltaXZ " + movementData.getDeltaXZ()
+                + "\nvel " + profile.getVelocityData().getTotalVelocity()
+                + "\nuseItem " + sim.isUseItem()
+                + "\nmoveTicks " + movementData.getMovingTicks()
+                + "\nscenarios " + sim.getScenarioAmount());
+
+//        if (sprintVl < 3) {
+//            return;
+//        }
+
+        if (sim.getLowestMatch() > leniency && Config.Setting.SIMULATION_MODE.getBoolean()) {
+            if (increaseBuffer() > 3) {
+                fail("Prediction", "Failed Prediction", "predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + predicted
+                        + "\nlowest " + MsgType.MAIN_THEME_COLOR.getMessage() + sim.getLowestMatch()
+                        + "\nattribute " + MsgType.MAIN_THEME_COLOR.getMessage() + sim.getAttributeSpeed()
+                        + "\ndiff " + MsgType.MAIN_THEME_COLOR.getMessage() + diff
+                        + "\nleniency " + MsgType.MAIN_THEME_COLOR.getMessage() + leniency
+                        + "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sim.isSprinting()
+                        + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaXZ()
+                        + "\nvel " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalVelocity()
+                        + "\nuseItem " + MsgType.MAIN_THEME_COLOR.getMessage() + sim.isUseItem()
+                        + "\nmoveTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getMovingTicks()
+                        + "\nscenarios " + MsgType.MAIN_THEME_COLOR.getMessage() + sim.getScenarioAmount());
+
+                setBuffer(2);
+            }
+
+        } else decreaseBufferBy(0.005D);
+    }
+
+
+    private double getLeniency(Profile profile, double threshold, MovementData movementData) {
+        double leniency = threshold;
+
+        boolean entity = movementData.getSinceCollideTicks() < 8;
+
+        boolean lastInLiquid = (movementData.getSinceBubbleTicks() < 6) || movementData.isInsideLiquid();
+
+        //Bit vogue, but the way our simulation works it can cause bigger offset than 0.03 :/
+        if (movementData.getMovingTicks() <= 3) {
+            leniency += (offsetMove() + clamp()) * 2;
+            leniencyReason += ", lowMovingTicks";
+        }
+
+        if (profile.getSimulation().getEdgeSneakTick() <= 3) {
+            leniency += 0.15;
+            leniencyReason += ", edgeSneakTick";
+        }
+        if (movementData.getSinceSoulTicks() <= 3) {
+            leniency += 0.05;
+            leniencyReason += ", soulTicks";
+        }
+        if (movementData.getSinceSlimeTicks() <= 3) {
+            leniency += 0.05;
+            leniencyReason += ", slimeTicks";
+        }
+
+        if (movementData.getSinceIceTicks() <= 3) {
+            leniency += 0.063;
+            leniencyReason += ", iceTicks";
+        }
+
+        if (movementData.getNearbyBlocksResult() != null
+                && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES))) {
+            leniency += 0.05;
+            leniencyReason += ", berries";
+        }
+        if (movementData.isOnHoney() || (movementData.getSinceHoneyTicks() <= 3)) {
+            leniency += 0.05;
+            leniencyReason += ", honey/Ticks";
+        }
+
+        if (lastInLiquid) {
+            leniency += 0.14;
+            leniencyReason += ", lastInLiquid/Bubble";
+        }
+
+        if (profile.getActionData().getSinceLastSprintingTicks() > 0) {
+            leniency += 0.06;
+            leniencyReason += ", sinceSprint";
+            ++sprintVl;
+        }
+
+        double deltaX = movementData.getDeltaX();
+        double deltaZ = movementData.getDeltaZ();
+        float yaw = profile.getRotationData().getYaw();
+
+        MovementPredictionUtil.DirectionalMovement strafeDir =
+                MovementPredictionUtil.predictDirectionalMovement(deltaX, deltaZ, yaw);
+
+//        if (strafeDir.isForwardStrafe()) {
+//            leniency += 0.006;
+//            leniencyReason += ", strafe";
+//        }
+//
+//        if (Math.abs(profile.getSimulation().getMoveStrafe()) == 0.98) {
+//            leniency += 0.006;
+//            leniencyReason += ", strafe";
+//        }
+
+        if (movementData.isOnGround()) {
+            leniency += 0.051;
+            leniencyReason += ", ground";
+        }
+
+        int ghostLiquidWebTicks = Math.min(
+                profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+        );
+
+        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+            leniency += 0.1;
+            leniencyReason += ", ghostLiquid/Bucket";
+        }
+
+        if (movementData.isNearWebs()) {
+            leniency += 0.25; //give leniency
+            leniencyReason += ", webs";
+        }
+        if (movementData.getSincePowderSnowTicks() <= 3) {
+            leniency += 0.25; //give leniency
+            leniencyReason += ", powderSnowTicks";
+        }
+        if (entity) {
+            leniency += 0.055D;
+            leniencyReason += ", entityPush";
+        }
+
+        return leniency;
+    }
+
+    public double offsetMove() {
+        return profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_18_2) ? 0.0002 : 0.03;
+    }
+
+    public double clamp() {
+        return profile.getVersion().getProtocolVersion() > 47 ? 0.003D : 0.005D;
+    }
 
     private static final float[][] KEY_COMBOS = {
             {1.0F, -1.0F},
@@ -276,6 +475,8 @@ public class SpeedB extends Check {
                             double closest = Math.min(Math.min(bestNormal, bestNormal2), Math.min(bestBlocking, bestBlocking2));
                             double bufferAddition = 0.0D;
 
+
+                            //need to rework this
                             float movingIceTicks = movementData.getMovingOnIceTicks();
                             double air_iceSpeedBoost;
                             if (movingIceTicks < 15)
@@ -304,6 +505,7 @@ public class SpeedB extends Check {
                                 }
                             } catch (Throwable ignored) {
                             }
+
                             limit += currentlyRiptiding ? (1.5 * riptideLevel) : 0;
                             limit += (clientGround ? (profile.getVelocityData().getTotalHorizontalVelocity() * 2) : profile.getVelocityData().getTotalHorizontalVelocity());
                             limit += movementData.elytraMomentum();
@@ -322,18 +524,18 @@ public class SpeedB extends Check {
 
                             if (movementData.getSincePredictUpwardsTicks() < 10
                                     || movementData.getSincePredictDownwardsTicks() < 5) {
-                                vlBuffer = Math.max(0.0D, vlBuffer - 0.5D);
+                                vlBuffer = Math.max(0.0D, vlBuffer - 0.05D);
                                 lastMove = new Vector(deltaX, 0.0, deltaZ);
                                 return;
                             }
 
                             if (invalid) {
                                 double excess = closest - limit;
-                                bufferAddition = Math.min(4.0D, Math.max(0.5D, excess * 30.0D));
+                                bufferAddition = Math.min(5.0D, Math.max(7.5D, excess * 30.0D));
 
                                 if ((vlBuffer += bufferAddition) >= required) {
 
-                                    fail("Invalid acceleration", "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                                    fail("B", "Invalid acceleration", "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                                             + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                             + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
                                             + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + limit
@@ -343,7 +545,7 @@ public class SpeedB extends Check {
                                             + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                             + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
-                                    vlBuffer = Math.min(required + 5.0D, vlBuffer);
+                                    vlBuffer = Math.min(60, vlBuffer);
                                 }
                             } else {
                                 vlBuffer = Math.max(0.0D, vlBuffer - 0.005D);
@@ -417,7 +619,7 @@ public class SpeedB extends Check {
                             + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                             + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ;
 
-                    fail(verboseTitle, verbose);
+                    fail("B", verboseTitle, verbose);
                 }
             } else {
                 decreaseBufferBy(0.005);

@@ -51,6 +51,7 @@ public class GroundB extends Check {
                     || movementData.isNearShulker()
                     || movementData.isNearShulkerBox()
                     || movementData.isNearLava()
+                    || movementData.isNearGhast()
                     || movementData.isNearWater()
                     || movementData.getLocation() == null
                     || !CollisionUtils.isChunkLoaded(movementData.getLocation()))

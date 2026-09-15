@@ -88,6 +88,8 @@ public class VelocityData implements Data {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
 
+            //profile.getSimulation().simulateMovement(getVelocity().getX(), getVelocity().getZ(), true);
+
             velocityTicks = incrementTicks(velocityTicks);
             entityVelocityTicks = incrementTicks(entityVelocityTicks);
             explosionVelocityTicks = incrementTicks(explosionVelocityTicks);
@@ -387,6 +389,16 @@ public class VelocityData implements Data {
                 explosion.getX(),
                 explosion.getZ()
         ) + velocityH;
+    }
+    // Component getters for Karhu compatibility
+    public double getTotalHorizontalVelocityX() {
+        // Returns X component of total horizontal velocity (explosion knockback X plus any other horizontal velocity)
+        return copy(explosionKnockback).getX();
+    }
+
+    public double getTotalHorizontalVelocityZ() {
+        // Returns Z component of total horizontal velocity (explosion knockback Z plus any other horizontal velocity)
+        return copy(explosionKnockback).getZ();
     }
 
     public double getTotalVerticalVelocitySustain() {

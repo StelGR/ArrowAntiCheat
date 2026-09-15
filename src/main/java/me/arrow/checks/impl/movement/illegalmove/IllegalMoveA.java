@@ -46,10 +46,8 @@ public class IllegalMoveA extends Check {
                 if (profile.shouldCancel()
                         || !profile.isExempt().isRespawned()
                         || profile.isExempt().isDead()
-                        || (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))
                         || !CollisionUtils.isChunkLoaded(movementData.getLocation())
                         || profile.getVehicleData().getSinceVehicleTicks() < 5
-                        || movementData.isNearBed()
                         || profile.isBouncingOnSlime()
                         || movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
                     return;
@@ -60,10 +58,10 @@ public class IllegalMoveA extends Check {
                     return;
                 }
 
-//                if (movementData.getSinceTeleportTicks() < 2) {
-//                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove A: is Exempting (teleports)");
-//                    return;
-//                }
+                if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove A: is Exempting (teleports)");
+                    return;
+                }
 
                 double deltaY = movementData.getDeltaY();
                 double deltaXZ = movementData.getDeltaXZ();

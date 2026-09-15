@@ -174,20 +174,6 @@ public class SpeedUtilities {
         return delta * (AIR_BASE_LIMIT / BASE_EFFECTIVE_SPEED);
     }
 
-    // Helper to fetch Traveler enchant level from boots (custom enchant name "TRAVELER")
-    private static int getTravelerEnchantLevel(Profile profile) {
-        try {
-            ItemStack boots = profile.getPlayer().getInventory().getBoots();
-            if (boots == null || boots.getType() == Material.AIR) return 0;
-            // Enchantment may be a custom one, attempt by name
-            Enchantment traveler = Enchantment.getByName("TRAVELER");
-            if (traveler == null) return 0;
-            return boots.getEnchantmentLevel(traveler);
-        } catch (Throwable ignored) {
-            return 0;
-        }
-    }
-
     public static double getGroundPotionBonus(Profile profile) {
         return 0.28063D * SPEED_MULTIPLIER_GROUND * getSpeedPotionLevel(profile);
     }
