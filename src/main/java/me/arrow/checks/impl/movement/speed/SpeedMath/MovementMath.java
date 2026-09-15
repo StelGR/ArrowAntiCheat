@@ -229,11 +229,11 @@ public class MovementMath {
 
                 //if (sprint) moveSpeed += moveSpeed * 0.1F;
 
-                if (profile.getVersion().isNewerThan(ClientVersion.V_1_12_2)) {
-                    if (sprint) moveSpeed += moveSpeed * 0.3F;
-                } else {
-                    if (sprint) moveSpeed *= 1.0 + 0.3F;
-                }
+//                if (profile.getVersion().isNewerThan(ClientVersion.V_1_12_2)) {
+//                    if (sprint) moveSpeed += moveSpeed * 0.3F;
+//                } else {
+//                    if (sprint) moveSpeed *= 1.0 + 0.3F;
+//                }
 
                 float f5;
                 if (!movementData.isInsideWater()) {
