@@ -185,7 +185,6 @@ public class MovementPredictionUtil {
         }
     }
 
-
     public static VerticalMove predictVerticalMove(World world, double x, double y, double z, double deltaX, double deltaZ) {
         if (Math.abs(deltaX) < MOVE_EPS && Math.abs(deltaZ) < MOVE_EPS) {
             return VerticalMove.HORIZONTAL;

@@ -104,6 +104,8 @@ public class GravityD extends Check {
                         || movementData.isNearShulkerBox()
                         || movementData.isNearLava()
                         || movementData.isNearWater()
+                        || movementData.getSinceInsideWaterTicks() < 5
+                        || movementData.getSinceNearWaterTicks() < 5
                         || movementData.isNearBed()
                         || profile.getExempt().isVehicle()
                         || profile.shouldCancel()
@@ -1865,8 +1867,8 @@ public class GravityD extends Check {
         double dx = Math.abs(x - blockCenterX);
         double dz = Math.abs(z - blockCenterZ);
 
-        // A 0.6-wide player overlaps a one-block support while its centre is at
-        // most 0.8 from the block centre. Only add a small collision epsilon;
+        // A 0.6-wide player overlaps a one-block support while its center is at
+        // most 0.8 from the block center. Only add a small collision epsilon;
         // ping changes when the placement is known, not the physical overlap.
         double tolerance = 0.800001D + Math.min(0.050D, getPlacedBlockCollisionTolerance());
 
