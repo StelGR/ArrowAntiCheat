@@ -27,7 +27,6 @@ public class AutoClickerA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-
         if (OtherUtility.isFlying(event.getPacketType())) {
             cps = profile.getCombatData().getCurrentCps();
         }
