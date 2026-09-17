@@ -13,11 +13,11 @@ import me.arrow.utils.customutils.OtherUtility;
 
 /**
  * BadPackets F - Freeze / Movement Packet Suppression Check
- *
+
  * Detects clients that continuously acknowledge server transactions/ticks
  * while suppressing all movement/flying packets (LiquidBounce Freeze, Blink,
  * Disablers, or packet cancellation exploits).
- *
+
  * Robust against client lag spikes (e.g. F3+S, resource pack reloads) by
  * validating accepted transaction IDs, ignoring transaction bursts, and exempting
  * high transaction ping / spike fluctuations.
@@ -25,7 +25,7 @@ import me.arrow.utils.customutils.OtherUtility;
 @Experimental
 public class BadPacketsF extends Check {
 
-    private int ticksWithoutMovement;
+    private double ticksWithoutMovement;
     private double buffer;
     private long lastAcceptedTxTime;
 
@@ -44,8 +44,8 @@ public class BadPacketsF extends Check {
 
         // If the player sends any movement/flying packet, reset stall counter and buffer
         if (OtherUtility.isFlying(packetType)) {
-            this.ticksWithoutMovement = 0;
-            this.buffer = 0.0D;
+            this.ticksWithoutMovement = Math.max(0.0D, this.ticksWithoutMovement - 0.5D);
+            this.buffer = Math.max(0.0D, this.buffer - 0.5D);
             return;
         }
 
@@ -99,12 +99,8 @@ public class BadPacketsF extends Check {
         if (profile.isBedrockPlayer()) return true;
 
         // Exempt during lag spikes / client freeze (F3+S, resource pack reload, ping spikes)
-        if (profile.getConnectionData() != null) {
-            if (profile.getConnectionData().getTransPing() > 700
-                    || profile.getConnectionData().getDropTransTime() > 400
-                    || profile.getConnectionData().isLagging()) {
-                return true;
-            }
+        if (profile.getConnectionData().getDropTransTime() > 20 || profile.getClientPacketTracker().getPPS() == 0) {
+            return true;
         }
 
         if (profile.getVehicleData() != null) {
