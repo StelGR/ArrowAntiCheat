@@ -99,7 +99,8 @@ public class BadPacketsF extends Check {
         if (profile.isBedrockPlayer()) return true;
 
         // Exempt during lag spikes / client freeze (F3+S, resource pack reload, ping spikes)
-        if (profile.getConnectionData().getDropTransTime() > 20 || profile.getClientPacketTracker().getPPS() == 0) {
+        if (profile.getConnectionData().getDropTransTime() > 20
+                || profile.getClientPacketTracker().getPPS() == 0) {
             return true;
         }
 
