@@ -1643,7 +1643,7 @@ public class GravityD extends Check {
 
             Object value = instance.getClass().getMethod("getValue").invoke(instance);
             return value instanceof Number ? ((Number) value).doubleValue() : Double.NaN;
-        } catch (Throwable ignored) {
+        } catch (Exception ignored) {
             return Double.NaN;
         }
     }

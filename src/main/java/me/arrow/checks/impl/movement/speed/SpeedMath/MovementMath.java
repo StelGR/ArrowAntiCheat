@@ -10,8 +10,6 @@ import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.minecraft.MathHelper;
 import me.arrow.utils.vec.Vec2f;
 import me.arrow.utils.vec.Vec3;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -148,14 +146,7 @@ public class MovementMath {
                                     double kbX, double kbZ, boolean test,
                                     float friction, float lastTickFriction,
                                     boolean onGround, float yaw) {
-        float attributeValue = 0.1f;
-        try {
-            AttributeInstance attribute = profile.getPlayer().getAttribute(Attribute.MOVEMENT_SPEED);
-            if (attribute != null) {
-                attributeValue = (float) attribute.getValue();
-            }
-        } catch (Exception ignored) {
-        }
+        float attributeValue = (float) me.arrow.utils.ReflectionUtils.getPlayerMovementSpeed(profile.getPlayer());
 
         double moveForward = floats[1];
         double moveStrafe = floats[0];
@@ -185,7 +176,6 @@ public class MovementMath {
                 forward *= 0.98f;
                 strafe *= 0.98f;
 
-                double moveSpeed = attributeValue;
                 double lastDX = movementData.getDeltaX();
                 double lastDZ = movementData.getDeltaZ();
 
@@ -239,9 +229,9 @@ public class MovementMath {
                 if (!movementData.isInsideWater()) {
                     if (onGround) {
                         if (!profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_12_2)) {
-                            f5 = (float) moveSpeed * (0.16277136f / (friction * friction * friction));
+                            f5 = (float) (double) attributeValue * (0.16277136f / (friction * friction * friction));
                         } else {
-                            f5 = (float) moveSpeed * (0.21600002f / (friction * friction * friction));
+                            f5 = (float) (double) attributeValue * (0.21600002f / (friction * friction * friction));
                         }
                         if (jump && sprint) {
                             float radians = yaw * ((float) Math.PI / 180);
@@ -265,7 +255,7 @@ public class MovementMath {
                     float f3 = Math.min(3.0F, (float) SpeedUtilities.getDepthStriderLevel(profile));
                     if (!onGround) f3 *= 0.5F;
                     if (f3 > 0.0F) {
-                        accel += (((float) moveSpeed) - accel) * f3 / 3.0F;
+                        accel += (((float) (double) attributeValue) - accel) * f3 / 3.0F;
                     }
                     f5 = accel;
                     if (profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_12_2)) {
@@ -301,7 +291,7 @@ public class MovementMath {
                         this.jumped = jump;
                         this.attacking = attack;
                         this.useItem = using;
-                        this.attributeSpeed = (float) moveSpeed;
+                        this.attributeSpeed = (float) (double) attributeValue;
                         this.moveForward = forward;
                         this.moveStrafe = strafe;
                         this.f5 = f5;

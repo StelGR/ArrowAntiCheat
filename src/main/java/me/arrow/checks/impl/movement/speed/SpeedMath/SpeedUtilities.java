@@ -2,9 +2,8 @@ package me.arrow.checks.impl.movement.speed.SpeedMath;
 
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.VelocityData;
+import me.arrow.utils.ReflectionUtils;
 import org.bukkit.Material;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 
@@ -38,16 +37,14 @@ public class SpeedUtilities {
 
     public static double getMovementSpeedAttribute(Profile profile) {
         try {
-            AttributeInstance attribute = profile.getPlayer().getAttribute(Attribute.MOVEMENT_SPEED);
-            if (attribute == null) return DEFAULT_WALK_SPEED_ATTRIBUTE;
-            // Use the final attribute value, which includes all modifiers (potions, beacons, status effects)
-            double val = attribute.getValue();
+            if (profile == null || profile.getPlayer() == null) return DEFAULT_WALK_SPEED_ATTRIBUTE;
+            double val = ReflectionUtils.getPlayerMovementSpeed(profile.getPlayer());
             if (Double.isNaN(val) || Double.isInfinite(val) || val <= DEFAULT_WALK_SPEED_ATTRIBUTE) {
                 return DEFAULT_WALK_SPEED_ATTRIBUTE;
             }
             // Clamp to a reasonable maximum to avoid absurd values from mods or bugs
             return Math.min(MAX_REASONABLE_MOVEMENT_ATTRIBUTE, val);
-        } catch (Throwable ignored) {
+        } catch (Throwable e) {
             return DEFAULT_WALK_SPEED_ATTRIBUTE;
         }
     }

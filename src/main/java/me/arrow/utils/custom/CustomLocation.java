@@ -2,6 +2,7 @@ package me.arrow.utils.custom;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.util.Vector3d;
 import lombok.Getter;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
@@ -96,6 +97,10 @@ public class CustomLocation {
 
     public Vector toVector() {
         return new Vector(this.x, this.y, this.z);
+    }
+
+    public Vector3d toVector3d() {
+        return new Vector3d(this.x, this.y, this.z);
     }
 
     public Location toBukkit() {

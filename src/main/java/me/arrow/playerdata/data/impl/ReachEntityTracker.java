@@ -43,8 +43,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class ReachEntityTracker implements Data {
 
-    private static final int MAX_UPDATES = 140;
-    private static final long MAX_UPDATE_AGE_MS = 6_000L;
+    private static final int MAX_UPDATES = 350;
+    private static final long MAX_UPDATE_AGE_MS = 8_000L;
     private static final long INTERPOLATION_TIME_MS = 150L;
     private static final double TRACK_DISTANCE_SQUARED = 24.0D * 24.0D;
 
@@ -192,7 +192,7 @@ public class ReachEntityTracker implements Data {
         }
 
         long attackTime = normalizePacketTimestamp(attackTimestamp);
-        long estimatedRenderTime = attackTime - Math.max(0, Math.min(2_500, pingMillis));
+        long estimatedRenderTime = attackTime - Math.max(0, Math.min(5_000, pingMillis));
 
         // An acknowledged transaction proves that every entity update before
         // the first copy of that transaction was already processed by the
@@ -288,7 +288,7 @@ public class ReachEntityTracker implements Data {
         } catch (Throwable ignored) {
         }
 
-        return Math.min(2_500, ping);
+        return Math.min(5_000, ping);
     }
 
     private static long normalizePacketTimestamp(long timestamp) {

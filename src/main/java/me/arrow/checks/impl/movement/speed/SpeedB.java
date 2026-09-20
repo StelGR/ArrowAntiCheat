@@ -210,10 +210,10 @@ public class SpeedB extends Check {
             leniencyReason += ", lowMovingTicks";
         }
 
-        if (profile.getSimulation().getEdgeSneakTick() <= 3) {
-            leniency += 0.15;
-            leniencyReason += ", edgeSneakTick";
-        }
+//        if (profile.getSimulation().getEdgeSneakTick() <= 3) {
+//            leniency += 0.15;
+//            leniencyReason += ", edgeSneakTick";
+//        }
         if (movementData.getSinceSoulTicks() <= 3) {
             leniency += 0.05;
             leniencyReason += ", soulTicks";
@@ -384,7 +384,7 @@ public class SpeedB extends Check {
                     forceSprint = movementSpeedSP * constant / f3;
                 }
 
-                if (movementData.isGlidingOrRecentlyGlided(30)) {
+                if (movementData.getSinceGlidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
                     lastMove = new Vector(deltaX, 0.0, deltaZ);
                     return;
                 }
@@ -535,7 +535,7 @@ public class SpeedB extends Check {
 
                                 if ((vlBuffer += bufferAddition) >= required) {
 
-                                    fail("B", "Invalid acceleration", "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                                    fail("Invalid acceleration", "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                                             + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                             + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
                                             + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + limit
@@ -545,7 +545,7 @@ public class SpeedB extends Check {
                                             + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                             + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
-                                    vlBuffer = Math.min(60, vlBuffer);
+                                    vlBuffer = 25;
                                 }
                             } else {
                                 vlBuffer = Math.max(0.0D, vlBuffer - 0.005D);
@@ -619,7 +619,7 @@ public class SpeedB extends Check {
                             + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                             + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaXZ;
 
-                    fail("B", verboseTitle, verbose);
+                    fail(verboseTitle, verbose);
                 }
             } else {
                 decreaseBufferBy(0.005);

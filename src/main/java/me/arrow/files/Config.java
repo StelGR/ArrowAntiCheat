@@ -131,6 +131,7 @@ public class Config implements Initializer {
         BENCHMARK_ENABLED("benchmark.enabled", false, "Should we benchmark the anticheat? only enable if you are having performance issues, and want to diagnose"),
 
         SIMULATION_MODE("simulation_mode", false, "Should we enable simulation mode (parody)"),
+        CANCEL_DUPLICATE_PACKET("cancel_duplicate_packet", true, "Should duplicate 1.17+ movement packets (from item use, attack, or bow spam) be cancelled? Recommended: true"),
 
         DEBUG("debug", false, "DO NOT TOUCH UNLESS YOU KNOW WHAT YOU ARE DOING");
 

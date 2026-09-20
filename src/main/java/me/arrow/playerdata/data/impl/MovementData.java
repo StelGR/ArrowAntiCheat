@@ -80,18 +80,16 @@ public class MovementData implements Data {
 
     @Getter
     @Setter
-    SampleList<CustomLocation> pastLocations = new SampleList<>(40, true);
-    SampleList<CustomLocation> pastGroundLocations = new SampleList<>(20, true);
+    SampleList<CustomLocation> pastLocations = new SampleList<>(140, true);
+    SampleList<CustomLocation> pastGroundLocations = new SampleList<>(40, true);
 
     /*
-     * Precision-only timeline for reach render-time reconstruction. This is
-     * intentionally separate from the configured Reach A sample window: 100
-     * references cover five seconds at 20 Hz (including 2000 ms RTT, entity
-     * interpolation and jitter) without making every other history consumer
-     * scan a larger list.
+     * Precision-only timeline for reach render-time reconstruction. 140
+     * references cover seven seconds at 20 Hz (supporting up to 5000 ms RTT, entity
+     * interpolation and jitter).
      */
     @Getter
-    SampleList<CustomLocation> reachPastLocations = new SampleList<>(100, true);
+    SampleList<CustomLocation> reachPastLocations = new SampleList<>(140, true);
 
     @Getter
     @Setter

@@ -434,4 +434,151 @@ public class ReflectionUtils {
                 || name.equals("LEGACY_STATIONARY_WATER")
                 || name.equals("LEGACY_WATER");
     }
+
+    // ==========================================
+    // Safe Bukkit Attribute Reflection (1.8 - 1.21+)
+    // ==========================================
+    private static Class<?> ATTRIBUTE_CLASS;
+    private static Method GET_ATTRIBUTE_METHOD;
+    private static Method GET_VALUE_METHOD;
+    private static Method GET_BASE_VALUE_METHOD;
+    private static boolean ATTRIBUTE_INITIALIZED = false;
+    private static final Map<String, Object> ATTRIBUTE_ENUM_CACHE = new HashMap<>();
+
+    private static synchronized void initAttributes() {
+        if (ATTRIBUTE_INITIALIZED) return;
+        ATTRIBUTE_INITIALIZED = true;
+
+        if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8_8)) {
+            return;
+        }
+
+        try {
+            ATTRIBUTE_CLASS = Class.forName("org.bukkit.attribute.Attribute");
+            GET_ATTRIBUTE_METHOD = Player.class.getMethod("getAttribute", ATTRIBUTE_CLASS);
+            Class<?> instanceClass = Class.forName("org.bukkit.attribute.AttributeInstance");
+            GET_VALUE_METHOD = instanceClass.getMethod("getValue");
+            try {
+                GET_BASE_VALUE_METHOD = instanceClass.getMethod("getBaseValue");
+            } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static Object getAttribute(Player player, String attributeName) {
+        if (player == null) return null;
+
+        if (!ATTRIBUTE_INITIALIZED) {
+            initAttributes();
+        }
+
+        if (ATTRIBUTE_CLASS == null || GET_ATTRIBUTE_METHOD == null) {
+            return null;
+        }
+
+        try {
+            Object attributeEnum = ATTRIBUTE_ENUM_CACHE.computeIfAbsent(attributeName, name -> {
+                try {
+                    return Enum.valueOf((Class<Enum>) ATTRIBUTE_CLASS, name);
+                } catch (IllegalArgumentException e1) {
+                    if (!name.startsWith("GENERIC_")) {
+                        try {
+                            return Enum.valueOf((Class<Enum>) ATTRIBUTE_CLASS, "GENERIC_" + name);
+                        } catch (IllegalArgumentException ignored) {}
+                    } else {
+                        try {
+                            return Enum.valueOf((Class<Enum>) ATTRIBUTE_CLASS, name.replace("GENERIC_", ""));
+                        } catch (IllegalArgumentException ignored) {}
+                    }
+                    return null;
+                }
+            });
+
+            if (attributeEnum == null) {
+                return null;
+            }
+
+            return GET_ATTRIBUTE_METHOD.invoke(player, attributeEnum);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    public static double getAttributeValue(Player player, String attributeName, double defaultValue) {
+        if (player == null) return defaultValue;
+
+        if (!ATTRIBUTE_INITIALIZED) {
+            initAttributes();
+        }
+
+        if (GET_VALUE_METHOD == null) {
+            return defaultValue;
+        }
+
+        try {
+            Object instance = getAttribute(player, attributeName);
+            if (instance != null) {
+                Object val = GET_VALUE_METHOD.invoke(instance);
+                if (val instanceof Number) {
+                    double dVal = ((Number) val).doubleValue();
+                    if (Double.isFinite(dVal)) {
+                        return dVal;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        return defaultValue;
+    }
+
+    public static double getAttributeBaseValue(Player player, String attributeName, double defaultValue) {
+        if (player == null) return defaultValue;
+
+        if (!ATTRIBUTE_INITIALIZED) {
+            initAttributes();
+        }
+
+        if (GET_BASE_VALUE_METHOD == null) {
+            return defaultValue;
+        }
+
+        try {
+            Object instance = getAttribute(player, attributeName);
+            if (instance != null) {
+                Object val = GET_BASE_VALUE_METHOD.invoke(instance);
+                if (val instanceof Number) {
+                    double dVal = ((Number) val).doubleValue();
+                    if (Double.isFinite(dVal)) {
+                        return dVal;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        return defaultValue;
+    }
+
+    public static double getPlayerMovementSpeed(Player player) {
+        return getAttributeValue(player, "MOVEMENT_SPEED", 0.1D);
+    }
+
+    public static double getExtraReachModifier(Object attributeInstance, String modifierName) {
+        if (attributeInstance == null) return 0.0D;
+        try {
+            Method getModifiersMethod = attributeInstance.getClass().getMethod("getModifiers");
+            Object modifiers = getModifiersMethod.invoke(attributeInstance);
+            if (modifiers instanceof java.util.Collection) {
+                for (Object mod : (java.util.Collection<?>) modifiers) {
+                    Method getNameMethod = mod.getClass().getMethod("getName");
+                    String name = (String) getNameMethod.invoke(mod);
+                    if (modifierName.equalsIgnoreCase(name)) {
+                        Method getAmountMethod = mod.getClass().getMethod("getAmount");
+                        return ((Number) getAmountMethod.invoke(mod)).doubleValue();
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+        return 0.0D;
+    }
 }
