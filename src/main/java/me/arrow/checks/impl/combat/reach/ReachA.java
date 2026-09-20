@@ -26,9 +26,6 @@ import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.GameMode;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeModifier;
-import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
@@ -59,9 +56,9 @@ public class ReachA extends Check {
 
     boolean VERBOSE_RAY_HITBOX_STATE = true;
 
-    int ROTATION_HISTORY_SIZE = 20;
+    int ROTATION_HISTORY_SIZE = 80;
     long BASE_ROTATION_LOOKBACK_MS = 150L;
-    long MAX_ROTATION_LOOKBACK_MS = 450L;
+    long MAX_ROTATION_LOOKBACK_MS = 5_000L;
 
     double FLICK_YAW_DELTA = 18.0D;
     double FLICK_PITCH_DELTA = 8.0D;
@@ -70,6 +67,8 @@ public class ReachA extends Check {
 
     final List<RotationSnapshot> rotationHistory = new ArrayList<>(ROTATION_HISTORY_SIZE);
     final List<PendingAttack> pendingAttacks = new ArrayList<>(4);
+
+    final boolean USE_TRUST_FACTOR;
 
     public ReachA(Profile profile) {
         super(profile, CheckType.REACH, "A", "Checks for entity reach");
@@ -82,6 +81,7 @@ public class ReachA extends Check {
         MAX_FORGIVING_HORIZONTAL_BOX_EXPAND = Checks.Setting.REACH_A_MAX_FORGIVING_HORIZONTAL_BOX_EXPAND.getDouble();
         MAX_FORGIVING_VERTICAL_EXPAND = Checks.Setting.REACH_A_MAX_FORGIVING_VERTICAL_BOX_EXPAND.getDouble();
         MAX_REACH_TOLERANCE = Checks.Setting.REACH_A_MAX_REACH_TOLERANCE.getDouble();
+        USE_TRUST_FACTOR = Checks.Setting.REACH_A_USE_TRUST_FACTOR.getBoolean();
     }
 
     @Override
@@ -245,8 +245,43 @@ public class ReachA extends Check {
             }
         }
 
-        double eyeHeight = getAccurateEyeHeight(profile);
-        Vector origin = new Vector(attackerX, attackerY + eyeHeight, attackerZ);
+        List<Vector> originCandidates = new ArrayList<>(4);
+        double standingEye = 1.62D;
+        double sneakingEye = hasModernSneakingDimensions() ? 1.27D : 1.54D;
+        double swimmingEye = 0.4D;
+        boolean sneaking = isSneaking(profile);
+        boolean swimming = isSwimmingOrGliding(profile.getPlayer());
+        double primaryEye = swimming ? swimmingEye : (sneaking ? sneakingEye : standingEye);
+
+        if (attackerMovement.getLocation() != null) {
+            double x = attackerMovement.getLocation().getX();
+            double y = attackerMovement.getLocation().getY();
+            double z = attackerMovement.getLocation().getZ();
+            originCandidates.add(new Vector(x, y + primaryEye, z));
+            if (!swimming) {
+                originCandidates.add(new Vector(x, y + (sneaking ? standingEye : sneakingEye), z));
+            }
+        }
+        if (attackerMovement.getLastLocation() != null) {
+            double x = attackerMovement.getLastLocation().getX();
+            double y = attackerMovement.getLastLocation().getY();
+            double z = attackerMovement.getLastLocation().getZ();
+            originCandidates.add(new Vector(x, y + primaryEye, z));
+            if (!swimming) {
+                originCandidates.add(new Vector(x, y + (sneaking ? standingEye : sneakingEye), z));
+            }
+        }
+        if (attackerMovement.getLocation() != null && attackerMovement.getLastLocation() != null) {
+            double mx = (attackerMovement.getLocation().getX() + attackerMovement.getLastLocation().getX()) * 0.5D;
+            double my = (attackerMovement.getLocation().getY() + attackerMovement.getLastLocation().getY()) * 0.5D;
+            double mz = (attackerMovement.getLocation().getZ() + attackerMovement.getLastLocation().getZ()) * 0.5D;
+            originCandidates.add(new Vector(mx, my + primaryEye, mz));
+        }
+        if (originCandidates.isEmpty()) {
+            originCandidates.add(new Vector(attackerX, attackerY + primaryEye, attackerZ));
+        }
+
+        Vector origin = originCandidates.get(0);
 
         double bestDistance = Double.MAX_VALUE;
         double bestValidationDistance = Double.MAX_VALUE;
@@ -318,6 +353,7 @@ public class ReachA extends Check {
             }
         }
 
+        sampleLoop:
         for (CustomLocation sample : compensatedSamples) {
             if (sample == null || sample.getWorld() == null) {
                 continue;
@@ -328,79 +364,98 @@ public class ReachA extends Check {
             BoundingBox expandedBox = createPlayerBox(target, sample, horizontalExpand, verticalExpand);
             BoundingBox forgivingBox = createPlayerBox(target, sample, forgivingHorizontalExpand, forgivingVerticalExpand);
 
-            if (isInsideBox(origin, clientBox)) {
-                originInsideBox = true;
-                bestDistance = 0.0D;
-                bestRawDistance = 0.0D;
-                bestValidationDistance = 0.0D;
-                bestForgivingDistance = 0.0D;
-                rayHitBox = true;
-                forgivingRayHitBox = true;
-                break;
-            }
-
-            if (isInsideBox(origin, expandedBox)) {
-                bestValidationDistance = 0.0D;
-            }
-
-            Vector center = new Vector(sample.getX(), sample.getY() + 0.9D, sample.getZ());
-            double centerDistance = origin.distance(center);
-
-            if (centerDistance < bestCenterDistance) {
-                bestCenterDistance = centerDistance;
-            }
-
-            for (int i = 0; i < rotationCandidates.size(); i++) {
-                RotationSnapshot rotation = rotationCandidates.get(i);
-                Vector direction = getDirection(rotation.yaw, rotation.pitch);
-
-                double rawDistance = rayTraceDistanceToBox(origin, direction, rawBox, MAX_VALID_DISTANCE);
-                RayBoxHit clientHit = rayTraceBox(origin, direction, clientBox, MAX_VALID_DISTANCE);
-                double clientDistance = clientHit.hit ? clientHit.distance : Double.MAX_VALUE;
-                double validationDistance = rayTraceDistanceToBox(origin, direction, expandedBox, MAX_VALID_DISTANCE);
-                double forgivingDistance = rayTraceDistanceToBox(origin, direction, forgivingBox, MAX_VALID_DISTANCE);
-                double centerRayDistance = distancePointToRay(origin, direction, center);
-                double centerAngle = angleToPoint(origin, direction, center);
-
-                if (rawDistance < bestRawDistance) {
-                    bestRawDistance = rawDistance;
-                }
-
-                if (clientDistance < bestDistance) {
-                    bestDistance = clientDistance;
-
-                    if (i > 0) {
-                        usedCompensatedRotation = true;
-                    }
-                }
-
-                if (validationDistance < bestValidationDistance) {
-                    bestValidationDistance = validationDistance;
-                }
-
-                if (forgivingDistance < bestForgivingDistance) {
-                    bestForgivingDistance = forgivingDistance;
-                }
-
-                if (centerRayDistance < bestCenterRayDistance) {
-                    bestCenterRayDistance = centerRayDistance;
-                }
-
-                if (centerAngle < bestCenterAngle) {
-                    bestCenterAngle = centerAngle;
-                }
-
-                if (clientDistance != Double.MAX_VALUE) {
+            for (Vector originCandidate : originCandidates) {
+                if (isInsideBox(originCandidate, clientBox)) {
+                    originInsideBox = true;
+                    bestDistance = 0.0D;
+                    bestRawDistance = 0.0D;
+                    bestValidationDistance = 0.0D;
+                    bestForgivingDistance = 0.0D;
                     rayHitBox = true;
-                    cornerRayHit |= isHorizontalCornerHit(clientHit.hitPosition, clientBox);
-
-                    if (i > 0) {
-                        usedCompensatedRotation = true;
-                    }
+                    forgivingRayHitBox = true;
+                    break sampleLoop;
                 }
 
-                if (forgivingDistance != Double.MAX_VALUE) {
-                    forgivingRayHitBox = true;
+                if (isInsideBox(originCandidate, expandedBox)) {
+                    bestValidationDistance = 0.0D;
+                }
+
+                Vector center = new Vector(sample.getX(), sample.getY() + 0.9D, sample.getZ());
+                double centerDistance = originCandidate.distance(center);
+
+                if (centerDistance < bestCenterDistance) {
+                    bestCenterDistance = centerDistance;
+                }
+
+                for (int i = 0; i < rotationCandidates.size(); i++) {
+                    RotationSnapshot rotation = rotationCandidates.get(i);
+                    Vector direction = getDirection(rotation.yaw, rotation.pitch);
+
+                    double rawDistance = rayTraceDistanceToBox(originCandidate, direction, rawBox, MAX_VALID_DISTANCE);
+                    RayBoxHit clientHit = rayTraceBox(originCandidate, direction, clientBox, MAX_VALID_DISTANCE);
+                    double clientDistance = clientHit.hit ? clientHit.distance : Double.MAX_VALUE;
+                    double validationDistance = rayTraceDistanceToBox(originCandidate, direction, expandedBox, MAX_VALID_DISTANCE);
+                    double forgivingDistance = rayTraceDistanceToBox(originCandidate, direction, forgivingBox, MAX_VALID_DISTANCE);
+                    double centerRayDistance = distancePointToRay(originCandidate, direction, center);
+                    double centerAngle = angleToPoint(originCandidate, direction, center);
+
+                    if (rawDistance < bestRawDistance) {
+                        bestRawDistance = rawDistance;
+                    }
+
+                    if (clientDistance < bestDistance) {
+                        bestDistance = clientDistance;
+
+                        if (i > 0) {
+                            usedCompensatedRotation = true;
+                        }
+                    }
+
+                    if (validationDistance < bestValidationDistance) {
+                        bestValidationDistance = validationDistance;
+                    }
+
+                    if (forgivingDistance < bestForgivingDistance) {
+                        bestForgivingDistance = forgivingDistance;
+                    }
+
+                    if (centerRayDistance < bestCenterRayDistance) {
+                        bestCenterRayDistance = centerRayDistance;
+                    }
+
+                    if (centerAngle < bestCenterAngle) {
+                        bestCenterAngle = centerAngle;
+                    }
+
+                    if (clientDistance != Double.MAX_VALUE) {
+                        rayHitBox = true;
+                        cornerRayHit |= isHorizontalCornerHit(clientHit.hitPosition, clientBox);
+
+                        if (i > 0) {
+                            usedCompensatedRotation = true;
+                        }
+                    }
+
+                    if (forgivingDistance != Double.MAX_VALUE) {
+                        forgivingRayHitBox = true;
+                    }
+                }
+            }
+        }
+
+        if (bestDistance == Double.MAX_VALUE && !compensatedSamples.isEmpty()) {
+            BoundingBox attackerBox = createPlayerBox(profile.getPlayer(), attackLocation, 0.0D, 0.0D);
+            for (CustomLocation sample : compensatedSamples) {
+                if (sample == null || sample.getWorld() == null) continue;
+                BoundingBox clientBox = createPlayerBox(target, sample, clientHorizontalMargin, clientVerticalMargin);
+                double boxDist = getBoxToBoxDistance(attackerBox, clientBox);
+                double cos = Math.cos(Math.toRadians(pitch));
+                if (Math.abs(cos) > 0.01D) {
+                    boxDist /= Math.abs(cos);
+                }
+                if (boxDist < bestDistance) {
+                    bestDistance = boxDist;
+                    rayHitBox = true;
                 }
             }
         }
@@ -455,20 +510,15 @@ public class ReachA extends Check {
         double extraReach = 0.0;
         try {
             if (profile.getPlayer() != null) {
-                AttributeInstance attr = profile.getPlayer().getAttribute(Attribute.ENTITY_INTERACTION_RANGE);
+                Object attr = me.arrow.utils.ReflectionUtils.getAttribute(profile.getPlayer(), "ENTITY_INTERACTION_RANGE");
                 if (attr != null) {
-                    attributeReach = attr.getValue();
+                    attributeReach = me.arrow.utils.ReflectionUtils.getAttributeValue(profile.getPlayer(), "ENTITY_INTERACTION_RANGE", attributeReach);
                     if (Config.Setting.COMPATIBILITY.getBoolean()) {
-                        for (AttributeModifier mod : attr.getModifiers()) {
-                            if ("origins-reborn:origins-extra_reach_entities".equalsIgnoreCase(mod.getName())) {
-                                // Assuming ADD_NUMBER operation
-                                extraReach += mod.getAmount();
-                            }
-                        }
+                        extraReach += me.arrow.utils.ReflectionUtils.getExtraReachModifier(attr, "origins-reborn:origins-extra_reach_entities");
                     }
                 }
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable e) {
             // Fallback to config value already set.
         }
         double allowedReach = (attributeReach + extraReach) + reachTolerance;
@@ -491,50 +541,86 @@ public class ReachA extends Check {
                     added *= 0.75D;
                 }
 
-                if (decisionDistance > 3.4) {
-                    profile.getTrustFactor().decreaseTrustBy(20);
-                    increaseBufferBy(3);
-                }
+                if (USE_TRUST_FACTOR) {
+                    if (decisionDistance > 3.4) {
+                        profile.getTrustFactor().decreaseTrustBy(20);
+                        increaseBufferBy(3);
+                    }
 
-                if (profile.getTrustScore() >= 80) {
-                    increaseBufferBy(0.5);
-                    profile.getTrustFactor().decreaseTrustBy(5);
-                    return;
-                }
+                    if (profile.getTrustScore() >= 80) {
+                        increaseBufferBy(0.5);
+                        profile.getTrustFactor().decreaseTrustBy(5);
+                        return;
+                    }
 
-                if (increaseBufferBy(added) > (Math.max( 0, (profile.getTrustFactor().getRequiredBuffer() + 1) / 2))) {
-                    fail(
-                            "Increased interaction range",
-                            "distance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(finalBestDistance)
-                                    + "\nconservativeDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestDistance)
-                                    + "\ndecisionDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(decisionDistance)
-                                    + "\nmeasuredDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(measuredDistance)
-                                    + "\nrawDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestRawDistance)
-                                    + "\nvalidationDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestValidationDistance)
-                                    + "\nforgivingDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestForgivingDistance)
-                                    + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + format(allowedReach)
-                                    + "\ntolerance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(reachTolerance)
-                                    + "\nboxExpandH " + MsgType.MAIN_THEME_COLOR.getMessage() + format(horizontalExpand)
-                                    + "\nboxExpandV " + MsgType.MAIN_THEME_COLOR.getMessage() + format(verticalExpand)
-                                    + "\nforgivingExpandH " + MsgType.MAIN_THEME_COLOR.getMessage() + format(forgivingHorizontalExpand)
-                                    + "\nforgivingExpandV " + MsgType.MAIN_THEME_COLOR.getMessage() + format(forgivingVerticalExpand)
-                                    + "\nsamples " + MsgType.MAIN_THEME_COLOR.getMessage() + compensatedSamples.size()
-                                    + "\nhistory " + MsgType.MAIN_THEME_COLOR.getMessage() + historyAmount
-                                    + "\nrayHitBox " + MsgType.MAIN_THEME_COLOR.getMessage() + rayHitBox
-                                    + "\ncornerRayHit " + MsgType.MAIN_THEME_COLOR.getMessage() + cornerRayHit
-                                    + "\ninsideBox " + MsgType.MAIN_THEME_COLOR.getMessage() + originInsideBox
-                                    + "\nrecentFlick " + MsgType.MAIN_THEME_COLOR.getMessage() + recentFlick
-                                    + "\nlaggy " + MsgType.MAIN_THEME_COLOR.getMessage() + laggy
-                                    + "\nusedRotationHistory " + MsgType.MAIN_THEME_COLOR.getMessage() + usedCompensatedRotation
-                                    + "\nclientEntityTracker " + MsgType.MAIN_THEME_COLOR.getMessage() + usingClientEntityTracker
-                                    + "\ntarget " + MsgType.MAIN_THEME_COLOR.getMessage() + target.getName()
-                    );
-                    profile.getTrustFactor().decreaseTrustBy(2);
+                    if (increaseBufferBy(added) > (Math.max(0, (profile.getTrustFactor().getRequiredBuffer() + 1) / 2))) {
+                        fail(
+                                "Increased interaction range",
+                                "distance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(finalBestDistance)
+                                        + "\nconservativeDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestDistance)
+                                        + "\ndecisionDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(decisionDistance)
+                                        + "\nmeasuredDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(measuredDistance)
+                                        + "\nrawDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestRawDistance)
+                                        + "\nvalidationDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestValidationDistance)
+                                        + "\nforgivingDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestForgivingDistance)
+                                        + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + format(allowedReach)
+                                        + "\ntolerance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(reachTolerance)
+                                        + "\nboxExpandH " + MsgType.MAIN_THEME_COLOR.getMessage() + format(horizontalExpand)
+                                        + "\nboxExpandV " + MsgType.MAIN_THEME_COLOR.getMessage() + format(verticalExpand)
+                                        + "\nforgivingExpandH " + MsgType.MAIN_THEME_COLOR.getMessage() + format(forgivingHorizontalExpand)
+                                        + "\nforgivingExpandV " + MsgType.MAIN_THEME_COLOR.getMessage() + format(forgivingVerticalExpand)
+                                        + "\nsamples " + MsgType.MAIN_THEME_COLOR.getMessage() + compensatedSamples.size()
+                                        + "\nhistory " + MsgType.MAIN_THEME_COLOR.getMessage() + historyAmount
+                                        + "\nrayHitBox " + MsgType.MAIN_THEME_COLOR.getMessage() + rayHitBox
+                                        + "\ncornerRayHit " + MsgType.MAIN_THEME_COLOR.getMessage() + cornerRayHit
+                                        + "\ninsideBox " + MsgType.MAIN_THEME_COLOR.getMessage() + originInsideBox
+                                        + "\nrecentFlick " + MsgType.MAIN_THEME_COLOR.getMessage() + recentFlick
+                                        + "\nlaggy " + MsgType.MAIN_THEME_COLOR.getMessage() + laggy
+                                        + "\nusedRotationHistory " + MsgType.MAIN_THEME_COLOR.getMessage() + usedCompensatedRotation
+                                        + "\nclientEntityTracker " + MsgType.MAIN_THEME_COLOR.getMessage() + usingClientEntityTracker
+                                        + "\ntarget " + MsgType.MAIN_THEME_COLOR.getMessage() + target.getName()
+                        );
+                        profile.getTrustFactor().decreaseTrustBy(2);
+                    }
+                } else {
+                    if (decisionDistance > 3.4) {
+                        increaseBufferBy(2.0D);
+                    }
+                    if (increaseBufferBy(added) > 1.25D) {
+                        fail(
+                                "Increased interaction range",
+                                "distance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(finalBestDistance)
+                                        + "\nconservativeDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestDistance)
+                                        + "\ndecisionDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(decisionDistance)
+                                        + "\nmeasuredDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(measuredDistance)
+                                        + "\nrawDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestRawDistance)
+                                        + "\nvalidationDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestValidationDistance)
+                                        + "\nforgivingDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestForgivingDistance)
+                                        + "\nlimit " + MsgType.MAIN_THEME_COLOR.getMessage() + format(allowedReach)
+                                        + "\ntolerance " + MsgType.MAIN_THEME_COLOR.getMessage() + format(reachTolerance)
+                                        + "\nboxExpandH " + MsgType.MAIN_THEME_COLOR.getMessage() + format(horizontalExpand)
+                                        + "\nboxExpandV " + MsgType.MAIN_THEME_COLOR.getMessage() + format(verticalExpand)
+                                        + "\nforgivingExpandH " + MsgType.MAIN_THEME_COLOR.getMessage() + format(forgivingHorizontalExpand)
+                                        + "\nforgivingExpandV " + MsgType.MAIN_THEME_COLOR.getMessage() + format(forgivingVerticalExpand)
+                                        + "\nsamples " + MsgType.MAIN_THEME_COLOR.getMessage() + compensatedSamples.size()
+                                        + "\nhistory " + MsgType.MAIN_THEME_COLOR.getMessage() + historyAmount
+                                        + "\nrayHitBox " + MsgType.MAIN_THEME_COLOR.getMessage() + rayHitBox
+                                        + "\ncornerRayHit " + MsgType.MAIN_THEME_COLOR.getMessage() + cornerRayHit
+                                        + "\ninsideBox " + MsgType.MAIN_THEME_COLOR.getMessage() + originInsideBox
+                                        + "\nrecentFlick " + MsgType.MAIN_THEME_COLOR.getMessage() + recentFlick
+                                        + "\nlaggy " + MsgType.MAIN_THEME_COLOR.getMessage() + laggy
+                                        + "\nusedRotationHistory " + MsgType.MAIN_THEME_COLOR.getMessage() + usedCompensatedRotation
+                                        + "\nclientEntityTracker " + MsgType.MAIN_THEME_COLOR.getMessage() + usingClientEntityTracker
+                                        + "\ntarget " + MsgType.MAIN_THEME_COLOR.getMessage() + target.getName()
+                        );
+                    }
                 }
             }
         } else {
             decreaseBufferBy(validRayHit ? 0.018D : 0.005D);
-            profile.getTrustFactor().increaseTrustBy(0.0025);
+            if (USE_TRUST_FACTOR) {
+                profile.getTrustFactor().increaseTrustBy(0.0025);
+            }
         }
 
         double finalValidationDistance = bestValidationDistance;
@@ -930,7 +1016,7 @@ public class ReachA extends Check {
         int amount = 8 + attackerPingTicks + Math.max(0, targetPingTicks / 2);
 
         amount = Math.max(MIN_HISTORY_SAMPLES, amount);
-        amount = Math.min(MAX_HISTORY_SAMPLES, amount);
+        amount = Math.min(Math.max(140, MAX_HISTORY_SAMPLES), amount);
         amount = Math.min(sampleSize, amount);
 
         return amount;
@@ -960,7 +1046,7 @@ public class ReachA extends Check {
         } catch (Throwable ignored) {
         }
 
-        return Math.min(40, ticks);
+        return Math.min(105, ticks);
     }
 
     private int getPingMillis(Profile profile) {
@@ -985,7 +1071,7 @@ public class ReachA extends Check {
         } catch (Throwable ignored) {
         }
 
-        return Math.min(2_000, ping);
+        return Math.min(5_000, ping);
     }
 
     private double getReachTolerance(Profile attacker, Profile target) {
@@ -1448,5 +1534,27 @@ public class ReachA extends Check {
             this.entityId = entityId;
             this.timestamp = timestamp;
         }
+    }
+
+    private double getBoxToBoxDistance(BoundingBox a, BoundingBox b) {
+        double dx;
+        if (a.maxX < b.minX) {
+            dx = b.minX - a.maxX;
+        } else if (b.maxX < a.minX) {
+            dx = a.minX - b.maxX;
+        } else {
+            dx = 0.0D;
+        }
+
+        double dz;
+        if (a.maxZ < b.minZ) {
+            dz = b.minZ - a.maxZ;
+        } else if (b.maxZ < a.minZ) {
+            dz = a.minZ - b.maxZ;
+        } else {
+            dz = 0.0D;
+        }
+
+        return Math.sqrt(dx * dx + dz * dz);
     }
 }

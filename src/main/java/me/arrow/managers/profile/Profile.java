@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDisconnect;
@@ -38,6 +39,11 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPosition;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPositionAndRotation;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerRotation;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.geysermc.floodgate.api.FloodgateApi;
@@ -143,6 +149,8 @@ public class Profile {
             reelingTicks = new EventTimer(40, this);
 
     private int tick, flyingTicks;
+    private Vector3d lastFlyingPosition;
+    private boolean lastFlyingOnGround;
 
     private final Map<Long, Long> sentKeepAlives = new EvictingMap<>(100);
     private final Map<Integer, Long> iSentTransactions = new EvictingMap<>(100);
@@ -213,6 +221,13 @@ public class Profile {
 
         if (this.player == null) return;
 
+        // Duplicate movement packet cancellation for 1.17+ clients (e.g. item use, attack, bow spam)
+        if (isDuplicateMovementPacket(event)) {
+            event.setCancelled(true);
+            this.rotationData.processReceive(event);
+            return;
+        }
+
         this.clientPacketTracker.addPacket();
 
         this.connectionData.processReceive(event);
@@ -267,6 +282,88 @@ public class Profile {
         this.exempt.handleExempts(event.getTimestamp());
 
         this.checkHolder.runChecks(event);
+    }
+
+    private boolean isDuplicateMovementPacket(PacketReceiveEvent event) {
+        if (!Config.Setting.CANCEL_DUPLICATE_PACKET.getBoolean()) {
+            return false;
+        }
+
+        if (getVersion() == null || getVersion().isOlderThan(ClientVersion.V_1_17)) {
+            return false;
+        }
+
+        if (!OtherUtility.isFlying(event.getPacketType())) {
+            return false;
+        }
+
+        WrapperPlayClientPlayerFlying flying;
+        if (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerFlying) {
+            flying = (WrapperPlayClientPlayerFlying) event.getLastUsedWrapper();
+        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+            flying = new WrapperPlayClientPlayerPositionAndRotation(event);
+        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+            flying = new WrapperPlayClientPlayerPosition(event);
+        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)) {
+            flying = new WrapperPlayClientPlayerRotation(event);
+        } else {
+            flying = new WrapperPlayClientPlayerFlying(event);
+        }
+
+        // Teleports can never be duplicate packets
+        if (getTeleportData().isTeleporting() || getTeleportData().getTeleportTicks() <= 1) {
+            if (flying.hasPositionChanged()) {
+                this.lastFlyingPosition = new Vector3d(
+                        flying.getLocation().getX(),
+                        flying.getLocation().getY(),
+                        flying.getLocation().getZ()
+                );
+                this.lastFlyingOnGround = flying.isOnGround();
+            }
+            return false;
+        }
+
+        boolean inVehicle = (this.player != null && this.player.isInsideVehicle())
+                || (this.vehicleData != null && this.vehicleData.getVehicleTicks() > 0);
+
+        if (flying.hasPositionChanged()) {
+            Vector3d currentPos = new Vector3d(
+                    flying.getLocation().getX(),
+                    flying.getLocation().getY(),
+                    flying.getLocation().getZ()
+            );
+
+            // If player was in a vehicle, has pos & look, and wasn't a teleport, it's the 1.17 duplicate packet
+            if (inVehicle && flying.hasRotationChanged()) {
+                return true;
+            }
+
+            if (this.lastFlyingPosition != null) {
+                double threshold = getVersion().isOlderThan(ClientVersion.V_1_18_2) ? 0.03 : 0.0002;
+                double dx = this.lastFlyingPosition.getX() - currentPos.getX();
+                double dy = this.lastFlyingPosition.getY() - currentPos.getY();
+                double dz = this.lastFlyingPosition.getZ() - currentPos.getZ();
+                double distSq = dx * dx + dy * dy + dz * dz;
+
+                // Check for 1.17+ duplicate movement packet:
+                // Mojang sends PosRot on item interaction (attack, use item, bow spam)
+                // where ground state does not change and position delta is less than threshold
+                if (flying.hasRotationChanged()
+                        && flying.isOnGround() == this.lastFlyingOnGround
+                        && distSq < threshold * threshold) {
+                    return true;
+                }
+            }
+
+            // Valid non-duplicate movement with position update
+            this.lastFlyingPosition = currentPos;
+            this.lastFlyingOnGround = flying.isOnGround();
+            return false;
+        }
+
+        // Packet does not have position (PLAYER_ROTATION or PLAYER_FLYING)
+        this.lastFlyingOnGround = flying.isOnGround();
+        return false;
     }
 
     public void kick(String reason) {

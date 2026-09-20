@@ -192,6 +192,7 @@ public class Checks implements Initializer {
         REACH_A_MAX_FORGIVING_VERTICAL_BOX_EXPAND("ReachA.maxForgivingVerticalBoxExpand", 0.18, "Do not touch this if you don't know what you are doing."),
         REACH_A_MAX_REACH_TOLERANCE("ReachA.maxReachTolerance", 0.03, "Maximum extra reach tolerance after position compensation."),
         REACH_A_RAY("ReachA.requireRayForReach", false, "Do not touch this if you don't know what you are doing."),
+        REACH_A_USE_TRUST_FACTOR("ReachA.useTrustFactor", false, "Whether to enable trust factor mode for Reach A (default: false for ultra-accurate reach)"),
         REACH_A_PUNISH("ReachA.punish", "", "Punishment settings"),
         REACH_A_PUNISH_ENABLED("ReachA.punish.enabled", true, "Should punishments be enabled for this check?"),
         REACH_A_PUNISH_MODE("ReachA.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),

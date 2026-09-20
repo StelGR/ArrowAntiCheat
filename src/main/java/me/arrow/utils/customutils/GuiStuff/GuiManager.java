@@ -21,8 +21,6 @@ import me.arrow.utils.customutils.animationSystem.BanAnimationGuiLayout;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -250,12 +248,13 @@ public class GuiManager {
             extraDebugLore.add("");
 
             try {
-                AttributeInstance attribute = playerForInfo.getAttribute(Attribute.MOVEMENT_SPEED);
+                double baseVal = me.arrow.utils.ReflectionUtils.getAttributeBaseValue(playerForInfo, "MOVEMENT_SPEED", -1.0);
+                double val = me.arrow.utils.ReflectionUtils.getAttributeValue(playerForInfo, "MOVEMENT_SPEED", -1.0);
 
-                if (attribute != null) {
+                if (baseVal >= 0.0 && val >= 0.0) {
                     extraDebugLore.add(translate("&7Movement Attribute:"));
-                    extraDebugLore.add(translate(" &7Base: " + MsgType.MAIN_THEME_COLOR.getMessage() + attribute.getBaseValue()));
-                    extraDebugLore.add(translate(" &7Value: " + MsgType.MAIN_THEME_COLOR.getMessage() + attribute.getValue()));
+                    extraDebugLore.add(translate(" &7Base: " + MsgType.MAIN_THEME_COLOR.getMessage() + baseVal));
+                    extraDebugLore.add(translate(" &7Value: " + MsgType.MAIN_THEME_COLOR.getMessage() + val));
                     extraDebugLore.add("");
                 }
             } catch (Throwable ignored) {

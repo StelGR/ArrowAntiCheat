@@ -7,7 +7,6 @@ import me.arrow.utils.ReflectionUtils;
 import me.arrow.utils.TaskUtils;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Waterlogged;
@@ -202,7 +201,7 @@ public class InstanceDefault implements NmsInstance {
 
     @Override
     public float getAttributeSpeed(Player player) {
-        return VERSION.isNewerThan(ServerVersion.V_1_8_8) ? (float) Objects.requireNonNull(player.getAttribute(Attribute.MOVEMENT_SPEED)).getValue() : 0.1F;
+        return (float) ReflectionUtils.getPlayerMovementSpeed(player);
     }
 
     @Override
