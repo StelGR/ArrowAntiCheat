@@ -61,7 +61,7 @@ public class VersionUtils {
     }
 
     private static boolean isPluginEnabled(String name) {
-        if (me.arrow.platform.PlatformBackend.get().isFabric()) return false;
+        if (me.arrow.backend.bukkit.PlatformBackend.get().isFabric()) return false;
         try {
             return Bukkit.getPluginManager().isPluginEnabled(name);
         } catch (Throwable ignored) {
@@ -88,7 +88,7 @@ public class VersionUtils {
     }
 
     private static ClientVersion getPacketEventsVersion(Player player) {
-        if (!me.arrow.platform.PlatformBackend.get().isFabric() && !isPluginEnabled("PacketEvents")) {
+        if (!me.arrow.backend.bukkit.PlatformBackend.get().isFabric() && !isPluginEnabled("PacketEvents")) {
             return ClientVersion.UNKNOWN;
         }
 

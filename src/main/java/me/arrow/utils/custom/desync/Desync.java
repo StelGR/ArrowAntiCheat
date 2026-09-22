@@ -28,7 +28,7 @@ public class Desync {
 
     private static Inventory getCachedInventory() {
         if (cachedInventory != null) return cachedInventory;
-        if (me.arrow.platform.PlatformBackend.get().isFabric()) return null;
+        if (me.arrow.backend.bukkit.PlatformBackend.get().isFabric()) return null;
         try {
             cachedInventory = Bukkit.createInventory(null, InventoryType.PLAYER);
         } catch (Throwable ignored) {

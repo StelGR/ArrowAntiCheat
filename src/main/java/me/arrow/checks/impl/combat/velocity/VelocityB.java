@@ -11,7 +11,7 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientWi
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
-import me.arrow.checks.enums.CheckType;
+import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;

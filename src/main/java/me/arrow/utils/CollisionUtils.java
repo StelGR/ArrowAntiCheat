@@ -2,7 +2,7 @@ package me.arrow.utils;
 
 import lombok.Getter;
 import me.arrow.Arrow;
-import me.arrow.nms.NmsInstance;
+import me.arrow.backend.bukkit.nms.NmsInstance;
 import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.MaterialType;
@@ -196,6 +196,7 @@ public class CollisionUtils {
             case SLIME_BLOCK -> .8F;
             case ICE, PACKED_ICE -> .98F;
             case BLUE_ICE -> .989F;
+            case AIR, VOID_AIR, CAVE_AIR -> 0.91F;
             default -> {
                 if ("FROSTED_ICE".equals(type.name())) yield .98F;
                 yield MoveUtils.FRICTION_FACTOR;

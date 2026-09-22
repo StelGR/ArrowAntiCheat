@@ -17,9 +17,10 @@ import lombok.Setter;
 import me.arrow.Arrow;
 import me.arrow.checks.impl.movement.speed.SpeedMath.MovementMath;
 import me.arrow.checks.types.TrustFactor;
+import me.arrow.core.event.CoreProfile;
 import me.arrow.files.Config;
-import me.arrow.listeners.ClientBrandListener;
-import me.arrow.managers.threads.ProfileThread;
+import me.arrow.backend.bukkit.listener.ClientBrandListener;
+import me.arrow.core.thread.ProfileThread;
 import me.arrow.playerdata.data.CheckHolder;
 import me.arrow.playerdata.data.impl.*;
 import me.arrow.playerdata.data.impl.worldcomp.BlockProcessor;
@@ -58,7 +59,7 @@ import java.util.UUID;
  */
 @Getter
 @Setter
-public class Profile {
+public class Profile implements CoreProfile {
 
     private static final LegacyComponentSerializer LEGACY_COMPONENT_SERIALIZER =
             LegacyComponentSerializer.legacySection();
@@ -217,6 +218,41 @@ public class Profile {
 
     }
 
+    @Override
+    public UUID playerId() {
+        return uuid;
+    }
+
+    @Override
+    public int entityId() {
+        return player == null ? -1 : player.getEntityId();
+    }
+
+    @Override
+    public void trackEntity(int entityId, UUID playerId) {
+        getCombatData().getTrackedEntities().put(entityId, playerId);
+    }
+
+    @Override
+    public void untrackEntity(int entityId) {
+        getCombatData().getTrackedEntities().remove(entityId);
+    }
+
+    @Override
+    public void clearTrackedEntities() {
+        getCombatData().getTrackedEntities().clear();
+    }
+
+    @Override
+    public void setInventoryOpen(boolean open) {
+        getActionData().setInInventory(open);
+    }
+
+    @Override
+    public void resetDeathTimer() {
+        getSinceDeathTimer().reset();
+    }
+
     public void handleReceive(PacketReceiveEvent event) {
 
         if (this.player == null) return;
@@ -297,18 +333,7 @@ public class Profile {
             return false;
         }
 
-        WrapperPlayClientPlayerFlying flying;
-        if (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerFlying) {
-            flying = (WrapperPlayClientPlayerFlying) event.getLastUsedWrapper();
-        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
-            flying = new WrapperPlayClientPlayerPositionAndRotation(event);
-        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
-            flying = new WrapperPlayClientPlayerPosition(event);
-        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)) {
-            flying = new WrapperPlayClientPlayerRotation(event);
-        } else {
-            flying = new WrapperPlayClientPlayerFlying(event);
-        }
+        WrapperPlayClientPlayerFlying flying = getWrapperPlayClientPlayerFlying(event);
 
         // Teleports can never be duplicate packets
         if (getTeleportData().isTeleporting() || getTeleportData().getTeleportTicks() <= 1) {
@@ -364,6 +389,22 @@ public class Profile {
         // Packet does not have position (PLAYER_ROTATION or PLAYER_FLYING)
         this.lastFlyingOnGround = flying.isOnGround();
         return false;
+    }
+
+    private WrapperPlayClientPlayerFlying getWrapperPlayClientPlayerFlying(PacketReceiveEvent event) {
+        WrapperPlayClientPlayerFlying flying;
+        if (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerFlying) {
+            flying = (WrapperPlayClientPlayerFlying) event.getLastUsedWrapper();
+        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+            flying = new WrapperPlayClientPlayerPositionAndRotation(event);
+        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+            flying = new WrapperPlayClientPlayerPosition(event);
+        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)) {
+            flying = new WrapperPlayClientPlayerRotation(event);
+        } else {
+            flying = new WrapperPlayClientPlayerFlying(event);
+        }
+        return flying;
     }
 
     public void kick(String reason) {

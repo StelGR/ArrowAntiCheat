@@ -1,0 +1,54 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+sourceSets {
+    main {
+        java {
+            setSrcDirs(['src/main/java', '../src/main/java'])
+            include 'me/arrow/backend/fabric/**'
+            include 'me/arrow/core/**'
+        }
+    }
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    maven { url = 'https://repo.codemc.io/repository/maven-releases/' }
+    maven { url = 'https://repo.codemc.io/repository/maven-snapshots/' }
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // PacketEvents remains a server-installed Fabric mod; do not bundle a second copy.
+    compileOnly "com.github.retrooper:packetevents-api:${project.packetevents_version}"
+    runtimeOnly "com.github.retrooper:packetevents-fabric:${project.packetevents_version}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand version: project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    // Java 21 bytecode keeps the bootstrap runnable from Minecraft 1.21 onward;
+    // Minecraft 26.3's Java 25 runtime can execute it unchanged.
+    options.release = Integer.parseInt(project.minimum_java_version)
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}

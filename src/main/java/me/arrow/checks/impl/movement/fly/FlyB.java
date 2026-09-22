@@ -2,8 +2,8 @@ package me.arrow.checks.impl.movement.fly;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import me.arrow.checks.annotations.Experimental;
-import me.arrow.checks.enums.CheckType;
+import me.arrow.core.check.annotation.Experimental;
+import me.arrow.core.check.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
@@ -29,8 +29,6 @@ public class FlyB extends Check {
     public FlyB(Profile profile) {
         super(profile, CheckType.FLY, "B", "Checks for impossible vertical acceleration while a player is airborne.");
     }
-
-    private static final double JUMP_TOL = 0.06; // tolerance for matching jump-start
 
     @Override
     public void handle(PacketSendEvent event) {
@@ -78,7 +76,7 @@ public class FlyB extends Check {
                 double jumpStart = MoveUtils.getJumpMotion(profile);
                 double totalVerticalVelocity = profile.getVelocityData().getTotalVerticalVelocity();
 
-                final boolean isNotJumpStart = Math.abs(deltaY - jumpStart) > JUMP_TOL;
+                final boolean isNotJumpStart = Math.abs(deltaY - jumpStart) > 0.06;
 
                 VelocityData vd = profile.getVelocityData();
 
@@ -105,8 +103,6 @@ public class FlyB extends Check {
                                 && deltaY > maxDeltaY
                                 && clientAirTicks > 8
                                 && !vd.isTakingVelocity();
-
-
 
                 String verboseInfo = "acceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
                         + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY

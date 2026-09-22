@@ -4,7 +4,7 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
-import me.arrow.checks.enums.CheckType;
+import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -78,7 +78,7 @@ public class FlyA extends Check {
                         || movementData.isNearWater()
                         || movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2)
                         || movementData.getSinceBubbleTicks() < 25 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || profile.getBlockProcessor().isCancelledBlockPlacementExempt(12 + (profile.getConnectionData().getClientTickTrans() * 2))
+                        || profile.getBlockProcessor().isCancelledBlockPlacementExempt(5 + (profile.getConnectionData().getClientTickTrans() * 2))
                         || profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
                     return;
                 }
@@ -313,7 +313,7 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+        if (movementData.getSinceTeleportTicks() < 5) {
             ChatUtils.debugExempt("teleports", "FlyA");
             return true;
         }

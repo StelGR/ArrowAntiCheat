@@ -5,7 +5,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
-import me.arrow.nms.NmsInstance;
+import me.arrow.backend.bukkit.nms.NmsInstance;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.TaskUtils;
 import org.bukkit.entity.Player;

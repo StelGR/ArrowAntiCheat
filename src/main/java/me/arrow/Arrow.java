@@ -1,27 +1,27 @@
 package me.arrow;
 
 import com.github.retrooper.packetevents.PacketEvents;
-import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.api.internal.ArrowAPIImpl;
-import me.arrow.commands.CommandManager;
-import me.arrow.commands.bukkitCommands.Stuck;
+import me.arrow.backend.bukkit.command.CommandManager;
+import me.arrow.backend.bukkit.command.Stuck;
 import me.arrow.files.Checks;
 import me.arrow.files.Config;
 import me.arrow.files.commentedfiles.CommentedFileConfiguration;
-import me.arrow.listeners.GeneralEventListener;
-import me.arrow.listeners.NetworkListener;
-import me.arrow.listeners.ProfileListener;
-import me.arrow.listeners.ViolationListener;
+import me.arrow.backend.bukkit.listener.GeneralEventListener;
+import me.arrow.backend.bukkit.listener.NetworkListener;
+import me.arrow.backend.bukkit.listener.ProfileListener;
+import me.arrow.backend.bukkit.listener.ViolationListener;
 import me.arrow.managers.AlertManager;
 import me.arrow.managers.logs.LogManager;
 import me.arrow.managers.profile.ProfileManager;
 import me.arrow.managers.themes.ThemeManager;
-import me.arrow.managers.threads.ThreadManager;
-import me.arrow.nms.NmsManager;
+import me.arrow.backend.bukkit.listener.BukkitThreadListener;
+import me.arrow.core.thread.ThreadManager;
+import me.arrow.backend.bukkit.nms.NmsManager;
 import me.arrow.playerdata.data.impl.RodData;
 import me.arrow.playerdata.processors.impl.CollisionProcessor;
 import me.arrow.tasks.LogsTask;
@@ -35,15 +35,13 @@ import me.arrow.utils.customutils.GuiStuff.GuiListener;
 import me.arrow.utils.customutils.GuiStuff.GuiManager;
 import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.customutils.animationSystem.AnimationManager;
-import me.arrow.platform.PlatformBackend;
+import me.arrow.backend.bukkit.PlatformBackend;
 import me.arrow.utils.versionutils.impl.VelocityClientVersionBridge;
 import me.stel.API.ArrowAPIProvider;
-// Bukkit static calls replaced by PlatformBackend
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.Bukkit;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -105,7 +103,7 @@ public class Arrow {
     private final String version = "108-pre2";
 
     @Getter
-    private final JavaPlugin host;     // the “real” plugin, either ArrowPlugin or ArrowLoader
+    private final JavaPlugin host;     // the Bukkit plugin entrypoint
     private final File dataFolder;     // where configs/checks are stored
 
     private Config configuration;
@@ -175,7 +173,7 @@ public class Arrow {
         return new File("config/arrow");
     }
 
-    // Called by ArrowPlugin (offline) or ArrowLoader (memory)
+    // Called by the Bukkit plugin entrypoint.
     public void onEnable() {
 
         long startTime = System.currentTimeMillis();
@@ -222,18 +220,9 @@ public class Arrow {
             log(translate("&6" + "➪  Version&7: &b" + getVersion()));
             log(translate("&6" + "➪  Platform&7: &b" + PlatformBackend.get().getPlatformType().getFriendlyName()));
             log("");
-            PacketEvents.getAPI().init();
-            if (PlatformBackend.get().isFabric()) {
-                try {
-                    Class<?> builderClass = Class.forName("io.github.retrooper.packetevents.factory.fabric.FabricPacketEventsBuilder");
-                    Object api = builderClass.getMethod("build").invoke(null);
-                    PacketEvents.setAPI((PacketEventsAPI<?>) api);
-                } catch (Throwable ignored) {
-                }
-            } else if (Arrow.getInstance().getHost() != null) {
-                PacketEvents.setAPI(SpigotPacketEventsBuilder.build(Arrow.getInstance().getHost()));
-            }
+            PacketEvents.setAPI(SpigotPacketEventsBuilder.build(Arrow.getInstance().getHost()));
             PacketEvents.getAPI().load();
+            PacketEvents.getAPI().init();
 
             if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_8)) {
                 OtherUtility.log(translate("&cUNSUPPORTED MINECRAFT VERSION, DISABLING"));
@@ -248,7 +237,8 @@ public class Arrow {
             PacketEvents.getAPI().getEventManager().registerListener(new NetworkListener(this));
             log(translate("&6" + "➪  NetworkListener Initialized"));
 
-            (this.threadManager = new ThreadManager(this)).initialize();
+            this.threadManager = new ThreadManager();
+            PlatformBackend.get().registerListener(new BukkitThreadListener(this, threadManager));
             log(translate("&6" + "➪  Thread Manager Initialized"));
 
             (this.profileManager = new ProfileManager()).initialize();
@@ -262,11 +252,7 @@ public class Arrow {
             (this.logManager = new LogManager(getHost())).initialize();
             log(translate("&6" + "➪  Log Manager Initialized"));
             try {
-                if (PlatformBackend.get().getServer() != null) {
-                    this.serverEdition = PlatformBackend.get().getServer().getClass().getPackage().getName().substring(22);
-                } else {
-                    this.serverEdition = "Fabric";
-                }
+                this.serverEdition = PlatformBackend.get().getServer().getClass().getPackage().getName().substring(22);
             } catch (Throwable ignored) {
                 this.serverEdition = "Unknown";
             }
@@ -326,12 +312,12 @@ public class Arrow {
 
             log(translate("&6" + "➪  API Initialized"));
 
-            if (getHost() != null && getHost().getCommand("arrow") != null) {
+            if (getHost() != null) {
                 Objects.requireNonNull(getHost().getCommand("arrow")).setExecutor(new CommandManager(this));
                 log(translate("&6" + "➪  Command Manager Initialized"));
             }
 
-            if (getHost() != null && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean() && getHost().getCommand("stuck") != null) {
+            if (getHost() != null && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
                 Objects.requireNonNull(getHost().getCommand("stuck")).setExecutor(new Stuck());
             }
 
