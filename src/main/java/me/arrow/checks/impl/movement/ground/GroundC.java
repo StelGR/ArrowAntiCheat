@@ -40,23 +40,21 @@ public class GroundC extends Check {
 
                 MovementData movementData = profile.getMovementData();
 
-                if (profile.shouldCancel()
-                        || movementData.isNearShulkerBox()
-                        || movementData.isNearShulker()
-                        || movementData.isOnBoat()
-                        || profile.isBouncingOnSlime()
-                        || movementData.isNearBed()
-                        || profile.isExempt().vehicle()
-                        || movementData.isNearGhast()
-                        || profile.getTick() < 120
-                        || movementData.isNearBoat()
-                        || movementData.getLocation() == null
-                        || (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))
-                        || profile.isExempt().isTeleports()
-                        || movementData.isGlidingOrRecentlyGlided(30)
-                        || !CollisionUtils.isChunkLoaded(movementData.getLocation())) {
-                    return;
-                }
+                if (exempt("cancelled", profile.shouldCancel())) return;
+                if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return;
+                if (exempt("nearShulker", movementData.isNearShulker())) return;
+                if (exempt("onBoat", movementData.isOnBoat())) return;
+                if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
+                if (exempt("nearBed", movementData.isNearBed())) return;
+                if (exempt("vehicle", profile.isExempt().vehicle())) return;
+                if (exempt("nearGhast", movementData.isNearGhast())) return;
+                if (exempt("startup", profile.getTick() < 120)) return;
+                if (exempt("nearBoat", movementData.isNearBoat())) return;
+                if (exempt("noLocation", movementData.getLocation() == null)) return;
+                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
+                if (exempt("teleports", profile.isExempt().isTeleports())) return;
+                if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return;
+                if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) return;
 
                 boolean ground = movementData.isOnGround();
 
@@ -90,16 +88,10 @@ public class GroundC extends Check {
                  * The place support helper verifies that the block actually exists,
                  * so cancelled/ghost tower attempts do not receive this exemption.
                  */
-                if (profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
-                        || profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2))
-                        || profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans)
-                        || profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2))
-
-                ) {
-                    if (Config.Setting.DEBUG.getBoolean())
-                        OtherUtility.log("Ground c: is Exempting (Block Update/Piston Update/Block Place/Block Break)");
-                    return;
-                }
+                if (exempt("underPlaceSupport", profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2)))) return;
+                if (exempt("underBreak", profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2)))) return;
+                if (exempt("towerBlockPlace", profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans))) return;
+                if (exempt("pistonUpdate", profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2)))) return;
 
                 if (serverPositionGround && serverYGround && movementData.isCustomInAir() && ground && movementData.getCustomAirTicks() >= 2) {
 

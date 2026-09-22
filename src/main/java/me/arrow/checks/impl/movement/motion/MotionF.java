@@ -38,17 +38,16 @@ public class MotionF extends Check {
             MovementData movementData = profile.getMovementData();
             VelocityData velocityData = profile.getVelocityData();
 
-            if (profile.shouldCancel()
-                    || profile.getPlayer().isDead()
-                    || !profile.isExempt().isRespawned()
-                    || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                    || profile.isBouncingOnSlime()
-                    || movementData.isNearWater()
-                    || velocityData.getTotalVerticalVelocity() > 0
-                    || movementData.isGlidingOrRecentlyGlided(30)
-            ) return;
+            if (exempt("cancelled", profile.shouldCancel())) return;
+            if (exempt("dead", profile.getPlayer().isDead())) return;
+            if (exempt("notRespawned", !profile.isExempt().isRespawned())) return;
+            if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
+            if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
+            if (exempt("nearWater", movementData.isNearWater())) return;
+            if (exempt("verticalVelocity", velocityData.getTotalVerticalVelocity() > 0)) return;
+            if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return;
 
-            if (profile.getPlayer().isInsideVehicle()) return;
+            if (exempt("insideVehicle", profile.getPlayer().isInsideVehicle())) return;
 
             double deltaY = movementData.getDeltaY();
             double lastDeltaY = movementData.getLastDeltaY();
@@ -56,28 +55,25 @@ public class MotionF extends Check {
             int serverAirTicks = movementData.getCustomAirTicks();
 
 
-            boolean exempt = profile.isBouncingOnSlime()
-                    || movementData.isNearShulker()
-                    || movementData.isNearShulkerBox()
-                    || movementData.isNearBubble()
-                    || movementData.getSincePowderSnowTicks() < 5
-                    || movementData.getLadderTicks() < 10
-                    || movementData.isOnGround()
-                    || movementData.isLastOnGround()
-                    || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)
-                    || clientAirTicks < 6;
+            if (exempt("nearShulker", movementData.isNearShulker())) return;
+            if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return;
+            if (exempt("nearBubble", movementData.isNearBubble())) return;
+            if (exempt("powderSnow", movementData.getSincePowderSnowTicks() < 5)) return;
+            if (exempt("recentLadder", movementData.getLadderTicks() < 10)) return;
+            if (exempt("onGround", movementData.isOnGround())) return;
+            if (exempt("lastOnGround", movementData.isLastOnGround())) return;
+            if (exempt("levitation", profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) return;
+            if (exempt("lowAirTicks", clientAirTicks < 6)) return;
 
             double expected = profile.isBedrockPlayer() ? 0.21 : 0.11760000228885;
 
-            if (!exempt) {
-                if (deltaY > expected
-                        && movementData.isClimb()) {
-                    fail("Fast Ladder?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                            + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
-                            + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
-                            + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
-                            + "\nladderTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLadderTicks());
-                }
+            if (deltaY > expected
+                    && movementData.isClimb()) {
+                fail("Fast Ladder?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                        + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
+                        + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
+                        + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
+                        + "\nladderTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLadderTicks());
             }
         } finally {
             Profiler.stop("Motion F", profiler);

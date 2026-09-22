@@ -43,25 +43,17 @@ public class IllegalMoveA extends Check {
             try {
                 MovementData movementData = profile.getMovementData();
 
-                if (profile.shouldCancel()
-                        || !profile.isExempt().isRespawned()
-                        || profile.isExempt().isDead()
-                        || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                        || profile.getVehicleData().getSinceVehicleTicks() < 5
-                        || profile.isBouncingOnSlime()
-                        || movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
-                    return;
-                }
+                if (exempt("cancelled", profile.shouldCancel())) return;
+                if (exempt("notRespawned", !profile.isExempt().isRespawned())) return;
+                if (exempt("dead", profile.isExempt().isDead())) return;
+                if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) return;
+                if (exempt("recentVehicle", profile.getVehicleData().getSinceVehicleTicks() < 5)) return;
+                if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
+                if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans())) return;
 
-                if (profile.getExempt().isReelingIn()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove A: is Exempting (reelingIn)");
-                    return;
-                }
+                if (exempt("reelingIn", profile.getExempt().isReelingIn())) return;
 
-                if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove A: is Exempting (teleports)");
-                    return;
-                }
+                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
 
                 double deltaY = movementData.getDeltaY();
                 double deltaXZ = movementData.getDeltaXZ();
@@ -127,22 +119,14 @@ public class IllegalMoveA extends Check {
                         profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
                 );
 
-                if (ghostLiquidWebTicks < 12 + (profile.getConnectionData().getClientTickTrans() * 4))
-                {
-                    if (Config.Setting.DEBUG.getBoolean()) {
-                        OtherUtility.log("IllegalMoveA: is Exempting (ghostblock liquid/web)");
-                    }
-                    return;
-                }
+                if (exempt("ghostLiquidWeb", ghostLiquidWebTicks < 12 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
 
                 double stepHeight = 0.5975D;
 
                 //temporary piston fix
-                if (movementData.getSinceNearSlimeTicks() <= (15 + (profile.getConnectionData().getClientTickTrans() * 2))
+                if (exempt("slimePiston", movementData.getSinceNearSlimeTicks() <= (15 + (profile.getConnectionData().getClientTickTrans() * 2))
                         && deltaY > MoveUtils.getJumpMotion(profile)
-                        && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                    return;
-                }
+                        && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2)))) return;
 
                 if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
                     stepHeight += (SpeedUtilities.getJumpBoostPotionLevel(profile) * 0.1F);

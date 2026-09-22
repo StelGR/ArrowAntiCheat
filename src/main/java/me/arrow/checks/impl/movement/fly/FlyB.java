@@ -119,7 +119,7 @@ public class FlyB extends Check {
                     fail("Impossible acceleration with levitation", verboseInfo);
                 }
 
-                if (movementData.getSinceLevitationEffectTicks() < 20 && profile.getPotionData().getLevitationTicks() > 0) return;
+                if (exempt("levitation", movementData.getSinceLevitationEffectTicks() < 20 && profile.getPotionData().getLevitationTicks() > 0)) return;
 
                 if ((invalid
                         && (!movementData.isNearWater()
@@ -180,32 +180,27 @@ public class FlyB extends Check {
 
 
     public boolean isExempt(MovementData movementData) {
-        if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            return true;
-        }
+        if (exempt("recentDamage", profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2)))) return true;
 
-        if (profile.shouldCancel()
-                || profile.isExempt().isVehicle()
-                || profile.isBouncingOnSlime()
-                || movementData.isOnBoat()
-                || movementData.isNearBoat()
-                || movementData.isNearGhast()
-                || movementData.isNearWebs()
-                || profile.getActionData().hasRecentConfirmedUnderPlace(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))
-                || movementData.isNearBed()
-                || movementData.isNearLava()
-                || movementData.getSinceNearWaterTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || movementData.isNearClimbable()
-                || movementData.isOnSlime()
-                || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                || movementData.getSincePredictUpwardsTicks() < 10
-                || movementData.getSincePredictDownwardsTicks() < 10
-                || movementData.getSinceRiptidingTicks() < 30
-                || movementData.getSinceBubbleTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            resetBuffer();
-            return true;
-        }
+        if (exempt("cancelled", profile.shouldCancel())) { resetBuffer(); return true; }
+        if (exempt("vehicle", profile.isExempt().isVehicle())) { resetBuffer(); return true; }
+        if (exempt("slimeBounce", profile.isBouncingOnSlime())) { resetBuffer(); return true; }
+        if (exempt("onBoat", movementData.isOnBoat())) { resetBuffer(); return true; }
+        if (exempt("nearBoat", movementData.isNearBoat())) { resetBuffer(); return true; }
+        if (exempt("nearGhast", movementData.isNearGhast())) { resetBuffer(); return true; }
+        if (exempt("nearWebs", movementData.isNearWebs())) { resetBuffer(); return true; }
+        if (exempt("underPlace", profile.getActionData().hasRecentConfirmedUnderPlace(5 + (profile.getConnectionData().getClientTickTrans() * 2)))) { resetBuffer(); return true; }
+        if (exempt("cancelledBlockPlacement", profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2)))) { resetBuffer(); return true; }
+        if (exempt("nearBed", movementData.isNearBed())) { resetBuffer(); return true; }
+        if (exempt("nearLava", movementData.isNearLava())) { resetBuffer(); return true; }
+        if (exempt("recentWater", movementData.getSinceNearWaterTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2))) { resetBuffer(); return true; }
+        if (exempt("nearClimbable", movementData.isNearClimbable())) { resetBuffer(); return true; }
+        if (exempt("onSlime", movementData.isOnSlime())) { resetBuffer(); return true; }
+        if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) { resetBuffer(); return true; }
+        if (exempt("predictUpwards", movementData.getSincePredictUpwardsTicks() < 10)) { resetBuffer(); return true; }
+        if (exempt("predictDownwards", movementData.getSincePredictDownwardsTicks() < 10)) { resetBuffer(); return true; }
+        if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 30)) { resetBuffer(); return true; }
+        if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2))) { resetBuffer(); return true; }
 
         if (profile.getGeysersTracker().isBeingPushed()) {
             debugExempt("geysers (26.2+)", "Fly B");

@@ -9,7 +9,6 @@ import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
@@ -79,9 +78,7 @@ public class GravityD extends Check {
             try {
                 MovementData movementData = profile.getMovementData();
 
-                if (movementData == null) {
-                    return;
-                }
+                if (exempt("noMovementData", movementData == null)) return;
 
                 final int transTicks = getLagCompensationTicks();
 
@@ -98,39 +95,32 @@ public class GravityD extends Check {
                     return;
                 }
 
-                if (movementData.isOnBoat()
-                        || movementData.isNearBoat()
-                        || movementData.isNearShulker()
-                        || movementData.isNearShulkerBox()
-                        || movementData.isNearLava()
-                        || movementData.isNearWater()
-                        || movementData.getSinceInsideWaterTicks() < 5
-                        || movementData.getSinceNearWaterTicks() < 5
-                        || movementData.isNearBed()
-                        || profile.getExempt().isVehicle()
-                        || profile.shouldCancel()
-                        || (movementData.getNearbyBlocksResult() != null
-                        && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
-                        || movementData.isGlidingOrRecentlyGlided(30)
-                        || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                        || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
-                    resetStrictGravityInvariant();
-                    resetGravityD("globalMovementExempt");
-                    return;
-                }
+                if (movementData.isOnBoat()) { resetStrictGravityInvariant(); resetGravityD("onBoat"); return; }
+                if (movementData.isNearBoat()) { resetStrictGravityInvariant(); resetGravityD("nearBoat"); return; }
+                if (movementData.isNearShulker()) { resetStrictGravityInvariant(); resetGravityD("nearShulker"); return; }
+                if (movementData.isNearShulkerBox()) { resetStrictGravityInvariant(); resetGravityD("nearShulkerBox"); return; }
+                if (movementData.isNearLava()) { resetStrictGravityInvariant(); resetGravityD("nearLava"); return; }
+                if (movementData.isNearWater()) { resetStrictGravityInvariant(); resetGravityD("nearWater"); return; }
+                if (movementData.getSinceInsideWaterTicks() < 5) { resetStrictGravityInvariant(); resetGravityD("insideWater"); return; }
+                if (movementData.getSinceNearWaterTicks() < 5) { resetStrictGravityInvariant(); resetGravityD("recentWater"); return; }
+                if (movementData.isNearBed()) { resetStrictGravityInvariant(); resetGravityD("nearBed"); return; }
+                if (profile.getExempt().isVehicle()) { resetStrictGravityInvariant(); resetGravityD("vehicle"); return; }
+                if (profile.shouldCancel()) { resetStrictGravityInvariant(); resetGravityD("cancelled"); return; }
+                if (movementData.getNearbyBlocksResult() != null
+                        && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES))) { resetStrictGravityInvariant(); resetGravityD("nearBerries"); return; }
+                if (movementData.isGlidingOrRecentlyGlided(30)) { resetStrictGravityInvariant(); resetGravityD("gliding"); return; }
+                if (!CollisionUtils.isChunkLoaded(movementData.getLocation())) { resetStrictGravityInvariant(); resetGravityD("chunkNotLoaded"); return; }
+                if (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0) { resetStrictGravityInvariant(); resetGravityD("levitation"); return; }
 
                 ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
 
-                if (world.shouldExemptMovementChecks()
-                        || world.nextToGhostWall
-                        || world.physicsMismatch
-                        || world.onGhostBlock
-                        || world.insideGhostBlock
-                        || world.underGhostBlock
-                        || profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (transTicks * 2))) {
-                    resetGravityD("clientWorldMismatch");
-                    return;
-                }
+                if (world.shouldExemptMovementChecks()) { resetGravityD("worldTrackerMovement"); return; }
+                if (world.nextToGhostWall) { resetGravityD("worldNextToGhostWall"); return; }
+                if (world.physicsMismatch) { resetGravityD("worldPhysicsMismatch"); return; }
+                if (world.onGhostBlock) { resetGravityD("worldOnGhostBlock"); return; }
+                if (world.insideGhostBlock) { resetGravityD("worldInsideGhostBlock"); return; }
+                if (world.underGhostBlock) { resetGravityD("worldUnderGhostBlock"); return; }
+                if (profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (transTicks * 2))) { resetGravityD("cancelledBlockPlaceAbove"); return; }
 
                 if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                     resetGravityD("recentTeleport");
@@ -143,7 +133,6 @@ public class GravityD extends Check {
                 }
 
                 if (profile.getVehicleData().getSinceVehicleTicks() < 1 + transTicks) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity D: Exempt - vehicle");
                     resetGravityD("recentVehicle");
                     return;
                 }
@@ -154,39 +143,26 @@ public class GravityD extends Check {
                 );
 
                 if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
-                    if (Config.Setting.DEBUG.getBoolean()) {
-                        OtherUtility.log("Gravity D: is Exempting (ghostblock liquid/web)");
-                    }
                     resetGravityD("ghostLiquidWeb");
                     return;
                 }
 
                 if (movementData.getSinceOnGhostBlock() < 10) {
-                    if (Config.Setting.DEBUG.getBoolean()) {
-                        OtherUtility.log("Gravity D: is Exempting (on Ghostblock)");
-                    }
                     resetGravityD("nearGhostBlock");
                     return;
                 }
 
                 if (profile.getBlockProcessor().isNearGhostBlock()) {
-                    if (Config.Setting.DEBUG.getBoolean()) {
-                        OtherUtility.log("Gravity D: is Exempting (near Ghostblock)");
-                    }
                     resetGravityD("nearGhostBlock");
                     return;
                 }
 
                 if (profile.getBlockProcessor().isUnderGhostBlock()) {
-                    if (Config.Setting.DEBUG.getBoolean()) {
-                        OtherUtility.log("Gravity D: is Exempting (under Ghostblock)");
-                    }
                     resetGravityD("underGhostBlock");
                     return;
                 }
 
                 if (profile.getGeysersTracker().isBeingPushed()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Gravity D: Exempt - geysers (26.2+)");
                     resetGravityD("geyserPush");
                     return;
                 }
@@ -242,9 +218,6 @@ public class GravityD extends Check {
         );
 
         if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
-            if (Config.Setting.DEBUG.getBoolean()) {
-                OtherUtility.log("Gravity D: is Exempting (ghostblock liquid/web)");
-            }
             resetGravityD("ghostLiquidWeb");
             return false;
         }
@@ -431,9 +404,6 @@ public class GravityD extends Check {
         );
 
         if (ghostLiquidWebTicks < 20 + (profile.getConnectionData().getClientTickTrans() * 4)) {
-            if (Config.Setting.DEBUG.getBoolean()) {
-                OtherUtility.log("Gravity D: is Exempting (ghostblock liquid/web)");
-            }
             resetGravityD("ghostLiquidWeb");
             return false;
         }
@@ -450,44 +420,39 @@ public class GravityD extends Check {
     private boolean isStrictGravityContextInvalid(MovementData data, int transTicks) {
         ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
 
-        if (data == null
-                || profile.shouldCancel()
-                || profile.isExempt().vehicle()
-                || profile.getExempt().isVehicle()
-                || profile.isBouncingOnSlime()
-                || profile.getGeysersTracker().isBeingPushed()
-                || data.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                || data.isGlidingOrRecentlyGlided(25)
-                || data.getSinceRiptidingTicks() < 10 + transTicks
-                || data.isUnderblock()
-                || data.isNearWater()
-                || data.isNearLava()
-                || data.isNearWebs()
-                || data.isNearClimbable()
-                || data.isInsideLiquid()
-                || data.isInsideWater()
-                || data.isOnTopOfWater()
-                || data.isBottomOfWater()
-                || data.isOnSlime()
-                || data.isOnHoney()
-                || data.getSincePowderSnowTicks() < 15 + transTicks
-                || data.getSinceOnGhostBlock() < 4 + transTicks
-                || world.onGhostBlock
-                || world.insideGhostBlock
-                || world.underGhostBlock
-                || profile.getBlockProcessor().isUnderGhostBlock()
-                || !CollisionUtils.isChunkLoaded(data.getLocation())
-                || hasRecentGravityVelocity(transTicks)
-                || hasRecentGravitySupportChange(4 + transTicks)) {
-            return true;
-        }
-
-        if ((profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)|| profile.getPotionData().isHasSlowFalling()
-                || profile.getPotionData().getSlowFallingTicks() > 0) {
-            return true;
-        }
-
-        return profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 5 + transTicks);
+        if (exempt("noMovementData", data == null)) return true;
+        if (exempt("cancelled", profile.shouldCancel())) return true;
+        if (exempt("vehicle", profile.isExempt().vehicle())) return true;
+        if (exempt("vehicle", profile.getExempt().isVehicle())) return true;
+        if (exempt("slimeBounce", profile.isBouncingOnSlime())) return true;
+        if (exempt("geysers", profile.getGeysersTracker().isBeingPushed())) return true;
+        if (exempt("teleports", data.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return true;
+        if (exempt("gliding", data.isGlidingOrRecentlyGlided(25))) return true;
+        if (exempt("riptiding", data.getSinceRiptidingTicks() < 10 + transTicks)) return true;
+        if (exempt("underBlock", data.isUnderblock())) return true;
+        if (exempt("nearWater", data.isNearWater())) return true;
+        if (exempt("nearLava", data.isNearLava())) return true;
+        if (exempt("nearWebs", data.isNearWebs())) return true;
+        if (exempt("nearClimbable", data.isNearClimbable())) return true;
+        if (exempt("insideLiquid", data.isInsideLiquid())) return true;
+        if (exempt("insideWater", data.isInsideWater())) return true;
+        if (exempt("onTopOfWater", data.isOnTopOfWater())) return true;
+        if (exempt("bottomOfWater", data.isBottomOfWater())) return true;
+        if (exempt("onSlime", data.isOnSlime())) return true;
+        if (exempt("onHoney", data.isOnHoney())) return true;
+        if (exempt("powderSnow", data.getSincePowderSnowTicks() < 15 + transTicks)) return true;
+        if (exempt("recentGhostBlock", data.getSinceOnGhostBlock() < 4 + transTicks)) return true;
+        if (exempt("worldOnGhostBlock", world.onGhostBlock)) return true;
+        if (exempt("worldInsideGhostBlock", world.insideGhostBlock)) return true;
+        if (exempt("worldUnderGhostBlock", world.underGhostBlock)) return true;
+        if (exempt("underGhostBlock", profile.getBlockProcessor().isUnderGhostBlock())) return true;
+        if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(data.getLocation()))) return true;
+        if (exempt("recentVelocity", hasRecentGravityVelocity(transTicks))) return true;
+        if (exempt("recentSupportChange", hasRecentGravitySupportChange(4 + transTicks))) return true;
+        if (exempt("levitation", profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) return true;
+        if (exempt("slowFalling", profile.getPotionData().isHasSlowFalling())) return true;
+        if (exempt("slowFalling", profile.getPotionData().getSlowFallingTicks() > 0)) return true;
+        return exempt("recentDamage", profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 5 + transTicks));
     }
 
     private void primeStrictGravityGround(int movementTick) {
@@ -941,7 +906,6 @@ public class GravityD extends Check {
         if (profile.shouldCancel()) { resetGravityD("shouldCancel"); return true; }
         if (profile.isBouncingOnSlime()) { resetGravityD("bouncingOnSlime"); return true; }
         if (data.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("GravityD : Exempt - teleporting");
             resetGravityD("teleporting");
             return true;
         }
@@ -976,8 +940,15 @@ public class GravityD extends Check {
         // Bukkit potion state is not transaction-confirmed to the client. Ignore the
         // active effect and its short decay window so application/removal cannot leave
         // a stale normal-gravity trajectory or false high-ping players.
-        if ((profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)|| profile.getPotionData().isHasSlowFalling()
-                || profile.getPotionData().getSlowFallingTicks() > 0) {
+        if (exempt("levitation", profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
+            resetGravityD("gravityPotion");
+            return true;
+        }
+        if (exempt("slowFalling", profile.getPotionData().isHasSlowFalling())) {
+            resetGravityD("gravityPotion");
+            return true;
+        }
+        if (exempt("slowFalling", profile.getPotionData().getSlowFallingTicks() > 0)) {
             resetGravityD("gravityPotion");
             return true;
         }
@@ -1943,12 +1914,7 @@ public class GravityD extends Check {
     }
 
     private void resetGravityD(String reason) {
-        if (lastGravityDSampleTick != Integer.MIN_VALUE
-                || negGravStreak > 0.0D
-                || cumulativeNegativeGravity > 0.0D
-                || getBuffer() > 0.0D) {
-            ChatUtils.debugExempt(reason, "GravityD");
-        }
+        ChatUtils.debugExempt(reason, "GravityD");
 
         negGravStreak = 0.0D;
         cumulativeNegativeGravity = 0.0D;
@@ -2017,11 +1983,20 @@ public class GravityD extends Check {
     }
 
     boolean isMovingPrediction(MovementData data) {
-        if (data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictUpwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || data.getSincePredictDownwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            resetGravityD("predictUp/Down");
+        if (exempt("predictUpwards", data.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            resetGravityD("predictUpwards");
+            return true;
+        }
+        if (exempt("predictDownwards", data.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            resetGravityD("predictDownwards");
+            return true;
+        }
+        if (exempt("predictUpwardsWithoutMaterial", data.getSincePredictUpwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            resetGravityD("predictUpwardsWithoutMaterial");
+            return true;
+        }
+        if (exempt("predictDownwardsWithoutMaterial", data.getSincePredictDownwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            resetGravityD("predictDownwardsWithoutMaterial");
             return true;
         }
         return false;

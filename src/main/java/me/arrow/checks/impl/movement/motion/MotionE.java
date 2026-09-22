@@ -42,18 +42,16 @@ public class MotionE extends Check {
 
                 MovementData movementData = profile.getMovementData();
 
-                if (profile.shouldCancel()
-                        || movementData.isUnderblock()
-                        || movementData.isOnBoat()
-                        || movementData.isNearBoat()
-                        || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                        || Arrow.getInstance().getNmsManager().getNmsInstance().isSwimming(profile.getPlayer())
-                        || movementData.getSinceRiptidingTicks() < 5
-                        || profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5
-                        || movementData.isNearBuggyBlock()
-                        || movementData.isGlidingOrRecentlyGlided(30)) {
-                    return;
-                }
+                if (exempt("cancelled", profile.shouldCancel())) return;
+                if (exempt("underBlock", movementData.isUnderblock())) return;
+                if (exempt("onBoat", movementData.isOnBoat())) return;
+                if (exempt("nearBoat", movementData.isNearBoat())) return;
+                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
+                if (exempt("swimming", Arrow.getInstance().getNmsManager().getNmsInstance().isSwimming(profile.getPlayer()))) return;
+                if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 5)) return;
+                if (exempt("underPlace", profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5)) return;
+                if (exempt("nearBuggyBlock", movementData.isNearBuggyBlock())) return;
+                if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return;
 
                 int clientAirTicks = movementData.getClientAirTicks();
                 int serverAirTicks = movementData.getCustomAirTicks();
@@ -76,7 +74,7 @@ public class MotionE extends Check {
                             + "\n * onW " + profile.getMovementData().isOnTopOfWater()
                             + "\n * deltaY " + deltaY);
 
-                if (profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5) return;
+                if (exempt("underPlace", profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5)) return;
 
                 WaterWalking(waterstate, deltaY, deltaXZ, inAir, serverGround, clientGround, clientAirTicks, serverAirTicks);
             } finally {

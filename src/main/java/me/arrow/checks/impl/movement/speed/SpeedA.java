@@ -515,101 +515,34 @@ public class SpeedA extends Check {
 
 
     boolean isExemptGround(MovementData movementData) {
-        if (profile.shouldCancel()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - shouldCancel");
-            return true;
-        }
-
-        if (movementData.isOnBoat()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - isOnBoat");
-            return true;
-        }
-
-        if (movementData.getSinceTeleportTicks() < 5) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - teleports");
-            return true;
-        }
-
-        if (!profile.isExempt().isRespawned()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - notRespawned");
-            return true;
-        }
-
-        if (profile.isExempt().vehicle()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - vehicle");
-            return true;
-        }
-
-        if (profile.getExempt().isReelingIn()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - reelingIn");
-            return true;
-        }
-
-        if (movementData.getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans()) {
-            if (Config.Setting.DEBUG.getBoolean())
-                OtherUtility.log("Speed A (Ground): Exempt - recentlyOnGhostBlock()");
-            return true;
-        }
+        if (exempt("cancelled", profile.shouldCancel())) return true;
+        if (exempt("onBoat", movementData.isOnBoat())) return true;
+        if (exempt("teleports", movementData.getSinceTeleportTicks() < 5)) return true;
+        if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;
+        if (exempt("vehicle", profile.isExempt().vehicle())) return true;
+        if (exempt("reelingIn", profile.getExempt().isReelingIn())) return true;
+        if (exempt("recentGhostBlock", movementData.getSinceOnGhostBlock() < 10 + profile.getConnectionData().getClientTickTrans())) return true;
 
 //        if (movementData.isUnderblock()) {
 //            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - underblock");
 //            return true;
 //        }
 
-        if (movementData.isGlidingOrRecentlyGlided(30)) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - recentlyGliding");
-            return true;
-        }
-
-        if (movementData.getMovingOnSoulBlocksTicks() > 0) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - soulsoil");
-            return true;
-        }
+        if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return true;
+        if (exempt("soulSoil", movementData.getMovingOnSoulBlocksTicks() > 0)) return true;
 
         return false;
     }
 
     boolean isExemptAir(MovementData movementData) {
-        if (profile.shouldCancel()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - shouldCancel");
-            return true;
-        }
-
-        if (movementData.getSinceTeleportTicks() < 5) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - teleporting");
-            return true;
-        }
-
-
-        if (profile.getMovementData().isOnBoat()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - isOnBoat");
-            return true;
-        }
-
-        if (!profile.isExempt().isRespawned()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - notRespawned");
-            return true;
-        }
-
-        if (profile.isExempt().vehicle()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - vehicle");
-            return true;
-        }
-
-        if (movementData.isNearBoat()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - near boat");
-            return true;
-        }
-
-        if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - vehicle");
-            return true;
-        }
-
-        if (profile.getExempt().isReelingIn()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - reelingIn");
-            return true;
-        }
+        if (exempt("cancelled", profile.shouldCancel())) return true;
+        if (exempt("teleports", movementData.getSinceTeleportTicks() < 5)) return true;
+        if (exempt("onBoat", profile.getMovementData().isOnBoat())) return true;
+        if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;
+        if (exempt("vehicle", profile.isExempt().vehicle())) return true;
+        if (exempt("nearBoat", movementData.isNearBoat())) return true;
+        if (exempt("recentVehicle", profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
+        if (exempt("reelingIn", profile.getExempt().isReelingIn())) return true;
 
         return false;
     }

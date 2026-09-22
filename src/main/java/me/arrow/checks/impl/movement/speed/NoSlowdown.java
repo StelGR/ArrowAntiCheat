@@ -37,7 +37,7 @@ public class NoSlowdown extends Check {
     public void handle(PacketReceiveEvent event) {
         if (OtherUtility.isFlying(event.getPacketType())) {
 
-            if (profile.shouldCancel()) return;
+            if (exempt("cancelled", profile.shouldCancel())) return;
 
             MovementData movementData = profile.getMovementData();
             ActionData actionData = profile.getActionData();
@@ -74,7 +74,7 @@ public class NoSlowdown extends Check {
     }
 
     public void NoSlowB(MovementData movementData, ActionData actionData, PredictionData predictionData) {
-        if (profile.getMovementData().isGlidingOrRecentlyGlided(20)) return;
+        if (exempt("gliding", profile.getMovementData().isGlidingOrRecentlyGlided(20))) return;
 
         if (movementData.getMovingOnHoneyTicks() > 10 || movementData.getMovingOnSoulTicks() > 10 || movementData.getMovingOnSlimeTicks() > 10) {
 
@@ -87,7 +87,7 @@ public class NoSlowdown extends Check {
     public void NoSlowC(MovementData movementData, ActionData actionData, PredictionData predictionData) {
         int swiftSneak = movementData.getEquipment().getSwiftSneakLevel();
 
-        if (profile.getVelocityData().isTakingVelocity()) return;
+        if (exempt("velocity", profile.getVelocityData().isTakingVelocity())) return;
 
         double baseNoSprint = 0.092;
         double baseSprint = 0.12;
@@ -108,7 +108,7 @@ public class NoSlowdown extends Check {
     }
 
     public void NoSlowD(MovementData movementData, ActionData actionData, PredictionData predictionData) {
-        if (profile.getMovementData().isGlidingOrRecentlyGlided(20)) return;
+        if (exempt("gliding", profile.getMovementData().isGlidingOrRecentlyGlided(20))) return;
 
         boolean invalid2 = (predictionData.isUseItem() || predictionData.isUseShield())
                 && ((actionData.isSprinting()

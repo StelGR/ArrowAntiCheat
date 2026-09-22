@@ -3,6 +3,8 @@ package me.arrow.backend.bukkit;
 import me.arrow.Arrow;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+
 /** Bukkit-only plugin entrypoint. Fabric uses {@code ArrowFabricMod} instead. */
 public final class ArrowBukkitPlugin extends JavaPlugin {
 
@@ -20,6 +22,17 @@ public final class ArrowBukkitPlugin extends JavaPlugin {
 
     public static ArrowBukkitPlugin getInstance() {
         return instance;
+    }
+
+    /**
+     * Bukkit-only bridge for ArrowLoader. The loader is already the registered
+     * JavaPlugin, so it must not construct a second JavaPlugin instance.
+     */
+    public static Arrow createForLoader(JavaPlugin host, File dataFolder) {
+        if (host == null || dataFolder == null) {
+            throw new IllegalArgumentException("ArrowLoader requires a Bukkit plugin host and data folder");
+        }
+        return new Arrow(host, dataFolder);
     }
 
     @Override

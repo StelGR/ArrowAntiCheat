@@ -23,6 +23,7 @@ public class SlimeProcessor {
     private static final double VANILLA_GRAVITY = 0.08D;
     private static final double VANILLA_DRAG = 0.98D;
     private static final int MAX_APEX_TICKS = 200;
+    private static final int IMPACT_GRACE_PACKETS = 6;
 
     private final Profile profile;
 
@@ -30,8 +31,11 @@ public class SlimeProcessor {
     private CustomLocation lastDescendingLocation;
     private double trackedFallDistance;
     private double lastDescendingDeltaY;
+    private double strongestDescendingDeltaY;
     private int descendingTicks;
     private int descentGraceTicks;
+    private boolean slimeImpactPending;
+    private int impactGracePackets;
 
     public SlimeProcessor(Profile profile) {
         this.profile = profile;
@@ -59,6 +63,8 @@ public class SlimeProcessor {
         }
 
         if (deltaY < -FALL_EPSILON) {
+            slimeImpactPending = false;
+            impactGracePackets = 0;
             trackDescent(movementData, deltaY);
             return false;
         }
@@ -70,6 +76,21 @@ public class SlimeProcessor {
         }
 
         if (trackedFallDistance > 0.0D) {
+            /*
+             * A high-speed fall can be collision-clipped to a zero-delta
+             * packet before its first upward packet. Keep only a verified
+             * slime impact briefly; a normal jump from the floor never gets
+             * this state because it has no preceding descent and contact.
+             */
+            if (!slimeImpactPending && hasSweptSlimeContact(movementData)) {
+                slimeImpactPending = true;
+                impactGracePackets = IMPACT_GRACE_PACKETS;
+            }
+
+            if (slimeImpactPending && impactGracePackets-- > 0) {
+                return false;
+            }
+
             if (Math.abs(deltaY) <= RISE_EPSILON && descentGraceTicks++ < 1) {
                 return false;
             }
@@ -87,6 +108,7 @@ public class SlimeProcessor {
 
         trackedFallDistance += -deltaY;
         lastDescendingDeltaY = deltaY;
+        strongestDescendingDeltaY = Math.min(strongestDescendingDeltaY, deltaY);
         lastDescendingLocation = movementData.getLocation().clone();
         descendingTicks++;
         descentGraceTicks = 0;
@@ -95,20 +117,26 @@ public class SlimeProcessor {
     private boolean canStartBounce(MovementData movementData, double deltaY) {
         if (descendingTicks <= 0
                 || trackedFallDistance < MIN_TRACKED_FALL
-                || lastDescendingDeltaY >= -FALL_EPSILON
+                || getImpactDeltaY() >= -FALL_EPSILON
                 || lastDescendingLocation == null
-                || !hasSweptSlimeContact(movementData)) {
+                || (!slimeImpactPending && !hasSweptSlimeContact(movementData))) {
             return false;
         }
 
-        double incomingVelocity = Math.abs(nextVerticalVelocity(lastDescendingDeltaY));
+        double incomingVelocity = getIncomingVelocity();
         double launchAllowance = Math.max(0.35D, incomingVelocity * 0.10D);
 
-        return deltaY <= incomingVelocity + launchAllowance;
+        /*
+         * A terminal-velocity fall must reverse with meaningful upward
+         * velocity. This stops a normal 0.42 jump from borrowing an old
+         * slime impact while still allowing a collision-partial first packet.
+         */
+        return deltaY >= (incomingVelocity > 1.0D ? incomingVelocity * 0.35D : 0.0D)
+                && deltaY <= incomingVelocity + launchAllowance;
     }
 
     private void startBounce(double firstRise) {
-        double incomingVelocity = Math.abs(nextVerticalVelocity(lastDescendingDeltaY));
+        double incomingVelocity = getIncomingVelocity();
         double maximumLaunch = Math.max(firstRise, incomingVelocity) + Math.max(0.25D, incomingVelocity * 0.08D);
         SimulationResult simulation = simulateApexAndRise(maximumLaunch);
 
@@ -118,6 +146,14 @@ public class SlimeProcessor {
                 Math.min(MAX_APEX_TICKS, simulation.ticksToApex + 2),
                 Math.max(0.0D, firstRise)
         );
+    }
+
+    private double getImpactDeltaY() {
+        return Math.min(lastDescendingDeltaY, strongestDescendingDeltaY);
+    }
+
+    private double getIncomingVelocity() {
+        return Math.abs(nextVerticalVelocity(getImpactDeltaY()));
     }
 
     private boolean updateBounce(double deltaY) {
@@ -247,8 +283,11 @@ public class SlimeProcessor {
         lastDescendingLocation = null;
         trackedFallDistance = 0.0D;
         lastDescendingDeltaY = 0.0D;
+        strongestDescendingDeltaY = 0.0D;
         descendingTicks = 0;
         descentGraceTicks = 0;
+        slimeImpactPending = false;
+        impactGracePackets = 0;
     }
 
     private static final double[] FOOTPRINT_OFFSETS = {

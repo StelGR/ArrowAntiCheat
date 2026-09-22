@@ -42,37 +42,28 @@ public class GroundB extends Check {
 
             MovementData movementData = profile.getMovementData();
 
-            if (movementData.isGlidingOrRecentlyGlided(30)
-                    || profile.getExempt().isVehicle()
-                    || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                    || profile.isBouncingOnSlime()
-                    || profile.getVehicleData().getSinceVehicleTicks() < 5
-                    || movementData.isInsideLiquid()
-                    || movementData.isNearShulker()
-                    || movementData.isNearShulkerBox()
-                    || movementData.isNearLava()
-                    || movementData.isNearGhast()
-                    || movementData.isNearWater()
-                    || movementData.getLocation() == null
-                    || !CollisionUtils.isChunkLoaded(movementData.getLocation()))
-                return;
+            if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return;
+            if (exempt("vehicle", profile.getExempt().isVehicle())) return;
+            if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
+            if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
+            if (exempt("recentVehicle", profile.getVehicleData().getSinceVehicleTicks() < 5)) return;
+            if (exempt("insideLiquid", movementData.isInsideLiquid())) return;
+            if (exempt("nearShulker", movementData.isNearShulker())) return;
+            if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return;
+            if (exempt("nearLava", movementData.isNearLava())) return;
+            if (exempt("nearGhast", movementData.isNearGhast())) return;
+            if (exempt("nearWater", movementData.isNearWater())) return;
+            if (exempt("noLocation", movementData.getLocation() == null)) return;
+            if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) return;
 
             int trans = profile.getConnectionData().getClientTickTrans();
 
-            if (profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
-                    || profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2))
-                    || profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans)
-                    || profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2))
-            )  {
-                if (Config.Setting.DEBUG.getBoolean())
-                    OtherUtility.log("Ground B: is Exempting (Block Update/Piston Update)");
-                return;
-            }
+            if (exempt("underPlaceSupport", profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2)))) return;
+            if (exempt("underBreak", profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2)))) return;
+            if (exempt("towerBlockPlace", profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans))) return;
+            if (exempt("pistonUpdate", profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2)))) return;
 
-            if (profile.getMovementData().isGlidingOrRecentlyGlided(30)) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Ground B: is Exempting (elytra glide)");
-                return;
-            }
+            if (exempt("gliding", profile.getMovementData().isGlidingOrRecentlyGlided(30))) return;
 
             int airTicks = movementData.getCustomAirTicks();
             int clientAirTicks = movementData.getClientAirTicks();
