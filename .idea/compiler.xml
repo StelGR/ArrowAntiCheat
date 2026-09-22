@@ -4,11 +4,6 @@
     <option name="BUILD_PROCESS_HEAP_SIZE" value="2000" />
     <annotationProcessing>
       <profile default="true" name="Default" enabled="true" />
-      <profile name="Maven default annotation processors profile" enabled="true">
-        <sourceOutputDir name="target/generated-sources/annotations" />
-        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
-        <outputRelativeToContentRoot value="true" />
-      </profile>
       <profile name="Annotation profile for Arrow" enabled="true">
         <sourceOutputDir name="build-target/generated-sources/annotations" />
         <sourceTestOutputDir name="build-target/generated-test-sources/test-annotations" />

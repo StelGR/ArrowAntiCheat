@@ -1,7 +1,7 @@
 package me.arrow.utils;
 
 import me.arrow.Arrow;
-import me.arrow.platform.PlatformBackend;
+import me.arrow.backend.bukkit.PlatformBackend;
 import me.arrow.utils.custom.CustomLocation;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;

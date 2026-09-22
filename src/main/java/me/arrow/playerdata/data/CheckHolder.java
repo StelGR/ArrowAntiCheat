@@ -3,7 +3,7 @@ package me.arrow.playerdata.data;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import lombok.Getter;
-import me.arrow.checks.annotations.Testing;
+import me.arrow.core.check.annotation.Testing;
 import me.arrow.checks.impl.combat.aimassist.*;
 import me.arrow.checks.impl.combat.autoclicker.*;
 import me.arrow.checks.impl.combat.backtrack.BackTrackA;

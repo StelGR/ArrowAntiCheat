@@ -5,7 +5,7 @@ import com.github.retrooper.packetevents.protocol.world.chunk.Column;
 import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import lombok.Getter;
-import me.arrow.platform.PlatformBackend;
+import me.arrow.backend.bukkit.PlatformBackend;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.PEMaterials;
@@ -482,6 +482,16 @@ public class ChunkCache {
                 .put(chunkKey(chunkX, chunkZ), chunk);
     }
 
+    /** Removes packet-visible chunk data when the client receives UNLOAD_CHUNK. */
+    public void removeChunk(String worldName, int chunkX, int chunkZ) {
+        if (worldName == null) return;
+        long key = chunkKey(chunkX, chunkZ);
+        Map<Long, CachedChunk> chunks = worldChunks.get(worldName);
+        if (chunks != null) chunks.remove(key);
+        Set<Long> queued = pendingQueue.get(worldName);
+        if (queued != null) queued.remove(key);
+    }
+
     public void clear() {
         pendingQueue.clear();
         worldChunks.clear();
@@ -536,12 +546,7 @@ public class ChunkCache {
         return getBlock(location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 
-    /**
-     * Returns true if this chunk has been sent to the client (i.e. exists in the cache).
-     * Uses only the packet-driven cache — NOT Bukkit's world.isChunkLoaded() — because
-     * the anticheat cares about what the client can see, not the server-side load state.
-     * Populated by CHUNK_DATA packets, evicted by UNLOAD_CHUNK packets.
-     */
+    /** Returns true if globally cached. Entries are retained until the server unloads the chunk. */
     public boolean isChunkLoaded(World world, int chunkX, int chunkZ) {
         if (world == null) return false;
         return getChunk(world.getName(), chunkX, chunkZ) != null;

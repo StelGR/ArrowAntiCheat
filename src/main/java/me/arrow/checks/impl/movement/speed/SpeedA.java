@@ -2,7 +2,7 @@ package me.arrow.checks.impl.movement.speed;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import me.arrow.checks.enums.CheckType;
+import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
@@ -146,6 +146,19 @@ public class SpeedA extends Check {
                 if (movementData.getMovingUnderblockTicks() > 0 && serverGroundTicks < 23) {
                     allowedLimit += 0.3;
                 }
+            }
+
+            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2);
+
+            if (currentlyRiptiding) {
+                double riptideCap = 0.25 + (0.75 * profile.getPredictionData().riptideLevel());
+
+                if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
+                if (movementData.isInsideWater()) riptideCap += 1;
+
+                if (movementData.getSinceRiptidingTicks() > 10) riptideCap /= 2;
+
+                allowedLimit += riptideCap;
             }
 
             if (serverGround && deltaXZ != 0) {
@@ -344,7 +357,7 @@ public class SpeedA extends Check {
             }
 
             if (underBlockMoveTime > 0) {
-                expectedSpeed += potions.isHasSpeed() ? 0.36 : 0.31;
+                expectedSpeed += potions.isHasSpeed() ? 0.38 : 0.32;
                 airLimitDebug += ", underBlock";
             }
 
@@ -512,7 +525,7 @@ public class SpeedA extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (movementData.getSinceTeleportTicks() < 5) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - teleports");
             return true;
         }
@@ -562,7 +575,7 @@ public class SpeedA extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+        if (movementData.getSinceTeleportTicks() < 5) {
             if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Air): Exempt - teleporting");
             return true;
         }

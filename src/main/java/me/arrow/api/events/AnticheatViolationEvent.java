@@ -1,7 +1,7 @@
 package me.arrow.api.events;
 
 import lombok.Getter;
-import me.arrow.checks.enums.CheckCategory;
+import me.arrow.core.check.CheckCategory;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;

@@ -5,13 +5,13 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
@@ -113,8 +113,6 @@ public class BlockProcessor implements Data {
 
     Profile data;
     EventTimer lastConfirmedBlockPlaceTimer;
-    EventTimer lastConfirmedCancelPlaceTimer;
-    EventTimer lastPlacementPacket;
 
     Deque<GhostBlock> ghostBlocks = new EvictingList<>(200);
 
@@ -124,34 +122,23 @@ public class BlockProcessor implements Data {
     Map<Long, SyncBlock> queuedSyncBlocks = new LinkedHashMap<>();
     volatile boolean syncFlushQueued;
 
-    Material materialPlaced;
     int blockUpdateTicks;
-    boolean hasPlacedBlock = false, recentC2SPacket = false;
     Vector currentBlockCords;
     Material blockPlaceMaterial;
     Material main;
     //    Material lastBlockChangeMaterial, lastBlockChangeMultiMaterial;
     int placeTicks;
-    int lastWebUpdateTick;
-    int face;
     int lastGhostBlockTick = 100;
     int lastGhostLiquidWebTick = 100;
     int lastPendingPhysicsPlaceTick = 100;
-    int recentPlacePacketTicks = 100;
-    Vector recentPlaceVector;
-    Material recentPlaceMaterial;
     Vector lastClickedBlockVector;
-    Material lastClickedBlockMaterial;
-    int lastPlacementFace = -1;
 
     boolean pendingVineLadderWallPlace;
     int pendingVineLadderWallTick;
     Vector pendingVineLadderWallVector;
-    Material pendingVineLadderWallMaterial;
 
     int cancelledPhysicsContextTicks;
     Vector cancelledPhysicsContextVector;
-    Material cancelledPhysicsContextMaterial;
 
     boolean nearGhostBlock;
     boolean onGhostBlock;
@@ -162,8 +149,6 @@ public class BlockProcessor implements Data {
     @Setter
     boolean autoCorrectGhostBlocks = true;
 
-    double distanceFromUpdate, distanceFromUpdateMulti;
-
     Material lastAttemptedPlaceMaterial;
     int pendingPlacementTicks;
 
@@ -171,8 +156,6 @@ public class BlockProcessor implements Data {
         // Creates the per-player block processor and initializes placement confirmation timers.
         this.data = user;
         this.lastConfirmedBlockPlaceTimer = new EventTimer(20, user);
-        this.lastConfirmedCancelPlaceTimer = new EventTimer(20, user);
-        this.lastPlacementPacket = new EventTimer(20, user);
     }
 
     @Override
@@ -207,17 +190,11 @@ public class BlockProcessor implements Data {
         int y = wrapped.getBlockPosition().getY();
         int z = wrapped.getBlockPosition().getZ();
 
-        this.lastPlacementPacket.reset();
-
         Material rawAttemptedMaterial = resolveRawAttemptedMaterial(wrapped);
         Material attemptedMaterial = resolveAttemptedMaterial(wrapped);
 
         if (x == -1 && y == -1 && z == -1) {
-            if (isCancelledPhysicsContextMaterial(attemptedMaterial)
-                    && markPlayerAreaPendingPhysicsPlacement(attemptedMaterial)) {
-                this.hasPlacedBlock = this.recentC2SPacket;
-            }
-
+            if (isCancelledPhysicsContextMaterial(attemptedMaterial)) markPlayerAreaPendingPhysicsPlacement(attemptedMaterial);
             return;
         }
 
@@ -238,8 +215,6 @@ public class BlockProcessor implements Data {
         Vector placedVector = resolvePlacedVector(clickedVector, clickedServerMaterial, attemptedMaterial, faceValue);
 
         this.lastClickedBlockVector = clickedVector;
-        this.lastClickedBlockMaterial = clickedServerMaterial;
-        this.lastPlacementFace = faceValue;
 
         boolean knownGhostNearInteraction =
                 isKnownGhostNear(clickedVector, 2.25D)
@@ -278,13 +253,10 @@ public class BlockProcessor implements Data {
             this.pendingVineLadderWallPlace = true;
             this.pendingVineLadderWallTick = 0;
             this.pendingVineLadderWallVector = placedVector;
-            this.pendingVineLadderWallMaterial = attemptedMaterial;
             resetPhysicsPlacementTicks();
             return;
         }
 
-        this.face = faceValue;
-        this.materialPlaced = clickedServerMaterial;
         this.currentBlockCords = placedVector;
         this.blockPlaceMaterial = attemptedMaterial;
         this.lastAttemptedPlaceMaterial = attemptedMaterial;
@@ -313,25 +285,17 @@ public class BlockProcessor implements Data {
             markPendingPhysicsPlacementContext(selectPhysicsPlaceVector(clickedVector, placedVector), attemptedMaterial);
         }
 
-        this.hasPlacedBlock = this.recentC2SPacket;
-        this.recentPlacePacketTicks = 0;
-        this.recentPlaceVector = placedVector;
-        this.recentPlaceMaterial = attemptedMaterial;
     }
 
 
     void handleMovementPacket(PacketReceiveEvent event) {
         // Advances timers, refreshes ghost contact state, confirms pending placements, and drains queued sync packets.
-        WrapperPlayClientPlayerFlying flying = new WrapperPlayClientPlayerFlying(event);
-
         this.blockUpdateTicks++;
-        this.lastWebUpdateTick++;
         this.lastGhostLiquidWebTick++;
         this.lastPendingPhysicsPlaceTick++;
         this.lastGhostBlockTick++;
         this.lastGhostInteractionAreaSyncTick++;
         this.lastAreaSyncTick++;
-        this.recentPlacePacketTicks++;
         this.recentCancelledBlockTicks = incrementContextTick(this.recentCancelledBlockTicks);
         this.pendingNormalBlockPlaceTicks = incrementContextTick(this.pendingNormalBlockPlaceTicks);
 
@@ -341,8 +305,6 @@ public class BlockProcessor implements Data {
         handlePendingVineLadderWallPlace();
         refreshCancelledPhysicsPlacementContext();
         refreshPendingNormalBlockPlacementContext();
-
-        this.recentC2SPacket = flying.hasRotationChanged() && !flying.hasPositionChanged();
 
         updateGhostBlockContact();
 
@@ -441,8 +403,6 @@ public class BlockProcessor implements Data {
             Material serverMaterial = getServerMaterial(vector);
 
             if (!isSamePlacedMaterial(serverMaterial, attempted)) {
-                this.lastConfirmedCancelPlaceTimer.reset();
-
                 boolean physicsContext = isCancelledPhysicsContextMaterial(attempted);
                 boolean nearCancelledPlacement = physicsContext
                         ? isPhysicsPlacementInPlayerArea(this.lastClickedBlockVector, vector)
@@ -850,19 +810,12 @@ public class BlockProcessor implements Data {
             return false;
         }
 
-        this.face = -1;
-        this.materialPlaced = getServerMaterial(vector);
         this.currentBlockCords = vector;
         this.blockPlaceMaterial = attemptedMaterial;
         this.lastAttemptedPlaceMaterial = attemptedMaterial;
         this.lastClickedBlockVector = vector;
-        this.lastClickedBlockMaterial = this.materialPlaced;
-        this.lastPlacementFace = -1;
         this.pendingPlacementTicks = 0;
         this.placeTicks++;
-        this.recentPlacePacketTicks = 0;
-        this.recentPlaceVector = vector;
-        this.recentPlaceMaterial = attemptedMaterial;
 
         markPendingPhysicsPlacementContext(vector, attemptedMaterial);
         return true;
@@ -872,8 +825,6 @@ public class BlockProcessor implements Data {
         // A nearby physics placement was not accepted by the server, so keep liquid/web-style exemptions alive for a short fixed grace.
         this.cancelledPhysicsContextTicks = CANCELLED_PHYSICS_CONTEXT_TICKS;
         this.cancelledPhysicsContextVector = vector != null ? vector.clone() : null;
-        this.cancelledPhysicsContextMaterial = material;
-
         resetPhysicsPlacementTicks();
 
         if (vector != null) {
@@ -895,7 +846,6 @@ public class BlockProcessor implements Data {
 
         if (this.cancelledPhysicsContextTicks <= 0) {
             this.cancelledPhysicsContextVector = null;
-            this.cancelledPhysicsContextMaterial = null;
             this.lastGhostLiquidWebTick = CLEARED_GHOST_CONTEXT_TICK;
             this.lastPendingPhysicsPlaceTick = CLEARED_GHOST_CONTEXT_TICK;
             this.lastGhostBlockTick = CLEARED_GHOST_CONTEXT_TICK;
@@ -945,8 +895,6 @@ public class BlockProcessor implements Data {
 
         this.cancelledPhysicsContextTicks = 0;
         this.cancelledPhysicsContextVector = null;
-        this.cancelledPhysicsContextMaterial = null;
-
         boolean physics =
                 isPhysicsPlacementMaterial(attemptedMaterial)
                         || isPhysicsPlacementMaterial(serverMaterial)
@@ -1011,31 +959,6 @@ public class BlockProcessor implements Data {
         return this.nearGhostBlock || this.interactingGhostBlock || hasActiveGhostContact();
     }
 
-    boolean hasPendingPhysicsPlacementContextForTicks(int allowedTicks) {
-        if (!hasPendingPhysicsPlacementContext()) {
-            return false;
-        }
-
-        if (this.pendingPlacementTicks >= allowedTicks) {
-            return false;
-        }
-
-        return isPhysicsPlacementInPlayerArea(this.lastClickedBlockVector, this.currentBlockCords);
-    }
-
-    boolean hasCancelledPhysicsPlacementContext(int allowedTicks) {
-        if (this.cancelledPhysicsContextTicks <= 0) {
-            return false;
-        }
-
-        if (this.cancelledPhysicsContextVector != null
-                && !isBlockInPlayerPhysicsPlaceArea(this.cancelledPhysicsContextVector)) {
-            return false;
-        }
-
-        return (CANCELLED_PHYSICS_CONTEXT_TICKS - this.cancelledPhysicsContextTicks) < allowedTicks;
-    }
-
     void resetPhysicsPlacementTicks() {
         this.lastGhostLiquidWebTick = 0;
         this.lastPendingPhysicsPlaceTick = 0;
@@ -1093,40 +1016,8 @@ public class BlockProcessor implements Data {
     }
 
     boolean isPhysicsPlacementMaterial(Material material) {
-        // Returns true for materials/items that can alter movement physics when client-predicted.
-        if (material == null || material == Material.AIR) {
-            return false;
-        }
-
-        String name = material.name();
-
-        return name.contains("WATER")
-                || name.contains("LAVA")
-                || name.contains("WATER_BUCKET")
-                || name.contains("LAVA_BUCKET")
-                || name.contains("POWDER_SNOW_BUCKET")
-                || name.contains("WEB")
-                || name.contains("COBWEB")
-                || name.contains("HONEY")
-                || name.contains("SLIME")
-                || name.contains("POWDER_SNOW")
-                || name.contains("BUBBLE")
-                || name.contains("ICE")
-                || name.contains("SOUL_SAND")
-                || name.contains("LADDER")
-                || name.contains("VINE")
-                || name.contains("VINES")
-                || name.contains("CAVE_VINES")
-                || name.contains("WEEPING_VINES")
-                || name.contains("TWISTING_VINES")
-                || name.contains("GLOW_BERRIES")
-                || name.contains("SCAFFOLDING")
-                || name.contains("COD_BUCKET")
-                || name.contains("SALMON_BUCKET")
-                || name.contains("TROPICAL_FISH_BUCKET")
-                || name.contains("PUFFERFISH_BUCKET")
-                || name.contains("AXOLOTL_BUCKET")
-                || name.contains("TADPOLE_BUCKET");
+        return isPhysicsGhostMaterial(material) || isAquaticBucket(material)
+                || hasName(material, "WATER_BUCKET", "LAVA_BUCKET", "POWDER_SNOW_BUCKET");
     }
 
     boolean hasActiveGhostContact() {
@@ -1190,106 +1081,46 @@ public class BlockProcessor implements Data {
 
 
     void handleMultiBlockChange(PacketSendEvent event) {
-        // Processes multi-block server updates and queues tiny repairs for relevant nearby changes.
-        WrapperPlayServerMultiBlockChange multiBlockChange = new WrapperPlayServerMultiBlockChange(event);
-
-        CustomLocation current = data.getMovementData().getLocation();
-
-        if (current == null) {
-            return;
-        }
-
         int repaired = 0;
-
-        for (WrapperPlayServerMultiBlockChange.EncodedBlock blockData : multiBlockChange.getBlocks()) {
-            if (repaired >= 8) {
-                return;
-            }
-
-            int x = blockData.getX();
-            int y = blockData.getY();
-            int z = blockData.getZ();
-
-            if (consumeSelfSyncedBlock(x, y, z)) {
-                continue;
-            }
-
-            double dx = (x + 0.5D) - current.getX();
-            double dy = (y + 0.5D) - current.getY();
-            double dz = (z + 0.5D) - current.getZ();
-            double distanceXZ = (dx * dx) + (dz * dz);
-            Vector vector = new Vector(x, y, z);
-
-            removeGhostBlock(vector);
-
-            Material packetMaterial = null;
-
+        for (WrapperPlayServerMultiBlockChange.EncodedBlock block : new WrapperPlayServerMultiBlockChange(event).getBlocks()) {
+            Material material = null;
             try {
-                StateType type = blockData.getBlockState(data.getVersion()).getType();
-                packetMaterial = materialFromStateName(type.getName());
+                material = materialFromState(block.getBlockState(data.getVersion()).getType());
             } catch (Throwable ignored) {
             }
-
-            handleAuthoritativeNormalPlacementUpdate(vector, packetMaterial);
-
-            if (packetMaterial != null && distanceXZ < 3.0D && isWebMaterial(packetMaterial)) {
-                this.lastWebUpdateTick = 0;
-            }
-
-            confirmPendingVineLadderWallPlace(packetMaterial, vector, distanceXZ, dy);
-
-            if (shouldRepairServerBlockUpdate(packetMaterial, distanceXZ, dy)) {
-                syncBlockUpdatePatch(x, y, z, packetMaterial);
-                repaired++;
-            }
+            if (handleServerBlockUpdate(block.getX(), block.getY(), block.getZ(), material) && ++repaired == 8) return;
         }
     }
 
     void handleBlockChange(PacketSendEvent event) {
-        // Processes single server block updates and queues a tiny repair only when it matters.
         WrapperPlayServerBlockChange blockChange = new WrapperPlayServerBlockChange(event);
-
-        CustomLocation current = data.getMovementData().getLocation();
-
-        if (current == null) {
-            return;
-        }
-
         int x = blockChange.getBlockPosition().getX();
         int y = blockChange.getBlockPosition().getY();
         int z = blockChange.getBlockPosition().getZ();
-
-        if (consumeSelfSyncedBlock(x, y, z)) {
-            return;
+        Material material = null;
+        try {
+            material = materialFromState(blockChange.getBlockState().getType());
+        } catch (Throwable ignored) {
         }
+        handleServerBlockUpdate(x, y, z, material);
+    }
 
+    private boolean handleServerBlockUpdate(int x, int y, int z, Material packetMaterial) {
+        CustomLocation current = data.getMovementData().getLocation();
+        if (current == null || consumeSelfSyncedBlock(x, y, z)) return false;
         double dx = (x + 0.5D) - current.getX();
         double dy = (y + 0.5D) - current.getY();
         double dz = (z + 0.5D) - current.getZ();
         double distanceXZ = (dx * dx) + (dz * dz);
         Vector vector = new Vector(x, y, z);
-
         removeGhostBlock(vector);
-
-        Material packetMaterial = null;
-
-        try {
-            StateType type = blockChange.getBlockState().getType();
-            packetMaterial = materialFromStateName(type.getName());
-        } catch (Throwable ignored) {
-        }
-
         handleAuthoritativeNormalPlacementUpdate(vector, packetMaterial);
-
-        if (packetMaterial != null && distanceXZ < 3.0D && isWebMaterial(packetMaterial)) {
-            this.lastWebUpdateTick = 0;
-        }
-
         confirmPendingVineLadderWallPlace(packetMaterial, vector, distanceXZ, dy);
-
         if (shouldRepairServerBlockUpdate(packetMaterial, distanceXZ, dy)) {
             syncBlockUpdatePatch(x, y, z, packetMaterial);
+            return true;
         }
+        return false;
     }
 
     void handleAuthoritativeNormalPlacementUpdate(Vector updateVector, Material packetMaterial) {
@@ -1704,25 +1535,8 @@ public class BlockProcessor implements Data {
             }
         }
     }
-    Material materialFromStateName(String stateName) {
-        // Converts a PacketEvents state name into a Bukkit Material when possible.
-        if (stateName == null || stateName.isEmpty()) {
-            return null;
-        }
-
-        return matchMaterialCompat(stateName);
-    }
-
-    boolean isWebMaterial(Material material) {
-        // Detects web/cobweb-style materials for web update timers.
-        if (material == null) {
-            return false;
-        }
-
-        String name = material.name();
-
-        return name.equals("COBWEB")
-                || name.contains("WEB");
+    Material materialFromState(StateType state) {
+        return state == null ? null : PEMaterials.materialFromState(state);
     }
 
     void ageGhostBlocks() {
@@ -1787,124 +1601,35 @@ public class BlockProcessor implements Data {
     }
 
     boolean isPlayerStandingOnGhost(Vector block) {
-        // Checks whether the player feet are standing on a stored ghost block.
-        CustomLocation loc = data.getMovementData().getLocation();
-
-        if (loc == null || block == null) {
-            return false;
-        }
-
-        double playerMinX = loc.getX() - 0.3001D;
-        double playerMaxX = loc.getX() + 0.3001D;
-        double playerMinZ = loc.getZ() - 0.3001D;
-        double playerMaxZ = loc.getZ() + 0.3001D;
-
-        double blockMinX = block.getBlockX();
-        double blockMaxX = block.getBlockX() + 1.0D;
-        double blockMinZ = block.getBlockZ();
-        double blockMaxZ = block.getBlockZ() + 1.0D;
-
-        boolean horizontalOverlap =
-                playerMaxX > blockMinX + 0.001D
-                        && playerMinX < blockMaxX - 0.001D
-                        && playerMaxZ > blockMinZ + 0.001D
-                        && playerMinZ < blockMaxZ - 0.001D;
-
-        if (!horizontalOverlap) {
-            return false;
-        }
-
-        double feetY = loc.getY();
-        double blockTop = block.getBlockY() + 1.0D;
-
-        return feetY >= blockTop - 0.075D
-                && feetY <= blockTop + 0.075D;
+        CustomLocation loc = location();
+        return loc != null && overlapsGhostXZ(loc, block) && Math.abs(loc.getY() - (block.getBlockY() + 1D)) <= .075D;
     }
 
     boolean isPlayerInsideGhost(Vector block) {
-        // Checks whether the player body intersects a stored ghost block.
-        CustomLocation loc = data.getMovementData().getLocation();
-
-        if (loc == null || block == null) {
-            return false;
-        }
-
-        double playerMinX = loc.getX() - 0.3001D;
-        double playerMaxX = loc.getX() + 0.3001D;
-        double playerMinY = loc.getY() + 0.001D;
-        double playerMaxY = loc.getY() + 1.799D;
-        double playerMinZ = loc.getZ() - 0.3001D;
-        double playerMaxZ = loc.getZ() + 0.3001D;
-
-        double blockMinX = block.getBlockX();
-        double blockMaxX = block.getBlockX() + 1.0D;
-        double blockMinY = block.getBlockY();
-        double blockMaxY = block.getBlockY() + 1.0D;
-        double blockMinZ = block.getBlockZ();
-        double blockMaxZ = block.getBlockZ() + 1.0D;
-
-        return playerMaxX > blockMinX + 0.001D
-                && playerMinX < blockMaxX - 0.001D
-                && playerMaxY > blockMinY + 0.001D
-                && playerMinY < blockMaxY - 0.001D
-                && playerMaxZ > blockMinZ + 0.001D
-                && playerMinZ < blockMaxZ - 0.001D;
+        CustomLocation loc = location();
+        return loc != null && overlapsGhostXZ(loc, block)
+                && loc.getY() + 1.799D > block.getBlockY() + .001D && loc.getY() + .001D < block.getBlockY() + .999D;
     }
 
     boolean isPlayerUnderGhost(Vector block) {
-        // Checks whether the player head is touching the underside of a stored ghost block.
-        CustomLocation loc = data.getMovementData().getLocation();
-
-        if (loc == null || block == null) {
-            return false;
-        }
-
-        double playerMinX = loc.getX() - 0.3001D;
-        double playerMaxX = loc.getX() + 0.3001D;
-        double playerMinZ = loc.getZ() - 0.3001D;
-        double playerMaxZ = loc.getZ() + 0.3001D;
-
-        double blockMinX = block.getBlockX();
-        double blockMaxX = block.getBlockX() + 1.0D;
-        double blockMinZ = block.getBlockZ();
-        double blockMaxZ = block.getBlockZ() + 1.0D;
-
-        boolean horizontalOverlap =
-                playerMaxX > blockMinX + 0.001D
-                        && playerMinX < blockMaxX - 0.001D
-                        && playerMaxZ > blockMinZ + 0.001D
-                        && playerMinZ < blockMaxZ - 0.001D;
-
-        if (!horizontalOverlap) {
-            return false;
-        }
-
-        double headY = loc.getY() + 1.8D;
-        double blockBottom = block.getBlockY();
-
-        return headY >= blockBottom - 0.075D
-                && headY <= blockBottom + 0.125D;
+        CustomLocation loc = location();
+        return loc != null && overlapsGhostXZ(loc, block) && loc.getY() + 1.8D >= block.getBlockY() - .075D
+                && loc.getY() + 1.8D <= block.getBlockY() + .125D;
     }
 
     boolean isPlayerCloseTo(Vector block, double horizontal, double vertical) {
-        // Performs cheap block-distance proximity checks around the player.
-        CustomLocation loc = data.getMovementData().getLocation();
+        CustomLocation loc = location();
+        return loc != null && block != null && Math.abs(loc.getX() - (block.getBlockX() + .5D)) <= horizontal
+                && Math.abs(loc.getZ() - (block.getBlockZ() + .5D)) <= horizontal && Math.abs(loc.getY() - (block.getBlockY() + .5D)) <= vertical;
+    }
 
-        if (loc == null || block == null) {
-            return false;
-        }
+    private CustomLocation location() {
+        return data.getMovementData() == null ? null : data.getMovementData().getLocation();
+    }
 
-        double px = loc.getX();
-        double py = loc.getY();
-        double pz = loc.getZ();
-
-        double bx = block.getBlockX() + 0.5D;
-        double by = block.getBlockY() + 0.5D;
-        double bz = block.getBlockZ() + 0.5D;
-
-        return Math.abs(px - bx) <= horizontal
-                && Math.abs(pz - bz) <= horizontal
-                && Math.abs(py - by) <= vertical;
+    private boolean overlapsGhostXZ(CustomLocation loc, Vector block) {
+        return block != null && loc.getX() + .3001D > block.getBlockX() + .001D && loc.getX() - .3001D < block.getBlockX() + .999D
+                && loc.getZ() + .3001D > block.getBlockZ() + .001D && loc.getZ() - .3001D < block.getBlockZ() + .999D;
     }
 
     boolean isSamePlacedMaterial(Material serverMaterial, Material attemptedMaterial) {
@@ -1965,23 +1690,7 @@ public class BlockProcessor implements Data {
     }
 
     boolean isPhysicsGhostMaterial(Material material) {
-        // Detects blocks that can affect movement physics when desynced.
-        if (material == null || material == Material.AIR) {
-            return false;
-        }
-
-        String name = material.name();
-
-        return name.contains("WATER")
-                || name.contains("LAVA")
-                || name.contains("WEB")
-                || name.contains("COBWEB")
-                || name.contains("HONEY")
-                || name.contains("SLIME")
-                || name.contains("POWDER_SNOW")
-                || name.contains("BUBBLE")
-                || name.contains("ICE")
-                || name.contains("SOUL_SAND")
+        return hasName(material, "WATER", "LAVA", "WEB", "HONEY", "SLIME", "POWDER_SNOW", "BUBBLE", "ICE", "SOUL_SAND")
                 || isClimbableGhostMaterial(material);
     }
 
@@ -2170,70 +1879,23 @@ public class BlockProcessor implements Data {
     }
 
     boolean isWaterPlacementMaterial(Material material) {
-        // Detects water and water-style bucket placement items.
-        if (material == null) {
-            return false;
-        }
-
-        String name = material.name();
-
-        return name.contains("WATER")
-                || isAquaticBucket(material);
+        return hasName(material, "WATER") || isAquaticBucket(material);
     }
 
     boolean isLavaPlacementMaterial(Material material) {
-        // Detects lava placement items.
-        if (material == null) {
-            return false;
-        }
-
-        String name = material.name();
-        return name.contains("LAVA");
+        return hasName(material, "LAVA");
     }
 
     boolean isPowderSnowPlacementMaterial(Material material) {
-        // Detects powder snow placement items.
-        if (material == null) {
-            return false;
-        }
-
-        String name = material.name();
-        return name.contains("POWDER_SNOW");
+        return hasName(material, "POWDER_SNOW");
     }
 
     boolean isAquaticBucket(Material material) {
-        // Detects fish/axolotl/tadpole buckets as water-style physics placements.
-        if (material == null) {
-            return false;
-        }
-
-        String name = material.name();
-
-        return name.contains("COD_BUCKET")
-                || name.contains("SALMON_BUCKET")
-                || name.contains("TROPICAL_FISH_BUCKET")
-                || name.contains("PUFFERFISH_BUCKET")
-                || name.contains("AXOLOTL_BUCKET")
-                || name.contains("TADPOLE_BUCKET")
-                || name.contains("FISH_BUCKET");
+        return hasName(material, "COD_BUCKET", "SALMON_BUCKET", "FISH_BUCKET", "AXOLOTL_BUCKET", "TADPOLE_BUCKET");
     }
 
     boolean isClimbableGhostMaterial(Material material) {
-        // Detects ladders, vines, and scaffolding movement contexts.
-        if (material == null || material == Material.AIR) {
-            return false;
-        }
-
-        String name = material.name();
-
-        return name.contains("LADDER")
-                || name.equals("VINE")
-                || name.contains("VINES")
-                || name.contains("CAVE_VINES")
-                || name.contains("WEEPING_VINES")
-                || name.contains("TWISTING_VINES")
-                || name.contains("GLOW_BERRIES")
-                || name.contains("SCAFFOLDING");
+        return hasName(material, "LADDER", "VINE", "GLOW_BERRIES", "SCAFFOLDING");
     }
     void handlePendingVineLadderWallPlace() {
         // Keeps a short pending physics exemption for vine/ladder top-face placements whose attached block is yaw-dependent.
@@ -2251,7 +1913,6 @@ public class BlockProcessor implements Data {
         this.pendingVineLadderWallPlace = false;
         this.pendingVineLadderWallTick = 0;
         this.pendingVineLadderWallVector = null;
-        this.pendingVineLadderWallMaterial = null;
         this.lastPendingPhysicsPlaceTick = CLEARED_GHOST_CONTEXT_TICK;
     }
 
@@ -2274,43 +1935,13 @@ public class BlockProcessor implements Data {
         this.pendingVineLadderWallPlace = false;
         this.pendingVineLadderWallTick = 0;
         this.pendingVineLadderWallVector = null;
-        this.pendingVineLadderWallMaterial = null;
         this.lastPendingPhysicsPlaceTick = CLEARED_GHOST_CONTEXT_TICK;
     }
 
     boolean isVineOrLadderPlacement(Material material) {
-        // Detects vine/ladder-style placements that may attach to a different block than the clicked face predicts.
-        if (material == null || material == Material.AIR) {
-            return false;
-        }
-
-        String name = material.name();
-
-        return name.contains("LADDER")
-                || name.equals("VINE")
-                || name.contains("VINES")
-                || name.contains("CAVE_VINES")
-                || name.contains("WEEPING_VINES")
-                || name.contains("TWISTING_VINES")
-                || name.contains("GLOW_BERRIES");
+        return hasName(material, "LADDER", "VINE", "GLOW_BERRIES");
     }
 
-    boolean isPlayerNearPlacement(Vector block, double horizontal, double vertical) {
-        // Limits cancelled-placement exemptions to blocks close to the player.
-        CustomLocation loc = data.getMovementData().getLocation();
-
-        if (loc == null || block == null) {
-            return false;
-        }
-
-        double bx = block.getBlockX() + 0.5D;
-        double by = block.getBlockY() + 0.5D;
-        double bz = block.getBlockZ() + 0.5D;
-
-        return Math.abs(loc.getX() - bx) <= horizontal
-                && Math.abs(loc.getZ() - bz) <= horizontal
-                && Math.abs(loc.getY() - by) <= vertical;
-    }
     boolean hasUsefulCollisionShape(Material material) {
         if (material == null
                 || material == Material.AIR
@@ -2340,50 +1971,12 @@ public class BlockProcessor implements Data {
     }
 
     boolean isIgnoredNoHitboxGhostMaterial(Material material) {
-        // Filters decorative/no-hitbox materials that should not cause ghostblock state.
-        if (material == null || material == Material.AIR) {
-            return false;
-        }
-
-        String name = material.name();
-
-        if (isCancelledPhysicsContextMaterial(material) || isLiquidMaterial(material)) {
-            return false;
-        }
-
-        if (name.contains("RAIL")) {
-            return false;
-        }
-
-        return name.contains("SAPLING")
-                || name.contains("FLOWER")
-                || name.contains("TULIP")
-                || name.contains("DANDELION")
-                || name.contains("POPPY")
-                || name.contains("ORCHID")
-                || name.contains("ALLIUM")
-                || name.contains("AZURE_BLUET")
-                || name.contains("DAISY")
-                || name.contains("CORNFLOWER")
-                || name.contains("LILY_OF_THE_VALLEY")
-                || name.contains("WITHER_ROSE")
-                || name.contains("DEAD_BUSH")
-                || name.endsWith("_GRASS")
-                || name.contains("FERN")
-                || name.contains("SEAGRASS")
-                || name.contains("KELP")
-                || name.contains("MUSHROOM")
-                || name.contains("ROOTS")
-                || name.contains("SPROUTS")
-                || name.contains("NETHER_WART")
-                || name.contains("TORCH")
-                || name.contains("BUTTON")
-                || name.contains("LEVER")
-                || name.contains("SIGN")
-                || name.contains("BANNER")
-                || name.contains("REDSTONE")
-                || name.contains("TRIPWIRE")
-                || name.contains("STRING");
+        if (material == null || material == Material.AIR || isCancelledPhysicsContextMaterial(material)
+                || isLiquidMaterial(material) || hasName(material, "RAIL")) return false;
+        return material.name().endsWith("_GRASS") || hasName(material, "SAPLING", "FLOWER", "TULIP", "DANDELION", "POPPY",
+                "ORCHID", "ALLIUM", "AZURE_BLUET", "DAISY", "CORNFLOWER", "LILY_OF_THE_VALLEY", "WITHER_ROSE", "DEAD_BUSH",
+                "FERN", "SEAGRASS", "KELP", "MUSHROOM", "ROOTS", "SPROUTS", "NETHER_WART", "TORCH", "BUTTON", "LEVER",
+                "SIGN", "BANNER", "REDSTONE", "TRIPWIRE", "STRING");
     }
 
     void clearPendingPlacement() {
@@ -2392,49 +1985,22 @@ public class BlockProcessor implements Data {
         this.blockPlaceMaterial = null;
         this.lastAttemptedPlaceMaterial = null;
         this.pendingPlacementTicks = 0;
-        this.recentPlaceMaterial = null;
-        this.recentPlaceVector = null;
         this.lastPendingPhysicsPlaceTick = CLEARED_GHOST_CONTEXT_TICK;
         this.lastClickedBlockVector = null;
-        this.lastClickedBlockMaterial = null;
-        this.lastPlacementFace = -1;
         this.cancelledPhysicsContextTicks = 0;
         this.cancelledPhysicsContextVector = null;
-        this.cancelledPhysicsContextMaterial = null;
         clearPendingNormalBlockPlacementContext(null);
     }
 
     public Vector getPlacedVector(int x, int y, int z, int faceValue) {
-        // Converts clicked block + face into the predicted placed-block coordinate.
-        if (faceValue == 1) {
-            return new Vector(x, y + 1, z);
-        }
-
-        if (faceValue == 0) {
-            return new Vector(x, y - 1, z);
-        }
-
-        if (faceValue == 4) {
-            return new Vector(x - 1, y, z);
-        }
-
-        if (faceValue == 5) {
-            return new Vector(x + 1, y, z);
-        }
-
-        if (faceValue == 2) {
-            return new Vector(x, y, z - 1);
-        }
-
-        if (faceValue == 3) {
-            return new Vector(x, y, z + 1);
-        }
-
-        return new Vector(x, y, z);
+        int[] offset = faceValue == 1 ? new int[]{0, 1, 0} : faceValue == 0 ? new int[]{0, -1, 0}
+                : faceValue == 4 ? new int[]{-1, 0, 0} : faceValue == 5 ? new int[]{1, 0, 0}
+                : faceValue == 2 ? new int[]{0, 0, -1} : faceValue == 3 ? new int[]{0, 0, 1} : new int[]{0, 0, 0};
+        return new Vector(x + offset[0], y + offset[1], z + offset[2]);
     }
 
     public Material getServerMaterial(Vector vector) {
-        // Reads the authoritative server material through the NMS abstraction.
+        // Reads authoritative material from the global chunk cache.
         if (vector == null) {
             return null;
         }
@@ -2444,35 +2010,9 @@ public class BlockProcessor implements Data {
 
     public Material getServerMaterial(int x, int y, int z) {
         Player player = data.getPlayer();
-
-        if (player == null || !player.isOnline()) {
-            return null;
-        }
-
-        World world;
-
-        try {
-            world = player.getWorld();
-        } catch (Throwable ignored) {
-            return null;
-        }
-
-        Location location = new Location(world, x, y, z);
-
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(location)) {
-            return null;
-        }
-
-        try {
-            return Arrow.getInstance().getNmsManager().getNmsInstance().getType(
-                    world,
-                    x,
-                    y,
-                    z
-            );
-        } catch (Throwable ignored) {
-            return null;
-        }
+        return player == null || !player.isOnline()
+                ? null
+                : ChunkCache.get().getBlock(player.getWorld(), x, y, z);
     }
 
 
@@ -2505,94 +2045,23 @@ public class BlockProcessor implements Data {
     }
 
     boolean isInteractiveBlock(Material material) {
-        // Detects blocks whose right click usually opens/toggles/interacts instead of placing.
-        if (material == null || material == Material.AIR) {
-            return false;
-        }
-
-        String name = material.name();
-
-        return name.contains("BUTTON")
-                || name.contains("LEVER")
-                || name.contains("DOOR")
-                || name.contains("TRAPDOOR")
-                || name.contains("FENCE_GATE")
-                || name.contains("CHEST")
-                || name.contains("SHULKER_BOX")
-                || name.contains("BARREL")
-                || name.contains("FURNACE")
-                || name.contains("BLAST_FURNACE")
-                || name.contains("SMOKER")
-                || name.contains("CRAFTING_TABLE")
-                || name.contains("WORKBENCH")
-                || name.contains("ANVIL")
-                || name.contains("ENCHANTING_TABLE")
-                || name.contains("ENCHANTMENT_TABLE")
-                || name.contains("BREWING_STAND")
-                || name.contains("BEACON")
-                || name.contains("HOPPER")
-                || name.contains("DROPPER")
-                || name.contains("DISPENSER")
-                || name.contains("JUKEBOX")
-                || name.contains("LECTERN")
-                || name.contains("LOOM")
-                || name.contains("CARTOGRAPHY_TABLE")
-                || name.contains("SMITHING_TABLE")
-                || name.contains("GRINDSTONE")
-                || name.contains("STONECUTTER")
-                || name.contains("COMPOSTER")
-                || name.contains("CAULDRON")
-                || name.endsWith("_BED")
-                || name.contains("BELL")
-                || name.contains("RESPAWN_ANCHOR");
+        return material != null && material != Material.AIR && (material.name().endsWith("_BED") || hasName(material,
+                "BUTTON", "LEVER", "DOOR", "TRAPDOOR", "FENCE_GATE", "CHEST", "SHULKER_BOX", "BARREL", "FURNACE", "SMOKER",
+                "CRAFTING_TABLE", "WORKBENCH", "ANVIL", "ENCHANTING_TABLE", "ENCHANTMENT_TABLE", "BREWING_STAND", "BEACON", "HOPPER",
+                "DROPPER", "DISPENSER", "JUKEBOX", "LECTERN", "LOOM", "CARTOGRAPHY_TABLE", "SMITHING_TABLE", "GRINDSTONE",
+                "STONECUTTER", "COMPOSTER", "CAULDRON", "BELL", "RESPAWN_ANCHOR"));
     }
 
     boolean isReplaceablePlacementTarget(Material clickedMaterial, Material attemptedMaterial) {
-        // Detects replaceable targets where the placement occurs inside the clicked block.
-        if (clickedMaterial == null || clickedMaterial == Material.AIR) {
-            return false;
-        }
-
-        if (attemptedMaterial == null || attemptedMaterial == Material.AIR) {
-            return false;
-        }
-
-        if (isLiquidMaterial(clickedMaterial)) {
-            return false;
-        }
-
+        if (clickedMaterial == null || clickedMaterial == Material.AIR || attemptedMaterial == null || attemptedMaterial == Material.AIR
+                || isLiquidMaterial(clickedMaterial)) return false;
         try {
-            if (PEMaterials.isReplaceable(clickedMaterial, data.getVersion())) {
-                return true;
-            }
+            if (PEMaterials.isReplaceable(clickedMaterial, data.getVersion())) return true;
         } catch (Throwable ignored) {
         }
-
-        // Legacy fallback only when the PacketEvents state cannot be resolved.
-        String name = clickedMaterial.name();
-
-        return name.contains("TALL_GRASS")
-                || name.contains("LONG_GRASS")
-                || name.contains("FERN")
-                || name.contains("SEAGRASS")
-                || name.contains("KELP")
-                || name.contains("DEAD_BUSH")
-                || name.contains("FLOWER")
-                || name.contains("TULIP")
-                || name.contains("DANDELION")
-                || name.contains("POPPY")
-                || name.contains("ORCHID")
-                || name.contains("ALLIUM")
-                || name.contains("AZURE_BLUET")
-                || name.contains("DAISY")
-                || name.contains("CORNFLOWER")
-                || name.contains("LILY_OF_THE_VALLEY")
-                || name.contains("WITHER_ROSE")
-                || name.contains("MUSHROOM")
-                || name.contains("ROOTS")
-                || name.contains("SPROUTS")
-                || name.contains("NETHER_WART")
-                || name.contains("SNOW");
+        return hasName(clickedMaterial, "TALL_GRASS", "LONG_GRASS", "FERN", "SEAGRASS", "KELP", "DEAD_BUSH", "FLOWER",
+                "TULIP", "DANDELION", "POPPY", "ORCHID", "ALLIUM", "AZURE_BLUET", "DAISY", "CORNFLOWER", "LILY_OF_THE_VALLEY",
+                "WITHER_ROSE", "MUSHROOM", "ROOTS", "SPROUTS", "NETHER_WART", "SNOW");
     }
 
     void syncSmallInteractionArea(Vector clickedVector, Vector placedVector) {
@@ -2624,17 +2093,7 @@ public class BlockProcessor implements Data {
     }
 
     boolean isPistonRelated(Material material) {
-        // Detects piston blocks and moving piston state names.
-        if (material == null || material == Material.AIR) {
-            return false;
-        }
-
-        String name = material.name();
-
-        return name.contains("PISTON")
-                || name.contains("MOVING_PISTON")
-                || name.contains("PISTON_HEAD")
-                || name.contains("PISTON_EXTENSION");
+        return hasName(material, "PISTON");
     }
     void syncRealBlockToClient(Vector vector) {
         // Queues a real server block to be resent to this player.
@@ -2832,6 +2291,13 @@ public class BlockProcessor implements Data {
         return name.equals("CAVE_AIR") || name.equals("VOID_AIR");
     }
 
+    private boolean hasName(Material material, String... parts) {
+        if (material == null || material == Material.AIR) return false;
+        String name = material.name();
+        for (String part : parts) if (name.contains(part)) return true;
+        return false;
+    }
+
     boolean isKnownGhostNear(Vector vector, double range) {
         // Checks whether a point is close to any stored ghostblock.
         if (vector == null) {
@@ -2964,15 +2430,7 @@ public class BlockProcessor implements Data {
         );
     }
     boolean isLiquidMaterial(Material material) {
-        // Detects water/lava materials.
-        if (material == null) {
-            return false;
-        }
-
-        String name = material.name();
-
-        return name.contains("WATER")
-                || name.contains("LAVA");
+        return hasName(material, "WATER", "LAVA");
     }
     void syncCancelledPlacementArea(Vector vector) {
         // Queues a compact correction area for confirmed cancelled placements.
@@ -3083,11 +2541,6 @@ public class BlockProcessor implements Data {
         }
 
         scheduleSyncFlush();
-    }
-
-    void syncRealBlockToClient(int x, int y, int z) {
-        // Queues a real server block to be resent to this player.
-        syncRealBlockToClient(new Vector(x, y, z));
     }
 
     static class SyncBlock {

@@ -248,13 +248,17 @@ public class GuiManager {
             extraDebugLore.add("");
 
             try {
-                double baseVal = me.arrow.utils.ReflectionUtils.getAttributeBaseValue(playerForInfo, "MOVEMENT_SPEED", -1.0);
-                double val = me.arrow.utils.ReflectionUtils.getAttributeValue(playerForInfo, "MOVEMENT_SPEED", -1.0);
+                double baseVal = me.arrow.utils.ReflectionUtils.getAttributeBaseValue(playerForInfo, "MOVEMENT_SPEED", 0.1D);
+                double val = me.arrow.utils.ReflectionUtils.getAttributeValue(playerForInfo, "MOVEMENT_SPEED", playerForInfo.getWalkSpeed() / 2.0D);
+                double effectiveVal = me.arrow.utils.ReflectionUtils.getPlayerMovementSpeed(playerForInfo);
 
                 if (baseVal >= 0.0 && val >= 0.0) {
                     extraDebugLore.add(translate("&7Movement Attribute:"));
                     extraDebugLore.add(translate(" &7Base: " + MsgType.MAIN_THEME_COLOR.getMessage() + baseVal));
                     extraDebugLore.add(translate(" &7Value: " + MsgType.MAIN_THEME_COLOR.getMessage() + val));
+                    if (Math.abs(effectiveVal - val) > 0.0001) {
+                        extraDebugLore.add(translate(" &7Effective: " + MsgType.MAIN_THEME_COLOR.getMessage() + effectiveVal));
+                    }
                     extraDebugLore.add("");
                 }
             } catch (Throwable ignored) {

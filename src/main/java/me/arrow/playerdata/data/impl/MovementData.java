@@ -18,10 +18,13 @@ import lombok.Setter;
 import me.arrow.Arrow;
 import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
+import me.arrow.core.movement.MovementFrame;
+import me.arrow.core.movement.MovementState;
+import me.arrow.core.network.PacketTimestamp;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
-import me.arrow.nms.NmsInstance;
+import me.arrow.backend.bukkit.nms.NmsInstance;
 import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.Data;
 import me.arrow.playerdata.processors.impl.CollisionProcessor;
@@ -39,7 +42,6 @@ import org.bukkit.util.Vector;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.*;
 import static me.arrow.utils.custom.materials.MaterialType.*;
@@ -139,6 +141,10 @@ public class MovementData implements Data {
 
     private long lastDecayTick = -1L;
 
+    /** Packet-only mirror shared with the Fabric adapter; it contains no Bukkit types. */
+    @Getter
+    private final MovementState coreMovementState = new MovementState();
+
 
     public MovementData(Profile profile) {
         this.profile = profile;
@@ -155,7 +161,7 @@ public class MovementData implements Data {
 
     @Override
     public void processReceive(PacketReceiveEvent event) {
-        final long currentTime = normalizePacketTimestamp(event.getTimestamp());
+        final long currentTime = PacketTimestamp.toMillis(event.getTimestamp());
 
         if (event.getPacketType().equals(ENTITY_ACTION)) {
             handleElytraStartAction(event);
@@ -177,6 +183,7 @@ public class MovementData implements Data {
             this.lastLastLocation = this.lastLocation;
             this.lastLocation = this.location;
 
+            publishCoreMovement(move, currentTime);
             processLocationData();
         }
         else if (event.getPacketType().equals(PLAYER_POSITION)) {
@@ -201,6 +208,7 @@ public class MovementData implements Data {
                     currentTime
             );
 
+            publishCoreMovement(move, currentTime);
             processLocationData();
         }
 
@@ -219,6 +227,7 @@ public class MovementData implements Data {
             this.lastLastLocation = this.lastLocation;
             this.lastLocation = this.location;
 
+            publishCoreMovement(look, currentTime);
             processLocationData();
         }
 
@@ -244,6 +253,7 @@ public class MovementData implements Data {
                     currentTime
             );
 
+            publishCoreMovement(posLook, currentTime);
             processLocationData();
         }
     }
@@ -290,24 +300,25 @@ public class MovementData implements Data {
         }
     }
 
-    private long normalizePacketTimestamp(long timestamp) {
-        long nowMillis = System.currentTimeMillis();
-
-        if (timestamp <= 0L) {
-            return nowMillis;
+    private void publishCoreMovement(WrapperPlayClientPlayerFlying packet, long timestamp) {
+        CustomLocation knownLocation = this.location;
+        if (knownLocation == null) {
+            return;
         }
 
-        if (Math.abs(nowMillis - timestamp) <= 60_000L) {
-            return timestamp;
-        }
+        com.github.retrooper.packetevents.protocol.world.Location packetLocation = packet.getLocation();
+        boolean hasPosition = packet.hasPositionChanged();
+        boolean hasRotation = packet.hasRotationChanged();
 
-        long nanoAge = System.nanoTime() - timestamp;
-
-        if (nanoAge >= 0L && nanoAge <= TimeUnit.SECONDS.toNanos(60L)) {
-            return nowMillis - TimeUnit.NANOSECONDS.toMillis(nanoAge);
-        }
-
-        return nowMillis;
+        this.coreMovementState.accept(new MovementFrame(
+                knownLocation.getWorld() == null ? "unknown" : knownLocation.getWorld().getName(),
+                hasPosition ? packetLocation.getX() : knownLocation.getX(),
+                hasPosition ? packetLocation.getY() : knownLocation.getY(),
+                hasPosition ? packetLocation.getZ() : knownLocation.getZ(),
+                hasRotation ? packetLocation.getYaw() : knownLocation.getYaw(),
+                hasRotation ? packetLocation.getPitch() : knownLocation.getPitch(),
+                hasPosition, hasRotation, this.onGround, this.packetNearWall, timestamp
+        ));
     }
 
     float bedrockDeltaY, bedrockLastDeltaY;
@@ -816,15 +827,13 @@ public class MovementData implements Data {
 
             handleNearbyBlocks();
 
-            //Friction Factor
-
-            this.frictionFactor = CollisionUtils.getBlockSlipperiness(
+            float newFrictionFactor = CollisionUtils.getBlockSlipperiness(
                     CollisionUtils.getMaterial(this.location.clone().subtract(0D, .825D, 0D))
             );
 
-            this.lastFrictionFactorUpdateTicks = this.frictionFactor != this.lastFrictionFactor ? 0 : this.lastFrictionFactorUpdateTicks + 1;
-
             this.lastFrictionFactor = this.frictionFactor;
+            this.frictionFactor = newFrictionFactor;
+            this.lastFrictionFactorUpdateTicks = this.frictionFactor != this.lastFrictionFactor ? 0 : this.lastFrictionFactorUpdateTicks + 1;
 
 
             //Near Wall

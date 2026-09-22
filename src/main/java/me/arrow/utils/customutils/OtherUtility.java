@@ -8,7 +8,7 @@ import me.arrow.Arrow;
 import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.managers.profile.Profile;
-import me.arrow.platform.PlatformBackend;
+import me.arrow.backend.bukkit.PlatformBackend;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;

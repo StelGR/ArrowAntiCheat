@@ -2,7 +2,7 @@ package me.arrow.files;
 
 import lombok.Getter;
 import me.arrow.Arrow;
-import me.arrow.checks.enums.CheckMode;
+import me.arrow.core.check.CheckMode;
 import me.arrow.files.commentedfiles.CommentedFileConfiguration;
 import me.arrow.managers.Initializer;
 import org.bukkit.plugin.java.JavaPlugin;

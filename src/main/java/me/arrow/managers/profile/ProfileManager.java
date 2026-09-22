@@ -2,7 +2,7 @@ package me.arrow.managers.profile;
 
 import me.arrow.Arrow;
 import me.arrow.managers.Initializer;
-import me.arrow.platform.PlatformBackend;
+import me.arrow.backend.bukkit.PlatformBackend;
 import org.bukkit.entity.Player;
 
 import java.util.Map;

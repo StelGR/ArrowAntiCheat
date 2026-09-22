@@ -11,7 +11,7 @@ import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkData;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
-import me.arrow.platform.PlatformBackend;
+import me.arrow.backend.bukkit.PlatformBackend;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -25,7 +25,7 @@ import org.bukkit.entity.Player;
  *   <li>{@code BLOCK_CHANGE} — single block updates</li>
  *   <li>{@code MULTI_BLOCK_CHANGE} — batch block updates</li>
  *   <li>{@code CHUNK_DATA} — full chunk load from server (populates cache from packet data)</li>
- *   <li>{@code UNLOAD_CHUNK} — chunk unload (evicts from cache to prevent memory leak)</li>
+ *   <li>Server chunk-unload events evict entries only after the chunk leaves the global world cache.</li>
  * </ul>
  * Works uniformly on Fabric, Folia, Paper, and Spigot without relying on Bukkit event classes.
  */
@@ -58,9 +58,7 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
         }
 
         // --- Full chunk load: populate cache from packet data ---
-        if (packetType.equals(PacketType.Play.Server.CHUNK_DATA)) {
-            handleChunkData(event, worldName);
-        }
+        if (packetType.equals(PacketType.Play.Server.CHUNK_DATA)) handleChunkData(event, worldName);
     }
 
     // =========================================================================
@@ -141,4 +139,5 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             cache.queuePacketChunk(worldName, chunkX, chunkZ, minY, column);
         } catch (Throwable ignored) { }
     }
+
 }

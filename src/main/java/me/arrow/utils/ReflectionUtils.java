@@ -17,8 +17,11 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -449,10 +452,6 @@ public class ReflectionUtils {
         if (ATTRIBUTE_INITIALIZED) return;
         ATTRIBUTE_INITIALIZED = true;
 
-        if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8_8)) {
-            return;
-        }
-
         try {
             ATTRIBUTE_CLASS = Class.forName("org.bukkit.attribute.Attribute");
             GET_ATTRIBUTE_METHOD = Player.class.getMethod("getAttribute", ATTRIBUTE_CLASS);
@@ -466,6 +465,103 @@ public class ReflectionUtils {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Object resolveAttribute(String attributeName) {
+        if (ATTRIBUTE_CLASS == null) return null;
+
+        List<String> candidates = new ArrayList<>();
+        candidates.add(attributeName);
+        if (!attributeName.startsWith("GENERIC_")) {
+            candidates.add("GENERIC_" + attributeName);
+        } else {
+            candidates.add(attributeName.substring("GENERIC_".length()));
+        }
+        String upper = attributeName.toUpperCase();
+        if (!candidates.contains(upper)) candidates.add(upper);
+        if (!upper.startsWith("GENERIC_")) {
+            String genUpper = "GENERIC_" + upper;
+            if (!candidates.contains(genUpper)) candidates.add(genUpper);
+        } else {
+            String noGen = upper.substring("GENERIC_".length());
+            if (!candidates.contains(noGen)) candidates.add(noGen);
+        }
+
+        // 1. Check if ATTRIBUTE_CLASS is a Java Enum (1.9 - 1.20.4)
+        if (ATTRIBUTE_CLASS.isEnum()) {
+            for (String cand : candidates) {
+                try {
+                    Object res = Enum.valueOf((Class<Enum>) ATTRIBUTE_CLASS, cand);
+                    if (res != null) return res;
+                } catch (Throwable ignored) {}
+            }
+        }
+
+        // 2. Static valueOf(String) method (available on modern 1.21+ Attribute interface)
+        try {
+            Method valueOfMethod = ATTRIBUTE_CLASS.getMethod("valueOf", String.class);
+            for (String cand : candidates) {
+                try {
+                    Object res = valueOfMethod.invoke(null, cand);
+                    if (res != null) return res;
+                } catch (Throwable ignored) {}
+            }
+        } catch (Throwable ignored) {}
+
+        // 3. Static public field on ATTRIBUTE_CLASS (e.g. Attribute.MOVEMENT_SPEED, Attribute.GENERIC_MOVEMENT_SPEED)
+        for (String cand : candidates) {
+            try {
+                Field f = ATTRIBUTE_CLASS.getField(cand);
+                if (Modifier.isStatic(f.getModifiers())) {
+                    Object res = f.get(null);
+                    if (res != null) return res;
+                }
+            } catch (Throwable ignored) {}
+        }
+
+        // 4. Case-insensitive search across all public static fields of ATTRIBUTE_CLASS
+        try {
+            for (Field f : ATTRIBUTE_CLASS.getFields()) {
+                if (Modifier.isStatic(f.getModifiers()) && ATTRIBUTE_CLASS.isAssignableFrom(f.getType())) {
+                    for (String cand : candidates) {
+                        if (f.getName().equalsIgnoreCase(cand)) {
+                            try {
+                                Object res = f.get(null);
+                                if (res != null) return res;
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        // 5. Registry lookup via org.bukkit.Registry.ATTRIBUTE (Paper / Spigot 1.20.5+ / 1.21+)
+        try {
+            Class<?> registryClass = Class.forName("org.bukkit.Registry");
+            Field attrRegistryField = registryClass.getField("ATTRIBUTE");
+            Object registry = attrRegistryField.get(null);
+            if (registry != null) {
+                Method getMethod = registry.getClass().getMethod("get", Class.forName("org.bukkit.NamespacedKey"));
+                Class<?> keyClass = Class.forName("org.bukkit.NamespacedKey");
+                Method minecraftKeyMethod = keyClass.getMethod("minecraft", String.class);
+
+                String cleanName = attributeName.toLowerCase().replace("generic_", "").replace('.', '_');
+                String[] keyCandidates = new String[] {
+                        cleanName,
+                        "generic." + cleanName,
+                        attributeName.toLowerCase().replace('_', '.')
+                };
+                for (String keyStr : keyCandidates) {
+                    try {
+                        Object key = minecraftKeyMethod.invoke(null, keyStr);
+                        Object res = getMethod.invoke(registry, key);
+                        if (res != null) return res;
+                    } catch (Throwable ignored) {}
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        return null;
+    }
+
     public static Object getAttribute(Player player, String attributeName) {
         if (player == null) return null;
 
@@ -473,33 +569,55 @@ public class ReflectionUtils {
             initAttributes();
         }
 
-        if (ATTRIBUTE_CLASS == null || GET_ATTRIBUTE_METHOD == null) {
-            return null;
-        }
-
         try {
-            Object attributeEnum = ATTRIBUTE_ENUM_CACHE.computeIfAbsent(attributeName, name -> {
-                try {
-                    return Enum.valueOf((Class<Enum>) ATTRIBUTE_CLASS, name);
-                } catch (IllegalArgumentException e1) {
-                    if (!name.startsWith("GENERIC_")) {
-                        try {
-                            return Enum.valueOf((Class<Enum>) ATTRIBUTE_CLASS, "GENERIC_" + name);
-                        } catch (IllegalArgumentException ignored) {}
-                    } else {
-                        try {
-                            return Enum.valueOf((Class<Enum>) ATTRIBUTE_CLASS, name.replace("GENERIC_", ""));
-                        } catch (IllegalArgumentException ignored) {}
+            if (ATTRIBUTE_CLASS != null && GET_ATTRIBUTE_METHOD != null) {
+                Object attributeObj = ATTRIBUTE_ENUM_CACHE.computeIfAbsent(attributeName, ReflectionUtils::resolveAttribute);
+                if (attributeObj != null) {
+                    Object instance = GET_ATTRIBUTE_METHOD.invoke(player, attributeObj);
+                    if (instance != null) {
+                        return instance;
                     }
-                    return null;
                 }
-            });
+            }
+        } catch (Throwable ignored) {}
 
-            if (attributeEnum == null) {
-                return null;
+        // Fallback for 1.8.8 NMS
+        return getAttribute1_8(player, attributeName);
+    }
+
+    private static Object getAttribute1_8(Player player, String attributeName) {
+        if (player == null) return null;
+        try {
+            Method getHandle = getMethod(player.getClass(), "getHandle");
+            if (getHandle == null) return null;
+            Object nmsPlayer = getHandle.invoke(player);
+            if (nmsPlayer == null) return null;
+
+            Method getAttributeMap = getMethod(nmsPlayer.getClass(), "getAttributeMap");
+            if (getAttributeMap == null) return null;
+            Object attributeMap = getAttributeMap.invoke(nmsPlayer);
+            if (attributeMap == null) return null;
+
+            Method aMethod = getMethod(attributeMap.getClass(), "a", String.class);
+            if (aMethod == null) return null;
+
+            String nmsName;
+            String upper = attributeName.toUpperCase();
+            if (upper.contains("SPEED") || upper.contains("MOVEMENT")) {
+                nmsName = "generic.movementSpeed";
+            } else if (upper.contains("HEALTH")) {
+                nmsName = "generic.maxHealth";
+            } else if (upper.contains("KNOCKBACK")) {
+                nmsName = "generic.knockbackResistance";
+            } else if (upper.contains("DAMAGE") || upper.contains("ATTACK")) {
+                nmsName = "generic.attackDamage";
+            } else if (upper.contains("FOLLOW")) {
+                nmsName = "generic.followRange";
+            } else {
+                nmsName = attributeName;
             }
 
-            return GET_ATTRIBUTE_METHOD.invoke(player, attributeEnum);
+            return aMethod.invoke(attributeMap, nmsName);
         } catch (Throwable ignored) {
             return null;
         }
@@ -512,14 +630,14 @@ public class ReflectionUtils {
             initAttributes();
         }
 
-        if (GET_VALUE_METHOD == null) {
-            return defaultValue;
-        }
-
         try {
             Object instance = getAttribute(player, attributeName);
             if (instance != null) {
-                Object val = GET_VALUE_METHOD.invoke(instance);
+                Method valMethod = GET_VALUE_METHOD;
+                if (valMethod == null) {
+                    valMethod = instance.getClass().getMethod("getValue");
+                }
+                Object val = valMethod.invoke(instance);
                 if (val instanceof Number) {
                     double dVal = ((Number) val).doubleValue();
                     if (Double.isFinite(dVal)) {
@@ -528,6 +646,16 @@ public class ReflectionUtils {
                 }
             }
         } catch (Throwable ignored) {}
+
+        // If it's movement speed and instance wasn't found, fallback to walkSpeed / 2.0
+        if (attributeName.toUpperCase().contains("SPEED") || attributeName.toUpperCase().contains("MOVEMENT")) {
+            try {
+                double walkSpeedVal = player.getWalkSpeed() / 2.0D;
+                if (walkSpeedVal > 0.0D && Double.isFinite(walkSpeedVal)) {
+                    return walkSpeedVal;
+                }
+            } catch (Throwable ignored) {}
+        }
 
         return defaultValue;
     }
@@ -539,28 +667,57 @@ public class ReflectionUtils {
             initAttributes();
         }
 
-        if (GET_BASE_VALUE_METHOD == null) {
-            return defaultValue;
-        }
-
         try {
             Object instance = getAttribute(player, attributeName);
             if (instance != null) {
-                Object val = GET_BASE_VALUE_METHOD.invoke(instance);
-                if (val instanceof Number) {
-                    double dVal = ((Number) val).doubleValue();
-                    if (Double.isFinite(dVal)) {
-                        return dVal;
+                Method baseMethod = GET_BASE_VALUE_METHOD;
+                if (baseMethod == null) {
+                    try {
+                        baseMethod = instance.getClass().getMethod("getBaseValue");
+                    } catch (NoSuchMethodException e) {
+                        try {
+                            baseMethod = instance.getClass().getMethod("b");
+                        } catch (NoSuchMethodException ignored) {}
+                    }
+                }
+                if (baseMethod != null) {
+                    Object val = baseMethod.invoke(instance);
+                    if (val instanceof Number) {
+                        double dVal = ((Number) val).doubleValue();
+                        if (Double.isFinite(dVal)) {
+                            return dVal;
+                        }
                     }
                 }
             }
         } catch (Throwable ignored) {}
 
+        if (attributeName.toUpperCase().contains("SPEED") || attributeName.toUpperCase().contains("MOVEMENT")) {
+            return 0.1D;
+        }
+
         return defaultValue;
     }
 
     public static double getPlayerMovementSpeed(Player player) {
-        return getAttributeValue(player, "MOVEMENT_SPEED", 0.1D);
+        if (player == null) return 0.1D;
+        double attrVal = getAttributeValue(player, "MOVEMENT_SPEED", -1.0D);
+        double walkSpeedVal = player.getWalkSpeed() / 2.0D;
+
+        if (attrVal > 0.0D && Double.isFinite(attrVal)) {
+            float ws = player.getWalkSpeed();
+            if (Math.abs(ws - 0.2f) > 0.001f && ws > 0.0f) {
+                double scale = ws / 0.2f;
+                return attrVal * scale;
+            }
+            return attrVal;
+        }
+
+        if (walkSpeedVal > 0.0D && Double.isFinite(walkSpeedVal)) {
+            return walkSpeedVal;
+        }
+
+        return 0.1D;
     }
 
     public static double getExtraReachModifier(Object attributeInstance, String modifierName) {
@@ -570,9 +727,21 @@ public class ReflectionUtils {
             Object modifiers = getModifiersMethod.invoke(attributeInstance);
             if (modifiers instanceof java.util.Collection) {
                 for (Object mod : (java.util.Collection<?>) modifiers) {
-                    Method getNameMethod = mod.getClass().getMethod("getName");
-                    String name = (String) getNameMethod.invoke(mod);
-                    if (modifierName.equalsIgnoreCase(name)) {
+                    String name = null;
+                    try {
+                        Method getNameMethod = mod.getClass().getMethod("getName");
+                        name = (String) getNameMethod.invoke(mod);
+                    } catch (Throwable ignored) {}
+
+                    String key = null;
+                    try {
+                        Method getKeyMethod = mod.getClass().getMethod("getKey");
+                        Object keyObj = getKeyMethod.invoke(mod);
+                        if (keyObj != null) key = keyObj.toString();
+                    } catch (Throwable ignored) {}
+
+                    if ((name != null && modifierName.equalsIgnoreCase(name))
+                            || (key != null && modifierName.equalsIgnoreCase(key))) {
                         Method getAmountMethod = mod.getClass().getMethod("getAmount");
                         return ((Number) getAmountMethod.invoke(mod)).doubleValue();
                     }

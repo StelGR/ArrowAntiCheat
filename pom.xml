@@ -118,10 +118,6 @@
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
-        <repository>
-            <id>fabricmc</id>
-            <url>https://maven.fabricmc.net/</url>
-        </repository>
     </repositories>
     <dependencies>
         <dependency>
@@ -133,18 +129,6 @@
             <groupId>com.github.retrooper</groupId>
             <artifactId>packetevents-spigot</artifactId>
             <version>2.13.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.retrooper</groupId>
-            <artifactId>packetevents-fabric</artifactId>
-            <version>2.13.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.fabricmc</groupId>
-            <artifactId>fabric-loader</artifactId>
-            <version>0.19.3</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
