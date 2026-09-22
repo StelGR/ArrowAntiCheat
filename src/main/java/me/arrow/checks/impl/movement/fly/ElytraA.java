@@ -81,22 +81,20 @@ public class ElytraA extends Check {
             try {
                 MovementData movementData = profile.getMovementData();
 
-                if (profile.shouldCancel()
-                        || profile.isExempt().isTeleports()
-                        || profile.isExempt().isDead()
-                        || PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8_8)
-                        || movementData.getLocation() == null
-                        || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                        || movementData.getSinceRiptidingTicks() < 30
-                        || movementData.getSinceNearWaterTicks() < 10
-                        || movementData.isNearLava()
-                        || movementData.getGlidingTicks() < 5
-                        || movementData.isNearWater()
-                        || movementData.getSinceBubbleTicks() < 15
-                        || movementData.getSinceGlidingTicks() > 0
-                        || profile.getVelocityData().getTotalHorizontalVelocity() > 0) {
-                    return;
-                }
+                if (exempt("cancelled", profile.shouldCancel())) return;
+                if (exempt("teleports", profile.isExempt().isTeleports())) return;
+                if (exempt("dead", profile.isExempt().isDead())) return;
+                if (exempt("unsupportedVersion", PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8_8))) return;
+                if (exempt("noLocation", movementData.getLocation() == null)) return;
+                if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) return;
+                if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 30)) return;
+                if (exempt("recentWater", movementData.getSinceNearWaterTicks() < 10)) return;
+                if (exempt("nearLava", movementData.isNearLava())) return;
+                if (exempt("notGlidingLongEnough", movementData.getGlidingTicks() < 5)) return;
+                if (exempt("nearWater", movementData.isNearWater())) return;
+                if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 15)) return;
+                if (exempt("recentGliding", movementData.getSinceGlidingTicks() > 0)) return;
+                if (exempt("horizontalVelocity", profile.getVelocityData().getTotalHorizontalVelocity() > 0)) return;
 
                 boolean serverGround = movementData.isServerGround();
                 boolean clientGround = movementData.isOnGround();
@@ -198,20 +196,20 @@ public class ElytraA extends Check {
             return;
         }
 
-        if (movementData.isUnderblock()
-                || movementData.isNearWater()
-                || movementData.isNearLava()
-                || movementData.getSinceInsideWaterTicks() <= 10
-                || movementData.getSinceBubbleTicks() <= 15
-                || profile.isExempt().isTeleports()
-                || movementData.getLocation() == null
-                || !CollisionUtils.isChunkLoaded(movementData.getLocation())
-                || movementData.getSinceRiptidingTicks() < 30
-                || profile.getVelocityData().getTotalHorizontalVelocity() > 0) {
+        if (exempt("underBlock", movementData.isUnderblock())) {
             terminalBuffer = Math.max(0, terminalBuffer - 0.5);
             planeBuffer = Math.max(0, planeBuffer - 0.5);
             return;
         }
+        if (exempt("nearWater", movementData.isNearWater())) { decayTerminalBuffers(); return; }
+        if (exempt("nearLava", movementData.isNearLava())) { decayTerminalBuffers(); return; }
+        if (exempt("insideWater", movementData.getSinceInsideWaterTicks() <= 10)) { decayTerminalBuffers(); return; }
+        if (exempt("recentBubble", movementData.getSinceBubbleTicks() <= 15)) { decayTerminalBuffers(); return; }
+        if (exempt("teleports", profile.isExempt().isTeleports())) { decayTerminalBuffers(); return; }
+        if (exempt("noLocation", movementData.getLocation() == null)) { decayTerminalBuffers(); return; }
+        if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) { decayTerminalBuffers(); return; }
+        if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 30)) { decayTerminalBuffers(); return; }
+        if (exempt("horizontalVelocity", profile.getVelocityData().getTotalHorizontalVelocity() > 0)) { decayTerminalBuffers(); return; }
 
         double deltaXZ = movementData.getDeltaXZ();
         double lastDeltaXZ = movementData.getLastDeltaXZ();
@@ -650,6 +648,11 @@ public class ElytraA extends Check {
         }
 
         return 1;
+    }
+
+    private void decayTerminalBuffers() {
+        terminalBuffer = Math.max(0, terminalBuffer - 0.5D);
+        planeBuffer = Math.max(0, planeBuffer - 0.5D);
     }
 
     private void tickElytraState(boolean gliding) {

@@ -72,16 +72,14 @@ public class FlyA extends Check {
                 boolean serverGround = movementData.isServerGround();
                 boolean clientGround = movementData.isOnGround();
 
-                if (movementData.isNearShulker()
-                        || movementData.isNearShulkerBox()
-                        || movementData.isNearLava()
-                        || movementData.isNearWater()
-                        || movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || movementData.getSinceBubbleTicks() < 25 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || profile.getBlockProcessor().isCancelledBlockPlacementExempt(5 + (profile.getConnectionData().getClientTickTrans() * 2))
-                        || profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                    return;
-                }
+                if (exempt("nearShulker", movementData.isNearShulker())) return;
+                if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return;
+                if (exempt("nearLava", movementData.isNearLava())) return;
+                if (exempt("nearWater", movementData.isNearWater())) return;
+                if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
+                if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 25 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
+                if (exempt("cancelledBlockPlacement", profile.getBlockProcessor().isCancelledBlockPlacementExempt(5 + (profile.getConnectionData().getClientTickTrans() * 2)))) return;
+                if (exempt("underBreak", profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
 
                 boolean hasJumpBoost = SpeedUtilities.getJumpBoostPotionLevel(profile) > 0;
                 double jumpLevel = hasJumpBoost
@@ -110,8 +108,14 @@ public class FlyA extends Check {
 
                 clientAirTickLimit = 4 + jumpLevel;
 
-                boolean exempt = movementData.isInsideLiquid()
-                        || movementData.isNearWebs();
+                boolean exempt;
+                if (exempt("insideLiquid", movementData.isInsideLiquid())) {
+                    exempt = true;
+                } else if (exempt("nearWebs", movementData.isNearWebs())) {
+                    exempt = true;
+                } else {
+                    exempt = false;
+                }
 
                 double vel = Math.max(
                         profile.getVelocityData().getTotalVerticalVelocitySustain(),
@@ -246,14 +250,9 @@ public class FlyA extends Check {
     boolean isExempt(MovementData movementData, PotionData potionData) {
         ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
 
-        if (world.shouldExemptMovementChecks()
-                || world.physicsMismatch
-                || world.onGhostBlock
-                || world.nearGhostBlock
-                || world.insideGhostBlock
-                || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            return true;
-        }
+        if (exempt("worldPhysicsMismatch", world.physicsMismatch)) return true;
+        if (exempt("worldOnGhostBlock", world.onGhostBlock)) return true;
+        if (exempt("cancelledBlockPlacement", profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2)))) return true;
 
         if (profile.shouldCancel()) {
             ChatUtils.debugExempt("shouldCancel", "FlyA");
@@ -323,11 +322,8 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()
-                || movementData.getSinceNearWaterTicks() < 8 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            ChatUtils.debugExempt("nearWater", "FlyA");
-            return true;
-        }
+        if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans())) return true;
+        if (exempt("recentWater", movementData.getSinceNearWaterTicks() < 8 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
 
         if (profile.getPlayer().isDead()) {
             ChatUtils.debugExempt("notAlive(Dead)", "FlyA");

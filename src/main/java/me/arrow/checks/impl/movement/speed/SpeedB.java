@@ -53,27 +53,15 @@ public class SpeedB extends Check {
         double deltaXZ = movementData.getDeltaXZ();
         double lastDeltaXZ = movementData.getLastDeltaXZ();
 
-        if (profile.shouldCancel()
-                || profile.getPlayer().isDead()
-                || !profile.isExempt().isRespawned()
-                || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                || profile.isExempt().vehicle()) {
-            vlBuffer = 0;
-            lastMove = new Vector(deltaX, 0.0, deltaZ);
-            return;
-        }
+        if (exempt("cancelled", profile.shouldCancel())) { resetMovement(deltaX, deltaZ); return; }
+        if (exempt("dead", profile.getPlayer().isDead())) { resetMovement(deltaX, deltaZ); return; }
+        if (exempt("notRespawned", !profile.isExempt().isRespawned())) { resetMovement(deltaX, deltaZ); return; }
+        if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetMovement(deltaX, deltaZ); return; }
+        if (exempt("vehicle", profile.isExempt().vehicle())) { resetMovement(deltaX, deltaZ); return; }
 
-        if (profile.getExempt().isReelingIn()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("SpeedB: is Exempting (reelingIn)");
-            lastMove = new Vector(deltaX, 0.0, deltaZ);
-            return;
-        }
+        if (exempt("reelingIn", profile.getExempt().isReelingIn())) { lastMove = new Vector(deltaX, 0.0, deltaZ); return; }
 
-        if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("SpeedB: is Exempting (Piston Update)");
-            lastMove = new Vector(deltaX, 0.0, deltaZ);
-            return;
-        }
+        if (exempt("pistonUpdate", profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2)))) { lastMove = new Vector(deltaX, 0.0, deltaZ); return; }
 
         boolean serverGround = movementData.isServerGround();
         boolean clientGround = movementData.isOnGround();
@@ -93,7 +81,7 @@ public class SpeedB extends Check {
                 profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
         );
 
-        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+        if (exempt("ghostLiquidWeb", ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4))) {
             lastMove = new Vector(deltaX, 0.0, deltaZ);
             return;
         }
@@ -116,21 +104,16 @@ public class SpeedB extends Check {
         // Use the final attribute value, which includes all modifiers (potions, beacons, status effects)
 
 
-        if (movementData.getDeltaXZ() < sim.getAttributeSpeed()
-                || movementData.getLastDeltaXZ() < offsetMove() + 0.01
-                || movementData.isNearClimbable()
-                || profile.shouldCancel()
-                || profile.getVelocityData().isTakingVelocity()
-                || movementData.getSinceGlidingTicks() < 30
-                || movementData.getSinceRiptidingTicks() < 15
-                || movementData.isNearBed()
-                || movementData.isNearWall()
-                || movementData.getSinceOnGhostBlock() < 2) {
-            decreaseBufferBy(0.005D);
-            bucketVl = Math.max(0, bucketVl - 0.2);
-            sprintVl = Math.max(0, sprintVl - 0.3);
-            return;
-        }
+        if (exempt("belowAttributeSpeed", movementData.getDeltaXZ() < sim.getAttributeSpeed())) { resetPredictionBuffers(); return; }
+        if (exempt("lowLastDeltaXZ", movementData.getLastDeltaXZ() < offsetMove() + 0.01)) { resetPredictionBuffers(); return; }
+        if (exempt("nearClimbable", movementData.isNearClimbable())) { resetPredictionBuffers(); return; }
+        if (exempt("cancelled", profile.shouldCancel())) { resetPredictionBuffers(); return; }
+        if (exempt("velocity", profile.getVelocityData().isTakingVelocity())) { resetPredictionBuffers(); return; }
+        if (exempt("recentGliding", movementData.getSinceGlidingTicks() < 30)) { resetPredictionBuffers(); return; }
+        if (exempt("recentRiptiding", movementData.getSinceRiptidingTicks() < 15)) { resetPredictionBuffers(); return; }
+        if (exempt("nearBed", movementData.isNearBed())) { resetPredictionBuffers(); return; }
+        if (exempt("nearWall", movementData.isNearWall())) { resetPredictionBuffers(); return; }
+        if (exempt("recentGhostBlock", movementData.getSinceOnGhostBlock() < 2)) { resetPredictionBuffers(); return; }
 
         leniencyReason = "default";
 
@@ -342,6 +325,7 @@ public class SpeedB extends Check {
             boolean velocity = profile.getVelocityData().isTakingVelocity() || profile.getVelocityData().getVelocityTicks() <= 1;
             String invalidReason = getInvalidReason(velocity);
             boolean valid = invalidReason == null;
+            exempt(invalidReason, !valid);
 
             float movementSpeed = (float) ReflectionUtils.getPlayerMovementSpeed(profile.getPlayer());
             if (!Double.isFinite(movementSpeed) || movementSpeed <= 0.0F) {
@@ -618,7 +602,20 @@ public class SpeedB extends Check {
     }
 
     private boolean checkValid(boolean velocity) {
-        return getInvalidReason(velocity) == null;
+        String reason = getInvalidReason(velocity);
+        exempt(reason, reason != null);
+        return reason == null;
+    }
+
+    private void resetMovement(double deltaX, double deltaZ) {
+        vlBuffer = 0.0D;
+        lastMove = new Vector(deltaX, 0.0D, deltaZ);
+    }
+
+    private void resetPredictionBuffers() {
+        decreaseBufferBy(0.005D);
+        bucketVl = Math.max(0.0D, bucketVl - 0.2D);
+        sprintVl = Math.max(0.0D, sprintVl - 0.3D);
     }
 
     private double getBest(Vector move, boolean blocking, float friction, boolean sprint, float yaw) {

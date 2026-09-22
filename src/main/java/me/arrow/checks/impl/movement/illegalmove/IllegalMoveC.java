@@ -52,30 +52,18 @@ public class IllegalMoveC extends Check {
             MovementData movementData = profile.getMovementData();
             ActionData actionData = profile.getActionData();
 
-            if (profile.shouldCancel()
-                    || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                    || movementData.isGlidingOrRecentlyGlided(30)
-                    || profile.getPlayer().isDead()
-                    || movementData.isOnBoat()
-                    || movementData.isNearBoat()
-                    || movementData.isNearWater()
-                    || movementData.isInsideLiquid()) {
-                airBuffer = 0;
-                groundBuffer = 0;
-                return;
-            }
+            if (exempt("cancelled", profile.shouldCancel())) { resetBuffers(); return; }
+            if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetBuffers(); return; }
+            if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) { resetBuffers(); return; }
+            if (exempt("dead", profile.getPlayer().isDead())) { resetBuffers(); return; }
+            if (exempt("onBoat", movementData.isOnBoat())) { resetBuffers(); return; }
+            if (exempt("nearBoat", movementData.isNearBoat())) { resetBuffers(); return; }
+            if (exempt("nearWater", movementData.isNearWater())) { resetBuffers(); return; }
+            if (exempt("insideLiquid", movementData.isInsideLiquid())) { resetBuffers(); return; }
 
-            if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMoveC: is Exempting (Piston Update)");
-                return;
-            }
+            if (exempt("pistonUpdate", profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2)))) return;
 
-            if (profile.getExempt().isReelingIn()) {
-                if (Config.Setting.DEBUG.getBoolean()) {
-                    OtherUtility.log("IllegalMoveC: is Exempting (reelingIn)");
-                }
-                return;
-            }
+            if (exempt("reelingIn", profile.getExempt().isReelingIn())) return;
 
             double blockFriction = movementData.getFrictionFactor();
 
@@ -117,9 +105,7 @@ public class IllegalMoveC extends Check {
                 groundLimit += 0.08D;
             }
 
-            if (movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans()) {
-                return;
-            }
+            if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 10 + profile.getConnectionData().getClientTickTrans())) return;
 
             boolean velocityActive = profile.getVelocityData().getTotalHorizontalVelocity() != 0
                     || profile.getVelocityData().getTotalVerticalVelocity() != 0;
@@ -205,5 +191,10 @@ public class IllegalMoveC extends Check {
         }
 
         return Math.max(0.91D, blockFriction);
+    }
+
+    private void resetBuffers() {
+        airBuffer = 0.0D;
+        groundBuffer = 0.0D;
     }
 }

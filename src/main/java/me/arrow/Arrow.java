@@ -317,7 +317,7 @@ public class Arrow {
                 log(translate("&6" + "➪  Command Manager Initialized"));
             }
 
-            if (getHost() != null && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
+            if (getHost() != null && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean() && getHost().getCommand("stuck") != null) {
                 Objects.requireNonNull(getHost().getCommand("stuck")).setExecutor(new Stuck());
             }
 

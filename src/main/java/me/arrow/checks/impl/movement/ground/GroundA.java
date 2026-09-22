@@ -146,40 +146,125 @@ public class GroundA extends Check {
     boolean isExempt1(MovementData movementData) {
         ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
 
-        if (world.shouldExemptMovementChecks()
-                || world.physicsMismatch
-                || world.onGhostBlock
-                || world.underGhostBlock
-                || world.insideGhostBlock) {
-            ChatUtils.debugExempt("WorldTracker", "GroundA");
+        if (world.shouldExemptMovementChecks()) {
+            ChatUtils.debugExempt("worldTrackerMovement", "GroundA");
             return true;
         }
 
-        if (profile.shouldCancel()
-                || profile.getTick() < 60
-                || profile.getMovementData().isOnBoat()
-                || profile.getMovementData().isNearBoat()
-                || profile.isExempt().isTeleports()
-                || movementData.isNearWebs()
-                || movementData.isNearClimbable()
-                || movementData.isNearGhast()
-                || movementData.isNearShulkerBox()
-                || movementData.isNearShulker()
-                || movementData.getSincePredictUpwardsTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || movementData.getSinceCollideTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
-                || profile.getMovementData().getSincePowderSnowTicks() < 10
-                || profile.getVehicleData().getSinceVehicleTicks() < 1
-                || movementData.isGlidingOrRecentlyGlided(30)
-                || movementData.getLocation() == null
-                || !CollisionUtils.isChunkLoaded(movementData.getLocation())) {
+        if (world.physicsMismatch) {
+            ChatUtils.debugExempt("worldPhysicsMismatch", "GroundA");
+            return true;
+        }
+
+        if (world.onGhostBlock) {
+            ChatUtils.debugExempt("worldOnGhostBlock", "GroundA");
+            return true;
+        }
+
+        if (world.underGhostBlock) {
+            ChatUtils.debugExempt("worldUnderGhostBlock", "GroundA");
+            return true;
+        }
+
+        if (world.insideGhostBlock) {
+            ChatUtils.debugExempt("worldInsideGhostBlock", "GroundA");
+            return true;
+        }
+
+        if (profile.shouldCancel()) {
+            ChatUtils.debugExempt("cancelled", "GroundA");
+            return true;
+        }
+
+        if (profile.getTick() < 60) {
+            ChatUtils.debugExempt("startup", "GroundA");
+            return true;
+        }
+
+        if (profile.getMovementData().isOnBoat()) {
+            ChatUtils.debugExempt("onBoat", "GroundA");
+            return true;
+        }
+
+        if (profile.getMovementData().isNearBoat()) {
+            ChatUtils.debugExempt("nearBoat", "GroundA");
+            return true;
+        }
+
+        if (profile.isExempt().isTeleports()) {
+            ChatUtils.debugExempt("teleports", "GroundA");
+            return true;
+        }
+
+        if (movementData.isNearWebs()) {
+            ChatUtils.debugExempt("nearWebs", "GroundA");
+            return true;
+        }
+
+        if (movementData.isNearClimbable()) {
+            ChatUtils.debugExempt("nearClimbable", "GroundA");
+            return true;
+        }
+
+        if (movementData.isNearGhast()) {
+            ChatUtils.debugExempt("nearGhast", "GroundA");
+            return true;
+        }
+
+        if (movementData.isNearShulkerBox()) {
+            ChatUtils.debugExempt("nearShulkerBox", "GroundA");
+            return true;
+        }
+
+        if (movementData.isNearShulker()) {
+            ChatUtils.debugExempt("nearShulker", "GroundA");
             return true;
         }
 
         int trans = profile.getConnectionData().getClientTickTrans();
 
-        if (profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))
-                || profile.getActionData().hasRecentTowerBlockPlace(10 + (trans * 2), 2 + trans)) {
-            ChatUtils.debugExempt("blockSupportAndCancel", "GroundA");
+        if (movementData.getSincePredictUpwardsTicks() < 5 + (trans * 2)) {
+            ChatUtils.debugExempt("predictUpwards", "GroundA");
+            return true;
+        }
+
+        if (movementData.getSinceCollideTicks() < 5 + (trans * 2)) {
+            ChatUtils.debugExempt("recentCollision", "GroundA");
+            return true;
+        }
+
+        if (profile.getMovementData().getSincePowderSnowTicks() < 10) {
+            ChatUtils.debugExempt("powderSnow", "GroundA");
+            return true;
+        }
+
+        if (profile.getVehicleData().getSinceVehicleTicks() < 1) {
+            ChatUtils.debugExempt("recentVehicle", "GroundA");
+            return true;
+        }
+
+        if (movementData.isGlidingOrRecentlyGlided(30)) {
+            ChatUtils.debugExempt("gliding", "GroundA");
+            return true;
+        }
+
+        if (movementData.getLocation() == null) {
+            ChatUtils.debugExempt("noLocation", "GroundA");
+            return true;
+        }
+
+        if (!CollisionUtils.isChunkLoaded(movementData.getLocation())) {
+            ChatUtils.debugExempt("chunkNotLoaded", "GroundA");
+            return true;
+        }
+
+        if (profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2))) {
+            ChatUtils.debugExempt("underPlaceSupport", "GroundA");
+            return true;
+        }
+
+        if (profile.getActionData().hasRecentTowerBlockPlace(10 + (trans * 2), 2 + trans)) {
+            ChatUtils.debugExempt("towerBlockPlace", "GroundA");
             return true;
         }
 
@@ -188,20 +273,48 @@ public class GroundA extends Check {
 
     boolean isExempt2(MovementData movementData) {
 
-        if (movementData.isOnBoat()
-                || movementData.isNearBoat()
-                || movementData.isNearShulkerBox()
-                || movementData.isNearShulker()
-                || movementData.isNearGhast()
-                || movementData.getLocation() == null
-                || !CollisionUtils.isChunkLoaded(movementData.getLocation())) {
-            ChatUtils.debugExempt("boat/ghast", "GroundA");
+        if (movementData.isOnBoat()) {
+            ChatUtils.debugExempt("onBoat", "GroundA");
             return true;
         }
 
-        if (movementData.getSincePredictDownwardsTicks() < 10
-                || movementData.getSincePredictUpwardsTicks() < 10) {
-            ChatUtils.debugExempt("predict", "GroundA");
+        if (movementData.isNearBoat()) {
+            ChatUtils.debugExempt("nearBoat", "GroundA");
+            return true;
+        }
+
+        if (movementData.isNearShulkerBox()) {
+            ChatUtils.debugExempt("nearShulkerBox", "GroundA");
+            return true;
+        }
+
+        if (movementData.isNearShulker()) {
+            ChatUtils.debugExempt("nearShulker", "GroundA");
+            return true;
+        }
+
+        if (movementData.isNearGhast()) {
+            ChatUtils.debugExempt("nearGhast", "GroundA");
+            return true;
+        }
+
+        if (movementData.getLocation() == null) {
+            ChatUtils.debugExempt("noLocation", "GroundA");
+            return true;
+        }
+
+        if (!CollisionUtils.isChunkLoaded(movementData.getLocation())) {
+            ChatUtils.debugExempt("chunkNotLoaded", "GroundA");
+            return true;
+        }
+
+        if (movementData.getSincePredictDownwardsTicks() < 10) {
+            ChatUtils.debugExempt("predictDownwards", "GroundA");
+            return true;
+        }
+
+        if (movementData.getSincePredictUpwardsTicks() < 10) {
+            ChatUtils.debugExempt("predictUpwards", "GroundA");
             return true;
         }
 

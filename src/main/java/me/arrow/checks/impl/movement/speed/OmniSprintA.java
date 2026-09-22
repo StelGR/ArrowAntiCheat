@@ -154,48 +154,38 @@ public class OmniSprintA extends Check {
                             && movementData.getClientAirTicks() > 1
                             && movementData.getServerAirTicks() > 1;
 
-            boolean hardExempt =
-                    !movementData.isPacketMoving()
-                            || !velocityDirection.isMoving()
+            if (exempt("packetNotMoving", !movementData.isPacketMoving())) { rewardAll(0.75D); return; }
+            if (exempt("noDirectionalMovement", !velocityDirection.isMoving())) { rewardAll(0.75D); return; }
+            if (exempt("insideWater", movementData.isInsideWater())) { rewardAll(0.75D); return; }
+            if (exempt("nearWater", movementData.isNearWater())) { rewardAll(0.75D); return; }
+            if (exempt("nearWebs", movementData.isNearWebs())) { rewardAll(0.75D); return; }
+            if (exempt("nearClimbable", movementData.isNearClimbable())) { rewardAll(0.75D); return; }
+            if (exempt("onIce", movementData.isOnIce())) { rewardAll(0.75D); return; }
+            if (exempt("onSlime", movementData.isOnSlime())) { rewardAll(0.75D); return; }
+            if (exempt("onSoulSand", movementData.isOnSoulSand())) { rewardAll(0.75D); return; }
+            if (exempt("onHoney", movementData.isOnHoney())) { rewardAll(0.75D); return; }
+            if (exempt("nearBoat", movementData.isNearBoat())) { rewardAll(0.75D); return; }
+            if (exempt("onBoat", movementData.isOnBoat())) { rewardAll(0.75D); return; }
+            if (exempt("nearWall", movementData.isNearWall())) { rewardAll(0.75D); return; }
+            if (exempt("colliding", movementData.isColliding())) { rewardAll(0.75D); return; }
+            if (exempt("underBlock", movementData.isUnderblock())) { rewardAll(0.75D); return; }
+            if (exempt("predictDownwards", movementData.getSincePredictDownwardsTicks() < 5)) { rewardAll(0.75D); return; }
+            if (exempt("predictUpwards", movementData.getSincePredictUpwardsTicks() < 5)) { rewardAll(0.75D); return; }
+            if (exempt("recentCollision", movementData.getSinceCollideTicks() < 3)) { rewardAll(0.75D); return; }
+            if (exempt("recentGhostBlock", movementData.getSinceOnGhostBlock() < 5 + profile.getConnectionData().getClientTickTrans())) { rewardAll(0.75D); return; }
+            if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { rewardAll(0.75D); return; }
+            if (exempt("riptiding", movementData.isRiptiding())) { rewardAll(0.75D); return; }
+            if (exempt("recentRiptiding", movementData.getSinceRiptidingTicks() < 20)) { rewardAll(0.75D); return; }
+            if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) { rewardAll(0.75D); return; }
+            if (exempt("velocity", profile.getVelocityData().isTakingVelocity())) { rewardAll(0.75D); return; }
+            if (exempt("vehicle", profile.getExempt().isVehicle())) { rewardAll(0.75D); return; }
+            if (exempt("cancelled", profile.shouldCancel())) { rewardAll(0.75D); return; }
+            if (exempt("slimeBounce", profile.isBouncingOnSlime())) { rewardAll(0.75D); return; }
+            if (exempt("insideVehicle", profile.getPlayer().isInsideVehicle())) { rewardAll(0.75D); return; }
+            if (exempt("recentVehicle", profile.getVehicleData().getSinceVehicleTicks() > 0
+                    && profile.getVehicleData().getSinceVehicleTicks() < 5 + profile.getConnectionData().getClientTickTrans())) { rewardAll(0.75D); return; }
 
-                            || movementData.isInsideWater()
-                            || movementData.isNearWater()
-                            || movementData.isNearWebs()
-                            || movementData.isNearClimbable()
-                            || movementData.isOnIce()
-                            || movementData.isOnSlime()
-                            || movementData.isOnSoulSand()
-                            || movementData.isOnHoney()
-                            || movementData.isNearBoat()
-                            || movementData.isOnBoat()
-                            || movementData.isNearWall()
-                            || movementData.isColliding()
-                            || movementData.isUnderblock()
-                            || movementData.getSincePredictDownwardsTicks() < 5
-                            || movementData.getSincePredictUpwardsTicks() < 5
-                            || movementData.getSinceCollideTicks() < 3
-                            || movementData.getSinceOnGhostBlock() < 5 + profile.getConnectionData().getClientTickTrans()
-                            || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                            || movementData.isRiptiding()
-                            || movementData.getSinceRiptidingTicks() < 20
-                            || movementData.isGlidingOrRecentlyGlided(30)
-                            || profile.getVelocityData().isTakingVelocity()
-                            || profile.getExempt().isVehicle()
-                            || profile.shouldCancel()
-                            || profile.isBouncingOnSlime()
-                            || profile.getPlayer().isInsideVehicle()
-                            || (
-                            profile.getVehicleData().getSinceVehicleTicks() > 0
-                                    && profile.getVehicleData().getSinceVehicleTicks()
-                                    < 5 + profile.getConnectionData().getClientTickTrans()
-                    );
-
-            if (hardExempt) {
-                rewardAll(0.75D);
-                return;
-            }
-
-            if (!sprinting && !lastSprinting) {
+            if (exempt("notSprinting", !sprinting && !lastSprinting)) {
                 groundInvalidTicks = 0;
                 airInvalidTicks = 0;
                 rewardAll(0.75D);

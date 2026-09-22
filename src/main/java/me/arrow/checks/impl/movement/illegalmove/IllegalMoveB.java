@@ -66,7 +66,8 @@ public class IllegalMoveB extends Check {
             float movingIceTicks = movementData.getMovingOnIceTicks();
 
             //temporeraly exempt ice until I fix it
-            if (movingIceTicks > 0 || movingSlimeTicks > 0) return;
+            if (exempt("movingOnIce", movingIceTicks > 0)) return;
+            if (exempt("movingOnSlime", movingSlimeTicks > 0)) return;
 
             //int extraTicks = getExtraTicks();
 
@@ -99,7 +100,7 @@ public class IllegalMoveB extends Check {
                 limit += 0.2;
             }
 
-            if (profile.getVelocityData().isTakingVelocity()) return;
+            if (exempt("velocity", profile.getVelocityData().isTakingVelocity())) return;
 
             final boolean invalid = difference > 0.00747 && deltaXZ > limit && airTicks > airticklimit;
 
@@ -139,102 +140,30 @@ public class IllegalMoveB extends Check {
 
     boolean isExempt(MovementData movementData) {
 
-        if (profile.shouldCancel()) {
-            if (Config.Setting.DEBUG.getBoolean())
-                OtherUtility.log("IllegalMove B (Strafe): Exempt - shouldCancel()");
-            return true;
-        }
+        if (exempt("cancelled", profile.shouldCancel())) return true;
+        if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return true;
+        if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;
+        if (exempt("dead", profile.getPlayer().isDead())) return true;
+        if (exempt("vehicle", profile.isExempt().vehicle())) return true;
+        if (exempt("recentVehicle", profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
 
-        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - teleport");
-            return true;
-        }
-
-        if (!profile.isExempt().isRespawned()) {
-            if (Config.Setting.DEBUG.getBoolean())
-                OtherUtility.log("IllegalMove B (Strafe): Exempt - not respawned");
-            return true;
-        }
-
-        if (profile.getPlayer().isDead()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - player dead");
-            return true;
-        }
-
-        if (profile.isExempt().vehicle()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - in vehicle");
-            return true;
-        }
-
-        if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - vehicle");
-            return true;
-        }
-
-        if (movementData.getSinceRiptidingTicks() < 15) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - riptiding");
+        if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 15)) {
             strafeBuffer = 0;
             return true;
         }
 
-        if (movementData.isGlidingOrRecentlyGlided(30)) {
-            if (Config.Setting.DEBUG.getBoolean())
-                OtherUtility.log("IllegalMove B (Strafe): Exempt - just gliding");
-            return true;
-        }
-
-        if (movementData.isOnBoat()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - on boat");
-            return true;
-        }
-
-        if (movementData.isNearBoat()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - near boat");
-            return true;
-        }
-
-        if (movementData.isNearWall()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - near wall");
-            return true;
-        }
-
-        if (movementData.isNearWater()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - near water");
-            return true;
-        }
-
-        if (movementData.isNearLava()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - near lava");
-            return true;
-        }
-
-        if (movementData.isNearClimbable() || movementData.isClimb()) {
-            if (Config.Setting.DEBUG.getBoolean())
-                OtherUtility.log("IllegalMove B (Strafe): Exempt - near climbable");
-            return true;
-        }
-
-        if (movementData.isNearWebs()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): Exempt - near webs");
-            return true;
-        }
-
-        if (profile.getRodData().isRodExempt()) {
-            if (Config.Setting.DEBUG.getBoolean())
-                OtherUtility.log("IllegalMove B (Strafe): is Exempting (reelingIn)");
-            return true;
-        }
-
-        if (movementData.isNearGhast()) {
-            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("IllegalMove B (Strafe): is Exempting (Ghast)");
-            return true;
-        }
-
-        if (movementData.getSincePowderSnowTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-            if (Config.Setting.DEBUG.getBoolean())
-                OtherUtility.log("IllegalMove B (Strafe): is Exempting (Powder Snow)");
-            return true;
-        }
+        if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return true;
+        if (exempt("onBoat", movementData.isOnBoat())) return true;
+        if (exempt("nearBoat", movementData.isNearBoat())) return true;
+        if (exempt("nearWall", movementData.isNearWall())) return true;
+        if (exempt("nearWater", movementData.isNearWater())) return true;
+        if (exempt("nearLava", movementData.isNearLava())) return true;
+        if (exempt("nearClimbable", movementData.isNearClimbable())) return true;
+        if (exempt("climbing", movementData.isClimb())) return true;
+        if (exempt("nearWebs", movementData.isNearWebs())) return true;
+        if (exempt("reelingIn", profile.getRodData().isRodExempt())) return true;
+        if (exempt("nearGhast", movementData.isNearGhast())) return true;
+        if (exempt("powderSnow", movementData.getSincePowderSnowTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
         return false;
     }
 }

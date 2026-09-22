@@ -44,49 +44,46 @@ public class MotionB extends Check {
             try {
                 MovementData movementData = profile.getMovementData();
 
-                if (profile.shouldCancel()
-                        || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                        || profile.isBouncingOnSlime()
-                        || movementData.isOnSlime()
-                        || movementData.isNearShulker()
-                        || movementData.isNearShulkerBox()
-                        || profile.getPlayer().isInsideVehicle()
-                        || movementData.isOnBoat()
-                        || movementData.isNearBoat()
-                        || movementData.getSincePredictUpwardsTicks() < 10
-                        || movementData.isNearClimbable()
-                        || movementData.isUnderblock()
-                        || (movementData.getNearbyBlocksResult() != null
-                        && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
-                        || movementData.isNearBed()
-                        || movementData.isGlidingOrRecentlyGlided(30)
-                        || movementData.isNearWall()) {
-                    buffer = 0;
-                    buffer2 = 0;
-                    buffer3 = 0;
-                    buffer4 = 0;
-                    return;
-                }
+                if (exempt("cancelled", profile.shouldCancel())) { resetBuffers(); return; }
+                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetBuffers(); return; }
+                if (exempt("slimeBounce", profile.isBouncingOnSlime())) { resetBuffers(); return; }
+                if (exempt("onSlime", movementData.isOnSlime())) { resetBuffers(); return; }
+                if (exempt("nearShulker", movementData.isNearShulker())) { resetBuffers(); return; }
+                if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) { resetBuffers(); return; }
+                if (exempt("insideVehicle", profile.getPlayer().isInsideVehicle())) { resetBuffers(); return; }
+                if (exempt("onBoat", movementData.isOnBoat())) { resetBuffers(); return; }
+                if (exempt("nearBoat", movementData.isNearBoat())) { resetBuffers(); return; }
+                if (exempt("predictUpwards", movementData.getSincePredictUpwardsTicks() < 10)) { resetBuffers(); return; }
+                if (exempt("nearClimbable", movementData.isNearClimbable())) { resetBuffers(); return; }
+                if (exempt("underBlock", movementData.isUnderblock())) { resetBuffers(); return; }
+                if (exempt("nearBerries", movementData.getNearbyBlocksResult() != null
+                        && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))) { resetBuffers(); return; }
+                if (exempt("nearBed", movementData.isNearBed())) { resetBuffers(); return; }
+                if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) { resetBuffers(); return; }
+                if (exempt("nearWall", movementData.isNearWall())) { resetBuffers(); return; }
 
                 int ghostPhysicsTicks = 10 + (profile.getConnectionData().getClientTickTrans() * 4);
 
-                if (profile.getBlockProcessor().isCancelledBlockPlaceAbove(ghostPhysicsTicks)) {
-                    return;
-                }
+                if (exempt("cancelledBlockPlaceAbove", profile.getBlockProcessor().isCancelledBlockPlaceAbove(ghostPhysicsTicks))) return;
 
-                if (profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                    return;
-                }
+                if (exempt("underBreak", profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
 
-                if (profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                    return;
-                }
+                if (exempt("underPlace", profile.getActionData().getLastConfirmedUnderPlaceTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
 
                 double locationY = profile.getPlayer().getLocation().getY();
 
                 double deltaY = movementData.getDeltaY();
                 double locationDeltaY = locationY - this.lastLocationY;
-                boolean exempt = movementData.isNearWater() || movementData.isNearLava() || movementData.isNearWebs();
+                boolean exempt;
+                if (exempt("nearWater", movementData.isNearWater())) {
+                    exempt = true;
+                } else if (exempt("nearLava", movementData.isNearLava())) {
+                    exempt = true;
+                } else if (exempt("nearWebs", movementData.isNearWebs())) {
+                    exempt = true;
+                } else {
+                    exempt = false;
+                }
                 boolean serverGround = movementData.isServerGround();
                 boolean clientGround = movementData.isOnGround();
                 double fallDistance = profile.getPlayer().getFallDistance();
@@ -170,8 +167,11 @@ public class MotionB extends Check {
                 }
 
 
-                if (movementData.getSincePredictUpwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || movementData.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                if (exempt("predictUpwards", movementData.getSincePredictUpwardsTicks() < 10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                    buffer3 = 0;
+                    return;
+                }
+                if (exempt("predictUpwardsWithoutMaterial", movementData.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                     buffer3 = 0;
                     return;
                 }
@@ -201,5 +201,12 @@ public class MotionB extends Check {
                 Profiler.stop("Motion B", profiler);
             }
         }
+    }
+
+    private void resetBuffers() {
+        buffer = 0.0D;
+        buffer2 = 0.0D;
+        buffer3 = 0.0D;
+        buffer4 = 0.0D;
     }
 }

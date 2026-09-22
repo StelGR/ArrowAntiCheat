@@ -43,73 +43,48 @@ public class MotionC extends Check {
             try {
                 MovementData movementData = profile.getMovementData();
 
-                if (profile.shouldCancel()
-                        || movementData.isOnBoat()
-                        || movementData.isNearBoat()
-                        || movementData.isNearClimbable()
-                        || !profile.isExempt().isRespawned()
-                        || profile.getPlayer().isDead()
-                        || movementData.isNearBuggyBlock()
-                        || movementData.isNearWater()
-                        || movementData.isNearGhast()
-                        || movementData.isNearShulker()
-                        || movementData.getSinceNearWaterTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                        || profile.getPlayer().isInsideVehicle()
-                        || (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
-                    return;
-                }
+                if (exempt("cancelled", profile.shouldCancel())) return;
+                if (exempt("onBoat", movementData.isOnBoat())) return;
+                if (exempt("nearBoat", movementData.isNearBoat())) return;
+                if (exempt("nearClimbable", movementData.isNearClimbable())) return;
+                if (exempt("notRespawned", !profile.isExempt().isRespawned())) return;
+                if (exempt("dead", profile.getPlayer().isDead())) return;
+                if (exempt("nearBuggyBlock", movementData.isNearBuggyBlock())) return;
+                if (exempt("nearWater", movementData.isNearWater())) return;
+                if (exempt("nearGhast", movementData.isNearGhast())) return;
+                if (exempt("nearShulker", movementData.isNearShulker())) return;
+                if (exempt("recentWater", movementData.getSinceNearWaterTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
+                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
+                if (exempt("insideVehicle", profile.getPlayer().isInsideVehicle())) return;
+                if (exempt("levitation", profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) return;
 
                 ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
 
-                if (world.shouldExemptMovementChecks()
-                        || world.physicsMismatch
-                        || world.onGhostBlock
-                        || world.nearGhostBlock
-                        || world.insideGhostBlock
-                        || profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                    return;
-                }
+                if (exempt("worldTrackerMovement", world.shouldExemptMovementChecks())) return;
+                if (exempt("worldPhysicsMismatch", world.physicsMismatch)) return;
+                if (exempt("worldOnGhostBlock", world.onGhostBlock)) return;
+                if (exempt("worldNearGhostBlock", world.nearGhostBlock)) return;
+                if (exempt("worldInsideGhostBlock", world.insideGhostBlock)) return;
+                if (exempt("cancelledBlockPlacement", profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2)))) return;
 
                 int ghostLiquidWebTicks = Math.min(
                         profile.getBlockProcessor().getLastGhostLiquidWebTick(),
                         profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
                 );
 
-                if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
-                    debugExempt("ghostphysics", "Motion C");
-                    return;
-                }
+                if (exempt("ghostPhysics", ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
 
-                if (profile.isExempt().isReelingIn()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (reelingIn)");
-                    return;
-                }
+                if (exempt("reelingIn", profile.isExempt().isReelingIn())) return;
 
-                if (movementData.isGlidingOrRecentlyGlided(30)) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (elytra glide)");
-                    return;
-                }
+                if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return;
 
-                if (movementData.isNearShulkerBox()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (ShulkerBox)");
-                    return;
-                }
+                if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return;
 
-                if (movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans()) {
-                    if (Config.Setting.DEBUG.getBoolean())
-                        OtherUtility.log("Motion C: is Exempting (since bubble water)");
-                    return;
-                }
+                if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans())) return;
 
-                if (profile.isBouncingOnSlime()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion C: is Exempting (Bouncing Slime)");
-                    return;
-                }
+                if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
 
-                if (movementData.getSincePowderSnowTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                    return;
-                }
+                if (exempt("powderSnow", movementData.getSincePowderSnowTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
 
                 boolean hasJumpBoost = SpeedUtilities.getJumpBoostPotionLevel(profile) > 0;
                 double jumpLevel = hasJumpBoost

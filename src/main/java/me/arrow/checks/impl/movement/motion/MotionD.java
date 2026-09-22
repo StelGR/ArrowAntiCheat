@@ -38,39 +38,34 @@ public class MotionD extends Check {
 
                 ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
 
-                if (world.shouldExemptMovementChecks()
-                        || world.physicsMismatch
-                        || world.onGhostBlock
-                        || world.underGhostBlock
-                        || world.insideGhostBlock) {
-                    return;
-                }
+                if (exempt("worldTrackerMovement", world.shouldExemptMovementChecks())) return;
+                if (exempt("worldPhysicsMismatch", world.physicsMismatch)) return;
+                if (exempt("worldOnGhostBlock", world.onGhostBlock)) return;
+                if (exempt("worldUnderGhostBlock", world.underGhostBlock)) return;
+                if (exempt("worldInsideGhostBlock", world.insideGhostBlock)) return;
 
                 double deltaY = movementData.getDeltaY();
                 double lastDeltaY = movementData.getLastDeltaY();
 
-                if (profile.shouldCancel()
-                        || profile.isBouncingOnSlime()
-                        || movementData.isOnSlime()
-                        || movementData.getMovingUnderblockTicks() > 0
-                        || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                        || movementData.isUnderblock()
-                        || movementData.isNearBed()
-                        || movementData.isOnBoat()
-                        || movementData.isNearWebs()
-                        || movementData.isNearBoat()
-                        || movementData.isNearWater()
-                        || movementData.isNearLava()
-                        || movementData.isNearClimbable()
-                        || movementData.isGlidingOrRecentlyGlided(30)
-                        || profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2))
-                        || (profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 10)
-                        || profile.getPlayer().isInsideVehicle()) {
-                    buffer = 0;
-                    return;
-                }
+                if (exempt("cancelled", profile.shouldCancel())) { resetMotionBuffer(); return; }
+                if (exempt("slimeBounce", profile.isBouncingOnSlime())) { resetMotionBuffer(); return; }
+                if (exempt("onSlime", movementData.isOnSlime())) { resetMotionBuffer(); return; }
+                if (exempt("movingUnderBlock", movementData.getMovingUnderblockTicks() > 0)) { resetMotionBuffer(); return; }
+                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetMotionBuffer(); return; }
+                if (exempt("underBlock", movementData.isUnderblock())) { resetMotionBuffer(); return; }
+                if (exempt("nearBed", movementData.isNearBed())) { resetMotionBuffer(); return; }
+                if (exempt("onBoat", movementData.isOnBoat())) { resetMotionBuffer(); return; }
+                if (exempt("nearWebs", movementData.isNearWebs())) { resetMotionBuffer(); return; }
+                if (exempt("nearBoat", movementData.isNearBoat())) { resetMotionBuffer(); return; }
+                if (exempt("nearWater", movementData.isNearWater())) { resetMotionBuffer(); return; }
+                if (exempt("nearLava", movementData.isNearLava())) { resetMotionBuffer(); return; }
+                if (exempt("nearClimbable", movementData.isNearClimbable())) { resetMotionBuffer(); return; }
+                if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) { resetMotionBuffer(); return; }
+                if (exempt("cancelledBlockPlaceAbove", profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2)))) { resetMotionBuffer(); return; }
+                if (exempt("recentVelocity", profile.getVelocityData().isTakingVelocity() && profile.getVelocityData().getVelocityTicks() < 10)) { resetMotionBuffer(); return; }
+                if (exempt("insideVehicle", profile.getPlayer().isInsideVehicle())) { resetMotionBuffer(); return; }
 
-                if (movementData.getSincePredictUpwardsTicks() < 10) {
+                if (exempt("predictUpwards", movementData.getSincePredictUpwardsTicks() < 10)) {
                     buffer -= Math.min(buffer, 0.5);
                     return;
                 }
@@ -101,5 +96,9 @@ public class MotionD extends Check {
                 Profiler.stop("Motion E", profiler);
             }
         }
+    }
+
+    private void resetMotionBuffer() {
+        buffer = 0.0D;
     }
 }

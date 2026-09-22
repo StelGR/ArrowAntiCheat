@@ -69,81 +69,60 @@ public class MotionA extends Check {
 
             try {
 
-                if (profile.getMovementData().isOnBoat()
-                        || profile.getMovementData().isNearBoat()) return;
+                if (exempt("onBoat", profile.getMovementData().isOnBoat())) return;
+                if (exempt("nearBoat", profile.getMovementData().isNearBoat())) return;
 
                 MovementData movementData = profile.getMovementData();
 
                 ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
 
-                if (world.shouldExemptMovementChecks()
-                        || world.nextToGhostWall
-                        || world.physicsMismatch
-                        || world.onGhostBlock
-                        || world.insideGhostBlock
-                        || world.underGhostBlock
-                        || profile.getBlockProcessor().isUnderGhostBlock()) {
-                    return;
-                }
+                if (exempt("worldTrackerMovement", world.shouldExemptMovementChecks())) return;
+                if (exempt("worldNextToGhostWall", world.nextToGhostWall)) return;
+                if (exempt("worldPhysicsMismatch", world.physicsMismatch)) return;
+                if (exempt("worldOnGhostBlock", world.onGhostBlock)) return;
+                if (exempt("worldInsideGhostBlock", world.insideGhostBlock)) return;
+                if (exempt("worldUnderGhostBlock", world.underGhostBlock)) return;
+                if (exempt("underGhostBlock", profile.getBlockProcessor().isUnderGhostBlock())) return;
 
                 int ghostLiquidWebTicks = Math.min(
                         profile.getBlockProcessor().getLastGhostLiquidWebTick(),
                         profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
                 );
 
-                if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
-                    debugExempt("ghostphysics", "Motion A");
-                    return;
-                }
+                if (exempt("ghostPhysics", ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
 
                 double deltaY = movementData.getDeltaY();
 
-                if (profile.shouldCancel()
-                        || movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)
-                        || !profile.isExempt().isRespawned()
-                        || profile.getActionData().hasRecentConfirmedUnderPlace(6 + (profile.getConnectionData().getClientTickTrans() * 2))
-                        || profile.isBouncingOnSlime()
-                        || profile.getPlayer().isInsideVehicle()
-                        || movementData.isNearWater()
-                        || movementData.isNearLava()
-                        || movementData.isNearWebs()
-                        || movementData.isNearWall()
-                        || movementData.isNearBuggyBlock()
-                        || movementData.isNearBed()
-                        || movementData.isUnderblock()
-                        || movementData.getMovingUnderblockTicks() > 0
-                        || movementData.isOnSlime()
-                        || (movementData.getNearbyBlocksResult() != null
-                        && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))
-                        || profile.getMovementData().getSinceRiptidingTicks() < 20
-                        || profile.getVelocityData().isTakingVelocity()) {
-                    return;
-                }
+                if (exempt("cancelled", profile.shouldCancel())) return;
+                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
+                if (exempt("notRespawned", !profile.isExempt().isRespawned())) return;
+                if (exempt("underPlace", profile.getActionData().hasRecentConfirmedUnderPlace(6 + (profile.getConnectionData().getClientTickTrans() * 2)))) return;
+                if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
+                if (exempt("insideVehicle", profile.getPlayer().isInsideVehicle())) return;
+                if (exempt("nearWater", movementData.isNearWater())) return;
+                if (exempt("nearLava", movementData.isNearLava())) return;
+                if (exempt("nearWebs", movementData.isNearWebs())) return;
+                if (exempt("nearWall", movementData.isNearWall())) return;
+                if (exempt("nearBuggyBlock", movementData.isNearBuggyBlock())) return;
+                if (exempt("nearBed", movementData.isNearBed())) return;
+                if (exempt("underBlock", movementData.isUnderblock())) return;
+                if (exempt("movingUnderBlock", movementData.getMovingUnderblockTicks() > 0)) return;
+                if (exempt("onSlime", movementData.isOnSlime())) return;
+                if (exempt("nearBerries", movementData.getNearbyBlocksResult() != null
+                        && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))) return;
+                if (exempt("riptiding", profile.getMovementData().getSinceRiptidingTicks() < 20)) return;
+                if (exempt("velocity", profile.getVelocityData().isTakingVelocity())) return;
 
-                if (profile.getExempt().isReelingIn()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting (reelingIn)");
-                    return;
-                }
+                if (exempt("reelingIn", profile.getExempt().isReelingIn())) return;
 
-                if (movementData.getSincePredictUpwardsTicks() < 10 || movementData.getSincePredictDownwardsTicks() < 10) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: is Exempting (step Down / Up)");
-                    return;
-                }
+                if (exempt("predictUpwards", movementData.getSincePredictUpwardsTicks() < 10)) return;
+                if (exempt("predictDownwards", movementData.getSincePredictDownwardsTicks() < 10)) return;
 
-                if (movementData.elytraMomentum() > 0) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: elytraMomentum");
-                    return;
-                }
+                if (exempt("elytraMomentum", movementData.elytraMomentum() > 0)) return;
 
-                if (profile.getBlockProcessor().isUnderGhostBlock()) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: underGhostblock");
-                    return;
-                }
+                if (exempt("underGhostBlock", profile.getBlockProcessor().isUnderGhostBlock())) return;
 
-                if (profile.getMovementData().isGlidingOrRecentlyGlided(30)) {
-                    if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Motion A: Exempt - just gliding");
-                    return;
-                }
+                if (exempt("gliding", profile.getMovementData().isGlidingOrRecentlyGlided(30))) return;
 
                 double expected = 0.40444491418477924D;
 
@@ -180,18 +159,13 @@ public class MotionA extends Check {
 
 
                 //temporary fix for pistons slime blocks.
-                if (movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
+                if (exempt("slimePiston", movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
                         && deltaY > MoveUtils.getJumpMotion(profile)
-                        && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                    return;
-                }
+                        && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2)))) return;
 
-
-                if (movementData.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || movementData.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2)
-                        || movementData.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                    return;
-                }
+                if (exempt("predictUpwards", movementData.getSincePredictUpwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
+                if (exempt("predictDownwards", movementData.getSincePredictDownwardsTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
+                if (exempt("predictUpwardsWithoutMaterial", movementData.getSincePredictUpwardsTicksWithoutMaterial() < 10 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
 
                 if (Config.Setting.COMPATIBILITY.getBoolean()) {
                     PlayerInventory inventory = profile.getPlayer().getInventory();
@@ -215,9 +189,7 @@ public class MotionA extends Check {
                     verbose(this.getClass().getSimpleName(), buffer2, 2, data);
                 }
 
-                if (profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                    return;
-                }
+                if (exempt("recentDamage", profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2)))) return;
 
                 if (!isGround
                         && lastGround
