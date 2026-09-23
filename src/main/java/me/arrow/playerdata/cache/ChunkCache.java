@@ -41,6 +41,8 @@ public class ChunkCache {
     private final Map<String, Map<Long, CachedChunk>> worldChunks = new ConcurrentHashMap<>();
     // World Name -> Set of queued ChunkKeys currently waiting or being processed
     private final Map<String, Set<Long>> pendingQueue = new ConcurrentHashMap<>();
+    // State IDs currently waiting for one safe live-server voxel-shape read.
+    private final Set<Integer> pendingCollisionShapes = ConcurrentHashMap.newKeySet();
     // Dedicated worker thread pool for asynchronous chunk caching
     private final ThreadPoolExecutor chunkExecutor;
 
@@ -352,7 +354,19 @@ public class ChunkCache {
                     for (int z = 0; z < 16; z++) {
                         Material type = SnapshotAdapter.getMaterial(snapshot, x, y, z);
                         if (type != null && type != Material.AIR) {
-                            cached.set(x, y, z, type);
+                            WrappedBlockState state = null;
+
+                            if (PEMaterials.requiresStatefulCollision(type)) {
+                                state = PEMaterials.fromBukkitBlockData(
+                                        SnapshotAdapter.getBlockData(snapshot, x, y, z)
+                                );
+                            }
+
+                            if (state != null) {
+                                cached.setState(x, y, z, type, state.getGlobalId(), true);
+                            } else {
+                                cached.set(x, y, z, type);
+                            }
                             if (SnapshotAdapter.isWaterlogged(snapshot, x, y, z, type)) {
                                 cached.setWaterlogged(x, y, z, true);
                             }
@@ -530,7 +544,40 @@ public class ChunkCache {
         Map<Long, CachedChunk> map = worldChunks.computeIfAbsent(worldName, k -> new ConcurrentHashMap<>());
         CachedChunk chunk = map.computeIfAbsent(chunkKey(cx, cz), k -> new CachedChunk(cx, cz));
         chunk.setState(x & 15, y, z & 15, material, state.getGlobalId(),
-                PEMaterials.requiresStatefulCollision(material));
+                PEMaterials.requiresStatefulCollision(state));
+    }
+
+    /**
+     * Learns one authoritative voxel shape on the owning server region, then
+     * shares it by state ID. Packet-thread collision checks never read Bukkit.
+     */
+    public void requestCollisionShape(World world, int x, int y, int z, WrappedBlockState state) {
+        if (world == null || state == null || PlatformBackend.get().isFabric()
+                || !PEMaterials.requiresStatefulCollision(state)
+                || PEMaterials.hasCachedCollisionShape(state)) {
+            return;
+        }
+
+        int stateId = state.getGlobalId();
+        if (!pendingCollisionShapes.add(stateId)) {
+            return;
+        }
+
+        Location location = new Location(world, x, y, z);
+        try {
+            TaskUtils.regionLater(location, 0L, () -> {
+                try {
+                    if (world.isChunkLoaded(x >> 4, z >> 4)) {
+                        PEMaterials.cacheCollisionShape(state, world.getBlockAt(x, y, z));
+                    }
+                } catch (Throwable ignored) {
+                } finally {
+                    pendingCollisionShapes.remove(stateId);
+                }
+            });
+        } catch (Throwable ignored) {
+            pendingCollisionShapes.remove(stateId);
+        }
     }
 
     public void setBlock(CustomLocation location, Material material) {
@@ -824,7 +871,7 @@ public class ChunkCache {
                             if (material != null && material != Material.AIR) {
                                 int worldY = baseY + localY;
                                 cached.setState(localX, worldY, localZ, material, state.getGlobalId(),
-                                        PEMaterials.requiresStatefulCollision(material));
+                                        PEMaterials.requiresStatefulCollision(state));
                                 boolean waterlogged = isWaterMaterial(material) || PEMaterials.isWaterlogged(state);
                                 if (waterlogged) {
                                     cached.setWaterlogged(localX, worldY, localZ, true);
@@ -844,6 +891,7 @@ public class ChunkCache {
             chunkExecutor.shutdownNow();
         } catch (Throwable ignored) {}
         clear();
+        pendingCollisionShapes.clear();
     }
 
     /**

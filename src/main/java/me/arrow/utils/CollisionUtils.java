@@ -50,6 +50,8 @@ public class CollisionUtils {
     /* Ground requires the unexpanded 0.6-wide player body to overlap a block. */
     private static final double GROUND_PLAYER_HALF_WIDTH = .3D;
     private static final double GROUND_CONTACT_EPSILON = 1.0E-3D;
+    /* Fences, walls, and closed gates have a collision top 1.5 blocks above their base. */
+    private static final double MAX_SUPPORT_HEIGHT = 1.5D;
 
     /*
     The exact additional expansion we need in order to correctly account for blocks on top and below.
@@ -704,6 +706,7 @@ public class CollisionUtils {
         private final List<Material> blockTypes = new ArrayList<>();
 
         private boolean exactGroundSupport, landingGroundSupport, blockAbove, nearWaterLogged;
+        private boolean unresolvedCollisionShape;
 
         private void handle(CustomLocation location, Block block, NmsInstance nms) {
 
@@ -766,7 +769,13 @@ public class CollisionUtils {
             int maxX = floor(Math.max(playerMaxX, sweepMaxX));
             int minZ = floor(Math.min(playerMinZ, sweepMinZ));
             int maxZ = floor(Math.max(playerMaxZ, sweepMaxZ));
-            int minY = floor(feetY - GROUND_CONTACT_EPSILON);
+            /*
+             * A fence's top can be below the feet block (for example, its base
+             * is Y=64 while its collision top and the player's feet are 65.5).
+             * Include every possible support base, then let the exact top and
+             * footprint tests below decide whether it is actually supporting.
+             */
+            int minY = floor(feetY - MAX_SUPPORT_HEIGHT);
             int maxY = floor(headMaxY);
 
             CustomLocation probe = location.clone();
@@ -780,6 +789,14 @@ public class CollisionUtils {
 
                         Material material = ChunkCache.get().getBlock(probe);
                         WrappedBlockState cachedState = ChunkCache.get().getBlockState(probe);
+                        boolean needsExactStateShape = cachedState != null
+                                && PEMaterials.requiresStatefulCollision(cachedState)
+                                && !PEMaterials.hasCachedCollisionShape(cachedState);
+
+                        if (needsExactStateShape) {
+                            ChunkCache.get().requestCollisionShape(location.getWorld(), x, y, z, cachedState);
+                        }
+
                         List<PEMaterials.CollisionBounds> boxes = cachedState != null
                                 ? PEMaterials.getCollisionBounds(cachedState, x, y, z)
                                 : null;
@@ -814,10 +831,18 @@ public class CollisionUtils {
                             }
                         }
                         if (boxes == null && block != null) {
-                            boxes = PEMaterials.getCollisionBounds(block);
+                            if (cachedState != null && PEMaterials.cacheCollisionShape(cachedState, block)) {
+                                boxes = PEMaterials.getCollisionBounds(cachedState, x, y, z);
+                            } else {
+                                boxes = PEMaterials.getCollisionBounds(block);
+                            }
                         }
                         if (boxes == null) {
                             boxes = PEMaterials.getCollisionBounds(material, x, y, z);
+                        }
+
+                        if (needsExactStateShape && !PEMaterials.hasCachedCollisionShape(cachedState)) {
+                            this.unresolvedCollisionShape = true;
                         }
 
                         if (boxes == null || boxes.isEmpty()) {
@@ -878,6 +903,11 @@ public class CollisionUtils {
 
         public boolean hasLandingGroundSupport() {
             return landingGroundSupport;
+        }
+
+        /** One nearby partial state is still waiting for its first server-shape read. */
+        public boolean hasUnresolvedCollisionShape() {
+            return unresolvedCollisionShape;
         }
     }
 }

@@ -158,7 +158,6 @@ public class CheckHolder {
                 new ScaffoldB(this.profile),
                 new ScaffoldC(this.profile),
                 new ScaffoldD(this.profile),
-                new ScaffoldE(this.profile),
 
                 new SpeedA(this.profile),
                 new SpeedB(this.profile),

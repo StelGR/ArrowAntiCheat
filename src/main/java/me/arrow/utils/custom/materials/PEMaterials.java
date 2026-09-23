@@ -85,6 +85,9 @@ public class PEMaterials {
      */
     private static final Map<String, List<LocalCollisionBounds>> LOCAL_SHAPE_CACHE =
             new ConcurrentHashMap<>();
+    /* Exact server voxel shapes, indexed by PacketEvents' complete block state. */
+    private static final Map<Integer, List<LocalCollisionBounds>> STATE_SHAPE_CACHE =
+            new ConcurrentHashMap<>(2048);
 
     private PEMaterials() {
     }
@@ -100,30 +103,9 @@ public class PEMaterials {
          */
         if (BLOCK_GET_BLOCK_DATA != null) {
             try {
-                Object blockData = BLOCK_GET_BLOCK_DATA.invoke(block);
-
-                if (blockData != null) {
-                    Method converter = convertBukkitBlockData;
-
-                    if (converter == null || !converter.getParameterTypes()[0].isInstance(blockData)) {
-                        for (Method method : SpigotConversionUtil.class.getMethods()) {
-                            if (method.getName().equals("fromBukkitBlockData")
-                                    && method.getParameterCount() == 1
-                                    && method.getParameterTypes()[0].isInstance(blockData)) {
-                                converter = method;
-                                convertBukkitBlockData = method;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (converter != null) {
-                        Object converted = converter.invoke(null, blockData);
-
-                        if (converted instanceof WrappedBlockState) {
-                            return (WrappedBlockState) converted;
-                        }
-                    }
+                WrappedBlockState state = fromBukkitBlockData(BLOCK_GET_BLOCK_DATA.invoke(block));
+                if (state != null) {
+                    return state;
                 }
             } catch (Throwable ignored) {
             }
@@ -135,6 +117,39 @@ public class PEMaterials {
         }
 
         return fromBukkitMaterial(block.getType());
+    }
+
+    /** Converts a modern Bukkit BlockData instance without requiring a live Block. */
+    public static WrappedBlockState fromBukkitBlockData(Object blockData) {
+        if (blockData == null) {
+            return null;
+        }
+
+        try {
+            Method converter = convertBukkitBlockData;
+
+            if (converter == null || !converter.getParameterTypes()[0].isInstance(blockData)) {
+                for (Method method : SpigotConversionUtil.class.getMethods()) {
+                    if (method.getName().equals("fromBukkitBlockData")
+                            && method.getParameterCount() == 1
+                            && method.getParameterTypes()[0].isInstance(blockData)) {
+                        converter = method;
+                        convertBukkitBlockData = method;
+                        break;
+                    }
+                }
+            }
+
+            if (converter != null) {
+                Object converted = converter.invoke(null, blockData);
+                if (converted instanceof WrappedBlockState) {
+                    return (WrappedBlockState) converted;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return null;
     }
 
     /**
@@ -543,6 +558,9 @@ public class PEMaterials {
         if (name.contains("CARPET")) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.0625D, z + 1.0D));
         }
+        if (name.equals("DIRT_PATH") || name.equals("GRASS_PATH")) {
+            return lowFullBounds(x, y, z, .9375D);
+        }
         if (name.contains("FENCE") || name.contains("WALL")) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.5D, z + 1.0D));
         }
@@ -552,6 +570,21 @@ public class PEMaterials {
         if (name.endsWith("_HEAD") || name.endsWith("_SKULL")) {
             return Collections.singletonList(new CollisionBounds(x + 0.25D, y, z + 0.25D, x + 0.75D, y + 0.5D, z + 0.75D));
         }
+        if (name.equals("BIG_DRIPLEAF")) {
+            return bigDripleafBounds(null, x, y, z);
+        }
+        if (name.contains("DAYLIGHT_DETECTOR")) {
+            return lowFullBounds(x, y, z, .375D);
+        }
+        if (name.equals("SCULK_SHRIEKER")) {
+            return lowFullBounds(x, y, z, .5D);
+        }
+        if (name.equals("SCULK_SENSOR") || name.equals("CALIBRATED_SCULK_SENSOR")) {
+            return centeredLowBounds(x, y, z, .0625D, .5D);
+        }
+        if (name.equals("LIGHTNING_ROD")) {
+            return lightningRodBounds(null, x, y, z);
+        }
 
         return Collections.singletonList(new CollisionBounds(
                 x, y, z,
@@ -559,9 +592,34 @@ public class PEMaterials {
         ));
     }
 
-    /** True when a material's collision changes with its block state. */
+    /**
+     * True when material-only data cannot safely describe the collision shape.
+     * The Material flags catch future partial blocks; the name list retains
+     * legacy/stateful blocks whose shape may change while remaining solid.
+     */
     public static boolean requiresStatefulCollision(Material material) {
-        return material != null && isObviousPartialCollisionName(material.name());
+        return material != null
+                && material != Material.AIR
+                && (isObviousPartialCollisionName(material.name()) || isNonFullShape(material));
+    }
+
+    /** State-aware form used by packet chunk data before it enters the global cache. */
+    public static boolean requiresStatefulCollision(WrappedBlockState state) {
+        if (state == null || state.getType() == null || state.getType().isAir() || state.isFluid()) {
+            return false;
+        }
+
+        Material material = materialFromState(state.getType());
+        if (requiresStatefulCollision(material)) {
+            return true;
+        }
+
+        try {
+            StateType type = state.getType();
+            return !type.isSolid() || !type.isBlocking() || type.exceedsCube();
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     /**
@@ -571,10 +629,32 @@ public class PEMaterials {
     public static List<CollisionBounds> getCollisionBounds(WrappedBlockState state, int x, int y, int z) {
         if (state == null || state.getType() == null) return null;
 
+        List<LocalCollisionBounds> exact = STATE_SHAPE_CACHE.get(state.getGlobalId());
+        if (exact != null) {
+            return toWorldBounds(x, y, z, exact);
+        }
+
         Material material = materialFromState(state.getType());
-        if (material == null || material == Material.AIR) return Collections.emptyList();
+        if (material == null || material == Material.AIR) {
+            return state.getType().isAir() ? Collections.emptyList() : null;
+        }
 
         String name = material.name();
+        if (name.equals("BIG_DRIPLEAF")) {
+            return bigDripleafBounds(state, x, y, z);
+        }
+        if (name.contains("DAYLIGHT_DETECTOR")) {
+            return lowFullBounds(x, y, z, .375D);
+        }
+        if (name.equals("SCULK_SHRIEKER")) {
+            return lowFullBounds(x, y, z, .5D);
+        }
+        if (name.equals("SCULK_SENSOR") || name.equals("CALIBRATED_SCULK_SENSOR")) {
+            return centeredLowBounds(x, y, z, .0625D, .5D);
+        }
+        if (name.equals("LIGHTNING_ROD")) {
+            return lightningRodBounds(state, x, y, z);
+        }
         if (name.endsWith("_FENCE_GATE") || name.equals("FENCE_GATE")) {
             return fenceGateBounds(state, x, y, z);
         }
@@ -600,6 +680,88 @@ public class PEMaterials {
                 : getCollisionBounds(material, x, y, z);
     }
 
+    /** Returns whether an exact server voxel shape has already been learned for this state. */
+    public static boolean hasCachedCollisionShape(WrappedBlockState state) {
+        return state != null && STATE_SHAPE_CACHE.containsKey(state.getGlobalId());
+    }
+
+    /**
+     * Reads Bukkit's real collision shape once on the server thread and shares
+     * it globally for every coordinate with this same block state.
+     */
+    public static boolean cacheCollisionShape(WrappedBlockState expectedState, Block block) {
+        if (expectedState == null || block == null) {
+            return false;
+        }
+
+        try {
+            WrappedBlockState liveState = fromBukkitBlock(block);
+            if (liveState == null || liveState.getGlobalId() != expectedState.getGlobalId()) {
+                return false;
+            }
+
+            List<CollisionBounds> worldBounds = getModernCollisionBounds(block);
+            if (worldBounds == null) {
+                return false;
+            }
+
+            List<LocalCollisionBounds> local = new ArrayList<>(worldBounds.size());
+            for (CollisionBounds bounds : worldBounds) {
+                local.add(new LocalCollisionBounds(
+                        bounds.minX - block.getX(), bounds.minY - block.getY(), bounds.minZ - block.getZ(),
+                        bounds.maxX - block.getX(), bounds.maxY - block.getY(), bounds.maxZ - block.getZ()
+                ));
+            }
+
+            STATE_SHAPE_CACHE.put(expectedState.getGlobalId(), local.isEmpty()
+                    ? Collections.emptyList()
+                    : Collections.unmodifiableList(local));
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static List<CollisionBounds> bigDripleafBounds(WrappedBlockState state, int x, int y, int z) {
+        String tilt = state == null ? "NONE" : String.valueOf(state.getTilt());
+
+        if ("FULL".equals(tilt)) {
+            return Collections.emptyList();
+        }
+
+        double height = "PARTIAL".equals(tilt) ? .6875D : .8125D;
+        return Collections.singletonList(new CollisionBounds(
+                x + .0625D, y, z + .0625D,
+                x + .9375D, y + height, z + .9375D
+        ));
+    }
+
+    private static List<CollisionBounds> lowFullBounds(int x, int y, int z, double height) {
+        return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + height, z + 1.0D));
+    }
+
+    private static List<CollisionBounds> centeredLowBounds(int x, int y, int z, double inset, double height) {
+        return Collections.singletonList(new CollisionBounds(
+                x + inset, y, z + inset,
+                x + 1.0D - inset, y + height, z + 1.0D - inset
+        ));
+    }
+
+    private static List<CollisionBounds> lightningRodBounds(WrappedBlockState state, int x, int y, int z) {
+        String facing = state == null ? "UP" : String.valueOf(state.getFacing());
+
+        if ("EAST".equals(facing) || "WEST".equals(facing)) {
+            return Collections.singletonList(new CollisionBounds(x, y + .375D, z + .375D,
+                    x + 1.0D, y + .625D, z + .625D));
+        }
+        if ("NORTH".equals(facing) || "SOUTH".equals(facing)) {
+            return Collections.singletonList(new CollisionBounds(x + .375D, y + .375D, z,
+                    x + .625D, y + .625D, z + 1.0D));
+        }
+        return Collections.singletonList(new CollisionBounds(x + .375D, y, z + .375D,
+                x + .625D, y + 1.0D, z + .625D));
+    }
+
     private static List<CollisionBounds> fenceGateBounds(WrappedBlockState state, int x, int y, int z) {
         if (state.isOpen()) return Collections.emptyList();
 
@@ -622,32 +784,28 @@ public class PEMaterials {
     }
 
     private static List<CollisionBounds> wallBounds(WrappedBlockState state, int x, int y, int z) {
-        double north = wallHeight(state.getNorth());
-        double south = wallHeight(state.getSouth());
-        double west = wallHeight(state.getWest());
-        double east = wallHeight(state.getEast());
-        double center = state.isUp() ? 1.5D : Math.max(Math.max(north, south), Math.max(west, east));
-        // Older protocol states do not expose wall connections; retain their standalone post.
-        if (center == 0.0D) center = 1.5D;
+        boolean north = isConnected(state.getNorth());
+        boolean south = isConnected(state.getSouth());
+        boolean west = isConnected(state.getWest());
+        boolean east = isConnected(state.getEast());
+        boolean hasSide = north || south || west || east;
         List<CollisionBounds> boxes = new ArrayList<>(5);
 
-        if (center > 0.0D) boxes.add(new CollisionBounds(x + .25D, y, z + .25D, x + .75D, y + center, z + .75D));
-        if (north > 0.0D) boxes.add(new CollisionBounds(x + .25D, y, z, x + .75D, y + north, z + .5D));
-        if (south > 0.0D) boxes.add(new CollisionBounds(x + .25D, y, z + .5D, x + .75D, y + south, z + 1.0D));
-        if (west > 0.0D) boxes.add(new CollisionBounds(x, y, z + .25D, x + .5D, y + west, z + .75D));
-        if (east > 0.0D) boxes.add(new CollisionBounds(x + .5D, y, z + .25D, x + 1.0D, y + east, z + .75D));
+        // Wall outlines may have LOW arms, but their collision arms are always 1.5 blocks high.
+        // A state without side properties is an older standalone wall, so keep its center post.
+        if (state.isUp() || !hasSide) {
+            boxes.add(new CollisionBounds(x + .25D, y, z + .25D, x + .75D, y + 1.5D, z + .75D));
+        }
+        if (north) boxes.add(new CollisionBounds(x + .3125D, y, z, x + .6875D, y + 1.5D, z + .5D));
+        if (south) boxes.add(new CollisionBounds(x + .3125D, y, z + .5D, x + .6875D, y + 1.5D, z + 1.0D));
+        if (west) boxes.add(new CollisionBounds(x, y, z + .3125D, x + .5D, y + 1.5D, z + .6875D));
+        if (east) boxes.add(new CollisionBounds(x + .5D, y, z + .3125D, x + 1.0D, y + 1.5D, z + .6875D));
         return boxes;
     }
 
     private static boolean isConnected(Object value) {
         String name = String.valueOf(value);
         return !"NONE".equals(name) && !"FALSE".equals(name) && !"null".equals(name);
-    }
-
-    private static double wallHeight(Object value) {
-        String name = String.valueOf(value);
-        if ("TALL".equals(name) || "UP".equals(name) || "TRUE".equals(name)) return 1.5D;
-        return "LOW".equals(name) || "SIDE".equals(name) ? 1.0D : 0.0D;
     }
 
     /**
@@ -1070,6 +1228,10 @@ public class PEMaterials {
     }
 
     private static List<CollisionBounds> toWorldBounds(Block block, List<LocalCollisionBounds> local) {
+        return toWorldBounds(block.getX(), block.getY(), block.getZ(), local);
+    }
+
+    private static List<CollisionBounds> toWorldBounds(int x, int y, int z, List<LocalCollisionBounds> local) {
         if (local.isEmpty()) {
             return Collections.emptyList();
         }
@@ -1078,12 +1240,12 @@ public class PEMaterials {
 
         for (LocalCollisionBounds box : local) {
             result.add(new CollisionBounds(
-                    block.getX() + box.minX,
-                    block.getY() + box.minY,
-                    block.getZ() + box.minZ,
-                    block.getX() + box.maxX,
-                    block.getY() + box.maxY,
-                    block.getZ() + box.maxZ
+                    x + box.minX,
+                    y + box.minY,
+                    z + box.minZ,
+                    x + box.maxX,
+                    y + box.maxY,
+                    z + box.maxZ
             ));
         }
 
@@ -1231,6 +1393,12 @@ public class PEMaterials {
                 || name.contains("PISTON_HEAD")
                 || name.contains("PISTON_EXTENSION")
                 || name.equals("HEAVY_CORE")
+                || name.equals("BIG_DRIPLEAF")
+                || name.contains("DAYLIGHT_DETECTOR")
+                || name.equals("SCULK_SENSOR")
+                || name.equals("CALIBRATED_SCULK_SENSOR")
+                || name.equals("SCULK_SHRIEKER")
+                || name.equals("LIGHTNING_ROD")
                 || name.equals("IRON_BARS")
                 || name.equals("IRON_FENCE")
                 || name.equals("THIN_GLASS")
