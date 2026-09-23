@@ -484,8 +484,10 @@ public class MovementData implements Data {
                 || nearbyBlocksResult.hasLandingGroundSupport();
 
         customInAir = !hasGroundSupport
+                && !nearbyBlocksResult.hasUnresolvedCollisionShape()
 //                && !nearbyBlocksResult2.isNearGround()
                 && !profile.isExempt().isFlight()
+                && !nearHoney
                 && !profile.shouldCancel()
                 && !profile.getPlayer().isInsideVehicle()
                 && !isNearBoat()

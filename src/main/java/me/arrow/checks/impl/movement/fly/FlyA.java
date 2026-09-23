@@ -76,6 +76,8 @@ public class FlyA extends Check {
                 if (exempt("nearShulker", movementData.isNearShulker())) return;
                 if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return;
                 if (exempt("nearLava", movementData.isNearLava())) return;
+
+                if (exempt("nearBed", movementData.isNearBed())) return;
                 if (exempt("nearWater", movementData.isNearWater())) return;
                 if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
                 if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 25 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
@@ -101,11 +103,11 @@ public class FlyA extends Check {
                         clientAirTickLimit = 13 + jumpLevel;
                     }
                 } else {
-                    airTickLimit = recentlyPlaced ? 20 + clientTickTrans : 14;
-                    clientAirTickLimit = recentlyPlaced ? 20 + clientTickTrans : 14;
+                    airTickLimit = recentlyPlaced ? 20 + clientTickTrans : 13;
+                    clientAirTickLimit = recentlyPlaced ? 20 + clientTickTrans : 13;
                 }
 
-                if (deltaXZ != 0) airTickLimit += recentlyPlaced ? 8 + clientTickTrans : 4;
+                if (deltaXZ != 0) airTickLimit += recentlyPlaced ? 8 + clientTickTrans : 2;
 
                 clientAirTickLimit = 4 + jumpLevel;
 

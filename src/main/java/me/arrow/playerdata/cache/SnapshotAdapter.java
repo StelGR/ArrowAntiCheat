@@ -133,14 +133,30 @@ public class SnapshotAdapter {
         if (ChunkCache.isWaterMaterial(type)) {
             return true;
         }
-        if (GET_BLOCK_DATA_MH != null && snapshot != null) {
+        Object blockData = getBlockData(snapshot, x, y, z);
+        if (blockData != null) {
             try {
-                Object bd = GET_BLOCK_DATA_MH.invoke(snapshot, x, y, z);
-                if (bd instanceof org.bukkit.block.data.Waterlogged) {
-                    return ((org.bukkit.block.data.Waterlogged) bd).isWaterlogged();
+                if (blockData instanceof org.bukkit.block.data.Waterlogged) {
+                    return ((org.bukkit.block.data.Waterlogged) blockData).isWaterlogged();
                 }
             } catch (Throwable ignored) {}
         }
         return false;
+    }
+
+    /**
+     * Returns immutable snapshot BlockData when the server exposes it. This is
+     * null on legacy servers, which keeps the caller's fallback path intact.
+     */
+    public static Object getBlockData(ChunkSnapshot snapshot, int x, int y, int z) {
+        if (GET_BLOCK_DATA_MH == null || snapshot == null) {
+            return null;
+        }
+
+        try {
+            return GET_BLOCK_DATA_MH.invoke(snapshot, x, y, z);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 }

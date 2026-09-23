@@ -44,6 +44,7 @@ public class IllegalMoveA extends Check {
                 MovementData movementData = profile.getMovementData();
 
                 if (exempt("cancelled", profile.shouldCancel())) return;
+                if (exempt("nearBed", movementData.isNearBed())) return;
                 if (exempt("notRespawned", !profile.isExempt().isRespawned())) return;
                 if (exempt("dead", profile.isExempt().isDead())) return;
                 if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) return;
