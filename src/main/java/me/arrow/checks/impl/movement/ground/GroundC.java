@@ -93,7 +93,7 @@ public class GroundC extends Check {
                 if (exempt("towerBlockPlace", profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans))) return;
                 if (exempt("pistonUpdate", profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2)))) return;
 
-                if (serverPositionGround && serverYGround && movementData.isCustomInAir() && ground && movementData.getCustomAirTicks() >= 2) {
+                if (serverPositionGround && serverYGround && movementData.isCustomInAir() && ground && movementData.getCustomAirTicks() >= 6) {
 
                     fail("On Ghostblock? (1)", verboseInfo);
 

@@ -25,9 +25,6 @@ public class InteractB extends Check {
     public void handle(PacketReceiveEvent event) {
 
     }
-
-
-
 }
 
 

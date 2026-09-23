@@ -549,7 +549,7 @@ public class Profile implements CoreProfile {
         return movementData.isCustomInAir()
                 && movementData.isOnGround()
                 && getTick() > 20
-                && movementData.getCustomAirTicks() >= 2
+                && movementData.getCustomAirTicks() >= 6
                 && !isExempt().isTeleports()
                 && isExempt().isRespawned()
                 && !isExempt().isDead()

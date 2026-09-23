@@ -374,6 +374,18 @@ public class Checks implements Initializer {
         SCAFFOLD_C_PUNISH_MODE("ScaffoldC.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         SCAFFOLD_C_MAX_VL("ScaffoldC.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        SCAFFOLD_D("ScaffoldD.enabled", true, "Should we enable this module?"),
+        SCAFFOLD_D_PUNISH("ScaffoldD.punish", "", "Punishment settings"),
+        SCAFFOLD_D_PUNISH_ENABLED("ScaffoldD.punish.enabled", true, "Should punishments be enabled for this check?"),
+        SCAFFOLD_D_PUNISH_MODE("ScaffoldD.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        SCAFFOLD_D_MAX_VL("ScaffoldD.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        SCAFFOLD_E("ScaffoldE.enabled", true, "Should we enable this module?"),
+        SCAFFOLD_E_PUNISH("ScaffoldE.punish", "", "Punishment settings"),
+        SCAFFOLD_E_PUNISH_ENABLED("ScaffoldE.punish.enabled", true, "Should punishments be enabled for this check?"),
+        SCAFFOLD_E_PUNISH_MODE("ScaffoldE.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        SCAFFOLD_E_MAX_VL("ScaffoldE.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
         SPEED_A("SpeedA.enabled", true, "Should we enable this module?"),
         SPEED_A_MODE("SpeedA.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
         SPEED_A_PUNISH("SpeedA.punish", "", "Punishment settings"),

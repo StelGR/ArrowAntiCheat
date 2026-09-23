@@ -466,7 +466,9 @@ public class MovementData implements Data {
         NOTE: You should ALWAYS use NMS if you plan on supporting 1.9+
         For a production server, DO NOT use spigot's api. It's slow. (Especially for Blocks, Chunks, Materials)
          */
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(getLocation(), async);
+        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(
+                getLocation(), getLastLocation(), async
+        );
 //        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(
 //                getLocation().clone().add(0, 1, 0),
 //                async
@@ -474,7 +476,14 @@ public class MovementData implements Data {
 
         this.nearbyBlocksResult = nearbyBlocksResult;
 
-        customInAir = !nearbyBlocksResult.isNearGround()
+        /*
+         * Air ticks require present support, or a downward movement proven to
+         * have landed on a collision top. A wall beside the player is neither.
+         */
+        boolean hasGroundSupport = nearbyBlocksResult.hasExactGroundSupport()
+                || nearbyBlocksResult.hasLandingGroundSupport();
+
+        customInAir = !hasGroundSupport
 //                && !nearbyBlocksResult2.isNearGround()
                 && !profile.isExempt().isFlight()
                 && !profile.shouldCancel()

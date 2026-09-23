@@ -75,7 +75,7 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             WrappedBlockState state = wrapper.getBlockState();
             Material material = PEMaterials.materialFromState(state.getType());
             if (material != null) {
-                cache.setBlock(worldName, x, y, z, material);
+                cache.setBlockState(worldName, x, y, z, state);
                 boolean waterlogged = PEMaterials.isWaterlogged(state)
                         || material.name().contains("WATER");
                 cache.setWaterLogged(worldName, x, y, z, waterlogged);
@@ -97,7 +97,7 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                     WrappedBlockState state = block.getBlockState(ClientVersion.UNKNOWN);
                     Material material = PEMaterials.materialFromState(state.getType());
                     if (material != null) {
-                        cache.setBlock(worldName, x, y, z, material);
+                        cache.setBlockState(worldName, x, y, z, state);
                         boolean waterlogged = PEMaterials.isWaterlogged(state)
                                 || material.name().contains("WATER");
                         cache.setWaterLogged(worldName, x, y, z, waterlogged);
@@ -121,8 +121,10 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             int chunkX = column.getX();
             int chunkZ = column.getZ();
 
-            // If already cached, skip. Otherwise, allow queuing even if previously queued.
-            if (cache.getChunk(worldName, chunkX, chunkZ) != null) {
+            // A startup snapshot contains materials only; let the first packet
+            // enrich it with state-sensitive collision data.
+            ChunkCache.CachedChunk cached = cache.getChunk(worldName, chunkX, chunkZ);
+            if (cached != null && cached.hasCompleteStatefulCollisionData()) {
                 return;
             }
 

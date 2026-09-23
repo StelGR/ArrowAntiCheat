@@ -515,6 +515,24 @@ public class ChunkCache {
         chunk.set(x & 15, y, z & 15, material != null ? material : Material.AIR);
     }
 
+    /**
+     * Stores the authoritative packet block state for partial collision blocks.
+     * Full cubes keep the compact material-only representation.
+     */
+    public void setBlockState(String worldName, int x, int y, int z, WrappedBlockState state) {
+        if (worldName == null || state == null || state.getType() == null) return;
+
+        Material material = PEMaterials.materialFromState(state.getType());
+        if (material == null) return;
+
+        int cx = x >> 4;
+        int cz = z >> 4;
+        Map<Long, CachedChunk> map = worldChunks.computeIfAbsent(worldName, k -> new ConcurrentHashMap<>());
+        CachedChunk chunk = map.computeIfAbsent(chunkKey(cx, cz), k -> new CachedChunk(cx, cz));
+        chunk.setState(x & 15, y, z & 15, material, state.getGlobalId(),
+                PEMaterials.requiresStatefulCollision(material));
+    }
+
     public void setBlock(CustomLocation location, Material material) {
         if (location == null || location.getWorld() == null) return;
         setBlock(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), material);
@@ -544,6 +562,24 @@ public class ChunkCache {
     public Material getBlock(CustomLocation location) {
         if (location == null || location.getWorld() == null) return Material.AIR;
         return getBlock(location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    }
+
+    /** Returns the exact packet state when this partial block was cached, otherwise null. */
+    public WrappedBlockState getBlockState(CustomLocation location) {
+        if (location == null || location.getWorld() == null) return null;
+
+        CachedChunk chunk = getChunk(location.getWorld().getName(),
+                location.getBlockX() >> 4, location.getBlockZ() >> 4);
+        if (chunk == null) return null;
+
+        int stateId = chunk.getStateId(location.getBlockX() & 15, location.getBlockY(), location.getBlockZ() & 15);
+        if (stateId < 0) return null;
+
+        try {
+            return WrappedBlockState.getByGlobalId(stateId);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     /** Returns true if globally cached. Entries are retained until the server unloads the chunk. */
@@ -683,12 +719,14 @@ public class ChunkCache {
      */
     public void queuePacketChunk(String worldName, int chunkX, int chunkZ, int minY, Column column) {
         if (worldName == null || column == null) return;
-        if (getChunk(worldName, chunkX, chunkZ) != null) return;
+        CachedChunk existing = getChunk(worldName, chunkX, chunkZ);
+        if (existing != null && existing.hasCompleteStatefulCollisionData()) return;
         if (!markQueued(worldName, chunkX, chunkZ)) return;
 
         chunkExecutor.execute(() -> {
             try {
-                if (getChunk(worldName, chunkX, chunkZ) != null) return;
+                CachedChunk current = getChunk(worldName, chunkX, chunkZ);
+                if (current != null && current.hasCompleteStatefulCollisionData()) return;
                 CachedChunk cached = parsePacketColumn(chunkX, chunkZ, minY, column);
                 if (cached != null) {
                     putChunk(worldName, chunkX, chunkZ, cached);
@@ -785,7 +823,8 @@ public class ChunkCache {
                             Material material = PEMaterials.materialFromState(type);
                             if (material != null && material != Material.AIR) {
                                 int worldY = baseY + localY;
-                                cached.set(localX, worldY, localZ, material);
+                                cached.setState(localX, worldY, localZ, material, state.getGlobalId(),
+                                        PEMaterials.requiresStatefulCollision(material));
                                 boolean waterlogged = isWaterMaterial(material) || PEMaterials.isWaterlogged(state);
                                 if (waterlogged) {
                                     cached.setWaterlogged(localX, worldY, localZ, true);
@@ -796,6 +835,7 @@ public class ChunkCache {
                 }
             }
         }
+        cached.setCompleteStatefulCollisionData();
         return cached;
     }
 
@@ -835,6 +875,7 @@ public class ChunkCache {
         int chunkX;
         int chunkZ;
         private final CachedSection[] sections = new CachedSection[SECTION_COUNT];
+        private volatile boolean completeStatefulCollisionData;
 
         public CachedChunk(int chunkX, int chunkZ) {
             this.chunkX = chunkX;
@@ -861,12 +902,41 @@ public class ChunkCache {
 
             if (material == null || material == Material.AIR) {
                 CachedSection sec = sections[idx];
-                if (sec != null) sec.set(relX, y & 15, relZ, Material.AIR);
+                if (sec != null) {
+                    sec.set(relX, y & 15, relZ, Material.AIR);
+                    sec.setStateId(relX, y & 15, relZ, -1);
+                }
                 return;
             }
 
             if (sections[idx] == null) sections[idx] = new CachedSection();
             sections[idx].set(relX, y & 15, relZ, material);
+            sections[idx].setStateId(relX, y & 15, relZ, -1);
+        }
+
+        public void setState(int relX, int y, int relZ, Material material, int stateId, boolean storeState) {
+            set(relX, y, relZ, material);
+            if (!storeState || material == null || material == Material.AIR) return;
+
+            int idx = (y >> 4) + SECTION_OFFSET;
+            if (validIndex(idx) && sections[idx] != null) {
+                sections[idx].setStateId(relX, y & 15, relZ, stateId);
+            }
+        }
+
+        public int getStateId(int relX, int y, int relZ) {
+            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) return -1;
+            int idx = (y >> 4) + SECTION_OFFSET;
+            if (!validIndex(idx) || sections[idx] == null) return -1;
+            return sections[idx].getStateId(relX, y & 15, relZ);
+        }
+
+        public boolean hasCompleteStatefulCollisionData() {
+            return completeStatefulCollisionData;
+        }
+
+        public void setCompleteStatefulCollisionData() {
+            this.completeStatefulCollisionData = true;
         }
 
         public boolean isWaterlogged(int relX, int y, int relZ) {
@@ -898,6 +968,8 @@ public class ChunkCache {
         private final char[] blockOrdinals = new char[4096];
         // 64 longs = 4096 bits representing waterlogged state for each block in the section
         private final long[] waterloggedMask = new long[64];
+        // Sparse because only partial colliders need a state ID; full cubes use no extra memory.
+        private volatile ConcurrentMap<Integer, Integer> stateIds;
         private static final Material[] MATERIAL_VALUES = Material.values();
 
         public Material get(int localX, int localY, int localZ) {
@@ -915,6 +987,35 @@ public class ChunkCache {
             } else {
                 blockOrdinals[index] = (char) (material.ordinal() + 1);
             }
+        }
+
+        public int getStateId(int localX, int localY, int localZ) {
+            ConcurrentMap<Integer, Integer> states = stateIds;
+            if (states == null) return -1;
+            Integer stateId = states.get((localY << 8) | (localZ << 4) | localX);
+            return stateId != null ? stateId : -1;
+        }
+
+        public void setStateId(int localX, int localY, int localZ, int stateId) {
+            int index = (localY << 8) | (localZ << 4) | localX;
+            ConcurrentMap<Integer, Integer> states = stateIds;
+
+            if (stateId < 0) {
+                if (states != null) states.remove(index);
+                return;
+            }
+
+            if (states == null) {
+                synchronized (this) {
+                    states = stateIds;
+                    if (states == null) {
+                        states = new ConcurrentHashMap<>();
+                        stateIds = states;
+                    }
+                }
+            }
+
+            states.put(index, stateId);
         }
 
         public boolean isWaterlogged(int localX, int localY, int localZ) {

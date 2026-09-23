@@ -32,6 +32,8 @@ public class PEMaterials {
 
     private static final Method BLOCK_GET_BLOCK_DATA =
             findNoArgMethod(Block.class, "getBlockData");
+    private static final Method BLOCK_DATA_GET_AS_STRING =
+            findNoArgMethod("org.bukkit.block.data.BlockData", "getAsString");
     private static final Method BLOCK_GET_COLLISION_SHAPE =
             findNoArgMethod(Block.class, "getCollisionShape");
     private static final Method BLOCK_GET_BOUNDING_BOX =
@@ -557,6 +559,97 @@ public class PEMaterials {
         ));
     }
 
+    /** True when a material's collision changes with its block state. */
+    public static boolean requiresStatefulCollision(Material material) {
+        return material != null && isObviousPartialCollisionName(material.name());
+    }
+
+    /**
+     * State-only collision fallback for asynchronous cache reads. Bukkit's live
+     * voxel shape remains preferred when a Block is safely available.
+     */
+    public static List<CollisionBounds> getCollisionBounds(WrappedBlockState state, int x, int y, int z) {
+        if (state == null || state.getType() == null) return null;
+
+        Material material = materialFromState(state.getType());
+        if (material == null || material == Material.AIR) return Collections.emptyList();
+
+        String name = material.name();
+        if (name.endsWith("_FENCE_GATE") || name.equals("FENCE_GATE")) {
+            return fenceGateBounds(state, x, y, z);
+        }
+        if (name.endsWith("_FENCE") || name.equals("FENCE") || name.equals("IRON_FENCE")) {
+            return fenceBounds(state, x, y, z);
+        }
+        if (name.endsWith("_WALL") || name.equals("COBBLE_WALL")) {
+            return wallBounds(state, x, y, z);
+        }
+        if (name.endsWith("_SLAB") || name.endsWith("_STEP")) {
+            String type = String.valueOf(state.getTypeData());
+            if ("TOP".equals(type)) {
+                return Collections.singletonList(new CollisionBounds(x, y + .5D, z, x + 1.0D, y + 1.0D, z + 1.0D));
+            }
+            if ("DOUBLE".equals(type)) {
+                return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+            }
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + .5D, z + 1.0D));
+        }
+
+        return requiresStatefulCollision(material)
+                ? null
+                : getCollisionBounds(material, x, y, z);
+    }
+
+    private static List<CollisionBounds> fenceGateBounds(WrappedBlockState state, int x, int y, int z) {
+        if (state.isOpen()) return Collections.emptyList();
+
+        String facing = String.valueOf(state.getFacing());
+        if ("EAST".equals(facing) || "WEST".equals(facing)) {
+            return Collections.singletonList(new CollisionBounds(x + .40625D, y, z, x + .59375D, y + 1.5D, z + 1.0D));
+        }
+        return Collections.singletonList(new CollisionBounds(x, y, z + .40625D, x + 1.0D, y + 1.5D, z + .59375D));
+    }
+
+    private static List<CollisionBounds> fenceBounds(WrappedBlockState state, int x, int y, int z) {
+        List<CollisionBounds> boxes = new ArrayList<>(5);
+        boxes.add(new CollisionBounds(x + .375D, y, z + .375D, x + .625D, y + 1.5D, z + .625D));
+
+        if (isConnected(state.getNorth())) boxes.add(new CollisionBounds(x + .375D, y, z, x + .625D, y + 1.5D, z + .375D));
+        if (isConnected(state.getSouth())) boxes.add(new CollisionBounds(x + .375D, y, z + .625D, x + .625D, y + 1.5D, z + 1.0D));
+        if (isConnected(state.getWest())) boxes.add(new CollisionBounds(x, y, z + .375D, x + .375D, y + 1.5D, z + .625D));
+        if (isConnected(state.getEast())) boxes.add(new CollisionBounds(x + .625D, y, z + .375D, x + 1.0D, y + 1.5D, z + .625D));
+        return boxes;
+    }
+
+    private static List<CollisionBounds> wallBounds(WrappedBlockState state, int x, int y, int z) {
+        double north = wallHeight(state.getNorth());
+        double south = wallHeight(state.getSouth());
+        double west = wallHeight(state.getWest());
+        double east = wallHeight(state.getEast());
+        double center = state.isUp() ? 1.5D : Math.max(Math.max(north, south), Math.max(west, east));
+        // Older protocol states do not expose wall connections; retain their standalone post.
+        if (center == 0.0D) center = 1.5D;
+        List<CollisionBounds> boxes = new ArrayList<>(5);
+
+        if (center > 0.0D) boxes.add(new CollisionBounds(x + .25D, y, z + .25D, x + .75D, y + center, z + .75D));
+        if (north > 0.0D) boxes.add(new CollisionBounds(x + .25D, y, z, x + .75D, y + north, z + .5D));
+        if (south > 0.0D) boxes.add(new CollisionBounds(x + .25D, y, z + .5D, x + .75D, y + south, z + 1.0D));
+        if (west > 0.0D) boxes.add(new CollisionBounds(x, y, z + .25D, x + .5D, y + west, z + .75D));
+        if (east > 0.0D) boxes.add(new CollisionBounds(x + .5D, y, z + .25D, x + 1.0D, y + east, z + .75D));
+        return boxes;
+    }
+
+    private static boolean isConnected(Object value) {
+        String name = String.valueOf(value);
+        return !"NONE".equals(name) && !"FALSE".equals(name) && !"null".equals(name);
+    }
+
+    private static double wallHeight(Object value) {
+        String name = String.valueOf(value);
+        if ("TALL".equals(name) || "UP".equals(name) || "TRUE".equals(name)) return 1.5D;
+        return "LOW".equals(name) || "SIDE".equals(name) ? 1.0D : 0.0D;
+    }
+
     /**
      * Returns world-space collision boxes. Modern blocks use their exact live
      * voxel shape. Legacy blocks use a conservative unit box only when the
@@ -998,6 +1091,25 @@ public class PEMaterials {
     }
 
     private static String collisionStateKey(Block block) {
+        if (BLOCK_GET_BLOCK_DATA != null) {
+            try {
+                Object blockData = BLOCK_GET_BLOCK_DATA.invoke(block);
+
+                if (blockData != null) {
+                    if (BLOCK_DATA_GET_AS_STRING != null
+                            && BLOCK_DATA_GET_AS_STRING.getDeclaringClass().isInstance(blockData)) {
+                        Object state = BLOCK_DATA_GET_AS_STRING.invoke(blockData);
+                        if (state != null) {
+                            return state.toString();
+                        }
+                    }
+
+                    return blockData.toString();
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
         WrappedBlockState state = fromBukkitBlock(block);
         return state != null
                 ? state.toString()
