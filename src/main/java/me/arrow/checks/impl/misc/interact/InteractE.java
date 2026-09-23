@@ -50,10 +50,19 @@ public class InteractE extends Check {
             return;
         }
 
-        if (isAir(x, y, z)
-                && isAir(x + 1, y, z) && isAir(x - 1, y, z)
-                && isAir(x, y + 1, z) && isAir(x, y - 1, z)
-                && isAir(x, y, z + 1) && isAir(x, y, z - 1)) {
+        if (hasThinPlacementSupport(x, y, z)) {
+            decreaseBufferBy(0.25);
+            return;
+        }
+
+        /*
+         * A missing chunk-cache entry is unknown, not air. Treating it as air made
+         * legitimate 1.8 fence/bar clicks look like an air placement.
+         */
+        if (isKnownAir(x, y, z)
+                && isKnownAir(x + 1, y, z) && isKnownAir(x - 1, y, z)
+                && isKnownAir(x, y + 1, z) && isKnownAir(x, y - 1, z)
+                && isKnownAir(x, y, z + 1) && isKnownAir(x, y, z - 1)) {
             if (increaseBuffer() > 1.0) {
                 fail("Air Place", "x " + MsgType.MAIN_THEME_COLOR.getMessage() + x
                         + "\ny " + MsgType.MAIN_THEME_COLOR.getMessage() + y
@@ -65,9 +74,31 @@ public class InteractE extends Check {
         }
     }
 
-    private boolean isAir(int x, int y, int z) {
+    private boolean isKnownAir(int x, int y, int z) {
         Material mat = profile.getBlockProcessor().getServerMaterial(x, y, z);
-        return mat == null || mat.name().contains("AIR");
+        return mat != null && mat.name().contains("AIR");
+    }
+
+    private boolean hasThinPlacementSupport(int x, int y, int z) {
+        return isThinSupport(x, y, z)
+                || isThinSupport(x + 1, y, z) || isThinSupport(x - 1, y, z)
+                || isThinSupport(x, y + 1, z) || isThinSupport(x, y - 1, z)
+                || isThinSupport(x, y, z + 1) || isThinSupport(x, y, z - 1);
+    }
+
+    private boolean isThinSupport(int x, int y, int z) {
+        Material material = profile.getBlockProcessor().getServerMaterial(x, y, z);
+
+        if (material == null) {
+            return false;
+        }
+
+        String name = material.name();
+        return name.contains("FENCE")
+                || name.contains("BARS")
+                || name.contains("PANE")
+                || name.endsWith("_WALL")
+                || name.contains("FENCE_GATE");
     }
 
     @Override

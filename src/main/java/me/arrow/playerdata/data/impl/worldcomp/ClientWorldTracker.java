@@ -316,8 +316,7 @@ public class ClientWorldTracker implements Data {
         public Vector closestGhost;
 
         public boolean shouldExemptMovementChecks() {
-            return nearGhostBlock || interactingGhostBlock || clientOnlyBlock || serverOnlyBlock || physicsMismatch
-                    || touchingPhysicsGhost || pendingLagCompensated || unknownClientChunk;
+            return false;
         }
 
         public boolean shouldAutoSync() {

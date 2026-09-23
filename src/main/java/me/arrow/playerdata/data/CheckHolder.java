@@ -86,6 +86,15 @@ public class CheckHolder {
         for (int i = 0; i < this.checksSize; i++) this.checks[i].handle(event);
     }
 
+    public <T extends Check> T getCheck(Class<T> checkClass) {
+        for (int i = 0; i < this.checksSize; i++) {
+            if (checkClass.isInstance(this.checks[i])) {
+                return checkClass.cast(this.checks[i]);
+            }
+        }
+        return null;
+    }
+
     public void registerAll() {
         this.movementCheck = new Movement(this.profile);
         this.combatCheck = new Combat(this.profile);
@@ -148,6 +157,8 @@ public class CheckHolder {
                 new ScaffoldA(this.profile),
                 new ScaffoldB(this.profile),
                 new ScaffoldC(this.profile),
+                new ScaffoldD(this.profile),
+                new ScaffoldE(this.profile),
 
                 new SpeedA(this.profile),
                 new SpeedB(this.profile),

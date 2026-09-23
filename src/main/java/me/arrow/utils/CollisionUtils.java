@@ -1,5 +1,6 @@
 package me.arrow.utils;
 
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import lombok.Getter;
 import me.arrow.Arrow;
 import me.arrow.backend.bukkit.nms.NmsInstance;
@@ -43,14 +44,12 @@ public class CollisionUtils {
      */
     private static final double EXPAND_HORIZONTAL = .75D;
 
-    /* Actual Java player footprint used only for support/ceiling collision. */
+    /* Slightly expanded footprint for ceiling collision. */
     private static final double PLAYER_HALF_WIDTH = .300001D;
 
-    /*
-     * Extended player footprint used only for floor support. It is independent
-     * of deltaY; walls and ceilings continue using the real 0.6-wide body.
-     */
-    private static final double SUPPORT_PLAYER_HALF_WIDTH = 0.75D;
+    /* Ground requires the unexpanded 0.6-wide player body to overlap a block. */
+    private static final double GROUND_PLAYER_HALF_WIDTH = .3D;
+    private static final double GROUND_CONTACT_EPSILON = 1.0E-3D;
 
     /*
     The exact additional expansion we need in order to correctly account for blocks on top and below.
@@ -606,6 +605,12 @@ public class CollisionUtils {
     }
 
     public static NearbyBlocksResult getNearbyBlocks(final CustomLocation location, final boolean async) {
+        return getNearbyBlocks(location, null, async);
+    }
+
+    public static NearbyBlocksResult getNearbyBlocks(final CustomLocation location,
+                                                     final CustomLocation previousLocation,
+                                                     final boolean async) {
 
         NearbyBlocksResult result = new NearbyBlocksResult();
 
@@ -655,14 +660,14 @@ public class CollisionUtils {
                 {
                     cloned.setY(aboveY);
                     final Block above = getBlock(cloned, async);
-                    result.handle(cloned, above, BlockPosition.ABOVE, nms);
+                    result.handle(cloned, above, nms);
                 }
 
                 under:
                 {
                     cloned.setY(underY);
                     final Block under = getBlock(cloned, async);
-                    result.handle(cloned, under, BlockPosition.UNDER, nms);
+                    result.handle(cloned, under, nms);
                 }
 
                 /*
@@ -675,34 +680,22 @@ public class CollisionUtils {
                 {
                     cloned.setY(middleY);
                     final Block middle = getBlock(cloned, async);
-                    result.handle(cloned, middle, BlockPosition.MIDDLE, nms);
+                    result.handle(cloned, middle, nms);
                 }
 
                 below:
                 {
                     cloned.setY(locationY);
                     final Block below = getBlock(cloned, async);
-                    result.handle(cloned, below, BlockPosition.BELOW, nms);
+                    result.handle(cloned, below, nms);
                 }
             }
         }
 
-        /*
-         * Ground and ceiling state must come from the player's real 0.6-wide
-         * hitbox, not from the wider nearby-material scan. Running this pass
-         * for every scan prevents a solid wall beside the player from being
-         * classified as ground while still supporting exact partial shapes.
-         */
-        result.resolveExactCollision(location, async, nms);
+        /* Ground and ceiling state come from collision shapes, not the wider nearby-material scan. */
+        result.resolveExactCollision(location, previousLocation, async, nms);
 
         return result;
-    }
-
-    private enum BlockPosition {
-        ABOVE,
-        MIDDLE,
-        BELOW,
-        UNDER
     }
 
     @Getter
@@ -710,9 +703,9 @@ public class CollisionUtils {
 
         private final List<Material> blockTypes = new ArrayList<>();
 
-        private boolean nearGround, exactGroundSupport, blockAbove, nearWaterLogged;
+        private boolean exactGroundSupport, landingGroundSupport, blockAbove, nearWaterLogged;
 
-        private void handle(CustomLocation location, Block block, BlockPosition blockPosition, NmsInstance nms) {
+        private void handle(CustomLocation location, Block block, NmsInstance nms) {
 
             Material type = null;
             if (location != null) {
@@ -723,15 +716,6 @@ public class CollisionUtils {
             }
 
             if (type == null || type == Material.AIR) return;
-
-            if (blockPosition == BlockPosition.UNDER) {
-                if (type.isSolid()
-//                        || PEMaterials.hasCollision(type)
-//                        || PEMaterials.hasPotentialCollision(type)
-                ) {
-                    this.nearGround = true;
-                }
-            }
 
             if (!this.nearWaterLogged) {
                 if (type.name().contains("WATER")
@@ -746,7 +730,8 @@ public class CollisionUtils {
             this.blockTypes.add(type);
         }
 
-        private void resolveExactCollision(CustomLocation location, boolean async, NmsInstance nms) {
+        private void resolveExactCollision(CustomLocation location, CustomLocation previousLocation,
+                                           boolean async, NmsInstance nms) {
             if (location == null || location.getWorld() == null) {
                 return;
             }
@@ -755,25 +740,33 @@ public class CollisionUtils {
             double playerMaxX = location.getX() + PLAYER_HALF_WIDTH;
             double playerMinZ = location.getZ() - PLAYER_HALF_WIDTH;
             double playerMaxZ = location.getZ() + PLAYER_HALF_WIDTH;
-            double supportMinX = location.getX() - SUPPORT_PLAYER_HALF_WIDTH;
-            double supportMaxX = location.getX() + SUPPORT_PLAYER_HALF_WIDTH;
-            double supportMinZ = location.getZ() - SUPPORT_PLAYER_HALF_WIDTH;
-            double supportMaxZ = location.getZ() + SUPPORT_PLAYER_HALF_WIDTH;
             double feetY = location.getY();
 
-            /* Shape-aware vertical support band; edge grace is horizontal only. */
-            double supportMinY = feetY - 0.625001D;
-            double supportMaxY = feetY + 0.050001D;
+            boolean descending = previousLocation != null
+                    && previousLocation.getWorld() == location.getWorld()
+                    && feetY < previousLocation.getY() - GROUND_CONTACT_EPSILON;
+            double sweepMinX = descending
+                    ? Math.min(location.getX(), previousLocation.getX()) - GROUND_PLAYER_HALF_WIDTH
+                    : location.getX() - GROUND_PLAYER_HALF_WIDTH;
+            double sweepMaxX = descending
+                    ? Math.max(location.getX(), previousLocation.getX()) + GROUND_PLAYER_HALF_WIDTH
+                    : location.getX() + GROUND_PLAYER_HALF_WIDTH;
+            double sweepMinZ = descending
+                    ? Math.min(location.getZ(), previousLocation.getZ()) - GROUND_PLAYER_HALF_WIDTH
+                    : location.getZ() - GROUND_PLAYER_HALF_WIDTH;
+            double sweepMaxZ = descending
+                    ? Math.max(location.getZ(), previousLocation.getZ()) + GROUND_PLAYER_HALF_WIDTH
+                    : location.getZ() + GROUND_PLAYER_HALF_WIDTH;
 
             /* Player head/ceiling band. */
             double headMinY = feetY + 1.425D;
             double headMaxY = feetY + 1.950001D;
 
-            int minX = floor(supportMinX);
-            int maxX = floor(supportMaxX);
-            int minZ = floor(supportMinZ);
-            int maxZ = floor(supportMaxZ);
-            int minY = floor(supportMinY);
+            int minX = floor(Math.min(playerMinX, sweepMinX));
+            int maxX = floor(Math.max(playerMaxX, sweepMaxX));
+            int minZ = floor(Math.min(playerMinZ, sweepMinZ));
+            int maxZ = floor(Math.max(playerMaxZ, sweepMaxZ));
+            int minY = floor(feetY - GROUND_CONTACT_EPSILON);
             int maxY = floor(headMaxY);
 
             CustomLocation probe = location.clone();
@@ -785,11 +778,18 @@ public class CollisionUtils {
                         probe.setY(y + 0.5D);
                         probe.setZ(z + 0.5D);
 
-                        Material material = me.arrow.playerdata.cache.ChunkCache.get().getBlock(probe);
-                        Block block = getBlock(probe, async);
+                        Material material = ChunkCache.get().getBlock(probe);
+                        WrappedBlockState cachedState = ChunkCache.get().getBlockState(probe);
+                        List<PEMaterials.CollisionBounds> boxes = cachedState != null
+                                ? PEMaterials.getCollisionBounds(cachedState, x, y, z)
+                                : null;
+                        Block block = null;
 
-                        if ((material == null || material == Material.AIR) && block != null) {
-                            material = nms.getType(block);
+                        if (material == null) {
+                            block = getBlock(probe, async);
+                            if (block != null) {
+                                material = nms.getType(block);
+                            }
                         }
 
                         if (material == null || material == Material.AIR) {
@@ -808,11 +808,15 @@ public class CollisionUtils {
                             }
                         }
 
-                        List<PEMaterials.CollisionBounds> boxes = null;
-                        if (block != null) {
+                        if (boxes == null && PEMaterials.requiresStatefulCollision(material)) {
+                            if (block == null) {
+                                block = getBlock(probe, async);
+                            }
+                        }
+                        if (boxes == null && block != null) {
                             boxes = PEMaterials.getCollisionBounds(block);
                         }
-                        if (boxes == null || boxes.isEmpty()) {
+                        if (boxes == null) {
                             boxes = PEMaterials.getCollisionBounds(material, x, y, z);
                         }
 
@@ -824,18 +828,24 @@ public class CollisionUtils {
                             if (!this.exactGroundSupport
                                     && overlapsHorizontally(
                                             box,
-                                            playerMinX, playerMinZ,
-                                            playerMaxX, playerMaxZ
+                                            location.getX() - GROUND_PLAYER_HALF_WIDTH,
+                                            location.getZ() - GROUND_PLAYER_HALF_WIDTH,
+                                            location.getX() + GROUND_PLAYER_HALF_WIDTH,
+                                            location.getZ() + GROUND_PLAYER_HALF_WIDTH
                                     )
-                                    && Math.abs(box.maxY - feetY) <= 0.050001D) {
+                                    && Math.abs(box.maxY - feetY) <= GROUND_CONTACT_EPSILON) {
                                 this.exactGroundSupport = true;
                             }
 
-                            if (!this.nearGround
-                                    && overlapsSupportFootprint(box, location)
-                                    && box.maxY >= supportMinY
-                                    && box.maxY <= supportMaxY) {
-                                this.nearGround = true;
+                            if (!this.landingGroundSupport
+                                    && descending
+                                    && overlapsHorizontally(
+                                            box,
+                                            sweepMinX, sweepMinZ,
+                                            sweepMaxX, sweepMaxZ
+                                    )
+                                    && Math.abs(box.maxY - feetY) <= GROUND_CONTACT_EPSILON) {
+                                this.landingGroundSupport = true;
                             }
 
                             if (!this.blockAbove && box.intersects(
@@ -858,23 +868,16 @@ public class CollisionUtils {
                     && box.minZ < maxZ - 1.0E-7D;
         }
 
-        private boolean overlapsSupportFootprint(PEMaterials.CollisionBounds box,
-                                                 CustomLocation center) {
-            return overlapsHorizontally(
-                    box,
-                    center.getX() - SUPPORT_PLAYER_HALF_WIDTH,
-                    center.getZ() - SUPPORT_PLAYER_HALF_WIDTH,
-                    center.getX() + SUPPORT_PLAYER_HALF_WIDTH,
-                    center.getZ() + SUPPORT_PLAYER_HALF_WIDTH
-            );
-        }
-
         public boolean hasBlockAbove() {
             return blockAbove;
         }
 
         public boolean hasExactGroundSupport() {
             return exactGroundSupport;
+        }
+
+        public boolean hasLandingGroundSupport() {
+            return landingGroundSupport;
         }
     }
 }

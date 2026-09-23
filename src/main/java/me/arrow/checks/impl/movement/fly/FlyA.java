@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import me.arrow.core.check.CheckType;
+import me.arrow.checks.impl.movement.motion.MotionC;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -93,18 +94,18 @@ public class FlyA extends Check {
 
                 if (hasJumpBoost) {
                     if (recentlyPlaced) {
-                        airTickLimit = (16 + clientTickTrans) + jumpLevel;
-                        clientAirTickLimit = (18 + clientTickTrans) + jumpLevel;
+                        airTickLimit = (20 + clientTickTrans) + jumpLevel;
+                        clientAirTickLimit = (20 + clientTickTrans) + jumpLevel;
                     } else {
-                        airTickLimit = 8 + jumpLevel;
-                        clientAirTickLimit = 12 + jumpLevel;
+                        airTickLimit = 13 + jumpLevel;
+                        clientAirTickLimit = 13 + jumpLevel;
                     }
                 } else {
-                    airTickLimit = recentlyPlaced ? 16 + clientTickTrans : 8;
-                    clientAirTickLimit = recentlyPlaced ? 20 + clientTickTrans : 12;
+                    airTickLimit = recentlyPlaced ? 20 + clientTickTrans : 14;
+                    clientAirTickLimit = recentlyPlaced ? 20 + clientTickTrans : 14;
                 }
 
-                if (deltaXZ != 0) airTickLimit += recentlyPlaced ? 6 + clientTickTrans : 2;
+                if (deltaXZ != 0) airTickLimit += recentlyPlaced ? 8 + clientTickTrans : 4;
 
                 clientAirTickLimit = 4 + jumpLevel;
 
@@ -147,7 +148,7 @@ public class FlyA extends Check {
                     ChatUtils.debugExempt("pistonFix", "FlyA");
                 }
 
-                airTickLimit = Math.max(airTickLimit, 12);
+                airTickLimit = Math.max(airTickLimit, 13);
 
                 boolean invalidNormal =
                         serverAirTicks > airTickLimit
@@ -230,15 +231,25 @@ public class FlyA extends Check {
                 //if (profile.getVelocityData().getVelocityTicks() < velocityTickExempt) return;
 
                 if (invalidNormal && !exempt && movementData.getSinceLevitationEffectTicks() > 20) {
-                    fail("Improbable air time (" + serverAirTicks + "/" + airTickLimit + ")",
-                            "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                    + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + "true\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
-                                    + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
-                                    + "\nairTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit + " / " + clientAirTickLimit
-                                    + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                    + "\nfallDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDistance
-                                    + "\nunderBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock());
+                    String verboseTitle = "Improbable air time (" + serverAirTicks + "/" + airTickLimit + ")";
+                    String verboseInfo = "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                            + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                            + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + "true\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
+                            + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
+                            + "\nairTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit + " / " + clientAirTickLimit
+                            + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                            + "\nfallDistance " + MsgType.MAIN_THEME_COLOR.getMessage() + fallDistance
+                            + "\nunderBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isUnderblock();
+
+                    if (movementData.isNearWall()) {
+                        MotionC motionC = profile.getCheckHolder().getCheck(MotionC.class);
+                        if (motionC != null) {
+                            motionC.fail(verboseTitle, verboseInfo);
+                            return;
+                        }
+                    }
+
+                    fail(verboseTitle, verboseInfo);
                 }
             } finally {
                 Profiler.stop("Fly A", profiler);
