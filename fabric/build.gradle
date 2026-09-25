@@ -29,6 +29,11 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
+    // The shared core uses Lombok-generated accessors.  This is compile-time
+    // only, matching the Maven backend; it is never bundled into the mod jar.
+    compileOnly "org.projectlombok:lombok:1.18.44"
+    annotationProcessor "org.projectlombok:lombok:1.18.44"
+
     // PacketEvents remains a server-installed Fabric mod; do not bundle a second copy.
     compileOnly "com.github.retrooper:packetevents-api:${project.packetevents_version}"
     runtimeOnly "com.github.retrooper:packetevents-fabric:${project.packetevents_version}"

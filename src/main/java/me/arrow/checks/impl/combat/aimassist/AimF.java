@@ -51,8 +51,8 @@ public class AimF extends Check {
 
                 if (distinctYaw > 40 && distinctPitch <= distinctYaw / 2 && distinctPitch > 10) {
                     if (increaseBuffer() > 3) {
-                        fail("Smooth Aim", "yawCount " + distinctYaw + MsgType.MAIN_THEME_COLOR.getMessage()
-                                + "\npitchCount " + MsgType.MAIN_THEME_COLOR.getMessage() + distinctPitch);
+                        fail("Smooth Aim", "yawCount " + MsgType.MAIN_THEME_COLOR.getMessage() + distinctYaw +
+                                "\npitchCount " + MsgType.MAIN_THEME_COLOR.getMessage() + distinctPitch);
                     }
                 } else {
                     decreaseBufferBy(0.75);

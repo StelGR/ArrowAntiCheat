@@ -34,7 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-// this is a GPT improved processor from MrPlugin, it syncs ghost blocks (does not work on 1.8)
+// this is a GPT improved processor from MrPlugin, it syncs ghost blocks
 // and properly accounts for world guard blocks, so it really helps fix alot of bugs with ghost blocks
 // such as the piston glitch i found where if you place a block by spamming on a piston that's moving with 1 extra tick delay
 // you can make any block become a ghost block
@@ -2176,9 +2176,9 @@ public class BlockProcessor implements Data {
             if (!CollisionUtils.isChunkLoaded(new Location(world, syncBlock.x, syncBlock.y, syncBlock.z))) return;
 
             Block block = world.getBlockAt(syncBlock.x, syncBlock.y, syncBlock.z);
-            sendBlockChangeCompat(player, block);
+            boolean corrected = sendBlockChangeCompat(player, block);
 
-            if (syncBlock.removeStoredGhost) {
+            if (corrected && syncBlock.removeStoredGhost) {
                 removeGhostBlock(new Vector(syncBlock.x, syncBlock.y, syncBlock.z));
             }
 
@@ -2236,29 +2236,30 @@ public class BlockProcessor implements Data {
         return key;
     }
 
-    void sendBlockChangeCompat(Player player, Block block) {
-        // Sends the authoritative block state using modern or legacy Bukkit APIs.
+    boolean sendBlockChangeCompat(Player player, Block block) {
+        // Sends the authoritative server state through the normal Via translation pipeline.
         if (player == null || block == null || !player.isOnline()) {
-            return;
+            return false;
         }
 
         Location location = block.getLocation();
 
         if (location.getWorld() == null) {
-            return;
+            return false;
         } else {
             player.getWorld();
         }
 
         if (!location.getWorld().getName().equals(player.getWorld().getName())) {
-            return;
+            return false;
         }
 
         if (tryModernSendBlockChange(player, block, location)) {
-            return;
+            return true;
         }
 
         tryLegacySendBlockChange(player, block, location);
+        return cachedLegacySendBlockChangeMethod != null;
     }
 
     boolean sameBlock(Vector vector, int x, int y, int z) {

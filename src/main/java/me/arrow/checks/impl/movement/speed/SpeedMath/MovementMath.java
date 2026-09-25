@@ -105,14 +105,36 @@ public class MovementMath {
     // ---------------------------------------------------------------------
     public void simulateMovement(double kbX, double kbZ, boolean test) {
         MovementData movementData = profile.getMovementData();
-        // friction handling
+        ActionData actionData = profile.getActionData();
+        boolean modernMovement = profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);
+
+        // Karhu's currentFriction / lastTickFriction packet snapshots.
         float friction = movementData.getFrictionFactor();
         float lastTickFriction = movementData.getLastFrictionFactor();
-        if (!profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_13)) {
+        if (!modernMovement) {
             friction *= 0.91F;
         }
         boolean onGround = movementData.isLastOnGround();
-        float yaw = movementData.getLocation().getYaw();
+        // RotationData is processed before this simulation.  MovementData's
+        // location intentionally retains its old yaw for rotation-only
+        // packets, so reading it here makes the predicted input vector one
+        // packet stale while a player turns.  Karhu uses the current packet
+        // yaw, which is exactly what RotationData represents in Arrow.
+        float yaw = profile.getRotationData().getYaw();
+        boolean bruteforceSprint = actionData.isSprinting() != actionData.isLastSprinting()
+                || actionData.isLastSprinting() != actionData.isLastLastSprinting();
+        // Karhu also brute-forces immediately after a server-side sprint
+        // attribute update.  Arrow does not retain that packet timestamp, but
+        // Bukkit's state still differs from the just-received entity action
+        // for that transition, which is the same ambiguous frame.
+        try {
+            bruteforceSprint |= profile.getPlayer().isSprinting() != actionData.isSprinting();
+        } catch (Throwable ignored) {
+        }
+        org.bukkit.util.Vector velocity = profile.getVelocityData().isTakingVelocity()
+                && profile.getVelocityData().getVelocityTicks() <= 1
+                ? profile.getVelocityData().getVelocityfvc()
+                : null;
 
         // reset outputs
         if (!test) {
@@ -122,20 +144,20 @@ public class MovementMath {
         }
         scenarioAmount = 0;
 
-//        boolean bruteforceSprint = movementData.isResettingSprint()
-//                || movementData.elapsed(movementData.getSprintAttributeTick()) <= 3
-//                || movementData.isMetadataSprint()
-//                || movementData.isSettingMetadataSprint();
-
         mainLoop:
         for (float[] floats : KEY_COMBOS) {
             for (boolean attack : BOOLEANS_REVERSED) {
                 for (boolean use : BOOLEANS_REVERSED) {
-                    for (boolean sprinting : BOOLEANS_REVERSED) {
-                        if (processScenario(floats, attack, use, sprinting, kbX, kbZ, test,
-                                friction, lastTickFriction, onGround, yaw)) {
-                            break mainLoop;
+                    if (bruteforceSprint) {
+                        for (boolean sprinting : BOOLEANS_REVERSED) {
+                            if (processScenario(floats, attack, use, sprinting, kbX, kbZ, test,
+                                    friction, lastTickFriction, velocity, onGround, yaw, modernMovement)) {
+                                break mainLoop;
+                            }
                         }
+                    } else if (processScenario(floats, attack, use, actionData.isSprinting(), kbX, kbZ, test,
+                            friction, lastTickFriction, velocity, onGround, yaw, modernMovement)) {
+                        break mainLoop;
                     }
                 }
             }
@@ -145,8 +167,16 @@ public class MovementMath {
     private boolean processScenario(float[] floats, boolean attack, boolean using, boolean sprint,
                                     double kbX, double kbZ, boolean test,
                                     float friction, float lastTickFriction,
-                                    boolean onGround, float yaw) {
-        float attributeValue = (float) me.arrow.utils.ReflectionUtils.getPlayerMovementSpeed(profile.getPlayer());
+                                    org.bukkit.util.Vector velocity, boolean onGround, float yaw,
+                                    boolean modernMovement) {
+        // Karhu stores the attribute packet with the sprint modifier removed
+        // and tries sprint as a separate scenario.  The live Bukkit value is
+        // already sprint-modified, so using it here would multiply sprint by
+        // 1.3 twice and make ordinary ground movement impossible to match.
+        double moveSpeed = me.arrow.utils.ReflectionUtils.getPlayerMovementSpeedWithoutSprint(profile.getPlayer());
+        if (!Double.isFinite(moveSpeed) || moveSpeed <= 0.0D) {
+            moveSpeed = 0.1D;
+        }
 
         double moveForward = floats[1];
         double moveStrafe = floats[0];
@@ -176,15 +206,17 @@ public class MovementMath {
                 forward *= 0.98f;
                 strafe *= 0.98f;
 
-                double lastDX = movementData.getDeltaX();
-                double lastDZ = movementData.getDeltaZ();
+                // The new movement must be predicted from Karhu's lastDX/Z,
+                // rather than feeding this packet's observation back in.
+                double lastDX = movementData.getLastDeltaX();
+                double lastDZ = movementData.getLastDeltaZ();
 
-                if (!movementData.isInsideWater()) {
+                if (!movementData.isWasWasInWater()) {
                     lastDX *= movementData.isLastLastOnGround() ? lastTickFriction * 0.91F : 0.91F;
                     lastDZ *= movementData.isLastLastOnGround() ? lastTickFriction * 0.91F : 0.91F;
                 } else {
                     float f3 = (float) SpeedUtilities.getDepthStriderLevel(profile);
-                    float f9 = sprint && profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_13)
+                    float f9 = sprint && modernMovement
                             ? 0.9F : 0.8F;
 
                     if (f3 > 3.0F) f3 = 3.0F;
@@ -200,9 +232,9 @@ public class MovementMath {
                 }
 
                 if (!test) {
-                    if (profile.getVelocityData().getVelocityTicks() <= 1) {
-                        lastDX = profile.getVelocityData().getVelocityfvc().getX();
-                        lastDZ = profile.getVelocityData().getVelocityfvc().getZ();
+                    if (velocity != null) {
+                        lastDX = velocity.getX();
+                        lastDZ = velocity.getZ();
                     }
                 } else {
                     lastDX = kbX;
@@ -217,21 +249,21 @@ public class MovementMath {
                 if (Math.abs(lastDX) < clamp()) lastDX = 0;
                 if (Math.abs(lastDZ) < clamp()) lastDZ = 0;
 
-                //if (sprint) moveSpeed += moveSpeed * 0.1F;
-
-//                if (profile.getVersion().isNewerThan(ClientVersion.V_1_12_2)) {
-//                    if (sprint) moveSpeed += moveSpeed * 0.3F;
-//                } else {
-//                    if (sprint) moveSpeed *= 1.0 + 0.3F;
-//                }
+                // Karhu applies the sprint attribute before calculating either
+                // ground or water input force.
+                if (!modernMovement) {
+                    if (sprint) moveSpeed += moveSpeed * 0.3F;
+                } else {
+                    if (sprint) moveSpeed *= 1.0D + 0.3F;
+                }
 
                 float f5;
-                if (!movementData.isInsideWater()) {
+                if (!movementData.isWasInWater()) {
                     if (onGround) {
-                        if (!profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_12_2)) {
-                            f5 = (float) (double) attributeValue * (0.16277136f / (friction * friction * friction));
+                        if (!modernMovement) {
+                            f5 = (float) moveSpeed * (0.16277136f / (friction * friction * friction));
                         } else {
-                            f5 = (float) (double) attributeValue * (0.21600002f / (friction * friction * friction));
+                            f5 = (float) moveSpeed * (0.21600002f / (friction * friction * friction));
                         }
                         if (jump && sprint) {
                             float radians = yaw * ((float) Math.PI / 180);
@@ -241,7 +273,7 @@ public class MovementMath {
                     } else {
                         f5 = (float) (sprint ? ((double) 0.02F + (double) 0.02F * 0.3D) : 0.02F);
                     }
-                    if (profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_12_2)) {
+                    if (modernMovement) {
                         Vec3 result = getInputVector(new Vec3(strafe, 0, forward), f5, yaw);
                         lastDX += result.xCoord;
                         lastDZ += result.zCoord;
@@ -255,10 +287,10 @@ public class MovementMath {
                     float f3 = Math.min(3.0F, (float) SpeedUtilities.getDepthStriderLevel(profile));
                     if (!onGround) f3 *= 0.5F;
                     if (f3 > 0.0F) {
-                        accel += (((float) (double) attributeValue) - accel) * f3 / 3.0F;
+                        accel += ((float) moveSpeed - accel) * f3 / 3.0F;
                     }
                     f5 = accel;
-                    if (profile.getVersion().isNewerThanOrEquals(ClientVersion.V_1_12_2)) {
+                    if (modernMovement) {
                         Vec3 result = getInputVector(new Vec3(strafe, 0, forward), f5, yaw);
                         lastDX += result.xCoord;
                         lastDZ += result.zCoord;
@@ -291,7 +323,7 @@ public class MovementMath {
                         this.jumped = jump;
                         this.attacking = attack;
                         this.useItem = using;
-                        this.attributeSpeed = (float) (double) attributeValue;
+                        this.attributeSpeed = (float) moveSpeed;
                         this.moveForward = forward;
                         this.moveStrafe = strafe;
                         this.f5 = f5;

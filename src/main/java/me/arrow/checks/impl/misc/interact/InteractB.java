@@ -17,7 +17,7 @@ public class InteractB extends Check {
     }
 
     @Override
-    public void handle( PacketSendEvent event) {
+    public void handle(PacketSendEvent event) {
 
     }
 
