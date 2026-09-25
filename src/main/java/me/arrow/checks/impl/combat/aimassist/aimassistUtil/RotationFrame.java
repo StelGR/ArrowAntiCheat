@@ -5,7 +5,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import me.arrow.playerdata.data.impl.RotationData;
 
 /** A signed packet-time rotation delta for general aim analysis. */
-public final class RotationFrame {
+public class RotationFrame {
 
     public final double yaw;
     public final double pitch;
