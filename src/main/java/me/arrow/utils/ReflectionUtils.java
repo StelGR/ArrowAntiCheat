@@ -20,9 +20,13 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A reflection utility class that we'll be using for certain things
@@ -46,6 +50,13 @@ public class ReflectionUtils {
         OBC_CLASSES.clear();
         METHODS.clear();
         FIELDS.clear();
+        ATTRIBUTE_ENUM_CACHE.clear();
+        LEGACY_ATTRIBUTE_CACHE.clear();
+        ATTRIBUTE_CLASS = null;
+        GET_ATTRIBUTE_METHOD = null;
+        GET_VALUE_METHOD = null;
+        GET_BASE_VALUE_METHOD = null;
+        ATTRIBUTE_INITIALIZED = false;
     }
 
     public static String getVersion() {
@@ -439,14 +450,21 @@ public class ReflectionUtils {
     }
 
     // ==========================================
-    // Safe Bukkit Attribute Reflection (1.8 - 1.21+)
+    // Safe Bukkit/NMS attribute bridge (1.7 - current)
     // ==========================================
     private static Class<?> ATTRIBUTE_CLASS;
     private static Method GET_ATTRIBUTE_METHOD;
     private static Method GET_VALUE_METHOD;
     private static Method GET_BASE_VALUE_METHOD;
     private static boolean ATTRIBUTE_INITIALIZED = false;
-    private static final Map<String, Object> ATTRIBUTE_ENUM_CACHE = new HashMap<>();
+    /*
+     * Attribute was added to Bukkit in 1.9 and changed from an enum to a
+     * registry-backed type in newer releases.  Keep the Bukkit lookup separate
+     * from the legacy NMS lookup: a failed modern lookup must never poison the
+     * 1.7/1.8 fallback cache.
+     */
+    private static final Map<String, Object> ATTRIBUTE_ENUM_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Object> LEGACY_ATTRIBUTE_CACHE = new ConcurrentHashMap<>();
 
     private static synchronized void initAttributes() {
         if (ATTRIBUTE_INITIALIZED) return;
@@ -454,7 +472,7 @@ public class ReflectionUtils {
 
         try {
             ATTRIBUTE_CLASS = Class.forName("org.bukkit.attribute.Attribute");
-            GET_ATTRIBUTE_METHOD = Player.class.getMethod("getAttribute", ATTRIBUTE_CLASS);
+            GET_ATTRIBUTE_METHOD = findCompatibleMethod(Player.class, "getAttribute", ATTRIBUTE_CLASS);
             Class<?> instanceClass = Class.forName("org.bukkit.attribute.AttributeInstance");
             GET_VALUE_METHOD = instanceClass.getMethod("getValue");
             try {
@@ -475,7 +493,7 @@ public class ReflectionUtils {
         } else {
             candidates.add(attributeName.substring("GENERIC_".length()));
         }
-        String upper = attributeName.toUpperCase();
+        String upper = attributeName.toUpperCase(Locale.ROOT);
         if (!candidates.contains(upper)) candidates.add(upper);
         if (!upper.startsWith("GENERIC_")) {
             String genUpper = "GENERIC_" + upper;
@@ -543,11 +561,11 @@ public class ReflectionUtils {
                 Class<?> keyClass = Class.forName("org.bukkit.NamespacedKey");
                 Method minecraftKeyMethod = keyClass.getMethod("minecraft", String.class);
 
-                String cleanName = attributeName.toLowerCase().replace("generic_", "").replace('.', '_');
+                String cleanName = registryAttributeKey(attributeName);
                 String[] keyCandidates = new String[] {
                         cleanName,
                         "generic." + cleanName,
-                        attributeName.toLowerCase().replace('_', '.')
+                        attributeName.toLowerCase(Locale.ROOT).replace('_', '.')
                 };
                 for (String keyStr : keyCandidates) {
                     try {
@@ -581,46 +599,293 @@ public class ReflectionUtils {
             }
         } catch (Throwable ignored) {}
 
-        // Fallback for 1.8.8 NMS
-        return getAttribute1_8(player, attributeName);
+        // Bukkit did not expose attributes before 1.9. Use the live NMS
+        // attribute map on 1.7/1.8, and retain it as a recovery path for forks
+        // whose Bukkit attribute registry is incomplete.
+        return getLegacyAttribute(player, attributeName);
     }
 
-    private static Object getAttribute1_8(Player player, String attributeName) {
-        if (player == null) return null;
+    private static Object getLegacyAttribute(Player player, String attributeName) {
+        if (player == null || attributeName == null) return null;
+
         try {
-            Method getHandle = getMethod(player.getClass(), "getHandle");
+            Method getHandle = findCompatibleMethod(player.getClass(), "getHandle");
             if (getHandle == null) return null;
+
             Object nmsPlayer = getHandle.invoke(player);
             if (nmsPlayer == null) return null;
 
-            Method getAttributeMap = getMethod(nmsPlayer.getClass(), "getAttributeMap");
-            if (getAttributeMap == null) return null;
-            Object attributeMap = getAttributeMap.invoke(nmsPlayer);
-            if (attributeMap == null) return null;
+            Object attributeMap = invokeNoArg(nmsPlayer, "getAttributeMap", "aV", "eE");
+            String nmsName = nmsAttributeName(attributeName);
 
-            Method aMethod = getMethod(attributeMap.getClass(), "a", String.class);
-            if (aMethod == null) return null;
+            /* 1.7/1.8 AttributeMapBase exposes a(String) on many mappings. */
+            Object byName = invokeSingleString(attributeMap, nmsName);
+            if (byName != null) return byName;
 
-            String nmsName;
-            String upper = attributeName.toUpperCase();
-            if (upper.contains("SPEED") || upper.contains("MOVEMENT")) {
-                nmsName = "generic.movementSpeed";
-            } else if (upper.contains("HEALTH")) {
-                nmsName = "generic.maxHealth";
-            } else if (upper.contains("KNOCKBACK")) {
-                nmsName = "generic.knockbackResistance";
-            } else if (upper.contains("DAMAGE") || upper.contains("ATTACK")) {
-                nmsName = "generic.attackDamage";
-            } else if (upper.contains("FOLLOW")) {
-                nmsName = "generic.followRange";
-            } else {
-                nmsName = attributeName;
-            }
+            Object nmsAttribute = LEGACY_ATTRIBUTE_CACHE.computeIfAbsent(
+                    canonicalAttributeName(attributeName),
+                    ignored -> resolveLegacyNmsAttribute(nmsPlayer, attributeName)
+            );
+            if (nmsAttribute == null) return null;
 
-            return aMethod.invoke(attributeMap, nmsName);
+            Object instance = invokeAttributeLookup(nmsPlayer, nmsAttribute);
+            return instance != null ? instance : invokeAttributeLookup(attributeMap, nmsAttribute);
         } catch (Throwable ignored) {
             return null;
         }
+    }
+
+    private static Object resolveLegacyNmsAttribute(Object nmsPlayer, String requestedName) {
+        String[] classNames = {
+                "net.minecraft.server." + legacyCraftVersion() + "GenericAttributes",
+                "net.minecraft.world.entity.ai.attributes.Attributes"
+        };
+
+        for (String className : classNames) {
+            if (className.contains("..")) continue;
+
+            try {
+                Class<?> attributes = Class.forName(className);
+                Object resolved = findStaticAttribute(attributes, requestedName);
+                if (resolved != null) return resolved;
+            } catch (Throwable ignored) {
+            }
+        }
+
+        /* Some hybrid 1.7/1.8 servers expose GenericAttributes through the
+         * player's class loader but use a relocated NMS package. */
+        for (Class<?> type = nmsPlayer.getClass(); type != null; type = type.getSuperclass()) {
+            Package pkg = type.getPackage();
+            if (pkg == null) continue;
+
+            try {
+                Class<?> attributes = Class.forName(pkg.getName().replace(".server.level", "") + ".GenericAttributes");
+                Object resolved = findStaticAttribute(attributes, requestedName);
+                if (resolved != null) return resolved;
+            } catch (Throwable ignored) {
+            }
+        }
+
+        return null;
+    }
+
+    private static Object findStaticAttribute(Class<?> attributes, String requestedName) {
+        String expected = canonicalAttributeName(requestedName);
+
+        for (Field field : attributes.getDeclaredFields()) {
+            if (!Modifier.isStatic(field.getModifiers())) continue;
+
+            try {
+                field.setAccessible(true);
+                Object candidate = field.get(null);
+                if (candidate == null) continue;
+
+                String name = getNmsAttributeName(candidate);
+                if (expected.equals(canonicalAttributeName(name))
+                        || expected.equals(canonicalAttributeName(field.getName()))) {
+                    return candidate;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        /* Obfuscated 1.7/1.8 GenericAttributes field names. These are only a
+         * final fallback after the self-describing attribute-name scan above. */
+        String fallbackField = legacyAttributeField(expected);
+        if (fallbackField == null) return null;
+
+        try {
+            Field field = attributes.getDeclaredField(fallbackField);
+            if (!Modifier.isStatic(field.getModifiers())) return null;
+            field.setAccessible(true);
+            return field.get(null);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Object invokeAttributeLookup(Object owner, Object attribute) {
+        if (owner == null || attribute == null) return null;
+
+        for (String name : new String[]{"getAttributeInstance", "a"}) {
+            for (Method method : allInstanceMethods(owner.getClass(), name, 1)) {
+                Class<?> parameter = method.getParameterTypes()[0];
+                if (!parameter.isAssignableFrom(attribute.getClass())) continue;
+
+                try {
+                    method.setAccessible(true);
+                    Object result = method.invoke(owner, attribute);
+                    if (result != null) return result;
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static Object invokeSingleString(Object owner, String value) {
+        if (owner == null || value == null) return null;
+
+        for (String name : new String[]{"getAttributeInstance", "a"}) {
+            for (Method method : allInstanceMethods(owner.getClass(), name, 1)) {
+                if (method.getParameterTypes()[0] != String.class) continue;
+
+                try {
+                    method.setAccessible(true);
+                    Object result = method.invoke(owner, value);
+                    if (result != null) return result;
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static Object invokeNoArg(Object owner, String... names) {
+        if (owner == null) return null;
+
+        for (String name : names) {
+            Method method = findCompatibleMethod(owner.getClass(), name);
+            if (method == null) continue;
+
+            try {
+                Object result = method.invoke(owner);
+                if (result != null) return result;
+            } catch (Throwable ignored) {
+            }
+        }
+
+        return null;
+    }
+
+    private static String getNmsAttributeName(Object attribute) {
+        if (attribute == null) return null;
+
+        for (String name : new String[]{"getName", "a", "c"}) {
+            Method method = findCompatibleMethod(attribute.getClass(), name);
+            if (method == null || method.getReturnType() != String.class) continue;
+
+            try {
+                Object value = method.invoke(attribute);
+                if (value instanceof String) return (String) value;
+            } catch (Throwable ignored) {
+            }
+        }
+
+        return null;
+    }
+
+    private static String legacyCraftVersion() {
+        try {
+            String packageName = Bukkit.getServer().getClass().getPackage().getName();
+            String suffix = packageName.substring(packageName.lastIndexOf('.') + 1);
+            return suffix.startsWith("v1_") ? suffix + "." : "";
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    private static String legacyAttributeField(String canonicalName) {
+        if ("maxhealth".equals(canonicalName)) return "a";
+        if ("followrange".equals(canonicalName)) return "b";
+        if ("knockbackresistance".equals(canonicalName)) return "c";
+        if ("movementspeed".equals(canonicalName)) return "d";
+        if ("attackdamage".equals(canonicalName)) return "e";
+        return null;
+    }
+
+    private static String nmsAttributeName(String attributeName) {
+        String canonical = canonicalAttributeName(attributeName);
+        if ("movementspeed".equals(canonical)) return "generic.movementSpeed";
+        if ("maxhealth".equals(canonical)) return "generic.maxHealth";
+        if ("knockbackresistance".equals(canonical)) return "generic.knockbackResistance";
+        if ("attackdamage".equals(canonical)) return "generic.attackDamage";
+        if ("followrange".equals(canonical)) return "generic.followRange";
+        return attributeName;
+    }
+
+    private static String canonicalAttributeName(String name) {
+        if (name == null) return "";
+
+        return name.toLowerCase(Locale.ROOT)
+                .replace("generic", "")
+                .replaceAll("[^a-z0-9]", "");
+    }
+
+    /** Bukkit's modern registry uses snake_case keys, while both the legacy
+     * NMS names and Bukkit's historical enum use generic.movementSpeed /
+     * GENERIC_MOVEMENT_SPEED. */
+    private static String registryAttributeKey(String name) {
+        String canonical = canonicalAttributeName(name);
+        if ("movementspeed".equals(canonical)) return "movement_speed";
+        if ("maxhealth".equals(canonical)) return "max_health";
+        if ("followrange".equals(canonical)) return "follow_range";
+        if ("knockbackresistance".equals(canonical)) return "knockback_resistance";
+        if ("attackdamage".equals(canonical)) return "attack_damage";
+        if ("attackspeed".equals(canonical)) return "attack_speed";
+        if ("armortoughness".equals(canonical)) return "armor_toughness";
+        if ("luck".equals(canonical)) return "luck";
+        if ("flyingspeed".equals(canonical)) return "flying_speed";
+        if ("scale".equals(canonical)) return "scale";
+        if ("gravity".equals(canonical)) return "gravity";
+        if ("safefalldistance".equals(canonical)) return "safe_fall_distance";
+        if ("stepheight".equals(canonical)) return "step_height";
+        if ("jumpstrength".equals(canonical)) return "jump_strength";
+
+        String key = name == null ? "" : name.toLowerCase(Locale.ROOT)
+                .replace("generic_", "")
+                .replace("generic.", "")
+                .replace('.', '_');
+        return key.isEmpty() ? canonical : key;
+    }
+
+    private static Method findCompatibleMethod(Class<?> type, String name, Class<?>... parameters) {
+        if (type == null) return null;
+
+        for (Method method : allInstanceMethods(type, name, parameters.length)) {
+            Class<?>[] actual = method.getParameterTypes();
+            boolean matches = true;
+
+            for (int i = 0; i < actual.length; i++) {
+                if (!actual[i].isAssignableFrom(parameters[i])) {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (matches) {
+                try {
+                    method.setAccessible(true);
+                } catch (Throwable ignored) {
+                }
+                return method;
+            }
+        }
+
+        return null;
+    }
+
+    private static List<Method> allInstanceMethods(Class<?> type, String name, int parameterCount) {
+        List<Method> methods = new ArrayList<>();
+
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            for (Method method : current.getDeclaredMethods()) {
+                if (method.getName().equals(name) && method.getParameterCount() == parameterCount) {
+                    methods.add(method);
+                }
+            }
+        }
+
+        for (Method method : type.getMethods()) {
+            if (method.getName().equals(name) && method.getParameterCount() == parameterCount
+                    && !methods.contains(method)) {
+                methods.add(method);
+            }
+        }
+
+        return methods;
     }
 
     public static double getAttributeValue(Player player, String attributeName, double defaultValue) {
@@ -633,16 +898,9 @@ public class ReflectionUtils {
         try {
             Object instance = getAttribute(player, attributeName);
             if (instance != null) {
-                Method valMethod = GET_VALUE_METHOD;
-                if (valMethod == null) {
-                    valMethod = instance.getClass().getMethod("getValue");
-                }
-                Object val = valMethod.invoke(instance);
-                if (val instanceof Number) {
-                    double dVal = ((Number) val).doubleValue();
-                    if (Double.isFinite(dVal)) {
-                        return dVal;
-                    }
+                Double value = readAttributeNumber(instance, false);
+                if (value != null) {
+                    return value;
                 }
             }
         } catch (Throwable ignored) {}
@@ -670,24 +928,9 @@ public class ReflectionUtils {
         try {
             Object instance = getAttribute(player, attributeName);
             if (instance != null) {
-                Method baseMethod = GET_BASE_VALUE_METHOD;
-                if (baseMethod == null) {
-                    try {
-                        baseMethod = instance.getClass().getMethod("getBaseValue");
-                    } catch (NoSuchMethodException e) {
-                        try {
-                            baseMethod = instance.getClass().getMethod("b");
-                        } catch (NoSuchMethodException ignored) {}
-                    }
-                }
-                if (baseMethod != null) {
-                    Object val = baseMethod.invoke(instance);
-                    if (val instanceof Number) {
-                        double dVal = ((Number) val).doubleValue();
-                        if (Double.isFinite(dVal)) {
-                            return dVal;
-                        }
-                    }
+                Double value = readAttributeNumber(instance, true);
+                if (value != null) {
+                    return value;
                 }
             }
         } catch (Throwable ignored) {}
@@ -697,6 +940,47 @@ public class ReflectionUtils {
         }
 
         return defaultValue;
+    }
+
+    /**
+     * Bukkit instances expose getValue/getBaseValue. Their 1.7/1.8 NMS
+     * equivalents are normally e()/b(); retaining both makes callers such as
+     * movement prediction work on legacy servers without special branches.
+     */
+    private static Double readAttributeNumber(Object instance, boolean baseValue) {
+        if (instance == null) return null;
+
+        Method preferred = baseValue ? GET_BASE_VALUE_METHOD : GET_VALUE_METHOD;
+        if (preferred != null && preferred.getDeclaringClass().isInstance(instance)) {
+            Double value = invokeFiniteNumber(preferred, instance);
+            if (value != null) return value;
+        }
+
+        String[] names = baseValue
+                ? new String[]{"getBaseValue", "b"}
+                : new String[]{"getValue", "e"};
+        for (String name : names) {
+            Method method = findCompatibleMethod(instance.getClass(), name);
+            Double value = invokeFiniteNumber(method, instance);
+            if (value != null) return value;
+        }
+
+        return null;
+    }
+
+    private static Double invokeFiniteNumber(Method method, Object instance) {
+        if (method == null) return null;
+
+        try {
+            Object value = method.invoke(instance);
+            if (value instanceof Number) {
+                double result = ((Number) value).doubleValue();
+                return Double.isFinite(result) ? result : null;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return null;
     }
 
     public static double getPlayerMovementSpeed(Player player) {
@@ -718,6 +1002,146 @@ public class ReflectionUtils {
         }
 
         return 0.1D;
+    }
+
+    /**
+     * Returns the movement-speed attribute with Minecraft's sprint modifier
+     * removed.  Prediction must enumerate the possible sprint states itself;
+     * using AttributeInstance#getValue directly would apply sprint once here
+     * and once again in the simulation.
+     *
+     * Bukkit exposes the modifier list on modern servers.  The reflective
+     * path also handles the corresponding legacy NMS accessors.  If a fork
+     * does not expose modifiers, use the effective value and remove the
+     * currently applied sprint multiplier as a conservative fallback.
+     */
+    public static double getPlayerMovementSpeedWithoutSprint(Player player) {
+        if (player == null) return 0.1D;
+
+        final double walkSpeedFallback = safeWalkSpeed(player);
+        final Object instance = getAttribute(player, "MOVEMENT_SPEED");
+        final Double baseValue = instance == null ? null : readAttributeNumber(instance, true);
+
+        if (baseValue != null && baseValue > 0.0D) {
+            Double modified = getMovementSpeedWithoutSprintModifiers(instance, baseValue);
+            if (modified != null && modified > 0.0D && Double.isFinite(modified)) {
+                return modified;
+            }
+
+            // A base value is still preferable to an effective value that is
+            // known to contain the sprint modifier.  This is the normal
+            // 1.7/1.8 fallback when the modifier collection is obfuscated.
+            return baseValue;
+        }
+
+        double effective = getAttributeValue(player, "MOVEMENT_SPEED", walkSpeedFallback);
+        if (effective > 0.0D && Double.isFinite(effective)) {
+            try {
+                if (player.isSprinting()) {
+                    effective /= 1.3D;
+                }
+            } catch (Throwable ignored) {
+            }
+            return effective;
+        }
+
+        return walkSpeedFallback;
+    }
+
+    private static double safeWalkSpeed(Player player) {
+        try {
+            double walkSpeed = player.getWalkSpeed() / 2.0D;
+            if (walkSpeed > 0.0D && Double.isFinite(walkSpeed)) {
+                return walkSpeed;
+            }
+        } catch (Throwable ignored) {
+        }
+        return 0.1D;
+    }
+
+    private static Double getMovementSpeedWithoutSprintModifiers(Object instance, double baseValue) {
+        Object modifiersObject = invokeNoArg(instance, "getModifiers", "c", "a");
+        if (!(modifiersObject instanceof Collection<?> modifiers)) {
+            return null;
+        }
+
+        double additive = 0.0D;
+        double multiplyBase = 0.0D;
+        double multiplyTotal = 1.0D;
+
+        for (Object modifier : modifiers) {
+            if (modifier == null || isSprintingSpeedModifier(modifier)) {
+                continue;
+            }
+
+            Double amount = readModifierAmount(modifier);
+            int operation = readModifierOperation(modifier);
+            if (amount == null || !Double.isFinite(amount) || operation < 0) {
+                continue;
+            }
+
+            switch (operation) {
+                case 0 -> additive += amount;
+                case 1 -> multiplyBase += amount;
+                case 2 -> multiplyTotal *= 1.0D + amount;
+                default -> {
+                }
+            }
+        }
+
+        return (baseValue + additive) * (1.0D + multiplyBase) * multiplyTotal;
+    }
+
+    private static Double readModifierAmount(Object modifier) {
+        // 1.7/1.8 AttributeModifier uses c() for the amount and d()
+        // for the operation; keep those positions distinct.
+        for (String name : new String[]{"getAmount", "c"}) {
+            Method method = findCompatibleMethod(modifier.getClass(), name);
+            Double value = invokeFiniteNumber(method, modifier);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static int readModifierOperation(Object modifier) {
+        Object operation = invokeNoArg(modifier, "getOperation", "d");
+        if (operation instanceof Number number) {
+            int value = number.intValue();
+            return value >= 0 && value <= 2 ? value : -1;
+        }
+        if (operation instanceof Enum<?> operationEnum) {
+            return modifierOperationFromName(operationEnum.name(), operationEnum.ordinal());
+        }
+        if (operation != null) {
+            return modifierOperationFromName(String.valueOf(operation), -1);
+        }
+        return -1;
+    }
+
+    private static int modifierOperationFromName(String name, int fallback) {
+        String normalized = name == null ? "" : name.toUpperCase(Locale.ROOT);
+        if (normalized.contains("ADD_NUMBER") || normalized.equals("ADDITION")) return 0;
+        if (normalized.contains("ADD_SCALAR") || normalized.contains("MULTIPLY_BASE")) return 1;
+        if (normalized.contains("MULTIPLY_SCALAR_1") || normalized.contains("MULTIPLY_TOTAL")) return 2;
+        return fallback >= 0 && fallback <= 2 ? fallback : -1;
+    }
+
+    private static boolean isSprintingSpeedModifier(Object modifier) {
+        final UUID sprintingUuid = UUID.fromString("662A6B8D-DA3E-4C1C-8813-96EA6097278D");
+        Object id = invokeNoArg(modifier, "getUniqueId", "getUUID", "a");
+        if (sprintingUuid.equals(id)) {
+            return true;
+        }
+
+        for (String name : new String[]{"getName", "getKey", "b"}) {
+            Object value = invokeNoArg(modifier, name);
+            if (value != null && String.valueOf(value).toLowerCase(Locale.ROOT).contains("sprint")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static double getExtraReachModifier(Object attributeInstance, String modifierName) {

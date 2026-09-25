@@ -21,8 +21,6 @@ import org.bukkit.inventory.PlayerInventory;
 import java.util.EnumSet;
 import java.util.Set;
 
-import static me.arrow.utils.ChatUtils.debugExempt;
-
 // this is a fairly simple jump height check, for jumping lower or higher than normal, it is easy to bypass though so
 // it's only for terrible cheats, like high jump
 

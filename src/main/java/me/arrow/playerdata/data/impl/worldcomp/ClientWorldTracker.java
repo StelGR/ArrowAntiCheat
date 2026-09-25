@@ -26,13 +26,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ClientWorldTracker implements Data {
     private static final int PENDING_UPDATE_TICKS = 4;
     private static final int AUTO_SYNC_COOLDOWN_TICKS = 10;
+    private static final int PASSIVE_SYNC_INTERVAL_TICKS = 1;
     private static final int MAX_CLIENT_OVERRIDES = 2048;
 
     private final Profile profile;
     private final Map<Long, ClientBlock> clientOverrides = new ConcurrentHashMap<>();
     private final Map<Long, PendingArea> pendingAreas = new ConcurrentHashMap<>();
     private volatile CollisionResult lastCollisionResult = new CollisionResult();
-    private int tick, lastCollisionScanTick = -1, lastAutoSyncTick = AUTO_SYNC_COOLDOWN_TICKS + 1;
+    private int tick, lastCollisionScanTick = -1, lastAutoSyncTick = AUTO_SYNC_COOLDOWN_TICKS + 1, lastPassiveSyncTick;
 
     public ClientWorldTracker(Profile profile) {
         this.profile = profile;
@@ -43,9 +44,14 @@ public class ClientWorldTracker implements Data {
         if (!OtherUtility.isFlying(event.getPacketType())) return;
         tick++;
         lastAutoSyncTick++;
+        lastPassiveSyncTick++;
         pendingAreas.entrySet().removeIf(entry -> entry.getValue().expiresAt < tick);
         preCheckScan();
-        if (Config.Setting.GHOST_BLOCK_FIX.getBoolean() && tick % 2 == 0) syncPlayerArea();
+        if (Config.Setting.GHOST_BLOCK_FIX.getBoolean()
+                && lastPassiveSyncTick >= PASSIVE_SYNC_INTERVAL_TICKS) {
+            syncNearbyCollisionBlocks();
+            lastPassiveSyncTick = 0;
+        }
     }
 
     @Override
@@ -178,17 +184,16 @@ public class ClientWorldTracker implements Data {
         profile.getBlockProcessor().syncRealBlocksInBoxAsync(x - 1, y - 1, z - 1, x + 1, y + 2, z + 1, 36, true);
     }
 
-    public void syncBlocksAround(Vector center, int radiusXZ, int down, int up) {
-        if (center == null || profile.getBlockProcessor() == null) return;
-        int x = center.getBlockX(), y = center.getBlockY(), z = center.getBlockZ();
-        int volume = (radiusXZ * 2 + 1) * (down + up + 1) * (radiusXZ * 2 + 1);
-        profile.getBlockProcessor().syncRealBlocksInBoxAsync(x - radiusXZ, y - down, z - radiusXZ,
-                x + radiusXZ, y + up, z + radiusXZ, volume, true);
-    }
-
-    private void syncPlayerArea() {
+    /**
+     * The server cannot read the player's rendered chunk. This symmetric
+     * five-block cube is proactively resent every movement tick; right-clicks
+     * are only an additional correction trigger.
+     */
+    private void syncNearbyCollisionBlocks() {
         CustomLocation location = location();
-        if (location != null) syncBlocksAround(new Vector(location.getBlockX(), location.getBlockY(), location.getBlockZ()), 2, 2, 4);
+        if (location == null || profile.getBlockProcessor() == null) return;
+        int x = location.getBlockX(), y = location.getBlockY(), z = location.getBlockZ();
+        profile.getBlockProcessor().syncRealBlocksInBoxAsync(x - 2, y - 2, z - 2, x + 2, y + 2, z + 2, 125, false);
     }
 
     public boolean hasPendingNear(int x, int y, int z, int margin) {

@@ -19,6 +19,7 @@ import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.PotionType;
 import me.arrow.utils.custom.SampleList;
+import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 
 import static me.arrow.utils.ChatUtils.debugExempt;
@@ -64,7 +65,7 @@ public class FlyA extends Check {
                 if (isExempt(movementData, potionData)) return;
 
                 int serverAirTicks = movementData.getCustomAirTicks();
-                int clientAirTicks = movementData.getCustomAirTicks();
+                int clientAirTicks = movementData.getClientAirTicks();
 
                 double deltaY = movementData.getDeltaY();
                 double fallDistance = profile.getPlayer().getFallDistance();
@@ -72,17 +73,6 @@ public class FlyA extends Check {
                 boolean inAir = movementData.isCustomInAir();
                 boolean serverGround = movementData.isServerGround();
                 boolean clientGround = movementData.isOnGround();
-
-                if (exempt("nearShulker", movementData.isNearShulker())) return;
-                if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return;
-                if (exempt("nearLava", movementData.isNearLava())) return;
-
-                if (exempt("nearBed", movementData.isNearBed())) return;
-                if (exempt("nearWater", movementData.isNearWater())) return;
-                if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
-                if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 25 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
-                if (exempt("cancelledBlockPlacement", profile.getBlockProcessor().isCancelledBlockPlacementExempt(5 + (profile.getConnectionData().getClientTickTrans() * 2)))) return;
-                if (exempt("underBreak", profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
 
                 boolean hasJumpBoost = SpeedUtilities.getJumpBoostPotionLevel(profile) > 0;
                 double jumpLevel = hasJumpBoost
@@ -192,8 +182,6 @@ public class FlyA extends Check {
                     if (deltaY == movementData.getLastDeltaY()) {
                         samples.add(deltaY);
 
-                        if (movementData.isNearWater()) samples.clear();
-
                         if (samples.isCollected()) {
                             final double deviation = getDevation(this.samples);
 
@@ -246,7 +234,7 @@ public class FlyA extends Check {
                     if (movementData.isNearWall()) {
                         MotionC motionC = profile.getCheckHolder().getCheck(MotionC.class);
                         if (motionC != null) {
-                            motionC.fail(verboseTitle, verboseInfo);
+                            motionC.fail("Improbable air time near a wall (" + serverAirTicks + "/" + airTickLimit + ")", verboseInfo);
                             return;
                         }
                     }
@@ -325,7 +313,7 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5) {
+        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             ChatUtils.debugExempt("teleports", "FlyA");
             return true;
         }
@@ -387,6 +375,19 @@ public class FlyA extends Check {
             ChatUtils.debugExempt("slowFalling", "FlyA");
             return true;
         }
+
+        if (exempt("nearShulker", movementData.isNearShulker())) return true;
+//                if (exempt("nearClimb", movementData.isNearClimbable())) return;
+        if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return true;
+        if (exempt("nearLava", movementData.isNearLava())) return true;
+        if (exempt("nearBed", movementData.isNearBed())) return true;
+        if (exempt("onTopOfWater", movementData.isOnTopOfWater())) return true;
+        if (exempt("nearBerries", movementData.getNearbyBlocksResult() != null
+                && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))) return true;
+        if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
+        if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 25 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
+        if (exempt("cancelledBlockPlacement", profile.getBlockProcessor().isCancelledBlockPlacementExempt(5 + (profile.getConnectionData().getClientTickTrans() * 2)))) return true;
+        if (exempt("underBreak", profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
 
         CustomLocation loc = movementData.getLocation();
 

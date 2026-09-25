@@ -5,18 +5,24 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
 import me.arrow.checks.types.Check;
+import me.arrow.checks.impl.misc.interact.InteractD;
 import me.arrow.core.check.CheckType;
 import me.arrow.core.check.annotation.Experimental;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.ActionData;
+import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
+import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.CustomLocation;
 import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
+import org.bukkit.util.Vector;
 
 /**
- * Checks that an isolated horizontal bridge placement has an unobstructed line
- * from the player's eye to the clicked support face.
+ * Checks that a side-face block placement is aimed at a visible face of its
+ * clicked support.
  */
 @Experimental
 public class ScaffoldD extends Check {
@@ -26,7 +32,7 @@ public class ScaffoldD extends Check {
     private static final int[] NORMAL_Z = {0, 0, -1, 1, 0, 0};
 
     public ScaffoldD(Profile profile) {
-        super(profile, CheckType.SCAFFOLD, "D", "Checks that scaffold supports have a visible face");
+        super(profile, CheckType.SCAFFOLD, "D", "Checks for an invalid block face");
     }
 
     @Override
@@ -60,29 +66,40 @@ public class ScaffoldD extends Check {
         Material placed = profile.getBlockProcessor().getBlockPlaceMaterial();
         Material target = profile.getBlockProcessor().getServerMaterial(targetX, targetY, targetZ);
 
-        if (!isBridgePlacement(movement, clicked, placed, target, targetX, targetY, targetZ,
-                clickedX, clickedY, clickedZ)) {
+        if (!isSidePlacement(movement, clicked, placed, target)) {
             decay();
             return;
         }
 
-        TraceResult trace = traceToClickedFace(movement.getLocation(), clickedX, clickedY, clickedZ, face);
-        if (trace != TraceResult.BLOCKED) {
+        PlacementSnapshot placement = snapshotAtPlacement(movement, profile.getRotationData());
+        InteractD.FaceTraceResult trace = placement == null ? InteractD.FaceTraceResult.UNKNOWN
+                : traceEyeSight(placement, clickedX, clickedY, clickedZ, face);
+        if (trace == InteractD.FaceTraceResult.CLEAR || trace == InteractD.FaceTraceResult.UNKNOWN) {
             decay();
             return;
         }
 
         if (increaseBufferBy(1.0D) >= 2.0D) {
-            fail("Occluded scaffold face",
+            fail("Invalid Block Face",
                     "face " + MsgType.MAIN_THEME_COLOR.getMessage() + faceName(face)
-                            + "\ntrace " + MsgType.MAIN_THEME_COLOR.getMessage() + trace);
+                            + "\nfaceLocation " + MsgType.MAIN_THEME_COLOR.getMessage()
+                            + faceLocation(clickedX, clickedY, clickedZ, face)
+                            + "\nclickedBlock " + MsgType.MAIN_THEME_COLOR.getMessage()
+                            + location(clickedX, clickedY, clickedZ)
+                            + "\nclickedType " + MsgType.MAIN_THEME_COLOR.getMessage() + clicked
+                            + "\nplacedBlock " + MsgType.MAIN_THEME_COLOR.getMessage()
+                            + location(targetX, targetY, targetZ)
+                            + "\nplacedType " + MsgType.MAIN_THEME_COLOR.getMessage() + placed
+                            + "\ntrace " + MsgType.MAIN_THEME_COLOR.getMessage() + trace
+                            + "\neye " + MsgType.MAIN_THEME_COLOR.getMessage() + placement.location()
+                            + "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + round(placement.yaw)
+                            + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + round(placement.pitch)
+                            + "\nreachAllowance " + MsgType.MAIN_THEME_COLOR.getMessage() + round(placement.reachAllowance));
             decreaseBufferBy(1.0D);
         }
     }
 
-    private boolean isBridgePlacement(MovementData movement, Material clicked, Material placed, Material target,
-                                      int targetX, int targetY, int targetZ,
-                                      int clickedX, int clickedY, int clickedZ) {
+    private boolean isSidePlacement(MovementData movement, Material clicked, Material placed, Material target) {
         if (movement == null || movement.getLocation() == null || profile.shouldCancel()
                 || clicked == null || !clicked.isOccluding() || placed == null || !placed.isBlock()
                 || target == null || !isAir(target)) {
@@ -94,83 +111,76 @@ public class ScaffoldD extends Check {
             return false;
         }
 
-        int feetY = (int) Math.floor(movement.getLocation().getY());
-        Material below = profile.getBlockProcessor().getServerMaterial(targetX, targetY - 1, targetZ);
-        return targetY <= feetY && targetY >= feetY - 2
-                && below != null && isAir(below)
-                && hasOnlyClickedSupport(clickedX, clickedY, clickedZ, targetX, targetY, targetZ);
-    }
-
-    /** Only check the exposed end of a bridge, never ordinary block placement. */
-    private boolean hasOnlyClickedSupport(int clickedX, int clickedY, int clickedZ,
-                                          int targetX, int targetY, int targetZ) {
-        int supports = 0;
-
-        for (int face = 0; face < 6; face++) {
-            int x = targetX + NORMAL_X[face];
-            int y = targetY + NORMAL_Y[face];
-            int z = targetZ + NORMAL_Z[face];
-            Material neighbor = profile.getBlockProcessor().getServerMaterial(x, y, z);
-
-            if (neighbor == null) {
-                return false;
-            }
-            if (isAir(neighbor)) {
-                continue;
-            }
-            if (x != clickedX || y != clickedY || z != clickedZ) {
-                return false;
-            }
-            supports++;
-        }
-
-        return supports == 1;
+        return true;
     }
 
     /**
-     * This is the Interact B-style trace: aim from the eye to the claimed face,
-     * then inspect every crossed cached block. It intentionally does not use
-     * MovementData's stored yaw/pitch, which can be one packet behind a place.
+     * Trace the immutable movement/rotation state which existed when the
+     * placement packet arrived.  We intentionally never re-check against a
+     * later rotation: a fast spin after sending the packet cannot make an
+     * invisible face look valid.
      */
-    private TraceResult traceToClickedFace(CustomLocation location, int x, int y, int z, int face) {
-        double eyeX = location.getX();
-        double eyeY = location.getY() + eyeHeight();
-        double eyeZ = location.getZ();
-        double hitX = x + 0.5D + NORMAL_X[face] * 0.5D;
-        double hitY = y + 0.5D + NORMAL_Y[face] * 0.5D;
-        double hitZ = z + 0.5D + NORMAL_Z[face] * 0.5D;
-        double distance = Math.sqrt(square(hitX - eyeX) + square(hitY - eyeY) + square(hitZ - eyeZ));
-
-        if (distance <= 0.0D || distance > 4.75D) {
-            return TraceResult.UNKNOWN;
+    private InteractD.FaceTraceResult traceEyeSight(PlacementSnapshot placement,
+                                                     int x, int y, int z, int face) {
+        if (placement.world == null) {
+            return InteractD.FaceTraceResult.UNKNOWN;
         }
 
-        int steps = Math.max(1, (int) Math.ceil(distance / 0.025D));
-        for (int step = 1; step < steps; step++) {
-            double progress = (double) step / steps;
-            int blockX = floor(eyeX + (hitX - eyeX) * progress);
-            int blockY = floor(eyeY + (hitY - eyeY) * progress);
-            int blockZ = floor(eyeZ + (hitZ - eyeZ) * progress);
-
-            if (blockX == x && blockY == y && blockZ == z) {
-                continue;
-            }
-
-            Material material = profile.getBlockProcessor().getServerMaterial(blockX, blockY, blockZ);
-            if (material == null) {
-                return TraceResult.UNKNOWN;
-            }
-            if (material.isOccluding()) {
-                return TraceResult.BLOCKED;
-            }
-        }
-
-        return TraceResult.CLEAR;
+        double yawRadians = Math.toRadians(placement.yaw);
+        double pitchRadians = Math.toRadians(placement.pitch);
+        double horizontal = Math.cos(pitchRadians);
+        Vector direction = new Vector(
+                -horizontal * Math.sin(yawRadians),
+                -Math.sin(pitchRadians),
+                horizontal * Math.cos(yawRadians)
+        );
+        return InteractD.traceBlockFace(
+                placement.world,
+                new Vector(placement.eyeX, placement.eyeY, placement.eyeZ),
+                direction,
+                x, y, z, face,
+                4.75D + placement.reachAllowance,
+                placement.edgeAllowance
+        );
     }
 
     private double eyeHeight() {
+        Player player = profile.getPlayer();
+        if (player != null) {
+            try {
+                double eyeHeight = player.getEyeHeight();
+                if (eyeHeight >= 1.0D && eyeHeight <= 1.7D) {
+                    return eyeHeight;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
         ActionData actions = profile.getActionData();
         return actions != null && actions.isSneaking() ? 1.54D : 1.62D;
+    }
+
+    private PlacementSnapshot snapshotAtPlacement(MovementData movement, RotationData rotation) {
+        if (movement == null || movement.getLocation() == null || rotation == null) {
+            return null;
+        }
+
+        CustomLocation location = movement.getLocation();
+        ConnectionData connection = profile.getConnectionData();
+        int ping = connection == null ? 0 : Math.max(connection.getPing(), connection.getTransPing());
+
+        /*
+         * Packet order is authoritative for the rotation, so compensation is
+         * limited to the edge/reach uncertainty caused by the client's render
+         * position.  Do not compensate by trying a future or previous look.
+         */
+        double reachAllowance = Math.min(0.10D, Math.max(0, ping) * 0.0004D);
+        double edgeAllowance = 0.035D + Math.min(0.035D, Math.max(0, ping) * 0.00014D);
+
+        return new PlacementSnapshot(
+                location.getWorld(), location.getX(), location.getY() + eyeHeight(), location.getZ(),
+                rotation.getYaw(), rotation.getPitch(), reachAllowance, edgeAllowance
+        );
     }
 
     private int face(WrapperPlayClientPlayerBlockPlacement packet) {
@@ -188,15 +198,6 @@ public class ScaffoldD extends Check {
                 || material.name().equals("VOID_AIR");
     }
 
-    private int floor(double value) {
-        int integer = (int) value;
-        return value < integer ? integer - 1 : integer;
-    }
-
-    private double square(double value) {
-        return value * value;
-    }
-
     private String faceName(int face) {
         return switch (face) {
             case 2 -> "NORTH";
@@ -207,14 +208,42 @@ public class ScaffoldD extends Check {
         };
     }
 
+    private String faceLocation(int x, int y, int z, int face) {
+        return location(x + NORMAL_X[face], y + NORMAL_Y[face], z + NORMAL_Z[face]);
+    }
+
+    private String location(int x, int y, int z) {
+        return x + ", " + y + ", " + z;
+    }
+
+    private String round(double value) {
+        return String.format("%.3f", value);
+    }
+
     private void decay() {
         decreaseBufferBy(0.25D);
     }
 
-    private enum TraceResult {
-        CLEAR,
-        BLOCKED,
-        UNKNOWN
+    private static final class PlacementSnapshot {
+        private final World world;
+        private final double eyeX, eyeY, eyeZ, reachAllowance, edgeAllowance;
+        private final float yaw, pitch;
+
+        private PlacementSnapshot(World world, double eyeX, double eyeY, double eyeZ, float yaw, float pitch,
+                                  double reachAllowance, double edgeAllowance) {
+            this.world = world;
+            this.eyeX = eyeX;
+            this.eyeY = eyeY;
+            this.eyeZ = eyeZ;
+            this.yaw = yaw;
+            this.pitch = pitch;
+            this.reachAllowance = reachAllowance;
+            this.edgeAllowance = edgeAllowance;
+        }
+
+        private String location() {
+            return String.format(java.util.Locale.US, "%.3f, %.3f, %.3f", eyeX, eyeY, eyeZ);
+        }
     }
 
     @Override

@@ -673,17 +673,8 @@ public enum MaterialType {
     }
 
     public static boolean isMaterialEqual(String value, MaterialType type) {
-        /*
-        Null checking since we're going to be using the "==" operator which is not null safe.
-         */
         if (value == null) return false;
 
-        /*
-        Compare using "=="
-        NOTE: This does improve perfomance by a L O T
-        However this can ONLY be used in cases such as this (Materials)
-        Where we're comparing string objects that never change no matter what (Applies to constant strings aswell).
-         */
         for (String t : type.values) if (value.equals(t)) return true;
 
         return false;

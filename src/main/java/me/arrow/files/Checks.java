@@ -181,6 +181,18 @@ public class Checks implements Initializer {
         AIM_I_PUNISH_MODE("AimI.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         AIM_I_MAX_VL("AimI.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        AIM_J("AimJ.enabled", true, "Should we enable this module?"),
+        AIM_J_PUNISH("AimJ.punish", "", "Punishment settings"),
+        AIM_J_PUNISH_ENABLED("AimJ.punish.enabled", false, "Should punishments be enabled for this check?"),
+        AIM_J_PUNISH_MODE("AimJ.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        AIM_J_MAX_VL("AimJ.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        AIM_K("AimK.enabled", true, "Should we enable this module?"),
+        AIM_K_PUNISH("AimK.punish", "", "Punishment settings"),
+        AIM_K_PUNISH_ENABLED("AimK.punish.enabled", false, "Should punishments be enabled for this check?"),
+        AIM_K_PUNISH_MODE("AimK.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        AIM_K_MAX_VL("AimK.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
+
         REACH_A("ReachA.enabled", true, "Should we enable this module?"),
         REACH_A_MAX_SAMPLES("ReachA.maxSamples", 40, "Do not touch this if you don't know what you are doing."),
         REACH_A_FLAG_SAMPLES("ReachA.flagSamples", 16, "Do not touch this if you don't know what you are doing."),

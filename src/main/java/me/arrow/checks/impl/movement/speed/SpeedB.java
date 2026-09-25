@@ -100,33 +100,35 @@ public class SpeedB extends Check {
     public void runPrediction(MovementData movementData, ActionData actionData) {
 
         MovementMath sim = profile.getSimulation();
+        // Match Karhu's NMS value parser: this threshold includes the current
+        // sprint state exactly once, while MovementMath itself brute-forces
+        // sprint from a speed value with that modifier removed.
+        double attributeSpeed = ReflectionUtils.getPlayerMovementSpeedWithoutSprint(profile.getPlayer());
+        if (actionData.isSprinting()) {
+            attributeSpeed *= 1.0D + 0.3F;
+        }
+        if (!Double.isFinite(attributeSpeed) || attributeSpeed <= 0.0D) {
+            attributeSpeed = 0.1D;
+        }
 
-        // Use the final attribute value, which includes all modifiers (potions, beacons, status effects)
-
-
-        if (exempt("belowAttributeSpeed", movementData.getDeltaXZ() < sim.getAttributeSpeed())) { resetPredictionBuffers(); return; }
+        // Speed C's entry conditions, translated only to Arrow's shared data.
+        if (exempt("belowAttributeSpeed", movementData.getDeltaXZ() < attributeSpeed)) { resetPredictionBuffers(); return; }
         if (exempt("lowLastDeltaXZ", movementData.getLastDeltaXZ() < offsetMove() + 0.01)) { resetPredictionBuffers(); return; }
         if (exempt("nearClimbable", movementData.isNearClimbable())) { resetPredictionBuffers(); return; }
         if (exempt("cancelled", profile.shouldCancel())) { resetPredictionBuffers(); return; }
         if (exempt("velocity", profile.getVelocityData().isTakingVelocity())) { resetPredictionBuffers(); return; }
-        if (exempt("recentGliding", movementData.getSinceGlidingTicks() < 30)) { resetPredictionBuffers(); return; }
+        if (exempt("recentPiston", movementData.getSinceNearPistonTicks() <= 3)) { resetPredictionBuffers(); return; }
+        if (exempt("recentFlight", profile.getLastFlightToggleTimer().hasNotPassed(30))) { resetPredictionBuffers(); return; }
+        if (exempt("recentGliding", movementData.getSinceGlidingTicks() <= 15)) { resetPredictionBuffers(); return; }
         if (exempt("recentRiptiding", movementData.getSinceRiptidingTicks() < 15)) { resetPredictionBuffers(); return; }
         if (exempt("nearBed", movementData.isNearBed())) { resetPredictionBuffers(); return; }
-        if (exempt("nearWall", movementData.isNearWall())) { resetPredictionBuffers(); return; }
+        if (exempt("recentCollision", movementData.getSinceCollideTicks() <= 2)) { resetPredictionBuffers(); return; }
         if (exempt("recentGhostBlock", movementData.getSinceOnGhostBlock() < 2)) { resetPredictionBuffers(); return; }
 
         leniencyReason = "default";
 
-        boolean justJumped = ((movementData.getClientAirTicks() == 2 && movementData.isLastLastOnGround())
-                || (movementData.getClientAirTicks() == 1 && movementData.isLastOnGround()) );
-
-        double threshold = justJumped ? 0.157 : 0.011;
-
-        final double leniency = getLeniency(profile, threshold, movementData);
+        final double leniency = getLeniency(0.003D, movementData, actionData);
         double predicted = sim.getOutputXZ();
-
-        // current issues, sim.getLowestMatch() returns way higher than the default leniency on the 2nd tick (sometimes on the first) after a jump, which is why i had to increase it to 0.157, karhu sets the default to always be 0.003
-        // strafing left and right very fast also fcks it up, same with rotating in some ways either fast or very slow, it's weird to explain through text, so i increase the leniency when strafing in getLeniency
 
         double diff = movementData.getDeltaXZ() - predicted;
 
@@ -155,7 +157,7 @@ public class SpeedB extends Check {
 //        }
 
         if (sim.getLowestMatch() > leniency && Config.Setting.SIMULATION_MODE.getBoolean()) {
-            if (increaseBuffer() > 3) {
+            if (increaseBuffer() > 6) {
                 fail("Prediction", "Failed Prediction", "predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + predicted
                         + "\nlowest " + MsgType.MAIN_THEME_COLOR.getMessage() + sim.getLowestMatch()
                         + "\nattribute " + MsgType.MAIN_THEME_COLOR.getMessage() + sim.getAttributeSpeed()
@@ -168,30 +170,51 @@ public class SpeedB extends Check {
                         + "\nmoveTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getMovingTicks()
                         + "\nscenarios " + MsgType.MAIN_THEME_COLOR.getMessage() + sim.getScenarioAmount());
 
-                setBuffer(2);
+                setBuffer(6);
             }
+        } else {
+            decreaseBufferBy(0.075D);
+        }
 
-        } else decreaseBufferBy(0.005D);
+        bucketVl = Math.max(0.0D, bucketVl - 0.2D);
+        sprintVl = Math.max(0.0D, sprintVl - 0.3D);
     }
 
 
-    private double getLeniency(Profile profile, double threshold, MovementData movementData) {
+    private double getLeniency(double threshold, MovementData movementData, ActionData actionData) {
         double leniency = threshold;
 
-        boolean entity = movementData.getSinceCollideTicks() < 8;
+        boolean entity = movementData.getSinceCollideTicks() <= 2;
+        boolean waterPush = movementData.getSinceNearWaterTicks() <= 4;
+        int lastInLiquid = movementData.getSinceInsideWaterTicks();
+        boolean modernMovement = profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);
+        boolean onWater = movementData.isInsideWater() || movementData.isOnTopOfWater();
 
-        boolean lastInLiquid = (movementData.getSinceBubbleTicks() < 6) || movementData.isInsideLiquid();
-
-        //Bit vogue, but the way our simulation works it can cause bigger offset than 0.03 :/
         if (movementData.getMovingTicks() <= 3) {
             leniency += (offsetMove() + clamp()) * 2;
             leniencyReason += ", lowMovingTicks";
         }
 
-//        if (profile.getSimulation().getEdgeSneakTick() <= 3) {
-//            leniency += 0.15;
-//            leniencyReason += ", edgeSneakTick";
-//        }
+        if (movementData.isUnderblock()) {
+            leniency += 0.04;
+            leniencyReason += ", underblock";
+        }
+
+        if (!movementData.isOnGround() && movementData.isLastOnGround() && movementData.getClientAirTicks() == 1) {
+            leniency += 0.04;
+            leniencyReason += ", justJumped";
+        }
+
+        if (movementData.isNearWall()) {
+            leniency += 0.04;
+            leniencyReason += ", nearWall";
+        }
+
+        if (profile.getSimulation().getEdgeSneakTick() > 0
+                && profile.getTick() - profile.getSimulation().getEdgeSneakTick() <= 3) {
+            leniency += 0.15D;
+            leniencyReason += ", edgeSneak";
+        }
         if (movementData.getSinceSoulTicks() <= 3) {
             leniency += 0.05;
             leniencyReason += ", soulTicks";
@@ -199,11 +222,6 @@ public class SpeedB extends Check {
         if (movementData.getSinceSlimeTicks() <= 3) {
             leniency += 0.05;
             leniencyReason += ", slimeTicks";
-        }
-
-        if (movementData.getSinceIceTicks() <= 3) {
-            leniency += 0.063;
-            leniencyReason += ", iceTicks";
         }
 
         if (movementData.getNearbyBlocksResult() != null
@@ -216,37 +234,43 @@ public class SpeedB extends Check {
             leniencyReason += ", honey/Ticks";
         }
 
-        if (lastInLiquid) {
-            leniency += 0.14;
-            leniencyReason += ", lastInLiquid/Bubble";
+        if (waterPush) {
+            leniency += 0.02D;
+            leniencyReason += ", waterPush";
+        }
+
+        if (actionData.getLastBlockPlaceAttemptTicks() <= profile.getConnectionData().getClientTickTrans() + 3) {
+            leniency += 0.12D;
+            leniencyReason += ", bucketPlace";
+            ++bucketVl;
+        }
+
+        if (modernMovement && !movementData.isWasInWater() && movementData.isWasWasInWater() && !waterPush) {
+            leniency += 0.05D;
+            leniencyReason += ", leavingWater2";
+        }
+        if (modernMovement && !onWater && movementData.isWasInWater() && !waterPush) {
+            leniency += 0.005D;
+            leniencyReason += ", leavingWater";
+        }
+        if (modernMovement && movementData.getSinceInsideWaterTicks() <= 1) {
+            leniency += 0.02D;
+            leniencyReason += ", recentWater";
+        }
+        if (!movementData.isWasInWater()
+                && lastInLiquid > 2
+                && lastInLiquid <= 5 + Math.min(15, profile.getConnectionData().getClientTickTrans())) {
+            leniency += 0.05D;
+            leniencyReason += ", postWater";
+        }
+
+        if (movementData.getLastFrictionFactorUpdateTicks() <= profile.getConnectionData().getClientTickTrans() + 1) {
+            leniency += 0.2D;
+            leniencyReason += ", frictionUncertain";
         }
 
         if (profile.getActionData().getSinceLastSprintingTicks() > 0 && profile.getActionData().getSinceLastSprintingTicks() < 8) {
-            leniency += 0.06;
-            leniencyReason += ", sinceSprint";
             ++sprintVl;
-        }
-
-        double deltaX = movementData.getDeltaX();
-        double deltaZ = movementData.getDeltaZ();
-        float yaw = profile.getRotationData().getYaw();
-
-        MovementPredictionUtil.DirectionalMovement strafeDir =
-                MovementPredictionUtil.predictDirectionalMovement(deltaX, deltaZ, yaw);
-
-//        if (strafeDir.isForwardStrafe()) {
-//            leniency += 0.006;
-//            leniencyReason += ", strafe";
-//        }
-//
-//        if (Math.abs(profile.getSimulation().getMoveStrafe()) == 0.98) {
-//            leniency += 0.006;
-//            leniencyReason += ", strafe";
-//        }
-
-        if (movementData.isOnGround()) {
-            leniency += 0.051;
-            leniencyReason += ", ground";
         }
 
         int ghostLiquidWebTicks = Math.min(
@@ -259,12 +283,16 @@ public class SpeedB extends Check {
             leniencyReason += ", ghostLiquid/Bucket";
         }
 
+        if (movementData.getServerGroundTicks() < 5) {
+            leniency += 0.05;
+        }
+
         if (movementData.isNearWebs()) {
-            leniency += 0.25; //give leniency
+            leniency += 0.25;
             leniencyReason += ", webs";
         }
         if (movementData.getSincePowderSnowTicks() <= 3) {
-            leniency += 0.25; //give leniency
+            leniency += 0.25; 
             leniencyReason += ", powderSnowTicks";
         }
         if (entity) {
@@ -327,8 +355,24 @@ public class SpeedB extends Check {
             boolean valid = invalidReason == null;
             exempt(invalidReason, !valid);
 
+            boolean recentAttack = profile.getCombatData().getAttackedTicks() <= 3
+                    && profile.getCombatData().getTarget() != -696969;
+            int placementSyncTicks = 4 + profile.getConnectionData().getClientTickTrans();
+            boolean recentUnderPlace = actionData.getLastBlockPlaceAttemptTicks() <= placementSyncTicks
+                    || actionData.hasRecentConfirmedUnderPlace(placementSyncTicks + 4);
+
+            // Attacking changes the client's sprint/momentum state.  It is not
+            // acceleration evidence, and a buffer collected before the attack
+            // must not be allowed to turn this state transition into a flag.
+            // A confirmed support block placed beneath the player also changes
+            // client friction before the server/cache snapshot can be trusted.
+            if (recentAttack || recentUnderPlace) {
+                resetMovement(deltaX, deltaZ);
+                return;
+            }
+
             float movementSpeed = (float) ReflectionUtils.getPlayerMovementSpeed(profile.getPlayer());
-            if (!Double.isFinite(movementSpeed) || movementSpeed <= 0.0F) {
+            if (!Float.isFinite(movementSpeed) || movementSpeed <= 0.0F) {
                 movementSpeed = 0.1F;
             }
             float movementSpeedSP = movementSpeed + movementSpeed * 0.3F;
@@ -338,20 +382,13 @@ public class SpeedB extends Check {
             float forceSprint = 0.026F;
 
             Vector move = new Vector(deltaX, 0.0, deltaZ);
+            // Keep the same frame selection as Karhu: fromFrom chooses the
+            // previous block carry multiplier; from chooses ground input force.
             float lastTickFriction = movementData.getLastFrictionFactor() * 0.91F;
-            Vector compLastMove;
-            if (movementData.isLastLastOnGround()) {
-                compLastMove = this.lastMove.clone().multiply(lastTickFriction);
-            } else {
-                compLastMove = this.lastMove.clone().multiply(0.91F);
-            }
+            float carryFriction = movementData.isLastLastOnGround() ? lastTickFriction : 0.91F;
+            Vector compLastMove = this.lastMove.clone().multiply(carryFriction);
 
             Vector plainComp = compLastMove.clone();
-
-            boolean attacked = profile.getCombatData().getAttackedTicks() <= 1 && profile.getCombatData().getTarget() != -696969;
-            if (attacked) {
-                compLastMove.multiply(0.6);
-            }
 
             float yaw = profile.getRotationData().getYaw();
 
@@ -362,14 +399,19 @@ public class SpeedB extends Check {
             }
 
             if (movementData.isLastOnGround()) {
-                // Karhu: getCurrentFriction() is raw block friction (e.g. 0.6 for stone).
-                // moveFlying/force predictions use raw friction, NOT * 0.91.
-                // The * 0.91 only applies to compLastMove (momentum decay), not the impulse.
+                // Karhu's getCurrentFriction(): raw block slipperiness, not
+                // the 0.91 velocity carry multiplier above.
                 float rawFriction = movementData.getFrictionFactor();
                 friction = rawFriction;
                 force = movementSpeed * 0.16277136F / (rawFriction * rawFriction * rawFriction);
                 forceSprint = movementSpeedSP * 0.16277136F / (rawFriction * rawFriction * rawFriction);
             }
+
+            boolean serverSprinting = profile.getPlayer().isSprinting();
+            boolean sprintStateMismatch = sprinting
+                    && !serverSprinting
+                    && Math.abs(movementSpeed - 0.1F) <= 0.001F;
+            float clientSprintForce = sprintStateMismatch ? forceSprint * 1.3F : forceSprint;
 
             double threshold = movingTicks <= 3.0F ? 0.0325 : 0.0105;
 
@@ -387,6 +429,14 @@ public class SpeedB extends Check {
 
             if (movementData.isNearWebs()) {
                 threshold += 0.1D;
+            }
+
+            if (movementData.isNearWall()) {
+                threshold += 0.08D;
+            }
+
+            if (movementData.getServerGroundTicks() < 5) {
+                threshold += 0.05D;
             }
 
             if (movementData.getMovingOnHoneyTicks() > 0) {
@@ -435,15 +485,27 @@ public class SpeedB extends Check {
             double bestNormal = Math.min(this.getBest(subtracted, false, forceSprint, true, yaw), this.getBest(subtracted, false, force, false, yaw));
             double bestBlocking = Math.min(this.getBest(subtracted, true, forceSprint, true, yaw), this.getBest(subtracted, true, force, false, yaw));
 
+            if (sprintStateMismatch) {
+                bestNormal = Math.min(bestNormal, this.getBest(subtracted, false, clientSprintForce, true, yaw));
+                bestBlocking = Math.min(bestBlocking, this.getBest(subtracted, true, clientSprintForce, true, yaw));
+            }
+
             Vector subtractedPlain = move.clone().subtract(plainComp);
             double bestNormal2 = Math.min(this.getBest(subtractedPlain, false, forceSprint, true, yaw), this.getBest(subtractedPlain, false, force, false, yaw));
             double bestBlocking2 = Math.min(this.getBest(subtractedPlain, true, forceSprint, true, yaw), this.getBest(subtractedPlain, true, force, false, yaw));
+
+            if (sprintStateMismatch) {
+                bestNormal2 = Math.min(bestNormal2, this.getBest(subtractedPlain, false, clientSprintForce, true, yaw));
+                bestBlocking2 = Math.min(bestBlocking2, this.getBest(subtractedPlain, true, clientSprintForce, true, yaw));
+            }
 
             boolean pass1Exceeded = bestNormal > threshold * tMult && bestBlocking > threshold * tMult;
             boolean pass2Exceeded = pass1Exceeded && (bestNormal2 > threshold * tMult && bestBlocking2 > threshold * tMult);
 
             double closest = Math.min(Math.min(bestNormal, bestNormal2), Math.min(bestBlocking, bestBlocking2));
-            double bufferAddition = Math.min(4, Math.max(7.5, closest * 30.0));
+            // Keep the source bounds in the correct order.  The previous
+            // min/max order forced every bad frame to add exactly 4.0.
+            double bufferAddition = Math.min(7.5D, Math.max(1.0D, closest * 50.0D));
             // Karhu: 50 when near-sneak with small bestNormal, 35 otherwise
             int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 50 : 35;
 
@@ -456,33 +518,42 @@ public class SpeedB extends Check {
             if (valid && deltaXZ > 0.2D) {
                 if (pass1Exceeded) {
                     if (pass2Exceeded) {
-                        if (movingTicks <= 5.0F) {
+                        if (movingTicks <= 1.0F) {
                             if (++this.shitZeroPointThree > 3.0) {
                                 this.decrease(0.005);
                             }
-                            // Karhu: update lastMove and skip buffer addition on low-ticks path
+                            // Karhu updates lastMove on the first move tick,
+                            // but still evaluates this frame below.
                             this.lastMove = new Vector(deltaX, 0.0, deltaZ);
                         } else {
                             this.shitZeroPointThree = Math.min(0.0, this.shitZeroPointThree - 0.1);
+                        }
 
-                            if ((this.vlBuffer += bufferAddition) >= (double) required) {
-                                fail("Invalid acceleration", "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                        + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                        + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
-                                        + "\nfriction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
-                                        + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                        + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                        + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
+                        if ((this.vlBuffer += bufferAddition) >= (double) required) {
+                            fail("Invalid acceleration", "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                                    + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                                    + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + closest
+                                    + "\nfriction " + MsgType.MAIN_THEME_COLOR.getMessage() + friction
+                                    + "\ncarryFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + carryFriction
+                                    + "\ncurrentBlockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getFrictionFactor()
+                                    + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                    + "\nserverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                    + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH);
 
-                                this.vlBuffer = 20.0D;
-                            }
+                            // Do not re-arm an already flagged local buffer at
+                            // required - 5; one more imperfect combat frame
+                            // would then immediately flag again.
+                            this.vlBuffer = 20.0D;
                         }
                     } else {
                         // pass1 true, pass2 false → small decrease (Karhu)
                         this.decrease(0.1);
                     }
+                } else {
+                    // A matching prediction must clear stale evidence.  This
+                    // is also how Karhu handles a failed first comparison.
+                    this.decrease(0.1);
                 }
-                // pass1 false → nothing (Karhu does nothing here, no decrease)
             } else if (valid) {
                 this.decrease(0.01);
             } else {
@@ -515,14 +586,16 @@ public class SpeedB extends Check {
                     + "\nrequired " + required
                     + "\nmoveSpeed " + movementSpeed
                     + "\nforce " + force
+                    + "\nclientSprintForce " + clientSprintForce
                     + "\nfriction " + friction
                     + "\nclientGround " + clientGround
                     + "\nlastOnGround " + movementData.isLastOnGround()
                     + "\nlastLastOnGround " + movementData.isLastLastOnGround()
                     + "\nserverGround " + serverGround
                     + "\nsprinting " + sprinting
+                    + "\nserverSprinting " + serverSprinting
+                    + "\nsprintStateMismatch " + sprintStateMismatch
                     + "\njumpAdded " + jumpAdded
-                    + "\nattacked " + attacked
                     + "\nvalid " + valid
                     + "\ninvalid " + (invalidReason != null ? invalidReason : "none")
                     + "\nvelocity " + velocity

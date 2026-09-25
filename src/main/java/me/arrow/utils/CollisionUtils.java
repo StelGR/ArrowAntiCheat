@@ -193,16 +193,45 @@ public class CollisionUtils {
     public static float getBlockSlipperiness(final Material type) {
         if (type == null) return MoveUtils.FRICTION_FACTOR;
 
+        /*
+         * This lookup sometimes samples a pass-through block beside/below the
+         * player (for example a sign).  It must behave as air, not as a normal
+         * 0.6 floor.  Do not use Material#isTransparent alone: glass, carpets,
+         * fences and closed gates are transparent-looking but still have a
+         * collision shape a player can stand on.
+         */
+        if (usesAirFriction(type)) {
+            return MoveUtils.FRICTION;
+        }
+
         return switch (type) {
             case SLIME_BLOCK -> .8F;
             case ICE, PACKED_ICE -> .98F;
             case BLUE_ICE -> .989F;
-            case AIR, VOID_AIR, CAVE_AIR -> 0.91F;
             default -> {
                 if ("FROSTED_ICE".equals(type.name())) yield .98F;
                 yield MoveUtils.FRICTION_FACTOR;
             }
         };
+    }
+
+    private static boolean usesAirFriction(final Material material) {
+        String name = material.name();
+
+        if (name.equals("AIR") || name.equals("VOID_AIR") || name.equals("CAVE_AIR")) {
+            return true;
+        }
+
+        // Fluids and powder snow have dedicated movement handling.  They are
+        // not a floor, but also must not be reduced to the ordinary air case.
+        if (MaterialType.isMaterial(name, MaterialType.LIQUID) || name.equals("POWDER_SNOW")) {
+            return false;
+        }
+
+        // This is cached by PEMaterials and recognises signs, plants, torches,
+        // rails, banners, vines and other genuinely pass-through shapes while
+        // preserving collision-bearing transparent materials as block support.
+        return !PEMaterials.hasPotentialCollision(material);
     }
 
     public static boolean isServerGround(final double y) {

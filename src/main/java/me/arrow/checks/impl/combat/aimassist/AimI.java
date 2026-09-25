@@ -7,6 +7,7 @@ import me.arrow.core.check.annotation.Experimental;
 import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.combat.aimassist.aimassistUtil.LinearRegression;
 import me.arrow.checks.types.Check;
+import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.CombatData;
 import me.arrow.playerdata.data.impl.RotationData;
@@ -63,7 +64,9 @@ public class AimI extends Check {
                     double error = regression.interceptStdErr();
                     double prediction = regression.predict(1.75);
 
-                    String information = "standardDeviationYaw " + format(standardDeviationYaw) + "\nstandardDeviationPitch " + format(standardDeviationPitch) + "\nerror " + format(error);
+                    String information = "standardDeviationYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(standardDeviationYaw)
+                            + "\nstandardDeviationPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + format(standardDeviationPitch)
+                            + "\nerror " + MsgType.MAIN_THEME_COLOR.getMessage() + format(error);
 
                     verbose("AimI", standardDeviationYaw , standardDeviationPitch, "Verbose\n" + information);
                     if (standardDeviationYaw > 10 && standardDeviationPitch < 4.5 && error < 0.5 && prediction > 5) {

@@ -100,7 +100,7 @@ public class MovementData implements Data {
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround,
-        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston, nearBlocksSlime, nearPowderSnow, nearSoulBlock;
+        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, wasInWater, wasWasInWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston, nearBlocksSlime, nearPowderSnow, nearSoulBlock;
 
 
     @Getter
@@ -411,6 +411,12 @@ public class MovementData implements Data {
         //Process data
 
         updateNearWallState();
+
+        // Snapshot the previous two water states before processBlocks replaces
+        // the current state for this packet. SimulationHandler uses these
+        // packet-frame values for water drag and input acceleration.
+        wasWasInWater = wasInWater;
+        wasInWater = isInsideWater || isOnTopOfWater;
         processBlocks();
 
         profile.setBouncingOnSlime(getSlimeProcessor().isBouncing(this, profile.getPotionData()));
@@ -488,12 +494,13 @@ public class MovementData implements Data {
 //                && !nearbyBlocksResult2.isNearGround()
                 && !profile.isExempt().isFlight()
                 && !nearHoney
+                && !nearClimbable
+                && !nearPowderSnow
                 && !profile.shouldCancel()
                 && !profile.getPlayer().isInsideVehicle()
                 && !isNearBoat()
                 && !isOnBoat()
-                && !isClimb()
-                && !isNearWebs()
+                && !nearWebs
                 && !profile.isBouncingOnSlime();
 
         isColliding = supportsEntityCollisionCheck() && CollisionProcessor.isColliding(profile.getPlayer(), profile.getBoundingBox());

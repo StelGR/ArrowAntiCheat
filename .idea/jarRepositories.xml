@@ -7,6 +7,11 @@
       <option name="url" value="https://maven.pkg.github.com/StelGR/ArrowAPI" />
     </remote-repository>
     <remote-repository>
+      <option name="id" value="LoomLocalMinecraft" />
+      <option name="name" value="LoomLocalMinecraft" />
+      <option name="url" value="file:/$PROJECT_DIR$/../../../../c%20drive%20new%20desktop/sonix%20shit/ArrowAntiCheat/ArrowAntiCheat/fabric/.gradle/loom-cache/minecraftMaven/" />
+    </remote-repository>
+    <remote-repository>
       <option name="id" value="central" />
       <option name="name" value="Central Repository" />
       <option name="url" value="https://repo.maven.apache.org/maven2" />
@@ -15,6 +20,16 @@
       <option name="id" value="jitpack.io" />
       <option name="name" value="jitpack.io" />
       <option name="url" value="https://jitpack.io" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="LoomGlobalMinecraft" />
+      <option name="name" value="LoomGlobalMinecraft" />
+      <option name="url" value="file:/$USER_HOME$/.gradle/caches/fabric-loom/minecraftMaven/" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="Mojang" />
+      <option name="name" value="Mojang" />
+      <option name="url" value="https://libraries.minecraft.net/" />
     </remote-repository>
     <remote-repository>
       <option name="id" value="opencollab-snapshots" />
@@ -47,9 +62,19 @@
       <option name="url" value="https://repo.viaversion.com" />
     </remote-repository>
     <remote-repository>
+      <option name="id" value="LoomLocalRemappedMods" />
+      <option name="name" value="LoomLocalRemappedMods" />
+      <option name="url" value="file:/$PROJECT_DIR$/../../../../c%20drive%20new%20desktop/sonix%20shit/ArrowAntiCheat/ArrowAntiCheat/fabric/.gradle/loom-cache/remapped_mods/" />
+    </remote-repository>
+    <remote-repository>
       <option name="id" value="codemc-releases" />
       <option name="name" value="codemc-releases" />
       <option name="url" value="https://repo.codemc.io/repository/maven-releases/" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="MavenRepo" />
+      <option name="name" value="MavenRepo" />
+      <option name="url" value="https://repo.maven.apache.org/maven2/" />
     </remote-repository>
     <remote-repository>
       <option name="id" value="spigot-repo" />
@@ -80,31 +105,6 @@
       <option name="id" value="dmulloy2-repo" />
       <option name="name" value="dmulloy2-repo" />
       <option name="url" value="https://repo.dmulloy2.net/nexus/repository/public/" />
-    </remote-repository>
-    <remote-repository>
-      <option name="id" value="LoomLocalRemappedMods" />
-      <option name="name" value="LoomLocalRemappedMods" />
-      <option name="url" value="file:/$PROJECT_DIR$/../../../../c%20drive%20new%20desktop/sonix%20shit/ArrowAntiCheat/ArrowAntiCheat/fabric/.gradle/loom-cache/remapped_mods/" />
-    </remote-repository>
-    <remote-repository>
-      <option name="id" value="LoomGlobalMinecraft" />
-      <option name="name" value="LoomGlobalMinecraft" />
-      <option name="url" value="file:/$USER_HOME$/.gradle/caches/fabric-loom/minecraftMaven/" />
-    </remote-repository>
-    <remote-repository>
-      <option name="id" value="LoomLocalMinecraft" />
-      <option name="name" value="LoomLocalMinecraft" />
-      <option name="url" value="file:/$PROJECT_DIR$/../../../../c%20drive%20new%20desktop/sonix%20shit/ArrowAntiCheat/ArrowAntiCheat/fabric/.gradle/loom-cache/minecraftMaven/" />
-    </remote-repository>
-    <remote-repository>
-      <option name="id" value="Mojang" />
-      <option name="name" value="Mojang" />
-      <option name="url" value="https://libraries.minecraft.net/" />
-    </remote-repository>
-    <remote-repository>
-      <option name="id" value="MavenRepo" />
-      <option name="name" value="MavenRepo" />
-      <option name="url" value="https://repo.maven.apache.org/maven2/" />
     </remote-repository>
   </component>
 </project>

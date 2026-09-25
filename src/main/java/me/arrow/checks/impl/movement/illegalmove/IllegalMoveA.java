@@ -138,7 +138,7 @@ public class IllegalMoveA extends Check {
                     ItemStack boots = inventory.getBoots();
 
                     if (OtherUtility.itemContains(boots, "traveler")) {
-                        stepHeight += 0.5D;
+                        stepHeight += 0.6D;
                     }
                 }
 
