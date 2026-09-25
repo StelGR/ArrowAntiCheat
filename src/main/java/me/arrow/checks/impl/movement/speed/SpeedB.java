@@ -28,7 +28,7 @@ import org.bukkit.util.Vector;
 @Experimental
 public class SpeedB extends Check {
     public SpeedB(Profile profile) {
-        super(profile, CheckType.SPEED, "B", "Checks for deceleration/acceleration");
+        super(profile, CheckType.SPEED, "B", "Checks for deceleration/acceleration (Prediction By KarhuAC)");
     }
 
     float lastDeltaYaw;

@@ -359,15 +359,14 @@ public enum MaterialType {
     public static boolean isStair(Material material) {
         if (material == null) return false;
 
-        if (hasAnyBukkitTag(material, "STAIRS")) return true;
-
         String name = material.name();
 
-        // Future-proof:
-        // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
+        if (isMaterial(name, MaterialType.STAIRS)) return true;
+
+        if (hasAnyBukkitTag(material, "STAIRS")) return true;
+
         return name.endsWith("_STAIRS")
-                || name.contains("_STAIR")
-                || isMaterialEqual(name, MaterialType.STAIRS);
+                || name.contains("_STAIR");
     }
 
     public static boolean isBed(Block block) {
@@ -377,14 +376,13 @@ public enum MaterialType {
     public static boolean isBed(Material material) {
         if (material == null) return false;
 
-        if (hasAnyBukkitTag(material, "BED")) return true;
-
         String name = material.name();
 
-        // Future-proof:
-        // OAK_STAIRS, TUFF_STAIRS, RESIN_BRICK_STAIRS, WHITE_WOOL_STAIRS, etc.
-        return name.endsWith("_BED")
-                || isMaterialEqual(name, MaterialType.BED);
+        if (isMaterial(name, MaterialType.BED)) return true;
+
+        if (hasAnyBukkitTag(material, "BED")) return true;
+
+        return name.endsWith("_BED");
     }
 
     public static boolean isFence(Block block) {
@@ -394,18 +392,16 @@ public enum MaterialType {
     public static boolean isFence(Material material) {
         if (material == null) return false;
 
-        if (hasAnyBukkitTag(material, "FENCES", "WOODEN_FENCES")) return true;
-
         String name = material.name();
 
-        // Future-proof:
-        // OAK_FENCE, CHERRY_FENCE, WHITE_WOOL_FENCE, etc.
-        // Does NOT match OAK_FENCE_GATE because that ends with _FENCE_GATE.
+        if (isMaterial(name, MaterialType.FENCE)) return true;
+
+        if (hasAnyBukkitTag(material, "FENCES", "WOODEN_FENCES")) return true;
+
         return name.endsWith("_FENCE")
                 || name.equals("FENCE")
                 || name.equals("NETHER_FENCE")
-                || name.equals("IRON_FENCE")
-                || isMaterialEqual(name, MaterialType.FENCE);
+                || name.equals("IRON_FENCE");
     }
 
     public static boolean isFenceGate(Block block) {
@@ -430,15 +426,14 @@ public enum MaterialType {
     public static boolean isWall(Material material) {
         if (material == null) return false;
 
-        if (hasAnyBukkitTag(material, "WALLS")) return true;
-
         String name = material.name();
 
-        // Future-proof:
-        // COBBLESTONE_WALL, TUFF_WALL, WHITE_WOOL_WALL, etc.
+        if (isMaterial(name, MaterialType.WALL)) return true;
+
+        if (hasAnyBukkitTag(material, "WALLS")) return true;
+
         return name.endsWith("_WALL")
-                || name.equals("COBBLE_WALL")
-                || isMaterialEqual(name, MaterialType.WALL);
+                || name.equals("COBBLE_WALL");
     }
 
     public static boolean isCarpet(Block block) {
@@ -452,8 +447,6 @@ public enum MaterialType {
 
         String name = material.name();
 
-        // Future-proof:
-        // COBBLESTONE_WALL, TUFF_WALL, WHITE_WOOL_WALL, etc.
         return name.endsWith("_CARPET")
                 || name.endsWith("CARPETS");
     }
@@ -465,17 +458,18 @@ public enum MaterialType {
     public static boolean isSlab(Material material) {
         if (material == null) return false;
 
-        if (hasAnyBukkitTag(material, "SLABS", "WOODEN_SLABS")) return true;
-
         String name = material.name();
+
+        if (isMaterial(name, MaterialType.SLAB)) return true;
+
+        if (hasAnyBukkitTag(material, "SLABS", "WOODEN_SLABS")) return true;
 
         return name.endsWith("_SLAB")
                 || name.contains("_SLAB")
                 || name.equals("STEP")
                 || name.equals("WOOD_STEP")
                 || name.equals("WOODEN_SLAB")
-                || name.equals("STONE_SLAB2")
-                || isMaterialEqual(name, MaterialType.SLAB);
+                || name.equals("STONE_SLAB2");
     }
 
     public static boolean isDoor(Block block) {
@@ -485,14 +479,15 @@ public enum MaterialType {
     public static boolean isDoor(Material material) {
         if (material == null) return false;
 
-        if (hasAnyBukkitTag(material, "DOORS", "WOODEN_DOORS")) return true;
-
         String name = material.name();
+
+        if (isMaterial(name, MaterialType.DOOR)) return true;
+
+        if (hasAnyBukkitTag(material, "DOORS", "WOODEN_DOORS")) return true;
 
         return name.endsWith("_DOOR")
                 || name.equals("WOODEN_DOOR")
-                || name.equals("IRON_DOOR_BLOCK")
-                || isMaterialEqual(name, MaterialType.DOOR);
+                || name.equals("IRON_DOOR_BLOCK");
     }
 
     public static boolean isTrapdoor(Block block) {
@@ -502,13 +497,14 @@ public enum MaterialType {
     public static boolean isTrapdoor(Material material) {
         if (material == null) return false;
 
-        if (hasAnyBukkitTag(material, "TRAPDOORS", "WOODEN_TRAPDOORS")) return true;
-
         String name = material.name();
 
+        if (isMaterial(name, MaterialType.TRAPDOOR)) return true;
+
+        if (hasAnyBukkitTag(material, "TRAPDOORS", "WOODEN_TRAPDOORS")) return true;
+
         return name.endsWith("_TRAPDOOR")
-                || name.equals("TRAP_DOOR")
-                || isMaterialEqual(name, MaterialType.TRAPDOOR);
+                || name.equals("TRAP_DOOR");
     }
 
     public static boolean isPane(Block block) {
@@ -518,9 +514,11 @@ public enum MaterialType {
     public static boolean isPane(Material material) {
         if (material == null) return false;
 
-        if (hasAnyBukkitTag(material, "GLASS_PANES")) return true;
-
         String name = material.name();
+
+        if (isMaterial(name, MaterialType.PANE)) return true;
+
+        if (hasAnyBukkitTag(material, "GLASS_PANES")) return true;
 
         return name.endsWith("_PANE")
                 || name.equals("GLASS_PANE")
@@ -528,8 +526,7 @@ public enum MaterialType {
                 || name.equals("IRON_BARS")
                 || name.equals("THIN_GLASS")
                 || name.equals("THIN_GLASS_PANE")
-                || name.equals("IRON_FENCE")
-                || isMaterialEqual(name, MaterialType.PANE);
+                || name.equals("IRON_FENCE");
     }
 
     public static boolean isButton(Block block) {
@@ -566,17 +563,19 @@ public enum MaterialType {
 
     public static boolean isStair(String materialName) {
         String name = normalizeMaterialName(materialName);
-        return name != null && (name.endsWith("_STAIRS") || isMaterialEqual(name, MaterialType.STAIRS));
+        return name != null && (name.endsWith("_STAIRS") || isMaterial(name, MaterialType.STAIRS));
     }
 
     public static boolean isFence(String materialName) {
         String name = normalizeMaterialName(materialName);
+
+        if (isMaterial(name, MaterialType.FENCE)) return true;
+
         return name != null && (
                 name.endsWith("_FENCE")
                         || name.equals("FENCE")
                         || name.equals("NETHER_FENCE")
                         || name.equals("IRON_FENCE")
-                        || isMaterialEqual(name, MaterialType.FENCE)
         );
     }
 
@@ -587,10 +586,12 @@ public enum MaterialType {
 
     public static boolean isWall(String materialName) {
         String name = normalizeMaterialName(materialName);
+
+        if (isMaterial(name, MaterialType.WALL)) return true;
+
         return name != null && (
                 name.endsWith("_WALL")
                         || name.equals("COBBLE_WALL")
-                        || isMaterialEqual(name, MaterialType.WALL)
         );
     }
 
