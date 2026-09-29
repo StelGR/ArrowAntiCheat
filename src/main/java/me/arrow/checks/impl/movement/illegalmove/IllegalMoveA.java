@@ -138,7 +138,7 @@ public class IllegalMoveA extends Check {
                     ItemStack boots = inventory.getBoots();
 
                     if (OtherUtility.itemContains(boots, "traveler")) {
-                        stepHeight += 0.6D;
+                        stepHeight += movementData.isNearFence() ? 1.0D : 0.6D;
                     }
                 }
 
@@ -147,8 +147,8 @@ public class IllegalMoveA extends Check {
                         && (!profile.isBouncingOnSlime()
                         && !(movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))
                         && movementData.getSincePowderSnowTicks() > 20
-                        && !(movementData.isOnBoat()
-                        || movementData.isNearBoat())
+//                        && !(movementData.isOnBoat()
+//                        || movementData.isNearBoat())
                         && !movementData.isNearLava()
                         && !movementData.isNearWater()
                         && !movementData.isClimb()

@@ -43,17 +43,17 @@ public class GroundC extends Check {
                 if (exempt("cancelled", profile.shouldCancel())) return;
                 if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return;
                 if (exempt("nearShulker", movementData.isNearShulker())) return;
-                if (exempt("onBoat", movementData.isOnBoat())) return;
+                //if (exempt("onBoat", movementData.isOnBoat())) return;
                 if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
                 if (exempt("nearBed", movementData.isNearBed())) return;
                 if (exempt("vehicle", profile.isExempt().vehicle())) return;
                 if (exempt("nearGhast", movementData.isNearGhast())) return;
-                if (exempt("startup", profile.getTick() < 120)) return;
-                if (exempt("nearBoat", movementData.isNearBoat())) return;
+                if (exempt("startup", profile.getTick() < 60)) return;
+                //if (exempt("nearBoat", movementData.isNearBoat())) return;
                 if (exempt("noLocation", movementData.getLocation() == null)) return;
                 if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
                 if (exempt("teleports", profile.isExempt().isTeleports())) return;
-                if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return;
+                //if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return;
                 if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) return;
 
                 boolean ground = movementData.isOnGround();

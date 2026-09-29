@@ -104,6 +104,12 @@ public class FlyB extends Check {
                                 && clientAirTicks > 8
                                 && !vd.isTakingVelocity();
 
+                boolean invalidLevitation2 =
+                        profile.getPotionData().isHasLevitation()
+                        && deltaY == 0
+                        && movementData.getCustomAirTicks() == 0
+                        && !movementData.isUnderblock();
+
                 String verboseInfo = "acceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
                         + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                         + "\n+expected " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedY
@@ -115,7 +121,7 @@ public class FlyB extends Check {
                         + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + totalVerticalVelocity;
 
 
-                if (invalidLevitation) {
+                if (invalidLevitation || invalidLevitation2) {
                     fail("Impossible acceleration with levitation", verboseInfo);
                 }
 

@@ -8,6 +8,7 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPl
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerRotation;
 import lombok.Getter;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.Data;
 import me.arrow.playerdata.processors.impl.CinematicProcessor;
 import me.arrow.playerdata.processors.impl.SensitivityProcessor;
@@ -53,16 +54,21 @@ public class RotationData implements Data {
 
     @Override
     public void processReceive(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
-            final WrapperPlayClientPlayerPositionAndRotation wrapper =
-                    new WrapperPlayClientPlayerPositionAndRotation(event);
+        long profiler = Profiler.start();
+        try {
+            if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
+                final WrapperPlayClientPlayerPositionAndRotation wrapper =
+                        new WrapperPlayClientPlayerPositionAndRotation(event);
 
-            processRotation(wrapper.getYaw(), wrapper.getPitch());
-        } else if (event.getPacketType().equals(PLAYER_ROTATION)) {
-            final WrapperPlayClientPlayerRotation wrapper =
-                    new WrapperPlayClientPlayerRotation(event);
+                processRotation(wrapper.getYaw(), wrapper.getPitch());
+            } else if (event.getPacketType().equals(PLAYER_ROTATION)) {
+                final WrapperPlayClientPlayerRotation wrapper =
+                        new WrapperPlayClientPlayerRotation(event);
 
-            processRotation(wrapper.getYaw(), wrapper.getPitch());
+                processRotation(wrapper.getYaw(), wrapper.getPitch());
+            }
+        } finally {
+            Profiler.stop("RotationData", profiler);
         }
     }
 

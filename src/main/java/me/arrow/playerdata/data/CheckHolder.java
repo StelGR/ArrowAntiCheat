@@ -3,6 +3,7 @@ package me.arrow.playerdata.data;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import lombok.Getter;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.core.check.annotation.Testing;
 import me.arrow.checks.impl.combat.aimassist.*;
 import me.arrow.checks.impl.combat.autoclicker.*;
@@ -25,6 +26,8 @@ import me.arrow.checks.impl.misc.timer.TimerA;
 import me.arrow.checks.impl.misc.timer.TimerB;
 import me.arrow.checks.impl.misc.timer.TimerC;
 import me.arrow.checks.impl.misc.vehicle.VehicleA;
+import me.arrow.checks.impl.misc.vehicle.VehicleB;
+import me.arrow.checks.impl.misc.vehicle.VehicleC;
 import me.arrow.checks.impl.movement.fly.*;
 import me.arrow.checks.impl.movement.ground.GroundA;
 import me.arrow.checks.impl.movement.ground.GroundB;
@@ -69,21 +72,27 @@ public class CheckHolder {
 
 
     public void runChecks(PacketReceiveEvent event) {
-        /*
-        Fastest way to loop through many objects, If you think this is stupid
-        Then benchmark the long term perfomance yourself with many profilers and java articles.
-         */
-        for (int i = 0; i < this.checksSize; i++) this.checks[i].handle(event);
-
-
+        for (int i = 0; i < this.checksSize; i++) {
+            Check check = this.checks[i];
+            long profiler = Profiler.start();
+            try {
+                check.handle(event);
+            } finally {
+                Profiler.stop(check.getFullCheckName(), profiler);
+            }
+        }
     }
 
     public void runChecks(PacketSendEvent event) {
-        /*
-        Fastest way to loop through many objects, If you think this is stupid
-        Then benchmark the long term perfomance yourself with many profilers and java articles.
-         */
-        for (int i = 0; i < this.checksSize; i++) this.checks[i].handle(event);
+        for (int i = 0; i < this.checksSize; i++) {
+            Check check = this.checks[i];
+            long profiler = Profiler.start();
+            try {
+                check.handle(event);
+            } finally {
+                Profiler.stop(check.getFullCheckName(), profiler);
+            }
+        }
     }
 
     public <T extends Check> T getCheck(Class<T> checkClass) {
@@ -172,6 +181,7 @@ public class CheckHolder {
                 new GroundC(this.profile),
 
                 new ElytraA(this.profile),
+                new ElytraB(this.profile),
                 new GravityA(this.profile),
                 new GravityB(this.profile),
                 new GravityC(this.profile),
@@ -200,7 +210,9 @@ public class CheckHolder {
                 new TimerA(this.profile),
                 new TimerB(this.profile),
                 new TimerC(this.profile),
-                new VehicleA(this.profile)
+                new VehicleA(this.profile),
+                new VehicleB(this.profile),
+                new VehicleC(this.profile)
 
         );
 

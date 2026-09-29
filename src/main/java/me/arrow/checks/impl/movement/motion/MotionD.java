@@ -38,7 +38,6 @@ public class MotionD extends Check {
 
                 ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
 
-                if (exempt("worldTrackerMovement", world.shouldExemptMovementChecks())) return;
                 if (exempt("worldPhysicsMismatch", world.physicsMismatch)) return;
                 if (exempt("worldOnGhostBlock", world.onGhostBlock)) return;
                 if (exempt("worldUnderGhostBlock", world.underGhostBlock)) return;
@@ -56,7 +55,7 @@ public class MotionD extends Check {
                 if (exempt("nearBed", movementData.isNearBed())) { resetMotionBuffer(); return; }
                 if (exempt("onBoat", movementData.isOnBoat())) { resetMotionBuffer(); return; }
                 if (exempt("nearWebs", movementData.isNearWebs())) { resetMotionBuffer(); return; }
-                if (exempt("nearBoat", movementData.isNearBoat())) { resetMotionBuffer(); return; }
+                //if (exempt("nearBoat", movementData.isNearBoat())) { resetMotionBuffer(); return; }
                 if (exempt("nearWater", movementData.isNearWater())) { resetMotionBuffer(); return; }
                 if (exempt("nearLava", movementData.isNearLava())) { resetMotionBuffer(); return; }
                 if (exempt("nearClimbable", movementData.isNearClimbable())) { resetMotionBuffer(); return; }

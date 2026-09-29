@@ -29,9 +29,12 @@ import me.arrow.playerdata.data.impl.worldcomp.GeysersTracker;
 import me.arrow.playerdata.processors.impl.NMSProcessor;
 import me.arrow.playerdata.processors.impl.TransactionProcessor;
 import me.arrow.utils.ChatUtils;
+import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.BoundingBox;
+import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.Exempt;
+import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.EventTimer;
 import me.arrow.utils.customutils.EvictingMap;
 import me.arrow.utils.customutils.OtherUtility;
@@ -61,7 +64,7 @@ import java.util.UUID;
 @Setter
 public class Profile implements CoreProfile {
 
-    private static final LegacyComponentSerializer LEGACY_COMPONENT_SERIALIZER =
+    LegacyComponentSerializer LEGACY_COMPONENT_SERIALIZER =
             LegacyComponentSerializer.legacySection();
 
     //-------------------------------------------
@@ -284,7 +287,10 @@ public class Profile implements CoreProfile {
 
         this.exempt.handleExempts(event.getTimestamp());
 
-        if (OtherUtility.isFlying(event.getPacketType())) simulation.simulateMovement(0, 0, false);
+        if (OtherUtility.isFlying(event.getPacketType())) {
+            simulation.simulateMovement(0, 0, false);
+            movementData.updateWaterPrediction(this);
+        }
 
         this.checkHolder.runChecks(event);
         this.reachEntityTracker.processReceive(event);
@@ -521,9 +527,8 @@ public class Profile implements CoreProfile {
 
         Location checkLocation = location.clone().subtract(0.0D, 3.0D, 0.0D);
 
-        Material mat = me.arrow.utils.CollisionUtils.getMaterial(new me.arrow.utils.custom.CustomLocation(checkLocation));
-        airBridging = mat == Material.AIR;
-        return airBridging;
+        Material mat = CollisionUtils.getMaterial(new CustomLocation(checkLocation));;
+        return MaterialType.isMaterial(mat.name(), MaterialType.AIR);
     }
 
     public void sendPacket(WrapperPlayServerWindowConfirmation wrapperPlayServerPing) {

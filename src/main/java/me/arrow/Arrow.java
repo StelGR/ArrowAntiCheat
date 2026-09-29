@@ -407,6 +407,7 @@ public class Arrow {
             } catch (Throwable ignored) {
             }
 
+            CollisionProcessor.stop();
             ReflectionUtils.clear();
             if (host != null) {
                 HandlerList.unregisterAll(host);

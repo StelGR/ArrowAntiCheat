@@ -50,6 +50,22 @@ public class MovementMath {
             new float[]{0F, 0F}
     ));
 
+    public static final float[][] WATER_KEY_COMBOS = {
+            {1.0F, -1.0F},
+            {1.0F,  0.0F},
+            {1.0F,  1.0F},
+            {0.0F, -1.0F},
+            {0.0F,  0.0F},
+            {0.0F,  1.0F},
+            {-1.0F, -1.0F},
+            {-1.0F,  0.0F},
+            {-1.0F,  1.0F}
+    };
+
+    public static final boolean[] WATER_BOOLS = {
+            false, true
+    };
+
     public static final boolean[] BOOLEANS = new boolean[]{true, false};
     public static final boolean[] BOOLEANS_REVERSED = new boolean[]{false, true};
 
@@ -108,13 +124,16 @@ public class MovementMath {
         ActionData actionData = profile.getActionData();
         boolean modernMovement = profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);
 
+        boolean wasOnBoat = movementData.isLastOnBoat() || movementData.isOnBoat() || movementData.getSinceOnBoatTicks() <= 1;
+        boolean wasWasOnBoat = movementData.isLastLastOnBoat() || movementData.getSinceOnBoatTicks() <= 2;
+
         // Karhu's currentFriction / lastTickFriction packet snapshots.
-        float friction = movementData.getFrictionFactor();
-        float lastTickFriction = movementData.getLastFrictionFactor();
+        float friction = wasOnBoat ? 0.6F : movementData.getFrictionFactor();
+        float lastTickFriction = wasWasOnBoat ? 0.6F : movementData.getLastFrictionFactor();
         if (!modernMovement) {
             friction *= 0.91F;
         }
-        boolean onGround = movementData.isLastOnGround();
+        boolean onGround = movementData.isLastOnGround() || wasOnBoat;
         // RotationData is processed before this simulation.  MovementData's
         // location intentionally retains its old yaw for rotation-only
         // packets, so reading it here makes the predicted input vector one
@@ -212,8 +231,10 @@ public class MovementMath {
                 double lastDZ = movementData.getLastDeltaZ();
 
                 if (!movementData.isWasWasInWater()) {
-                    lastDX *= movementData.isLastLastOnGround() ? lastTickFriction * 0.91F : 0.91F;
-                    lastDZ *= movementData.isLastLastOnGround() ? lastTickFriction * 0.91F : 0.91F;
+                    boolean wasWasOnBoat = movementData.isLastLastOnBoat() || movementData.getSinceOnBoatTicks() <= 2;
+                    boolean lastLastGround = movementData.isLastLastOnGround() || wasWasOnBoat;
+                    lastDX *= lastLastGround ? lastTickFriction * 0.91F : 0.91F;
+                    lastDZ *= lastLastGround ? lastTickFriction * 0.91F : 0.91F;
                 } else {
                     float f3 = (float) SpeedUtilities.getDepthStriderLevel(profile);
                     float f9 = sprint && modernMovement

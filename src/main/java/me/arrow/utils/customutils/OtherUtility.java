@@ -9,6 +9,7 @@ import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
 import me.arrow.managers.profile.Profile;
 import me.arrow.backend.bukkit.PlatformBackend;
+import me.arrow.utils.custom.materials.MaterialType;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -244,7 +245,7 @@ public class OtherUtility {
 
 
     public static boolean itemContains(ItemStack item, String text) {
-        if (item == null || item.getType().isAir()) {
+        if (item == null || MaterialType.isMaterial(item.getType().name(), MaterialType.AIR)) {
             return false;
         }
 

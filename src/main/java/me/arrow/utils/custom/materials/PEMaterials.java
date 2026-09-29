@@ -89,6 +89,12 @@ public class PEMaterials {
     private static final Map<Integer, List<LocalCollisionBounds>> STATE_SHAPE_CACHE =
             new ConcurrentHashMap<>(2048);
 
+    private static volatile Constructor<?> legacyAabbConstructor;
+    private static volatile Class<?> legacyAabbClass;
+
+    private static final boolean LEGACY_SERVER =
+            BLOCK_GET_COLLISION_SHAPE == null;
+
     private PEMaterials() {
     }
 
@@ -240,7 +246,7 @@ public class PEMaterials {
         try {
             WrappedBlockState mapped = WrappedBlockState.getByString(clientVersion, source.toString());
 
-            if (!mapped.getType().isAir() || source.getType().isAir()) {
+            if (!MaterialType.isMaterial(mapped.getType().getName(), MaterialType.AIR) || MaterialType.isMaterial(source.getType().getName(), MaterialType.AIR)) {
                 return mapped;
             }
         } catch (Throwable ignored) {
@@ -249,7 +255,7 @@ public class PEMaterials {
         try {
             WrappedBlockState mapped = source.getType().createBlockState(clientVersion);
 
-            if (!mapped.getType().isAir() || source.getType().isAir()) {
+            if (!MaterialType.isMaterial(mapped.getType().getName(), MaterialType.AIR) || MaterialType.isMaterial(source.getType().getName(), MaterialType.AIR)) {
                 return mapped;
             }
         } catch (Throwable ignored) {
@@ -374,7 +380,7 @@ public class PEMaterials {
         StateType type = state.getType();
         String name = stateName(type);
 
-        if (type.isAir() || state.isFluid() || isAirLike(name) || isFluidLike(name)) {
+        if (MaterialType.isMaterial(type.getName(), MaterialType.AIR) || state.isFluid() || isAirLike(name) || isFluidLike(name)) {
             return false;
         }
 
@@ -536,7 +542,7 @@ public class PEMaterials {
         if (!wl) {
             try {
                 String str = state.toString();
-                if (str != null && str.contains("waterlogged=true")) {
+                if (str != null && str.toLowerCase(Locale.ROOT).contains("waterlogged=true")) {
                     wl = true;
                 }
             } catch (Throwable ignored) {}
@@ -551,6 +557,8 @@ public class PEMaterials {
             return Collections.emptyList();
         }
 
+
+
         String name = material.name();
         if (name.contains("SLAB") || name.contains("STEP")) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.5D, z + 1.0D));
@@ -563,6 +571,9 @@ public class PEMaterials {
         }
         if (name.contains("FENCE") || name.contains("WALL")) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.5D, z + 1.0D));
+        }
+        if (name.endsWith("_PANE") || name.equals("IRON_BARS") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE") || name.equals("IRON_FENCE")) {
+            return paneBounds(null, x, y, z);
         }
         if (name.equals("HEAVY_CORE")) {
             return Collections.singletonList(new CollisionBounds(x + 0.25D, y, z + 0.25D, x + 0.75D, y + 0.5D, z + 0.75D));
@@ -605,7 +616,7 @@ public class PEMaterials {
 
     /** State-aware form used by packet chunk data before it enters the global cache. */
     public static boolean requiresStatefulCollision(WrappedBlockState state) {
-        if (state == null || state.getType() == null || state.getType().isAir() || state.isFluid()) {
+        if (state == null || MaterialType.isMaterial(state.getType().getName(), MaterialType.AIR) || state.isFluid()) {
             return false;
         }
 
@@ -629,14 +640,28 @@ public class PEMaterials {
     public static List<CollisionBounds> getCollisionBounds(WrappedBlockState state, int x, int y, int z) {
         if (state == null || state.getType() == null) return null;
 
-        List<LocalCollisionBounds> exact = STATE_SHAPE_CACHE.get(state.getGlobalId());
+        /*
+         * Legacy state IDs are useful for identifying the block state, but the
+         * actual collision must come from the live legacy NMS block.
+         *
+         * Returning null intentionally makes CollisionUtils obtain the Bukkit
+         * Block and call getCollisionBounds(Block), which uses the legacy NMS
+         * resolver below.
+         */
+        if (LEGACY_SERVER && requiresStatefulCollision(state)) {
+            return null;
+        }
+
+        List<LocalCollisionBounds> exact =
+                STATE_SHAPE_CACHE.get(state.getGlobalId());
+
         if (exact != null) {
             return toWorldBounds(x, y, z, exact);
         }
 
         Material material = materialFromState(state.getType());
         if (material == null || material == Material.AIR) {
-            return state.getType().isAir() ? Collections.emptyList() : null;
+            return MaterialType.isMaterial(state.getType().getName(), MaterialType.AIR) ? Collections.emptyList() : null;
         }
 
         String name = material.name();
@@ -664,12 +689,15 @@ public class PEMaterials {
         if (name.endsWith("_WALL") || name.equals("COBBLE_WALL")) {
             return wallBounds(state, x, y, z);
         }
-        if (name.endsWith("_SLAB") || name.endsWith("_STEP")) {
+        if (name.endsWith("_PANE") || name.equals("IRON_BARS") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE") || name.equals("IRON_FENCE")) {
+            return paneBounds(state, x, y, z);
+        }
+        if (isSlab(state) || name.endsWith("_SLAB") || name.endsWith("_STEP")) {
             String type = String.valueOf(state.getTypeData());
-            if ("TOP".equals(type)) {
+            if ("TOP".equalsIgnoreCase(type)) {
                 return Collections.singletonList(new CollisionBounds(x, y + .5D, z, x + 1.0D, y + 1.0D, z + 1.0D));
             }
-            if ("DOUBLE".equals(type)) {
+            if ("DOUBLE".equalsIgnoreCase(type)) {
                 return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
             }
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + .5D, z + 1.0D));
@@ -682,40 +710,80 @@ public class PEMaterials {
 
     /** Returns whether an exact server voxel shape has already been learned for this state. */
     public static boolean hasCachedCollisionShape(WrappedBlockState state) {
-        return state != null && STATE_SHAPE_CACHE.containsKey(state.getGlobalId());
-    }
+        if (state == null) {
+            return false;
+        }
 
+        /*
+         * Legacy collision geometry may depend on neighbouring blocks and the
+         * legacy NMS block implementation. Never share one shape globally by ID.
+         */
+        if (LEGACY_SERVER) {
+            return false;
+        }
+
+        return STATE_SHAPE_CACHE.containsKey(state.getGlobalId());
+    }
     /**
      * Reads Bukkit's real collision shape once on the server thread and shares
      * it globally for every coordinate with this same block state.
      */
-    public static boolean cacheCollisionShape(WrappedBlockState expectedState, Block block) {
+    public static boolean cacheCollisionShape(
+            WrappedBlockState expectedState,
+            Block block
+    ) {
         if (expectedState == null || block == null) {
+            return false;
+        }
+
+        /*
+         * IMPORTANT:
+         * Never put legacy collision data into the global state-ID cache.
+         *
+         * Legacy shapes can depend on neighbouring blocks and old NMS block
+         * internals. resolveExactCollision() will query the actual live block
+         * instead.
+         */
+        if (LEGACY_SERVER) {
             return false;
         }
 
         try {
             WrappedBlockState liveState = fromBukkitBlock(block);
-            if (liveState == null || liveState.getGlobalId() != expectedState.getGlobalId()) {
+
+            if (liveState == null
+                    || liveState.getGlobalId() != expectedState.getGlobalId()) {
                 return false;
             }
 
-            List<CollisionBounds> worldBounds = getModernCollisionBounds(block);
+            List<CollisionBounds> worldBounds =
+                    getModernCollisionBounds(block);
+
             if (worldBounds == null) {
                 return false;
             }
 
-            List<LocalCollisionBounds> local = new ArrayList<>(worldBounds.size());
+            List<LocalCollisionBounds> local =
+                    new ArrayList<>(worldBounds.size());
+
             for (CollisionBounds bounds : worldBounds) {
                 local.add(new LocalCollisionBounds(
-                        bounds.minX - block.getX(), bounds.minY - block.getY(), bounds.minZ - block.getZ(),
-                        bounds.maxX - block.getX(), bounds.maxY - block.getY(), bounds.maxZ - block.getZ()
+                        bounds.minX - block.getX(),
+                        bounds.minY - block.getY(),
+                        bounds.minZ - block.getZ(),
+                        bounds.maxX - block.getX(),
+                        bounds.maxY - block.getY(),
+                        bounds.maxZ - block.getZ()
                 ));
             }
 
-            STATE_SHAPE_CACHE.put(expectedState.getGlobalId(), local.isEmpty()
-                    ? Collections.emptyList()
-                    : Collections.unmodifiableList(local));
+            STATE_SHAPE_CACHE.put(
+                    expectedState.getGlobalId(),
+                    local.isEmpty()
+                            ? Collections.emptyList()
+                            : Collections.unmodifiableList(local)
+            );
+
             return true;
         } catch (Throwable ignored) {
             return false;
@@ -803,6 +871,30 @@ public class PEMaterials {
         return boxes;
     }
 
+    private static List<CollisionBounds> paneBounds(WrappedBlockState state, int x, int y, int z) {
+        boolean north = state != null && isConnected(state.getNorth());
+        boolean south = state != null && isConnected(state.getSouth());
+        boolean west = state != null && isConnected(state.getWest());
+        boolean east = state != null && isConnected(state.getEast());
+        boolean hasSide = north || south || west || east;
+        List<CollisionBounds> boxes = new ArrayList<>(5);
+
+        // Center post (width 0.125, height 1.0 block)
+        boxes.add(new CollisionBounds(x + .4375D, y, z + .4375D, x + .5625D, y + 1.0D, z + .5625D));
+
+        if (north) boxes.add(new CollisionBounds(x + .4375D, y, z, x + .5625D, y + 1.0D, z + .5D));
+        if (south) boxes.add(new CollisionBounds(x + .4375D, y, z + .5D, x + .5625D, y + 1.0D, z + 1.0D));
+        if (west) boxes.add(new CollisionBounds(x, y, z + .4375D, x + .5D, y + 1.0D, z + .5625D));
+        if (east) boxes.add(new CollisionBounds(x + .5D, y, z + .4375D, x + 1.0D, y + 1.0D, z + 1.0D));
+
+        if (!hasSide) {
+            // Standalone or unparsed legacy pane: thin centered cross bounds rather than full cube
+            boxes.add(new CollisionBounds(x + .4375D, y, z, x + .5625D, y + 1.0D, z + 1.0D));
+        }
+
+        return boxes;
+    }
+
     private static boolean isConnected(Object value) {
         String name = String.valueOf(value);
         return !"NONE".equals(name) && !"FALSE".equals(name) && !"null".equals(name);
@@ -828,7 +920,8 @@ public class PEMaterials {
             return Collections.emptyList();
         }
 
-        List<CollisionBounds> legacy = getLegacyNmsCollisionBounds(block);
+        List<CollisionBounds> legacy =
+                getLegacyNmsCollisionBounds(block);
 
         if (legacy != null) {
             return legacy;
@@ -840,10 +933,56 @@ public class PEMaterials {
             return Collections.emptyList();
         }
 
+        /*
+         * NEVER invent a full cube for a legacy block whose actual shape may be
+         * partial/state-dependent.
+         *
+         * A false positive here is exactly the "ghost block while in air" failure.
+         */
+        if (LEGACY_SERVER
+                && isLegacyPartialMaterial(block.getType())) {
+            return Collections.emptyList();
+        }
+
         return Collections.singletonList(new CollisionBounds(
-                block.getX(), block.getY(), block.getZ(),
-                block.getX() + 1.0D, block.getY() + 1.0D, block.getZ() + 1.0D
+                block.getX(),
+                block.getY(),
+                block.getZ(),
+                block.getX() + 1.0D,
+                block.getY() + 1.0D,
+                block.getZ() + 1.0D
         ));
+    }
+
+    private static boolean isLegacyPartialMaterial(Material material) {
+        if (material == null) {
+            return false;
+        }
+
+        String name = normalize(material.name());
+
+        return name.equals("STEP")
+                || name.equals("WOOD_STEP")
+                || name.equals("STONE_SLAB2")
+                || name.equals("DOUBLE_STEP")
+                || name.equals("FENCE")
+                || name.equals("NETHER_FENCE")
+                || name.equals("IRON_FENCE")
+                || name.equals("FENCE_GATE")
+                || name.equals("TRAP_DOOR")
+                || name.equals("IRON_TRAPDOOR")
+                || name.equals("THIN_GLASS")
+                || name.equals("IRON_BARS")
+                || name.endsWith("_STAIRS")
+                || name.endsWith("_SLAB")
+                || name.endsWith("_FENCE")
+                || name.endsWith("_FENCE_GATE")
+                || name.endsWith("_WALL")
+                || name.endsWith("_DOOR")
+                || name.endsWith("_TRAPDOOR")
+                || name.endsWith("_PRESSURE_PLATE")
+                || name.endsWith("_CARPET")
+                || isObviousPartialCollisionName(name);
     }
 
     public static boolean intersectsCollision(Block block,
@@ -935,7 +1074,12 @@ public class PEMaterials {
         }
 
         try {
-            Object worldHandle = block.getWorld().getClass().getMethod("getHandle").invoke(block.getWorld());
+            Object worldHandle =
+                    block.getWorld()
+                            .getClass()
+                            .getMethod("getHandle")
+                            .invoke(block.getWorld());
+
             ensureLegacyCollisionAccess(worldHandle);
 
             if (legacyCollisionUnavailable
@@ -946,55 +1090,166 @@ public class PEMaterials {
                 return null;
             }
 
-            Object position = legacyBlockPositionConstructor.newInstance(
-                    block.getX(), block.getY(), block.getZ()
-            );
-            Object state = legacyWorldGetState.invoke(worldHandle, position);
+            Object position =
+                    legacyBlockPositionConstructor.newInstance(
+                            block.getX(),
+                            block.getY(),
+                            block.getZ()
+                    );
+
+            Object state =
+                    legacyWorldGetState.invoke(
+                            worldHandle,
+                            position
+                    );
 
             if (state == null) {
                 return Collections.emptyList();
             }
 
-            Object nmsBlock = legacyStateGetBlock.invoke(state);
+            Object nmsBlock =
+                    legacyStateGetBlock.invoke(state);
 
             if (nmsBlock == null) {
                 return Collections.emptyList();
             }
 
+            /*
+             * A large probe box is required by the legacy collision methods on
+             * 1.8-1.12:
+             *
+             *   a(IBlockAccess, BlockPosition, IBlockData, AxisAlignedBB)
+             */
+            Object probeBox = createLegacyProbeBox();
+
             Object rawBox;
 
-            /* Legacy block bounds are mutable singletons; keep shape update + read atomic. */
             synchronized (nmsBlock) {
-                if (legacyUpdateShape != null) {
-                    legacyUpdateShape.invoke(nmsBlock, argumentsFor(
-                            legacyUpdateShape.getParameterTypes(),
-                            worldHandle, position, state
-                    ));
+                if (legacyUpdateShape != null
+                        && canSupplyLegacy(
+                        legacyUpdateShape.getParameterTypes(),
+                        worldHandle,
+                        position,
+                        state,
+                        probeBox
+                )) {
+                    legacyUpdateShape.invoke(
+                            nmsBlock,
+                            argumentsForLegacy(
+                                    legacyUpdateShape.getParameterTypes(),
+                                    worldHandle,
+                                    position,
+                                    state,
+                                    probeBox
+                            )
+                    );
                 }
 
-                rawBox = legacyGetCollisionBox.invoke(nmsBlock, argumentsFor(
-                        legacyGetCollisionBox.getParameterTypes(),
-                        worldHandle, position, state
-                ));
+                rawBox =
+                        legacyGetCollisionBox.invoke(
+                                nmsBlock,
+                                argumentsForLegacy(
+                                        legacyGetCollisionBox.getParameterTypes(),
+                                        worldHandle,
+                                        position,
+                                        state,
+                                        probeBox
+                                )
+                        );
             }
 
             if (rawBox == null) {
                 return Collections.emptyList();
             }
 
-            CollisionBounds bounds = readLegacyNmsBox(rawBox);
+            CollisionBounds bounds =
+                    readLegacyNmsBox(rawBox);
+
             return bounds == null
                     ? null
                     : Collections.singletonList(bounds);
+
         } catch (Throwable ignored) {
             return null;
         }
     }
 
-    private static synchronized void ensureLegacyCollisionAccess(Object worldHandle) {
+    public static boolean isLegacySlabMaterial(Material material) {
+        if (material == null) {
+            return false;
+        }
+
+        String name = normalize(material.name());
+
+        return name.equals("STEP")
+                || name.equals("WOOD_STEP")
+                || name.equals("STONE_SLAB2")
+                || name.equals("SLAB")
+                || name.endsWith("_SLAB");
+    }
+
+    public static List<CollisionBounds> getCollisionBounds(
+            Material material,
+            int legacyData,
+            int x,
+            int y,
+            int z
+    ) {
+        if (material == null
+                || material == Material.AIR
+                || !hasPotentialCollision(material)) {
+            return Collections.emptyList();
+        }
+
+        if (isLegacySlabMaterial(material)
+                && legacyData >= 0) {
+
+            /*
+             * Legacy slab:
+             *
+             * 0x8 = TOP
+             * 0x0 = BOTTOM
+             */
+            if ((legacyData & 0x8) != 0) {
+                return Collections.singletonList(
+                        new CollisionBounds(
+                                x,
+                                y + 0.5D,
+                                z,
+                                x + 1.0D,
+                                y + 1.0D,
+                                z + 1.0D
+                        )
+                );
+            }
+
+            return Collections.singletonList(
+                    new CollisionBounds(
+                            x,
+                            y,
+                            z,
+                            x + 1.0D,
+                            y + 0.5D,
+                            z + 1.0D
+                    )
+            );
+        }
+
+        return getCollisionBounds(
+                material,
+                x,
+                y,
+                z
+        );
+    }
+
+    private static synchronized void ensureLegacyCollisionAccess(
+            Object worldHandle
+    ) {
         if (worldHandle == null
                 || legacyCollisionUnavailable
-                || (legacyWorldClass != null && legacyWorldClass == worldHandle.getClass())) {
+                || (legacyWorldClass != null
+                && legacyWorldClass == worldHandle.getClass())) {
             return;
         }
 
@@ -1006,11 +1261,17 @@ public class PEMaterials {
                     continue;
                 }
 
-                String parameter = method.getParameterTypes()[0].getSimpleName();
-                String returned = method.getReturnType().getSimpleName();
+                String parameter =
+                        method.getParameterTypes()[0].getSimpleName();
 
-                if ((parameter.equals("BlockPosition") || parameter.endsWith("BlockPos"))
-                        && (returned.contains("IBlockData") || returned.contains("BlockState"))) {
+                String returned =
+                        method.getReturnType().getSimpleName();
+
+                if ((parameter.equals("BlockPosition")
+                        || parameter.endsWith("BlockPos"))
+                        && (returned.contains("IBlockData")
+                        || returned.contains("BlockState"))) {
+
                     stateMethod = accessible(method);
                     break;
                 }
@@ -1021,14 +1282,30 @@ public class PEMaterials {
                 return;
             }
 
-            Class<?> positionClass = stateMethod.getParameterTypes()[0];
-            Constructor<?> positionConstructor = positionClass.getDeclaredConstructor(
-                    int.class, int.class, int.class
-            );
+            Class<?> positionClass =
+                    stateMethod.getParameterTypes()[0];
+
+            Constructor<?> positionConstructor =
+                    positionClass.getDeclaredConstructor(
+                            int.class,
+                            int.class,
+                            int.class
+                    );
+
             positionConstructor.setAccessible(true);
 
-            Object probePosition = positionConstructor.newInstance(0, 0, 0);
-            Object probeState = stateMethod.invoke(worldHandle, probePosition);
+            Object probePosition =
+                    positionConstructor.newInstance(
+                            0,
+                            0,
+                            0
+                    );
+
+            Object probeState =
+                    stateMethod.invoke(
+                            worldHandle,
+                            probePosition
+                    );
 
             if (probeState == null) {
                 legacyCollisionUnavailable = true;
@@ -1039,7 +1316,10 @@ public class PEMaterials {
 
             for (Method method : allMethods(probeState.getClass())) {
                 if (method.getParameterCount() == 0
-                        && method.getReturnType().getSimpleName().equals("Block")) {
+                        && method.getReturnType()
+                        .getSimpleName()
+                        .equals("Block")) {
+
                     getBlock = accessible(method);
                     break;
                 }
@@ -1050,22 +1330,100 @@ public class PEMaterials {
                 return;
             }
 
-            Object nmsBlock = getBlock.invoke(probeState);
+            Object nmsBlock =
+                    getBlock.invoke(probeState);
+
+            if (nmsBlock == null) {
+                legacyCollisionUnavailable = true;
+                return;
+            }
+
+            /*
+             * Find the old AxisAlignedBB type first.
+             */
+            Class<?> aabbClass = null;
+
+            outer:
+            for (Method method : allMethods(nmsBlock.getClass())) {
+                for (Class<?> parameter : method.getParameterTypes()) {
+                    if (isLegacyAabbType(parameter)) {
+                        aabbClass = parameter;
+                        break outer;
+                    }
+                }
+            }
+
+            if (aabbClass != null) {
+                try {
+                    Constructor<?> constructor =
+                            aabbClass.getDeclaredConstructor(
+                                    double.class,
+                                    double.class,
+                                    double.class,
+                                    double.class,
+                                    double.class,
+                                    double.class
+                            );
+
+                    constructor.setAccessible(true);
+
+                    legacyAabbClass = aabbClass;
+                    legacyAabbConstructor = constructor;
+
+                } catch (Throwable ignored) {
+                    legacyAabbClass = null;
+                    legacyAabbConstructor = null;
+                }
+            }
+
+            Object probeAabb = null;
+
+            if (legacyAabbConstructor != null) {
+                probeAabb =
+                        legacyAabbConstructor.newInstance(
+                                -2.0D, -2.0D, -2.0D,
+                                18.0D, 18.0D, 18.0D
+                        );
+            }
+
             Method updateShape = null;
             Method collisionBox = null;
             int collisionScore = -1;
 
             for (Method method : allMethods(nmsBlock.getClass())) {
-                Class<?>[] parameters = method.getParameterTypes();
+                Class<?>[] parameters =
+                        method.getParameterTypes();
 
-                if ((method.getName().equals("updateShape") || method.getName().equals("updateState"))
+                if ((method.getName().equals("updateShape")
+                        || method.getName().equals("updateState")
+                        || method.getName().equals("a"))
                         && method.getReturnType() == void.class
-                        && canSupply(parameters, worldHandle, probePosition, probeState)) {
-                    updateShape = accessible(method);
+                        && canSupplyLegacy(
+                        parameters,
+                        worldHandle,
+                        probePosition,
+                        probeState,
+                        probeAabb
+                )) {
+                    /*
+                     * Prefer update methods with the most context.
+                     */
+                    if (updateShape == null
+                            || parameters.length
+                            > updateShape.getParameterCount()) {
+                        updateShape = accessible(method);
+                    }
                 }
 
-                if (method.getReturnType().getSimpleName().equals("AxisAlignedBB")
-                        && canSupply(parameters, worldHandle, probePosition, probeState)) {
+                if (isLegacyAabbType(method.getReturnType())
+                        && canSupplyLegacy(
+                        parameters,
+                        worldHandle,
+                        probePosition,
+                        probeState,
+                        probeAabb
+                )) {
+
                     int score = parameters.length;
 
                     if (score > collisionScore) {
@@ -1080,13 +1438,26 @@ public class PEMaterials {
                 return;
             }
 
-            legacyWorldClass = worldHandle.getClass();
-            legacyWorldGetState = stateMethod;
-            legacyBlockPositionConstructor = positionConstructor;
-            legacyStateGetBlock = getBlock;
-            legacyUpdateShape = updateShape;
-            legacyGetCollisionBox = collisionBox;
+            legacyWorldClass =
+                    worldHandle.getClass();
+
+            legacyWorldGetState =
+                    stateMethod;
+
+            legacyBlockPositionConstructor =
+                    positionConstructor;
+
+            legacyStateGetBlock =
+                    getBlock;
+
+            legacyUpdateShape =
+                    updateShape;
+
+            legacyGetCollisionBox =
+                    collisionBox;
+
             legacyBoxFields = null;
+
         } catch (Throwable ignored) {
             legacyCollisionUnavailable = true;
         }
@@ -1158,36 +1529,130 @@ public class PEMaterials {
         return doubles.size() == 6 ? doubles.toArray(new Field[0]) : null;
     }
 
-    private static boolean canSupply(Class<?>[] parameters, Object... candidates) {
+    private static boolean canSupplyLegacy(
+            Class<?>[] parameters,
+            Object... candidates
+    ) {
         try {
-            argumentsFor(parameters, candidates);
+            argumentsForLegacy(parameters, candidates);
             return true;
         } catch (IllegalArgumentException ignored) {
             return false;
         }
     }
 
-    private static Object[] argumentsFor(Class<?>[] parameters, Object... candidates) {
-        Object[] result = new Object[parameters.length];
+    private static Object[] argumentsForLegacy(
+            Class<?>[] parameters,
+            Object... candidates
+    ) {
+        Object[] result =
+                new Object[parameters.length];
 
         for (int i = 0; i < parameters.length; i++) {
+            Class<?> parameter =
+                    parameters[i];
+
             Object match = null;
 
+            /*
+             * Existing runtime objects.
+             */
             for (Object candidate : candidates) {
-                if (candidate != null && parameters[i].isInstance(candidate)) {
+                if (candidate != null
+                        && parameter.isInstance(candidate)) {
                     match = candidate;
                     break;
                 }
             }
 
+            /*
+             * Legacy AxisAlignedBB parameter.
+             */
+            if (match == null
+                    && isLegacyAabbType(parameter)) {
+
+                match = createLegacyProbeBox(parameter);
+            }
+
             if (match == null) {
-                throw new IllegalArgumentException("Unsupported legacy collision parameter");
+                throw new IllegalArgumentException(
+                        "Unsupported legacy collision parameter: "
+                                + parameter.getName()
+                );
             }
 
             result[i] = match;
         }
 
         return result;
+    }
+
+    private static boolean isLegacyAabbType(Class<?> type) {
+        if (type == null) {
+            return false;
+        }
+
+        String name = type.getSimpleName();
+
+        return name.equals("AxisAlignedBB")
+                || name.equals("AABB");
+    }
+
+    private static Object createLegacyProbeBox() {
+        if (legacyAabbConstructor == null) {
+            return null;
+        }
+
+        try {
+            return legacyAabbConstructor.newInstance(
+                    -2.0D,
+                    -2.0D,
+                    -2.0D,
+                    18.0D,
+                    18.0D,
+                    18.0D
+            );
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Object createLegacyProbeBox(Class<?> expectedType) {
+        if (expectedType == null
+                || !isLegacyAabbType(expectedType)) {
+            return null;
+        }
+
+        if (legacyAabbConstructor != null
+                && legacyAabbClass != null
+                && expectedType.isAssignableFrom(legacyAabbClass)) {
+            return createLegacyProbeBox();
+        }
+
+        try {
+            Constructor<?> constructor =
+                    expectedType.getDeclaredConstructor(
+                            double.class,
+                            double.class,
+                            double.class,
+                            double.class,
+                            double.class,
+                            double.class
+                    );
+
+            constructor.setAccessible(true);
+
+            return constructor.newInstance(
+                    -2.0D,
+                    -2.0D,
+                    -2.0D,
+                    18.0D,
+                    18.0D,
+                    18.0D
+            );
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private static List<Method> allMethods(Class<?> type) {
@@ -1372,7 +1837,16 @@ public class PEMaterials {
     }
 
     private static boolean isObviousPartialCollisionName(String name) {
-        return name.endsWith("_STAIRS")
+        return name.equals("STEP")
+                || name.equals("WOOD_STEP")
+                || name.equals("STONE_SLAB2")
+                || name.equals("DOUBLE_STEP")
+                || name.equals("FENCE")
+                || name.equals("NETHER_FENCE")
+                || name.equals("FENCE_GATE")
+                || name.equals("TRAP_DOOR")
+                || name.equals("IRON_TRAPDOOR")
+                || name.endsWith("_STAIRS")
                 || name.endsWith("_SLAB")
                 || name.endsWith("_FENCE")
                 || name.endsWith("_FENCE_GATE")
@@ -1667,6 +2141,32 @@ public class PEMaterials {
                 Material enderPortalFrame = Material.matchMaterial("ENDER_PORTAL_FRAME");
                 if (enderPortalFrame != null) return enderPortalFrame;
                 break;
+
+            case "STONE_SLAB":
+            case "SANDSTONE_SLAB":
+            case "COBBLESTONE_SLAB":
+            case "BRICK_SLAB":
+            case "STONE_BRICK_SLAB":
+            case "NETHER_BRICK_SLAB":
+            case "QUARTZ_SLAB":
+                Material step = Material.matchMaterial("STEP");
+                if (step != null) return step;
+                break;
+
+            case "OAK_SLAB":
+            case "SPRUCE_SLAB":
+            case "BIRCH_SLAB":
+            case "JUNGLE_SLAB":
+            case "ACACIA_SLAB":
+            case "DARK_OAK_SLAB":
+                Material woodStep = Material.matchMaterial("WOOD_STEP");
+                if (woodStep != null) return woodStep;
+                break;
+
+            case "RED_SANDSTONE_SLAB":
+                Material slab2 = Material.matchMaterial("STONE_SLAB2");
+                if (slab2 != null) return slab2;
+                break;
             case "OAK_PLANKS":
             case "SPRUCE_PLANKS":
             case "BIRCH_PLANKS":
@@ -1823,6 +2323,18 @@ public class PEMaterials {
     private static Method findNoArgMethod(String className, String name) {
         try {
             return findNoArgMethod(Class.forName(className), name);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    public static WrappedBlockState fromBukkitMaterialData(MaterialData data) {
+        if (data == null) {
+            return null;
+        }
+
+        try {
+            return SpigotConversionUtil.fromBukkitMaterialData(data);
         } catch (Throwable ignored) {
             return null;
         }

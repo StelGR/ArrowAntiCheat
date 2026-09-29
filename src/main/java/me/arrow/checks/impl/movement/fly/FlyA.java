@@ -124,8 +124,8 @@ public class FlyA extends Check {
 
                 velMag += horizo;
 
-                double baseTicksVel = 10;
-                double baseVelocity = 0.00001;
+                double baseTicksVel = 4;
+                double baseVelocity = 0.01;
                 double scale = 28;
 
                 double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
@@ -346,7 +346,7 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (movementData.isGlidingOrRecentlyGlided(30)) {
+        if (movementData.isGlidingOrRecentlyGlided(5)) {
             ChatUtils.debugExempt("elytraGlide", "FlyA");
             return true;
         }

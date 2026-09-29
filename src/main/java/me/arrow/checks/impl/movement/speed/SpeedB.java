@@ -200,9 +200,17 @@ public class SpeedB extends Check {
             leniencyReason += ", underblock";
         }
 
-        if (!movementData.isOnGround() && movementData.isLastOnGround() && movementData.getClientAirTicks() == 1) {
+        boolean justJumpedFromSolid = !movementData.isOnGround()
+                && (movementData.isLastOnGround() || movementData.isLastOnBoat() || movementData.getSinceOnBoatTicks() <= 1)
+                && movementData.getClientAirTicks() <= 2;
+        if (justJumpedFromSolid) {
             leniency += 0.04;
             leniencyReason += ", justJumped";
+        }
+
+        if (movementData.isOnBoat() || movementData.isLastOnBoat() || movementData.getSinceOnBoatTicks() <= 4) {
+            leniency += 0.06;
+            leniencyReason += ", boatMovement";
         }
 
         if (movementData.isNearWall()) {
@@ -384,24 +392,29 @@ public class SpeedB extends Check {
             Vector move = new Vector(deltaX, 0.0, deltaZ);
             // Keep the same frame selection as Karhu: fromFrom chooses the
             // previous block carry multiplier; from chooses ground input force.
-            float lastTickFriction = movementData.getLastFrictionFactor() * 0.91F;
-            float carryFriction = movementData.isLastLastOnGround() ? lastTickFriction : 0.91F;
+            boolean wasOnBoat = movementData.isLastOnBoat() || movementData.isOnBoat() || movementData.getSinceOnBoatTicks() <= 1;
+            boolean wasWasOnBoat = movementData.isLastLastOnBoat() || movementData.getSinceOnBoatTicks() <= 2;
+
+            // When supported by a boat, the surface acts as standard solid ground (0.6F friction).
+            float lastTickFriction = wasWasOnBoat ? (0.6F * 0.91F) : (movementData.getLastFrictionFactor() * 0.91F);
+            float carryFriction = (movementData.isLastLastOnGround() || wasWasOnBoat) ? lastTickFriction : 0.91F;
             Vector compLastMove = this.lastMove.clone().multiply(carryFriction);
 
             Vector plainComp = compLastMove.clone();
 
             float yaw = profile.getRotationData().getYaw();
 
-            boolean jumpAdded = movementData.isLastOnGround() && !clientGround && deltaY >= 0.0;
+            boolean wasOnSolid = movementData.isLastOnGround() || wasOnBoat;
+            boolean jumpAdded = wasOnSolid && !clientGround && deltaY >= 0.0;
             if (jumpAdded) {
                 float yawRad = yaw * (float) (Math.PI / 180.0);
                 compLastMove.add(new Vector((double) -sin(yawRad) * 0.2, 0.0, (double) cos(yawRad) * 0.2));
             }
 
-            if (movementData.isLastOnGround()) {
+            if (wasOnSolid) {
                 // Karhu's getCurrentFriction(): raw block slipperiness, not
-                // the 0.91 velocity carry multiplier above.
-                float rawFriction = movementData.getFrictionFactor();
+                // the 0.91 velocity carry multiplier above. Boat surface is 0.6F.
+                float rawFriction = wasOnBoat ? 0.6F : movementData.getFrictionFactor();
                 friction = rawFriction;
                 force = movementSpeed * 0.16277136F / (rawFriction * rawFriction * rawFriction);
                 forceSprint = movementSpeedSP * 0.16277136F / (rawFriction * rawFriction * rawFriction);
@@ -415,12 +428,16 @@ public class SpeedB extends Check {
 
             double threshold = movingTicks <= 3.0F ? 0.0325 : 0.0105;
 
-            if (deltaXZ < 0.25D && movingTicks <= 2.0F && movementData.isLastOnGround()) {
+            if (deltaXZ < 0.25D && movingTicks <= 2.0F && wasOnSolid) {
                 threshold += 0.2D;
             }
 
             if (movementData.getSinceCollideTicks() <= 10) {
                 threshold += 0.1D;
+            }
+
+            if (wasOnBoat || wasWasOnBoat || movementData.getSinceOnBoatTicks() <= 5) {
+                threshold += 0.06D;
             }
 
             if (movementData.getMovingUnderblockTicks() > 0) {
@@ -652,7 +669,6 @@ public class SpeedB extends Check {
         }
     }
 
-
     private String getInvalidReason(boolean velocity) {
         MovementData movementData = profile.getMovementData();
 
@@ -660,7 +676,7 @@ public class SpeedB extends Check {
         if (profile.getPlayer().getGameMode() == org.bukkit.GameMode.SPECTATOR) return "spectator";
         if (profile.getPlayer().isFlying()) return "flying";
         if (!profile.isExempt().isRespawned()) return "notRespawned";
-        if (profile.isExempt().vehicle() || movementData.isNearBoat() || movementData.isOnBoat()) return "vehicle";
+        if (profile.isExempt().vehicle()) return "vehicle";
         if (movementData.getSinceTeleportTicks() <= 2 + (profile.getConnectionData().getClientTickTrans() * 4)) return "teleport";
         if (movementData.getSinceOnGhostBlock() <= 2) return "ghostBlock";
         if (movementData.getSinceGlidingTicks() < 30) return "gliding";

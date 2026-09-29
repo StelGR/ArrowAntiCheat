@@ -51,8 +51,8 @@ public class MotionB extends Check {
                 if (exempt("nearShulker", movementData.isNearShulker())) { resetBuffers(); return; }
                 if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) { resetBuffers(); return; }
                 if (exempt("insideVehicle", profile.getPlayer().isInsideVehicle())) { resetBuffers(); return; }
-                if (exempt("onBoat", movementData.isOnBoat())) { resetBuffers(); return; }
-                if (exempt("nearBoat", movementData.isNearBoat())) { resetBuffers(); return; }
+                //if (exempt("onBoat", movementData.isOnBoat())) { resetBuffers(); return; }
+                //if (exempt("nearBoat", movementData.isNearBoat())) { resetBuffers(); return; }
                 if (exempt("predictUpwards", movementData.getSincePredictUpwardsTicks() < 10)) { resetBuffers(); return; }
                 if (exempt("nearClimbable", movementData.isNearClimbable())) { resetBuffers(); return; }
                 if (exempt("underBlock", movementData.isUnderblock())) { resetBuffers(); return; }

@@ -17,6 +17,7 @@ import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
 import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
+import me.arrow.checks.impl.movement.speed.SpeedMath.MovementMath;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.core.movement.MovementFrame;
 import me.arrow.core.movement.MovementState;
@@ -34,6 +35,7 @@ import me.arrow.utils.*;
 import me.arrow.utils.custom.*;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
+import me.arrow.utils.minecraft.MathHelper;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -68,13 +70,19 @@ public class MovementData implements Data {
 
     @Getter
     double deltaX, lastDeltaX, deltaZ, lastDeltaZ, deltaY, lastDeltaY, deltaXZ, lastDeltaXZ,
-            accelXZ, lastAccelXZ, accelY, lastAccelY;
+            accelXZ, lastAccelXZ, accelY, lastAccelY, expectedWaterDeltaXZ;
 
     @Getter
     float fallDistance, lastFallDistance,
             baseGroundSpeed, baseAirSpeed,
             frictionFactor = MoveUtils.FRICTION_FACTOR, lastFrictionFactor = MoveUtils.FRICTION_FACTOR,
             dolphinGraceBoost;
+
+    @Getter
+    double waterMomentumBonus;
+
+    private double lastWaterPrediction;
+    private boolean wasActuallyInWater;
 
     @Getter
     CustomLocation location, lastLocation, lastLastLocation, lastSetBackLocation;
@@ -85,14 +93,6 @@ public class MovementData implements Data {
     SampleList<CustomLocation> pastLocations = new SampleList<>(140, true);
     SampleList<CustomLocation> pastGroundLocations = new SampleList<>(40, true);
 
-    /*
-     * Precision-only timeline for reach render-time reconstruction. 140
-     * references cover seven seconds at 20 Hz (supporting up to 5000 ms RTT, entity
-     * interpolation and jitter).
-     */
-    @Getter
-    SampleList<CustomLocation> reachPastLocations = new SampleList<>(140, true);
-
     @Getter
     @Setter
     CustomLocation lastGroundLocation;
@@ -100,7 +100,7 @@ public class MovementData implements Data {
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround,
-        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, insideLiquid, climb, moving, isInsideWater, wasInWater, wasWasInWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, nearGhast, nearShulker, nearFence, onBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston, nearBlocksSlime, nearPowderSnow, nearSoulBlock;
+        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, lastUnderblock, lastLastUnderblock, insideLiquid, climb, moving, isInsideWater, wasInWater, wasWasInWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, lastNearBoat, nearBoatSide, lastNearBoatSide, nearGhast, nearShulker, nearFence, nearPane, lastNearPane, onBoat, lastOnBoat, lastLastOnBoat, underBoat, lastUnderBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston, nearBlocksSlime, nearPowderSnow, nearSoulBlock, waterPredictionActive;
 
 
     @Getter
@@ -109,7 +109,7 @@ public class MovementData implements Data {
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
             customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks = 100000, glidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
-            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, sinceSlowFallingEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks, sinceMovingUnderBlockTicks;
+            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceOnBoatTicks = 1000, sinceNearBoatTicks = 1000, sinceUnderBoatTicks = 1000, sinceNearBoatSideTicks = 1000, sinceUnderblockTicks = 1000, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, sinceSlowFallingEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks, sinceMovingUnderBlockTicks;
 
     @Getter
     @Setter
@@ -119,12 +119,16 @@ public class MovementData implements Data {
     @Setter
     boolean packetNearWall;
 
+    @Getter
+    private int collidingEntityCount;
+
     boolean packetMoving;
 
     /** Authoritative fall-flying flag from the player's own metadata packet. */
     boolean metadataGliding;
     float elytraMomentumBonus;
     int glideStartTransitionTicks;
+    boolean lastElytraPose;
 
     @Getter
     CollisionUtils.NearbyBlocksResult nearbyBlocksResult;
@@ -291,7 +295,6 @@ public class MovementData implements Data {
                     sinceGlidingTicks = 0;
                     glidingTicks = Math.max(glidingTicks, 1);
                     glideStartTransitionTicks = Math.max(glideStartTransitionTicks, getGlideTransitionTicks());
-                    captureElytraMomentum();
                 }
 
                 break;
@@ -364,8 +367,6 @@ public class MovementData implements Data {
         this.lastAccelY = lastAccelY;
         this.accelY = accelY;
 
-
-
         lastServerYGround = serverYGround;
 
         ChunkCache.get().ensurePlayerChunkLoaded(location);
@@ -416,7 +417,7 @@ public class MovementData implements Data {
         // the current state for this packet. SimulationHandler uses these
         // packet-frame values for water drag and input acceleration.
         wasWasInWater = wasInWater;
-        wasInWater = isInsideWater || isOnTopOfWater;
+        wasInWater = isInsideWater;
         processBlocks();
 
         profile.setBouncingOnSlime(getSlimeProcessor().isBouncing(this, profile.getPotionData()));
@@ -428,10 +429,17 @@ public class MovementData implements Data {
             profile.getLastFlightToggleTimer().reset();
         }
 
+        this.lastLastOnBoat = this.lastOnBoat;
+        this.lastOnBoat = this.onBoat;
+        this.lastNearBoat = this.nearBoat;
+        this.lastUnderBoat = this.underBoat;
+        this.lastNearBoatSide = this.nearBoatSide;
         nearBoat = EntityUtil.isNearBoat(profile);
         nearShulker = EntityUtil.isNearShulker(profile);
         nearGhast = EntityUtil.isNearGhast(profile);
         onBoat = EntityUtil.isOnBoat(profile);
+        underBoat = EntityUtil.isUnderBoat(profile);
+        nearBoatSide = EntityUtil.isNearBoatSide(profile);
 
         sinceOnGround = onGround ? 0 : sinceOnGround + 1;
 
@@ -439,7 +447,11 @@ public class MovementData implements Data {
         if (setbackProcessor != null) {
             setbackProcessor.process();
         }
+
+
     }
+
+
 
     private void updateNearWallState() {
         lastLastNearWall = lastNearWall;
@@ -503,7 +515,10 @@ public class MovementData implements Data {
                 && !nearWebs
                 && !profile.isBouncingOnSlime();
 
-        isColliding = supportsEntityCollisionCheck() && CollisionProcessor.isColliding(profile.getPlayer(), profile.getBoundingBox());
+        collidingEntityCount = supportsEntityCollisionCheck()
+                ? CollisionProcessor.getCollidingEntityCount(profile.getPlayer(), profile.getBoundingBox())
+                : 0;
+        isColliding = collidingEntityCount > 0;
     }
 
     void processBlocks() {
@@ -632,62 +647,56 @@ public class MovementData implements Data {
             nearShulker = containsMaterial(blockTypes, SHULKER);
             nearDripLeaf = containsMaterial(blockTypes, DRIP_LEAF);
             nearFence = containsMaterial(blockTypes, FENCE);
+            lastNearPane = nearPane;
+            nearPane = containsMaterial(blockTypes, PANE)
+                    || containsMaterial(nearbyBlocksResultLow.getBlockTypes(), PANE)
+                    || containsMaterial(nearbyBlocksResultHigh.getBlockTypes(), PANE);
             nearSlime = containsMaterial(blockTypes, SLIME);
 
             isOnTopOfWater = CollisionUtils.isStandingOnWater(this.location, nearbyBlocksResult, WATER);
 
-            isInsideWater = false;
-            for (int x = -1; x <= 1; x++) {
-                for (int z = -1; z <= 1; z++) {
-                    CustomLocation checkLoc = location.clone();
-                    checkLoc.setX(checkLoc.getX() + x);
-                    checkLoc.setZ(checkLoc.getZ() + z);
-                    checkLoc.setY(checkLoc.getY() + 0.5);
-                    Material m = CollisionUtils.getMaterial(checkLoc);
-                    if (m != null && (isMaterialEqual(m.name(), WATER) || CollisionUtils.isWaterLogged(checkLoc))) {
-                        isInsideWater = true;
-                        break;
-                    }
-                }
-                if (isInsideWater) break;
-            }
+            PlayerBoxSize boxSize = getPlayerBoxSize(profile.getPlayer());
+            isInsideWater = CollisionUtils.isInsideWater(this.location, boxSize.width * 0.5D, boxSize.height);
 
             isBottomOfWater = isInsideWater && isServerGround();
             //nearWall = CollisionUtils.isNearWall(getLocation());
 
-            boolean flag_underblock = false;
+            lastLastUnderblock = lastUnderblock;
+            lastUnderblock = underblock;
 
-            for (int x2 = -1; x2 <= 1; x2++) {
-                for (int z2 = -1; z2 <= 1; z2++) {
-                    Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 2, z2));
-                    flag_underblock = flag_underblock || !isTransparent(m);
-                }
-            }
+            boolean flag_underblock = checkUnderBlock(this.location, this.lastLocation, nearbyBlocksResult);
 
-            for (int x2 = -1; x2 <= 1; x2++) {
-                for (int z2 = -1; z2 <= 1; z2++) {
-                    Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 1, z2));
-                    flag_underblock = flag_underblock || !isTransparent(m);
-                }
-            }
-
-            if (profile.isCrawling()) {
+            if (!flag_underblock) {
                 for (int x2 = -1; x2 <= 1; x2++) {
                     for (int z2 = -1; z2 <= 1; z2++) {
-                        Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 3, z2));
-                        flag_underblock = flag_underblock || !isTransparent(m);
+                        Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 2, z2));
+                        Material m2 = CollisionUtils.getMaterial(getLocation().clone().add(x2, 1, z2));
+                        flag_underblock = flag_underblock || (!isTransparent(m) && isTransparent(m2));
                     }
                 }
 
-                for (int x2 = -1; x2 <= 1; x2++) {
-                    for (int z2 = -1; z2 <= 1; z2++) {
-                        Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 0, z2));
-                        flag_underblock = flag_underblock || !isTransparent(m);
+                flag_underblock = flag_underblock
+                        || (!isTransparent(CollisionUtils.getMaterial(getLocation().clone().add(0, 1, 0)))
+                        && isTransparent(CollisionUtils.getMaterial(getLocation())));
+
+                if (profile.isCrawling()) {
+                    for (int x2 = -1; x2 <= 1; x2++) {
+                        for (int z2 = -1; z2 <= 1; z2++) {
+                            Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 1, z2));
+                            flag_underblock = flag_underblock || !isTransparent(m);
+                        }
+                    }
+
+                    for (int x2 = -1; x2 <= 1; x2++) {
+                        for (int z2 = -1; z2 <= 1; z2++) {
+                            Material m = CollisionUtils.getMaterial(getLocation().clone().add(x2, 0, z2));
+                            flag_underblock = flag_underblock || !isTransparent(m);
+                        }
                     }
                 }
             }
 
-            underblock = flag_underblock;
+            underblock = flag_underblock || isUnderBoat();
 
             Material mLoc3 = CollisionUtils.getMaterial(loc3);
             Material mLoc1 = CollisionUtils.getMaterial(loc1);
@@ -727,7 +736,12 @@ public class MovementData implements Data {
                 || isFence(m)
                 || isFenceGate(m)
                 || isStair(m)
-                || isWall(m);
+                || isWall(m)
+                || isPane(m);
+    }
+
+    private static boolean isPane(Material m) {
+        return MaterialType.isPane(m);
     }
 
 
@@ -801,12 +815,87 @@ public class MovementData implements Data {
                 && !isMaterialEqual(name, WATER_PLANT);
     }
 
+    private boolean checkUnderBlock(CustomLocation location, CustomLocation lastLocation, CollisionUtils.NearbyBlocksResult nearbyBlocksResult) {
+        if (location == null || location.getWorld() == null) {
+            return false;
+        }
+
+        if (nearbyBlocksResult != null && nearbyBlocksResult.hasBlockAbove()) {
+            return true;
+        }
+
+        double px = location.getX();
+        double py = location.getY();
+        double pz = location.getZ();
+
+        double height = 1.8D;
+        if (profile.isCrawling()) {
+            height = 0.6D;
+        } else {
+            Player player = profile.getPlayer();
+            if (player != null && player.isSneaking()) {
+                height = 1.5D;
+            }
+        }
+
+        double deltaY = lastLocation != null ? py - lastLocation.getY() : 0.0D;
+        double headBottom = py + height - 0.35D;
+        double headTop = py + height + Math.max(0.42D, Math.max(0.0D, deltaY)) + 0.25D;
+
+        double minX = px - 0.35D;
+        double maxX = px + 0.35D;
+        double minZ = pz - 0.35D;
+        double maxZ = pz + 0.35D;
+
+        int bMinX = floor(minX);
+        int bMaxX = floor(maxX);
+        int bMinZ = floor(minZ);
+        int bMaxZ = floor(maxZ);
+        int bMinY = floor(headBottom);
+        int bMaxY = floor(headTop);
+
+        me.arrow.playerdata.cache.ChunkCache chunkCache = me.arrow.playerdata.cache.ChunkCache.get();
+        World world = location.getWorld();
+
+        for (int x = bMinX; x <= bMaxX; x++) {
+            for (int y = bMinY; y <= bMaxY; y++) {
+                for (int z = bMinZ; z <= bMaxZ; z++) {
+                    Material mat = chunkCache.getBlock(world, x, y, z);
+                    if (mat == null || isTransparent(mat)) {
+                        continue;
+                    }
+
+                    com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState state = chunkCache.getBlockState(world, x, y, z);
+                    java.util.List<me.arrow.utils.custom.materials.PEMaterials.CollisionBounds> bounds = state != null
+                            ? me.arrow.utils.custom.materials.PEMaterials.getCollisionBounds(state, x, y, z)
+                            : me.arrow.utils.custom.materials.PEMaterials.getCollisionBounds(mat, x, y, z);
+
+                    if (bounds == null || bounds.isEmpty()) {
+                        continue;
+                    }
+
+                    for (me.arrow.utils.custom.materials.PEMaterials.CollisionBounds bound : bounds) {
+                        if (bound.maxX > minX && bound.minX < maxX
+                                && bound.maxZ > minZ && bound.minZ < maxZ) {
+                            if (bound.minY <= headTop && bound.maxY >= headBottom) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     private int floor(double value) {
         int integer = (int) value;
         return value < integer ? integer - 1 : integer;
     }
 
     public boolean isTransparent(Material material) {
+        if (material == null || material == Material.AIR) return true;
         if (!material.isBlock()) return false;
         String name = material.name();
 
@@ -880,7 +969,7 @@ public class MovementData implements Data {
 
             //Equipment
 
-            this.equipment.handle(p);
+            //this.equipment.handle(p);
 
             //Fall Distance
 
@@ -895,7 +984,6 @@ public class MovementData implements Data {
             this.baseAirSpeed = MoveUtils.getBaseAirSpeed(profile);
 
             this.pastLocations.add(getLocation());
-            this.reachPastLocations.add(getLocation());
 
             moving = (deltaXZ != 0.0D && deltaXZ != lastDeltaXZ) || (deltaY != 0.0D && deltaY != lastDeltaY);
 
@@ -992,7 +1080,7 @@ public class MovementData implements Data {
     }
 
 
-    int tickTime;
+    int tickTime = 0;
 
     void updateTicks() {
         long profiler = Profiler.start();
@@ -1039,9 +1127,7 @@ public class MovementData implements Data {
             sinceMovingOnIceTicks = movingOnIceTicks > 0 ? 0 : sinceMovingOnIceTicks + 1;
             sinceMovingOnSlimeTicks = movingOnSlimeTicks > 0 ? 0 : sinceMovingOnSlimeTicks + 1;
             movingUnderblockTicks = (moving && isUnderblock()) ? Math.max(movingUnderblockTicks + 1, 20) : Math.max(movingUnderblockTicks - 1, 0);
-
             sinceMovingUnderBlockTicks = movingUnderblockTicks > 0 ? 0 : sinceMovingUnderBlockTicks + 1;
-
             movingTicks = moving ? movingTicks + 1 : 0;
             customAirTicks = customInAir ? customAirTicks + 1 : 0;
             nearWallTicks = nearWall && !exempt ? nearWallTicks + 1 : 0;
@@ -1058,7 +1144,11 @@ public class MovementData implements Data {
             sinceGlidingTicks = glidingNow ? 0 : sinceGlidingTicks + 1;
             glidingTicks = glidingNow ? glidingTicks + 1 : 0;
 
-            updateElytraMomentum(glidingNow);
+
+            if (++tickTime > 1) {
+                updateElytraMomentum();
+                tickTime = 0;
+            }
 
             if (glideStartTransitionTicks > 0) {
                 glideStartTransitionTicks--;
@@ -1092,6 +1182,11 @@ public class MovementData implements Data {
             sinceBubbleTicks = nearBubble ? 0 : sinceBubbleTicks + 1;
             sinceInsideWaterTicks = isInsideWater() ? 0 : sinceInsideWaterTicks + 1;
             sinceNearWaterTicks = isNearWater() ? 0 : sinceNearWaterTicks + 1;
+            sinceOnBoatTicks = isOnBoat() ? 0 : sinceOnBoatTicks + 1;
+            sinceNearBoatTicks = isNearBoat() ? 0 : sinceNearBoatTicks + 1;
+            sinceUnderBoatTicks = isUnderBoat() ? 0 : sinceUnderBoatTicks + 1;
+            sinceNearBoatSideTicks = isNearBoatSide() ? 0 : sinceNearBoatSideTicks + 1;
+            sinceUnderblockTicks = isUnderblock() ? 0 : sinceUnderblockTicks + 1;
             sinceLevitationEffectTicks = potion.getLevitationTicks() > 0 ? 0 : sinceLevitationEffectTicks + 1;
             sinceJumpBoostEffectTicks = potion.getJumpTicks() > 0 ? 0 : sinceJumpBoostEffectTicks + 1;
             sinceSlowFallingEffectTicks = potion.getSlowFallingTicks() > 0 ? 0 : sinceSlowFallingEffectTicks + 1;
@@ -1155,7 +1250,6 @@ public class MovementData implements Data {
         glideStartTransitionTicks = Math.max(glideStartTransitionTicks, getGlideTransitionTicks());
         glidingTicks = Math.max(glidingTicks, 1);
         sinceGlidingTicks = 0;
-        captureElytraMomentum();
     }
 
     public int getGlideTransitionTicks() {
@@ -1204,29 +1298,35 @@ public class MovementData implements Data {
         return sinceGlidingTicks < maxExemptTicks;
     }
 
-    private void captureElytraMomentum() {
-        // Speed A adds this value on top of its normal movement allowance, so
-        // retain only the velocity above ordinary air movement.
-        float carried = (float) Math.max(0.0D, Math.min(4.0D, deltaXZ - 0.30D));
-        elytraMomentumBonus = Math.max(elytraMomentumBonus, carried);
-    }
-
-    private void updateElytraMomentum(boolean gliding) {
-        if (gliding) {
-            captureElytraMomentum();
-            return;
-        }
-
-        if ((isOnGround() || isServerGround()) && sinceGlidingTicks > 2) {
+    private void updateElytraMomentum() {
+        // Do not use glideStartTransitionTicks here. It is only a packet-delay
+        // grace window; this bonus must snapshot precisely when the fall-flying
+        // pose actually ends.
+        boolean elytraPose = metadataGliding || ReflectionUtils.isGliding(profile.getPlayer());
+        if (elytraPose) {
             elytraMomentumBonus = 0.0F;
+            lastElytraPose = true;
             return;
         }
 
-        // Preserve post-glide/unequip velocity, then smoothly decay it instead
-        // of replacing it with a ping-derived constant.
-        elytraMomentumBonus *= 0.98F;
+        if (lastElytraPose) {
+            boolean air = isCustomInAir() && !isOnGround() && !isServerGround();
+            double ordinaryLimit = air ? 0.35301212D : 0.28063D;
+            elytraMomentumBonus = (float) Math.max(0.0D, Math.min(deltaXZ, 2.3) - ordinaryLimit + 0.1D);
+            lastElytraPose = false;
+            return;
+        }
 
-        if (elytraMomentumBonus < 0.005F || sinceGlidingTicks > 160) {
+        if (elytraMomentumBonus <= 0.0F) return;
+
+        // Carry the captured excess exactly as ordinary horizontal movement
+        // would: air is 0.91, ground is block slipperiness × 0.91.
+        float friction = isCustomInAir()
+                ? MoveUtils.FRICTION
+                : getFrictionFactor() * MoveUtils.FRICTION;
+        elytraMomentumBonus *= friction;
+
+        if (elytraMomentumBonus < 0.00025F) {
             elytraMomentumBonus = 0.0F;
         }
     }
@@ -1309,5 +1409,314 @@ public class MovementData implements Data {
             }
         }
         return false;
+    }
+
+    public void updateWaterPrediction(Profile profile) {
+        /*
+         * Only isInsideWater represents actual water movement.
+         *
+         * Do NOT use isOnTopOfWater here. A player can stand on a block
+         * above water and still have isOnTopOfWater() = true.
+         */
+        boolean currentlyWater = isInsideWater();
+
+        /*
+         * ---------------------------------------------------------
+         * CURRENTLY IN WATER
+         * ---------------------------------------------------------
+         */
+        if (currentlyWater) {
+
+            boolean modernMovement =
+                    profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);
+
+            boolean sprinting =
+                    profile.getActionData().isSprinting();
+
+            float baseWaterFriction = getWaterFriction(
+                    profile,
+                    sprinting,
+                    modernMovement
+            );
+
+            float[] possibleFrictions;
+            if (!wasInWater) {
+                if (isLastOnGround()) {
+                    possibleFrictions = new float[]{lastFrictionFactor * 0.91F, 0.91F, baseWaterFriction};
+                } else {
+                    possibleFrictions = new float[]{0.91F, baseWaterFriction};
+                }
+            } else if (isNearWaterSurface() || !wasWasInWater) {
+                if (isLastOnGround()) {
+                    possibleFrictions = new float[]{baseWaterFriction, 0.91F, lastFrictionFactor * 0.91F};
+                } else {
+                    possibleFrictions = new float[]{baseWaterFriction, 0.91F};
+                }
+            } else {
+                if (isLastOnGround()) {
+                    possibleFrictions = new float[]{baseWaterFriction, lastFrictionFactor * 0.91F};
+                } else {
+                    possibleFrictions = new float[]{baseWaterFriction};
+                }
+            }
+
+            double movementSpeed =
+                    ReflectionUtils.getPlayerMovementSpeedWithoutSprint(
+                            profile.getPlayer()
+                    );
+
+            if (!Double.isFinite(movementSpeed) || movementSpeed <= 0.0D) {
+                movementSpeed = 0.1D;
+            }
+
+            if (sprinting) {
+                movementSpeed *= 1.3D;
+            }
+
+            float acceleration = 0.02F;
+
+            float depthStrider = Math.min(
+                    3.0F,
+                    (float) SpeedUtilities.getDepthStriderLevel(profile)
+            );
+
+            if (!isLastOnGround()) {
+                depthStrider *= 0.5F;
+            }
+
+            if (depthStrider > 0.0F) {
+                acceleration +=
+                        ((float) movementSpeed - acceleration)
+                                * depthStrider / 3.0F;
+            }
+
+            double bestDiff = Double.MAX_VALUE;
+            double bestExpectedXZ = 0.0D;
+            double maxCandidateXZ = 0.0D;
+
+            float yaw = profile.getRotationData().getYaw();
+
+            for (float carryFriction : possibleFrictions) {
+                double carryX = lastDeltaX * carryFriction;
+                double carryZ = lastDeltaZ * carryFriction;
+
+                for (float[] keys : MovementMath.WATER_KEY_COMBOS) {
+                    for (boolean sneaking : MovementMath.WATER_BOOLS) {
+                        for (boolean blocking : MovementMath.WATER_BOOLS) {
+
+                            float strafe = keys[0];
+                            float forward = keys[1];
+
+                            if (sneaking) {
+                                strafe *= 0.3F;
+                                forward *= 0.3F;
+                            }
+
+                            if (blocking) {
+                                strafe *= 0.2F;
+                                forward *= 0.2F;
+                            }
+
+                            strafe *= 0.98F;
+                            forward *= 0.98F;
+
+                            float force = strafe * strafe + forward * forward;
+
+                            double inputX = 0.0D;
+                            double inputZ = 0.0D;
+
+                            if (force >= 1.0E-4F) {
+                                force = MathHelper.sqrt_float(force);
+
+                                if (force < 1.0F) {
+                                    force = 1.0F;
+                                }
+
+                                force = acceleration / force;
+
+                                strafe *= force;
+                                forward *= force;
+
+                                float yawRad =
+                                        yaw * (float) Math.PI / 180.0F;
+
+                                float sin = MathHelper.sin(yawRad);
+                                float cos = MathHelper.cos(yawRad);
+
+                                inputX = strafe * cos - forward * sin;
+                                inputZ = forward * cos + strafe * sin;
+                            }
+
+                            double predictedX = carryX + inputX;
+                            double predictedZ = carryZ + inputZ;
+                            double candidateXZ = Math.hypot(predictedX, predictedZ);
+
+                            if (candidateXZ > maxCandidateXZ) {
+                                maxCandidateXZ = candidateXZ;
+                            }
+
+                            double diffX = deltaX - predictedX;
+                            double diffZ = deltaZ - predictedZ;
+
+                            double diff = Math.hypot(diffX, diffZ);
+
+                            if (diff < bestDiff) {
+                                bestDiff = diff;
+                                bestExpectedXZ = candidateXZ;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (deltaXZ <= maxCandidateXZ + 0.005D) {
+                expectedWaterDeltaXZ = Math.max(bestExpectedXZ, Math.min(deltaXZ, maxCandidateXZ));
+            } else {
+                expectedWaterDeltaXZ = bestExpectedXZ;
+            }
+
+            /*
+             * Save the last REAL water prediction.
+             *
+             * This is what we will carry out of the water.
+             */
+            lastWaterPrediction = bestExpectedXZ;
+
+            /*
+             * We are currently water-predicted.
+             */
+            waterPredictionActive = true;
+            wasActuallyInWater = true;
+
+            /*
+             * No separate post-water momentum while inside water.
+             */
+            waterMomentumBonus = 0.0D;
+
+            return;
+        }
+
+        /*
+         * ---------------------------------------------------------
+         * LEFT WATER
+         * ---------------------------------------------------------
+         *
+         * First tick after leaving:
+         * take the last actual water prediction and put it on top
+         * of the normal Speed A limit.
+         */
+        if (wasActuallyInWater) {
+            waterMomentumBonus = lastWaterPrediction;
+            wasActuallyInWater = false;
+        }
+
+        /*
+         * No water momentum left.
+         */
+        if (waterMomentumBonus <= 0.00025D) {
+            resetWaterPrediction();
+            return;
+        }
+
+        /*
+         * expectedWaterDeltaXZ now represents ONLY the retained
+         * water momentum.
+         */
+        expectedWaterDeltaXZ = waterMomentumBonus;
+        waterPredictionActive = true;
+
+        /*
+         * Decay the retained momentum for the NEXT tick.
+         *
+         * Ground = block friction * normal entity friction
+         * Air    = 0.91
+         */
+        float decayFriction;
+
+        if (isLastOnGround()) {
+            decayFriction = lastFrictionFactor * 0.91F;
+        } else {
+            decayFriction = 0.91F;
+        }
+
+        waterMomentumBonus *= decayFriction;
+
+        if (waterMomentumBonus <= 0.00025D) {
+            waterMomentumBonus = 0.0D;
+        }
+    }
+
+    private float getWaterFriction(
+            Profile profile,
+            boolean sprinting,
+            boolean modernMovement
+    ) {
+        float friction = modernMovement
+                && ReflectionUtils.isSwimming(profile.getPlayer())
+                && sprinting
+                ? 0.9F
+                : 0.8F;
+
+        float depthStrider = Math.min(
+                3.0F,
+                (float) SpeedUtilities.getDepthStriderLevel(profile)
+        );
+
+        if (!isLastOnGround()) {
+            depthStrider *= 0.5F;
+        }
+
+        if (depthStrider > 0.0F) {
+            friction +=
+                    (0.54600006F - friction)
+                            * depthStrider / 3.0F;
+        }
+
+        /*
+         * Dolphin's Grace changes horizontal water drag.
+         * The amplifier itself doesn't need to be multiplied.
+         */
+        if (modernMovement && dolphinGraceTicks > 0) {
+            friction = 0.96F;
+        }
+
+        return friction;
+    }
+
+    public boolean isNearWaterSurface() {
+        if (this.location == null || this.location.getWorld() == null) {
+            return false;
+        }
+        World world = this.location.getWorld();
+        String worldName = world.getName();
+
+        int bx = MathHelper.floor_double(this.location.getX());
+        int by = MathHelper.floor_double(this.location.getY());
+        int bz = MathHelper.floor_double(this.location.getZ());
+
+        ChunkCache cache = ChunkCache.get();
+
+        // 1. If feet block water height is less than 0.95D, we are directly in a surface block or flowing water
+        if (CollisionUtils.getWaterHeight(world, bx, by, bz) < 0.95D) {
+            return true;
+        }
+
+        // 2. Check 1 block above feet
+        Material mat1 = cache.getBlock(worldName, bx, by + 1, bz);
+        if (mat1 == null || mat1 == Material.AIR || (!ChunkCache.isWaterMaterial(mat1) && !cache.isWaterLogged(worldName, bx, by + 1, bz))) {
+            return true;
+        }
+
+        // 3. Check 2 blocks above feet (head level at surface)
+        Material mat2 = cache.getBlock(worldName, bx, by + 2, bz);
+        return mat2 == null || mat2 == Material.AIR || (!ChunkCache.isWaterMaterial(mat2) && !cache.isWaterLogged(worldName, bx, by + 2, bz));
+    }
+
+    public void resetWaterPrediction() {
+        expectedWaterDeltaXZ = 0.0D;
+        waterMomentumBonus = 0.0D;
+        lastWaterPrediction = 0.0D;
+        waterPredictionActive = false;
+        wasActuallyInWater = false;
     }
 }

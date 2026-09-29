@@ -9,6 +9,7 @@ import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
+import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
@@ -22,6 +23,8 @@ import me.arrow.utils.customutils.OtherUtility;
 import org.apache.commons.math3.util.FastMath;
 import org.bukkit.ChatColor;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 import java.util.EnumSet;
 import java.util.Set;
@@ -95,15 +98,17 @@ public class GravityD extends Check {
                     return;
                 }
 
-                if (movementData.isOnBoat()) { resetStrictGravityInvariant(); resetGravityD("onBoat"); return; }
-                if (movementData.isNearBoat()) { resetStrictGravityInvariant(); resetGravityD("nearBoat"); return; }
+//                if (movementData.isOnBoat()) { resetStrictGravityInvariant(); resetGravityD("onBoat"); return; }
+//                if (movementData.isNearBoat()) { resetStrictGravityInvariant(); resetGravityD("nearBoat"); return; }
                 if (movementData.isNearShulker()) { resetStrictGravityInvariant(); resetGravityD("nearShulker"); return; }
                 if (movementData.isNearShulkerBox()) { resetStrictGravityInvariant(); resetGravityD("nearShulkerBox"); return; }
                 if (movementData.isNearLava()) { resetStrictGravityInvariant(); resetGravityD("nearLava"); return; }
                 if (movementData.isNearWater()) { resetStrictGravityInvariant(); resetGravityD("nearWater"); return; }
                 if (movementData.getSinceInsideWaterTicks() < 5) { resetStrictGravityInvariant(); resetGravityD("insideWater"); return; }
                 if (movementData.getSinceNearWaterTicks() < 5) { resetStrictGravityInvariant(); resetGravityD("recentWater"); return; }
+                if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(5)) { resetStrictGravityInvariant(); resetGravityD("cancelledblockplacement"); return; }
                 if (movementData.isNearBed()) { resetStrictGravityInvariant(); resetGravityD("nearBed"); return; }
+                if (movementData.isNearWall() || movementData.isNearPane()) { resetStrictGravityInvariant(); resetGravityD("nearWall"); return; }
                 if (profile.getExempt().isVehicle()) { resetStrictGravityInvariant(); resetGravityD("vehicle"); return; }
                 if (profile.shouldCancel()) { resetStrictGravityInvariant(); resetGravityD("cancelled"); return; }
                 if (movementData.getNearbyBlocksResult() != null
@@ -394,7 +399,7 @@ public class GravityD extends Check {
 
         verbose(getClass().getSimpleName(), strictNegativeEvidence, required, information);
 
-        if (data.isNearBoat() || data.isOnBoat()) return false;
+        //if (data.isNearBoat() || data.isOnBoat()) return false;
 
         if (isMovingPrediction(data)) return false;
 
@@ -429,11 +434,12 @@ public class GravityD extends Check {
         if (exempt("teleports", data.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return true;
         if (exempt("gliding", data.isGlidingOrRecentlyGlided(25))) return true;
         if (exempt("riptiding", data.getSinceRiptidingTicks() < 10 + transTicks)) return true;
-        if (exempt("underBlock", data.isUnderblock())) return true;
+        if (exempt("underBlock", data.isUnderblock() || data.isLastUnderblock() || data.getSinceUnderblockTicks() <= 2)) return true;
         if (exempt("nearWater", data.isNearWater())) return true;
         if (exempt("nearLava", data.isNearLava())) return true;
         if (exempt("nearWebs", data.isNearWebs())) return true;
         if (exempt("nearClimbable", data.isNearClimbable())) return true;
+        if (exempt("nearWall", data.isNearWall())) return true;
         if (exempt("insideLiquid", data.isInsideLiquid())) return true;
         if (exempt("insideWater", data.isInsideWater())) return true;
         if (exempt("onTopOfWater", data.isOnTopOfWater())) return true;
@@ -914,7 +920,7 @@ public class GravityD extends Check {
         if (data.isNearWater()) { resetGravityD("nearWater"); return true; }
         if (data.isNearLava()) { resetGravityD("nearLava"); return true; }
         if (data.isNearWebs()) { resetGravityD("nearWebs"); return true; }
-        if (data.isNearBoat()) { resetGravityD("nearBoat"); return true; }
+        //if (data.isNearBoat()) { resetGravityD("nearBoat"); return true; }
         if (data.isNearBed()) { resetGravityD("nearBed"); return true; }
         if (data.isNearShulker()) { resetGravityD("nearShulker"); return true; }
         if (data.isNearShulkerBox()) { resetGravityD("nearShulkerBox"); return true; }
@@ -926,9 +932,19 @@ public class GravityD extends Check {
         if (data.isInsideWater()) { resetGravityD("insideWater"); return true; }
         if (data.isOnTopOfWater()) { resetGravityD("onTopOfWater"); return true; }
         if (data.isBottomOfWater()) { resetGravityD("bottomOfWater"); return true; }
-        if (data.isUnderblock()) { resetGravityD("underBlock"); return true; }
+        if (data.isUnderblock() || data.isLastUnderblock() || data.getSinceUnderblockTicks() <= 2) { resetGravityD("underBlock"); return true; }
         if (data.getMovingUnderblockTicks() > 0) { resetGravityD("movingUnderBlock"); return true; }
         if (data.getSinceRiptidingTicks() < 10 + transTicks) { resetGravityD("riptiding"); return true; }
+
+        if (Config.Setting.COMPATIBILITY.getBoolean()) {
+            PlayerInventory inventory = profile.getPlayer().getInventory();
+            ItemStack boots = inventory.getBoots();
+
+            if (OtherUtility.itemContains(boots, "traveler") && data.isNearWall()) {
+                resetGravityD("traveler step");
+                return true;
+            }
+        }
 
         if (isMovingPrediction(data)) return true;
 
@@ -1231,6 +1247,8 @@ public class GravityD extends Check {
                                                        int transTicks) {
         if (data == null
                 || data.isUnderblock()
+                || data.isLastUnderblock()
+                || data.getSinceUnderblockTicks() <= 2
                 || data.getMovingUnderblockTicks() > 0
                 || data.isNearStepMaterial()
                 || hasRecentGravitySupportChange(4 + transTicks)) {
@@ -1995,8 +2013,13 @@ public class GravityD extends Check {
             resetGravityD("predictUpwardsWithoutMaterial");
             return true;
         }
-        if (exempt("predictDownwardsWithoutMaterial", data.getSincePredictDownwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            resetGravityD("predictDownwardsWithoutMaterial");
+//        if (exempt("predictDownwardsWithoutMaterial", data.getSincePredictDownwardsTicksWithoutMaterial() < 20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+//            resetGravityD("predictDownwardsWithoutMaterial");
+//            return true;
+//        }
+
+        if ((data.isNearBoat() && (data.getDeltaY() > -0.7 || data.getLastDeltaY() > -0.7) && data.getDeltaY() < 0.7) || data.isUnderBoat() || data.isLastUnderBoat())
+        {
             return true;
         }
         return false;

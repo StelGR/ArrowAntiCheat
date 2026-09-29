@@ -410,6 +410,240 @@ public class CollisionUtils {
         return false;
     }
 
+    public static boolean isInsideWater(final CustomLocation location) {
+        return isInsideWater(location, 0.3D, 1.8D);
+    }
+
+    public static boolean isInsideWater(final CustomLocation location, final double halfWidth, final double height) {
+        if (location == null || location.getWorld() == null) {
+            return false;
+        }
+
+        final World world = location.getWorld();
+        final String worldName = world.getName();
+
+        // Player bounding box deflated by 0.001D to match vanilla Minecraft fluid collision
+        final double minX = location.getX() - halfWidth + 0.001D;
+        final double maxX = location.getX() + halfWidth - 0.001D;
+        final double minY = location.getY() + 0.001D;
+        final double maxY = location.getY() + height - 0.001D;
+        final double minZ = location.getZ() - halfWidth + 0.001D;
+        final double maxZ = location.getZ() + halfWidth - 0.001D;
+
+        if (minX >= maxX || minY >= maxY || minZ >= maxZ) {
+            return false;
+        }
+
+        final int minBX = (int) Math.floor(minX);
+        final int maxBX = (int) Math.floor(maxX);
+        final int minBY = (int) Math.floor(minY);
+        final int maxBY = (int) Math.floor(maxY);
+        final int minBZ = (int) Math.floor(minZ);
+        final int maxBZ = (int) Math.floor(maxZ);
+
+        final ChunkCache cache = ChunkCache.get();
+
+        for (int bx = minBX; bx <= maxBX; bx++) {
+            for (int bz = minBZ; bz <= maxBZ; bz++) {
+                for (int by = minBY; by <= maxBY; by++) {
+                    Material mat = cache.getBlock(worldName, bx, by, bz);
+                    if (mat == null) {
+                        Block b = getBlock(new CustomLocation(world, bx, by, bz), true);
+                        if (b != null) {
+                            mat = Arrow.getInstance().getNmsManager().getNmsInstance().getType(b);
+                        }
+                    }
+                    if (mat == null || mat == Material.AIR) {
+                        continue;
+                    }
+
+                    boolean isWater = ChunkCache.isWaterMaterial(mat);
+                    boolean isWaterlogged = !isWater && (cache.isWaterLogged(worldName, bx, by, bz) || isWaterLogged(world, bx, by, bz));
+
+                    if (!isWater && !isWaterlogged) {
+                        continue;
+                    }
+
+                    // Flowing water height calculation:
+                    double waterMaxY = by + getWaterHeight(world, bx, by, bz);
+
+                    // Overlap between player's deflated AABB and the block's water volume
+                    double overlapMinX = Math.max(minX, bx);
+                    double overlapMaxX = Math.min(maxX, bx + 1.0D);
+                    double overlapMinY = Math.max(minY, by);
+                    double overlapMaxY = Math.min(maxY, waterMaxY);
+                    double overlapMinZ = Math.max(minZ, bz);
+                    double overlapMaxZ = Math.min(maxZ, bz + 1.0D);
+
+                    if (overlapMinX >= overlapMaxX || overlapMinY >= overlapMaxY || overlapMinZ >= overlapMaxZ) {
+                        continue;
+                    }
+
+                    // Pure water blocks have no solid collision: player is inside water!
+                    if (isWater) {
+                        return true;
+                    }
+
+                    // For waterlogged blocks, inspect the solid collision geometry of the block
+                    WrappedBlockState state = cache.getBlockState(worldName, bx, by, bz);
+
+                    // 1. Slabs
+                    boolean isSlab = PEMaterials.isSlab(state)
+                            || mat.name().contains("SLAB")
+                            || mat.name().contains("STEP");
+
+                    if (isSlab) {
+                        String slabType = state != null ? String.valueOf(state.getTypeData()) : null;
+                        if (slabType == null || "null".equalsIgnoreCase(slabType)) {
+                            int legacyData = cache.getLegacyBlockData(worldName, bx, by, bz);
+                            if (legacyData >= 0) {
+                                slabType = (legacyData & 0x8) != 0 ? "TOP" : "BOTTOM";
+                            }
+                        }
+                        if ("DOUBLE".equalsIgnoreCase(slabType)) {
+                            continue; // Double slab is fully solid
+                        }
+                        if ("TOP".equalsIgnoreCase(slabType)) {
+                            // Solid is [by + 0.5, by + 1.0], water is [by, by + 0.5]
+                            if (overlapMinY < by + 0.5D) {
+                                return true;
+                            }
+                            continue;
+                        }
+                        // BOTTOM slab: solid is [by, by + 0.5], water is [by + 0.5, waterMaxY]
+                        if (overlapMaxY > by + 0.5D) {
+                            return true;
+                        }
+                        continue;
+                    }
+
+                    // 2. Generic partial blocks: fetch collision bounding boxes
+                    List<PEMaterials.CollisionBounds> bounds = null;
+                    if (state != null) {
+                        bounds = PEMaterials.getCollisionBounds(state, bx, by, bz);
+                    }
+                    if (bounds == null) {
+                        int legacyData = cache.getLegacyBlockData(worldName, bx, by, bz);
+                        if (legacyData >= 0 && PEMaterials.isLegacySlabMaterial(mat)) {
+                            bounds = PEMaterials.getCollisionBounds(mat, legacyData, bx, by, bz);
+                        }
+                    }
+                    if (bounds == null || bounds.isEmpty()) {
+                        // Passable waterlogged blocks like signs, banners, ladders
+                        return true;
+                    }
+
+                    // Check if the player overlap is completely inside any solid collision box
+                    boolean fullyInsideSolid = false;
+                    for (PEMaterials.CollisionBounds box : bounds) {
+                        if (box.minX <= overlapMinX && box.maxX >= overlapMaxX
+                                && box.minY <= overlapMinY && box.maxY >= overlapMaxY
+                                && box.minZ <= overlapMinZ && box.maxZ >= overlapMaxZ) {
+                            fullyInsideSolid = true;
+                            break;
+                        }
+                    }
+
+                    if (!fullyInsideSolid) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public static int getWaterLevel(final World world, final int x, final int y, final int z) {
+        if (world == null) return 0;
+        final String worldName = world.getName();
+        final ChunkCache cache = ChunkCache.get();
+
+        // 1. Try PacketEvents cached block state
+        WrappedBlockState state = cache.getBlockState(worldName, x, y, z);
+        if (state != null) {
+            String str = state.toString();
+            int idx = str.indexOf("level=");
+            if (idx != -1) {
+                int end = idx + 6;
+                while (end < str.length() && Character.isDigit(str.charAt(end))) {
+                    end++;
+                }
+                try {
+                    return Integer.parseInt(str.substring(idx + 6, end));
+                } catch (Throwable ignored) {}
+            }
+        }
+
+        // 2. Try legacy block data (1.8 - 1.12)
+        int legacyData = cache.getLegacyBlockData(worldName, x, y, z);
+        if (legacyData >= 0) {
+            if ((legacyData & 0x8) != 0) {
+                return 8; // Falling water
+            }
+            return legacyData & 0x7;
+        }
+
+        // 3. Fallback to Bukkit Block
+        Block b = getBlock(new CustomLocation(world, x, y, z), true);
+        if (b != null) {
+            try {
+                Object bd = b.getBlockData();
+                if (bd instanceof org.bukkit.block.data.Levelled) {
+                    return ((org.bukkit.block.data.Levelled) bd).getLevel();
+                }
+            } catch (Throwable ignored) {}
+            try {
+                byte data = b.getData();
+                if ((data & 0x8) != 0) return 8;
+                return data & 0x7;
+            } catch (Throwable ignored) {}
+        }
+
+        return 0; // Default source block (level 0)
+    }
+
+    public static int getWaterLevel(final CustomLocation location) {
+        if (location == null || location.getWorld() == null) return 0;
+        return getWaterLevel(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    }
+
+    public static double getWaterHeight(final World world, final int x, final int y, final int z) {
+        if (world == null) return 0.0D;
+        final String worldName = world.getName();
+        final ChunkCache cache = ChunkCache.get();
+
+        // If water or waterlogged block is directly above, fluid fills the entire 1.0 block height
+        Material matAbove = cache.getBlock(worldName, x, y + 1, z);
+        if (ChunkCache.isWaterMaterial(matAbove) || cache.isWaterLogged(worldName, x, y + 1, z)) {
+            return 1.0D;
+        }
+
+        int level = getWaterLevel(world, x, y, z);
+        if (level >= 8) {
+            return 1.0D; // Falling water
+        }
+        if (level <= 0) {
+            return 8.0D / 9.0D; // Source block surface level (~0.8888889D)
+        }
+        // Flowing water stages 1 to 7:
+        return (8 - level) / 9.0D;
+    }
+
+    public static double getWaterHeight(final CustomLocation location) {
+        if (location == null || location.getWorld() == null) return 0.0D;
+        return getWaterHeight(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    }
+
+    public static boolean isFlowingWater(final World world, final int x, final int y, final int z) {
+        int level = getWaterLevel(world, x, y, z);
+        return level > 0 && level < 8;
+    }
+
+    public static boolean isWaterSource(final World world, final int x, final int y, final int z) {
+        return getWaterLevel(world, x, y, z) == 0;
+    }
+
     public static boolean isStandingOnMaterial(final CustomLocation loc,
                                                final CollisionUtils.NearbyBlocksResult nearby,
                                                final Predicate<Material> predicate) {
@@ -817,6 +1051,13 @@ public class CollisionUtils {
                         probe.setZ(z + 0.5D);
 
                         Material material = ChunkCache.get().getBlock(probe);
+                        int legacyData =
+                                ChunkCache.get().getLegacyBlockData(
+                                        location.getWorld().getName(),
+                                        x,
+                                        y,
+                                        z
+                                );
                         WrappedBlockState cachedState = ChunkCache.get().getBlockState(probe);
                         boolean needsExactStateShape = cachedState != null
                                 && PEMaterials.requiresStatefulCollision(cachedState)
@@ -829,6 +1070,27 @@ public class CollisionUtils {
                         List<PEMaterials.CollisionBounds> boxes = cachedState != null
                                 ? PEMaterials.getCollisionBounds(cachedState, x, y, z)
                                 : null;
+
+                        if (legacyData >= 0
+                                && PEMaterials.isLegacySlabMaterial(material)) {
+
+                            boxes = PEMaterials.getCollisionBounds(
+                                    material,
+                                    legacyData,
+                                    x,
+                                    y,
+                                    z
+                            );
+
+                        } else if (cachedState != null) {
+
+                            boxes = PEMaterials.getCollisionBounds(
+                                    cachedState,
+                                    x,
+                                    y,
+                                    z
+                            );
+                        }
                         Block block = null;
 
                         if (material == null) {

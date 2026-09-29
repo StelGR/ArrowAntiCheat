@@ -901,7 +901,7 @@ public class GeneralEventListener implements Listener {
             return precise;
         }
 
-        if (targetBlock.getType().isAir()) return new BedBreakRayResult(true, null, null);
+        if (MaterialType.isMaterial(targetBlock.getType().name(), MaterialType.AIR)) return new BedBreakRayResult(true, null, null);
 
         return getFallbackRayResult(player, targetBlock, eye, direction, maxDistance);
     }

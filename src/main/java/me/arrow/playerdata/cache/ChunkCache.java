@@ -12,7 +12,7 @@ import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import me.arrow.managers.profiler.Profiler;
-import org.bukkit.entity.Player;
+import org.jspecify.annotations.NonNull;
 
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -36,6 +36,20 @@ public class ChunkCache {
 
     private static final int DEFAULT_MIN_Y = -64;
     private static final int DEFAULT_MAX_Y = 320;
+    private static final boolean LEGACY_BLOCK_DATA_SUPPORTED;
+
+    static {
+        boolean legacy = false;
+
+        try {
+            // Bukkit BlockData was introduced in 1.13.
+            Class.forName("org.bukkit.block.data.BlockData");
+        } catch (Throwable ignored) {
+            legacy = true;
+        }
+
+        LEGACY_BLOCK_DATA_SUPPORTED = legacy;
+    }
 
     // World Name -> (ChunkKey -> CachedChunk)
     private final Map<String, Map<Long, CachedChunk>> worldChunks = new ConcurrentHashMap<>();
@@ -56,16 +70,18 @@ public class ChunkCache {
                 workers,
                 60L, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
+
                 new ThreadFactory() {
                     private final AtomicInteger id = new AtomicInteger(1);
                     @Override
-                    public Thread newThread(Runnable r) {
+                    public Thread newThread(@NonNull Runnable r) {
                         Thread t = new Thread(r, "Arrow-ChunkQueue-Worker-" + id.getAndIncrement());
                         t.setDaemon(true);
                         t.setPriority(Thread.NORM_PRIORITY);
                         return t;
                     }
-                }
+                },
+                new ThreadPoolExecutor.AbortPolicy()
         );
     }
 
@@ -130,6 +146,16 @@ public class ChunkCache {
         } finally {
             this.initialized = true;
         }
+    }
+
+
+    private static boolean shouldStoreCollisionState(WrappedBlockState state) {
+        if (state == null || state.getType() == null) {
+            return false;
+        }
+
+        return PEMaterials.isSlab(state)
+                || PEMaterials.requiresStatefulCollision(state);
     }
 
     /**
@@ -335,8 +361,14 @@ public class ChunkCache {
      * Each section covers a 16-block vertical slice (sectionY = y >> 4).
      * Fully compatible with 1.7 through 26.2 via SnapshotAdapter.
      */
-    private void cacheFromSnapshot(ChunkSnapshot snapshot, CachedChunk cached, int minY, int maxY) {
+    private void cacheFromSnapshot(
+            ChunkSnapshot snapshot,
+            CachedChunk cached,
+            int minY,
+            int maxY
+    ) {
         if (snapshot == null || cached == null) return;
+
         int minSection = minY >> 4;
         int maxSection = maxY >> 4;
 
@@ -352,24 +384,81 @@ public class ChunkCache {
             for (int y = startY; y <= endY; y++) {
                 for (int x = 0; x < 16; x++) {
                     for (int z = 0; z < 16; z++) {
-                        Material type = SnapshotAdapter.getMaterial(snapshot, x, y, z);
-                        if (type != null && type != Material.AIR) {
-                            WrappedBlockState state = null;
 
-                            if (PEMaterials.requiresStatefulCollision(type)) {
-                                state = PEMaterials.fromBukkitBlockData(
-                                        SnapshotAdapter.getBlockData(snapshot, x, y, z)
+                        Material type =
+                                SnapshotAdapter.getMaterial(
+                                        snapshot,
+                                        x,
+                                        y,
+                                        z
                                 );
-                            }
 
-                            if (state != null) {
-                                cached.setState(x, y, z, type, state.getGlobalId(), true);
-                            } else {
-                                cached.set(x, y, z, type);
-                            }
-                            if (SnapshotAdapter.isWaterlogged(snapshot, x, y, z, type)) {
-                                cached.setWaterlogged(x, y, z, true);
-                            }
+                        if (type == null || type == Material.AIR) {
+                            continue;
+                        }
+
+
+                        /*
+                         * Modern state / legacy MaterialData state.
+                         */
+                        WrappedBlockState state =
+                                SnapshotAdapter.getState(
+                                        snapshot,
+                                        x,
+                                        y,
+                                        z
+                                );
+
+                        if (state != null
+                                && PEMaterials.requiresStatefulCollision(state)) {
+
+                            cached.setState(
+                                    x,
+                                    y,
+                                    z,
+                                    type,
+                                    state.getGlobalId(),
+                                    true
+                            );
+
+                        } else {
+                            cached.set(x, y, z, type);
+                        }
+
+                        /*
+                         * Store legacy metadata AFTER set()/setState(), because those methods
+                         * may clear state-related data.
+                         */
+                        if (LEGACY_BLOCK_DATA_SUPPORTED) {
+                            int legacyData =
+                                    SnapshotAdapter.getLegacyBlockData(
+                                            snapshot,
+                                            x,
+                                            y,
+                                            z
+                                    );
+
+                            cached.setLegacyBlockData(
+                                    x,
+                                    y,
+                                    z,
+                                    legacyData
+                            );
+                        }
+
+                        if (SnapshotAdapter.isWaterlogged(
+                                snapshot,
+                                x,
+                                y,
+                                z,
+                                type
+                        )) {
+                            cached.setWaterlogged(
+                                    x,
+                                    y,
+                                    z,
+                                    true
+                            );
                         }
                     }
                 }
@@ -544,7 +633,7 @@ public class ChunkCache {
         Map<Long, CachedChunk> map = worldChunks.computeIfAbsent(worldName, k -> new ConcurrentHashMap<>());
         CachedChunk chunk = map.computeIfAbsent(chunkKey(cx, cz), k -> new CachedChunk(cx, cz));
         chunk.setState(x & 15, y, z & 15, material, state.getGlobalId(),
-                PEMaterials.requiresStatefulCollision(state));
+                shouldStoreCollisionState(state));
     }
 
     /**
@@ -553,7 +642,7 @@ public class ChunkCache {
      */
     public void requestCollisionShape(World world, int x, int y, int z, WrappedBlockState state) {
         if (world == null || state == null || PlatformBackend.get().isFabric()
-                || !PEMaterials.requiresStatefulCollision(state)
+                || !shouldStoreCollisionState(state)
                 || PEMaterials.hasCachedCollisionShape(state)) {
             return;
         }
@@ -614,12 +703,21 @@ public class ChunkCache {
     /** Returns the exact packet state when this partial block was cached, otherwise null. */
     public WrappedBlockState getBlockState(CustomLocation location) {
         if (location == null || location.getWorld() == null) return null;
+        return getBlockState(location.getWorld().getName(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    }
 
-        CachedChunk chunk = getChunk(location.getWorld().getName(),
-                location.getBlockX() >> 4, location.getBlockZ() >> 4);
+    public WrappedBlockState getBlockState(World world, int x, int y, int z) {
+        if (world == null) return null;
+        return getBlockState(world.getName(), x, y, z);
+    }
+
+    public WrappedBlockState getBlockState(String worldName, int x, int y, int z) {
+        if (worldName == null) return null;
+
+        CachedChunk chunk = getChunk(worldName, x >> 4, z >> 4);
         if (chunk == null) return null;
 
-        int stateId = chunk.getStateId(location.getBlockX() & 15, location.getBlockY(), location.getBlockZ() & 15);
+        int stateId = chunk.getStateId(x & 15, y, z & 15);
         if (stateId < 0) return null;
 
         try {
@@ -635,6 +733,48 @@ public class ChunkCache {
         return getChunk(world.getName(), chunkX, chunkZ) != null;
     }
 
+
+    public int getLegacyBlockData(
+            String worldName,
+            int x,
+            int y,
+            int z
+    ) {
+        if (worldName == null) {
+            return -1;
+        }
+
+        CachedChunk chunk =
+                getChunk(
+                        worldName,
+                        x >> 4,
+                        z >> 4
+                );
+
+        if (chunk == null) {
+            return -1;
+        }
+
+        return chunk.getLegacyBlockData(
+                x & 15,
+                y,
+                z & 15
+        );
+    }
+
+    public int getLegacyBlockData(CustomLocation location) {
+        if (location == null
+                || location.getWorld() == null) {
+            return -1;
+        }
+
+        return getLegacyBlockData(
+                location.getWorld().getName(),
+                location.getBlockX(),
+                location.getBlockY(),
+                location.getBlockZ()
+        );
+    }
     public boolean isChunkLoaded(CustomLocation location) {
         if (location == null || location.getWorld() == null) return false;
         return isChunkLoaded(location.getWorld(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
@@ -770,19 +910,49 @@ public class ChunkCache {
         if (existing != null && existing.hasCompleteStatefulCollisionData()) return;
         if (!markQueued(worldName, chunkX, chunkZ)) return;
 
-        chunkExecutor.execute(() -> {
-            try {
-                CachedChunk current = getChunk(worldName, chunkX, chunkZ);
-                if (current != null && current.hasCompleteStatefulCollisionData()) return;
-                CachedChunk cached = parsePacketColumn(chunkX, chunkZ, minY, column);
-                if (cached != null) {
-                    putChunk(worldName, chunkX, chunkZ, cached);
+        try {
+            chunkExecutor.execute(() -> {
+                try {
+                    CachedChunk current =
+                            getChunk(worldName, chunkX, chunkZ);
+
+                    if (current != null
+                            && current.hasCompleteStatefulCollisionData()) {
+                        return;
+                    }
+
+                    CachedChunk cached =
+                            parsePacketColumn(
+                                    chunkX,
+                                    chunkZ,
+                                    minY,
+                                    column
+                            );
+
+                    if (cached != null) {
+                        putChunk(
+                                worldName,
+                                chunkX,
+                                chunkZ,
+                                cached
+                        );
+                    }
+                } catch (Throwable ignored) {
+                } finally {
+                    unmarkQueued(
+                            worldName,
+                            chunkX,
+                            chunkZ
+                    );
                 }
-            } catch (Throwable ignored) {
-            } finally {
-                unmarkQueued(worldName, chunkX, chunkZ);
-            }
-        });
+            });
+        } catch (RejectedExecutionException ignored) {
+            unmarkQueued(
+                    worldName,
+                    chunkX,
+                    chunkZ
+            );
+        }
     }
 
     public void queueChunkSnapshot(World world, int cx, int cz, ChunkSnapshot snapshot) {
@@ -870,8 +1040,16 @@ public class ChunkCache {
                             Material material = PEMaterials.materialFromState(type);
                             if (material != null && material != Material.AIR) {
                                 int worldY = baseY + localY;
-                                cached.setState(localX, worldY, localZ, material, state.getGlobalId(),
-                                        PEMaterials.requiresStatefulCollision(state));
+                                boolean storeState = shouldStoreCollisionState(state);
+
+                                cached.setState(
+                                        localX,
+                                        worldY,
+                                        localZ,
+                                        material,
+                                        state.getGlobalId(),
+                                        storeState
+                                );
                                 boolean waterlogged = isWaterMaterial(material) || PEMaterials.isWaterlogged(state);
                                 if (waterlogged) {
                                     cached.setWaterlogged(localX, worldY, localZ, true);
@@ -950,10 +1128,30 @@ public class ChunkCache {
 
             if (material == null || material == Material.AIR) {
                 CachedSection sec = sections[idx];
+
                 if (sec != null) {
-                    sec.set(relX, y & 15, relZ, Material.AIR);
-                    sec.setStateId(relX, y & 15, relZ, -1);
+                    sec.set(
+                            relX,
+                            y & 15,
+                            relZ,
+                            Material.AIR
+                    );
+
+                    sec.setStateId(
+                            relX,
+                            y & 15,
+                            relZ,
+                            -1
+                    );
+
+                    sec.setLegacyBlockData(
+                            relX,
+                            y & 15,
+                            relZ,
+                            -1
+                    );
                 }
+
                 return;
             }
 
@@ -962,14 +1160,93 @@ public class ChunkCache {
             sections[idx].setStateId(relX, y & 15, relZ, -1);
         }
 
-        public void setState(int relX, int y, int relZ, Material material, int stateId, boolean storeState) {
+        public int getLegacyBlockData(
+                int relX,
+                int y,
+                int relZ
+        ) {
+            if (relX < 0 || relX > 15
+                    || relZ < 0 || relZ > 15) {
+                return -1;
+            }
+
+            int idx =
+                    (y >> 4) + SECTION_OFFSET;
+
+            if (!validIndex(idx)) {
+                return -1;
+            }
+
+            CachedSection section =
+                    sections[idx];
+
+            return section != null
+                    ? section.getLegacyBlockData(
+                    relX,
+                    y & 15,
+                    relZ
+            )
+                    : -1;
+        }
+
+        public void setLegacyBlockData(
+                int relX,
+                int y,
+                int relZ,
+                int data
+        ) {
+            if (relX < 0 || relX > 15
+                    || relZ < 0 || relZ > 15) {
+                return;
+            }
+
+            int idx =
+                    (y >> 4) + SECTION_OFFSET;
+
+            if (!validIndex(idx)) {
+                return;
+            }
+
+            if (sections[idx] == null) {
+                sections[idx] = new CachedSection();
+            }
+
+            sections[idx].setLegacyBlockData(
+                    relX,
+                    y & 15,
+                    relZ,
+                    data
+            );
+        }
+
+        public void setState(
+                int relX,
+                int y,
+                int relZ,
+                Material material,
+                int stateId,
+                boolean storeState
+        ) {
             set(relX, y, relZ, material);
-            if (!storeState || material == null || material == Material.AIR) return;
+
+            if (!storeState
+                    || material == null
+                    || material == Material.AIR) {
+                return;
+            }
 
             int idx = (y >> 4) + SECTION_OFFSET;
-            if (validIndex(idx) && sections[idx] != null) {
-                sections[idx].setStateId(relX, y & 15, relZ, stateId);
+
+            if (!validIndex(idx) || sections[idx] == null) {
+                return;
             }
+
+            sections[idx].setStateId(
+                    relX,
+                    y & 15,
+                    relZ,
+                    stateId
+            );
         }
 
         public int getStateId(int relX, int y, int relZ) {
@@ -1012,71 +1289,233 @@ public class ChunkCache {
     }
 
     public static class CachedSection {
-        // Fast compact array storing material ordinals (char is 16-bit unsigned, fits all materials)
+
+        /*
+         * Material ordinal:
+         * 0 = AIR
+         * material.ordinal() + 1 = stored value
+         */
         private final char[] blockOrdinals = new char[4096];
-        // 64 longs = 4096 bits representing waterlogged state for each block in the section
+
+        /*
+         * 4096 bits = 512 bytes.
+         */
         private final long[] waterloggedMask = new long[64];
-        // Sparse because only partial colliders need a state ID; full cubes use no extra memory.
-        private volatile ConcurrentMap<Integer, Integer> stateIds;
+
+        /*
+         * Only allocated if this section actually contains
+         * stateful collision blocks.
+         *
+         * -1 = no state stored
+         */
+        private volatile int[] stateIds;
+
+        /*
+         * ONLY allocated on legacy servers.
+         */
+        private byte[] legacyBlockData;
+
         private static final Material[] MATERIAL_VALUES = Material.values();
 
         public Material get(int localX, int localY, int localZ) {
-            int index = (localY << 8) | (localZ << 4) | localX;
+            int index = (localY << 8)
+                    | (localZ << 4)
+                    | localX;
+
             char ord = blockOrdinals[index];
-            if (ord == 0) return Material.AIR;
+
+            if (ord == 0) {
+                return Material.AIR;
+            }
+
             int idx = ord - 1;
-            return idx < MATERIAL_VALUES.length ? MATERIAL_VALUES[idx] : Material.AIR;
+
+            return idx < MATERIAL_VALUES.length
+                    ? MATERIAL_VALUES[idx]
+                    : Material.AIR;
         }
 
-        public void set(int localX, int localY, int localZ, Material material) {
-            int index = (localY << 8) | (localZ << 4) | localX;
+        public void set(
+                int localX,
+                int localY,
+                int localZ,
+                Material material
+        ) {
+            int index = (localY << 8)
+                    | (localZ << 4)
+                    | localX;
+
             if (material == null || material == Material.AIR) {
                 blockOrdinals[index] = 0;
-            } else {
-                blockOrdinals[index] = (char) (material.ordinal() + 1);
-            }
-        }
 
-        public int getStateId(int localX, int localY, int localZ) {
-            ConcurrentMap<Integer, Integer> states = stateIds;
-            if (states == null) return -1;
-            Integer stateId = states.get((localY << 8) | (localZ << 4) | localX);
-            return stateId != null ? stateId : -1;
-        }
+                /*
+                 * Do not allocate state storage just to clear it.
+                 */
+                int[] states = stateIds;
+                if (states != null) {
+                    states[index] = -1;
+                }
 
-        public void setStateId(int localX, int localY, int localZ, int stateId) {
-            int index = (localY << 8) | (localZ << 4) | localX;
-            ConcurrentMap<Integer, Integer> states = stateIds;
+                /*
+                 * Legacy storage is only relevant on old servers.
+                 */
+                if (LEGACY_BLOCK_DATA_SUPPORTED && legacyBlockData != null) {
+                    legacyBlockData[index] = -1;
+                }
 
-            if (stateId < 0) {
-                if (states != null) states.remove(index);
                 return;
             }
+
+            blockOrdinals[index] =
+                    (char) (material.ordinal() + 1);
+
+            /*
+             * A normal material write removes any previously stored
+             * state ID for that block.
+             */
+            int[] states = stateIds;
+            if (states != null) {
+                states[index] = -1;
+            }
+        }
+
+        public void setStateId(
+                int localX,
+                int localY,
+                int localZ,
+                int stateId
+        ) {
+            int index = (localY << 8)
+                    | (localZ << 4)
+                    | localX;
+
+            if (stateId < 0) {
+                int[] states = stateIds;
+
+                if (states != null) {
+                    states[index] = -1;
+                }
+
+                return;
+            }
+
+            int[] states = stateIds;
 
             if (states == null) {
                 synchronized (this) {
                     states = stateIds;
+
                     if (states == null) {
-                        states = new ConcurrentHashMap<>();
+                        states = new int[4096];
+                        java.util.Arrays.fill(states, -1);
                         stateIds = states;
                     }
                 }
             }
 
-            states.put(index, stateId);
+            states[index] = stateId;
         }
 
-        public boolean isWaterlogged(int localX, int localY, int localZ) {
-            int index = (localY << 8) | (localZ << 4) | localX;
-            return (waterloggedMask[index >> 6] & (1L << (index & 63))) != 0;
+        public int getStateId(
+                int localX,
+                int localY,
+                int localZ
+        ) {
+            int[] states = stateIds;
+
+            if (states == null) {
+                return -1;
+            }
+
+            int index = (localY << 8)
+                    | (localZ << 4)
+                    | localX;
+
+            return states[index];
         }
 
-        public void setWaterlogged(int localX, int localY, int localZ, boolean waterlogged) {
-            int index = (localY << 8) | (localZ << 4) | localX;
+        public int getLegacyBlockData(
+                int localX,
+                int localY,
+                int localZ
+        ) {
+            if (!LEGACY_BLOCK_DATA_SUPPORTED) {
+                return -1;
+            }
+
+            byte[] legacy = legacyBlockData;
+
+            if (legacy == null) {
+                return -1;
+            }
+
+            int index = (localY << 8)
+                    | (localZ << 4)
+                    | localX;
+
+            return legacy[index];
+        }
+
+        public void setLegacyBlockData(
+                int localX,
+                int localY,
+                int localZ,
+                int data
+        ) {
+            if (!LEGACY_BLOCK_DATA_SUPPORTED || data < 0) {
+                return;
+            }
+
+            byte[] legacy = legacyBlockData;
+
+            if (legacy == null) {
+                synchronized (this) {
+                    legacy = legacyBlockData;
+
+                    if (legacy == null) {
+                        legacy = new byte[4096];
+                        java.util.Arrays.fill(legacy, (byte) -1);
+                        legacyBlockData = legacy;
+                    }
+                }
+            }
+
+            int index = (localY << 8)
+                    | (localZ << 4)
+                    | localX;
+
+            legacy[index] = (byte) (data & 0xFF);
+        }
+
+        public boolean isWaterlogged(
+                int localX,
+                int localY,
+                int localZ
+        ) {
+            int index = (localY << 8)
+                    | (localZ << 4)
+                    | localX;
+
+            return (waterloggedMask[index >> 6]
+                    & (1L << (index & 63))) != 0;
+        }
+
+        public void setWaterlogged(
+                int localX,
+                int localY,
+                int localZ,
+                boolean waterlogged
+        ) {
+            int index = (localY << 8)
+                    | (localZ << 4)
+                    | localX;
+
             if (waterlogged) {
-                waterloggedMask[index >> 6] |= (1L << (index & 63));
+                waterloggedMask[index >> 6] |=
+                        (1L << (index & 63));
             } else {
-                waterloggedMask[index >> 6] &= ~(1L << (index & 63));
+                waterloggedMask[index >> 6] &=
+                        ~(1L << (index & 63));
             }
         }
     }

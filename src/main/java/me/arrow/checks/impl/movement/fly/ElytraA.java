@@ -6,6 +6,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.Arrow;
+import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.core.check.annotation.Experimental;
 import me.arrow.core.check.CheckType;
 import me.arrow.checks.types.Check;
@@ -47,6 +48,8 @@ public class ElytraA extends Check {
     int upwardNoRocketTicks;
     int unpoweredClimbTicks;
     int sustainedBoostTicks;
+    int offAxisTicks;
+    int steepUpAccelerationTicks;
 
     double lastElytraDeltaXZ;
     double lastElytraDeltaY;
@@ -229,7 +232,7 @@ public class ElytraA extends Check {
             diveTicks = Math.max(0, diveTicks - 1);
         }
 
-        inferMissedRocketBoost(movementData, pitch);
+        inferRocketBoost(movementData);
 
         /*
          * Minecraft pitch:
@@ -328,11 +331,62 @@ public class ElytraA extends Check {
          * kinetic energy will decay without rockets/riptide/external velocity.
          */
         boolean noRocket = !hasRecentRocketBoost();
+        MovementPredictionUtil.DirectionalMovement direction =
+                MovementPredictionUtil.predictDirectionalMovement(movementData, profile.getRotationData().getYaw());
+        float deltaYaw = profile.getRotationData().getDeltaYaw();
+        float lastDeltaYaw = profile.getRotationData().getLastDeltaYaw();
 
         if (hasRecentRocketBoost()) {
             unpoweredClimbTicks = 0;
             upwardNoRocketTicks = 0;
             pitchUpSpeedGainTicks = 0;
+            offAxisTicks = 0;
+            steepUpAccelerationTicks = 0;
+        }
+
+        /*
+         * Elytra drag preserves a prior heading briefly, but it cannot sustain
+         * fast sideways/backwards travel while the player keeps a stable yaw.
+         * Per-tick yaw limits deliberately exclude ordinary turns.
+         */
+        boolean stableYaw = deltaYaw < 2.5F && lastDeltaYaw < 2.5F;
+        boolean backwards = direction.isBackwards() && direction.getDot() < -0.45D;
+        boolean sideways = direction.isSideways() && direction.getAbsoluteAngle() >= 85.0D;
+        boolean offAxis = noRocket && elytraTicks > 13 && deltaXZ > 0.50D && pitch <= 20.0D
+                && stableYaw && horizontalAccel > -0.0125D && (backwards || sideways);
+        offAxisTicks = offAxis ? Math.min(20, offAxisTicks + 1) : Math.max(0, offAxisTicks - 2);
+
+        if (offAxisTicks > 4) {
+            fail("Impossible Elytra direction",
+                    "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", deltaXZ)
+                            + "\nsector " + MsgType.MAIN_THEME_COLOR.getMessage() + direction.getSector()
+                            + "\nangle " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.1f", direction.getSignedAngle())
+                            + "\ndot " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", direction.getDot())
+                            + "\nhAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.4f", horizontalAccel)
+                            + "\nyawDelta " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
+                            + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + formatPitch(pitch));
+            offAxisTicks = 2;
+        }
+
+        /*
+         * Pulling up converts speed into height; without a prior dive or a
+         * live/recent rocket it cannot keep creating horizontal speed forever.
+         */
+        boolean steepUpAcceleration = noRocket && elytraTicks >= 60 && pitch <= -65.0D
+                && recentDiveSpeed < 0.25D && deltaXZ > 0.50D && horizontalAccel > 0.006D;
+        steepUpAccelerationTicks = steepUpAcceleration
+                ? Math.min(20, steepUpAccelerationTicks + 1)
+                : Math.max(0, steepUpAccelerationTicks - 1);
+
+        if (steepUpAccelerationTicks > 5) {
+            fail("Impossible Elytra acceleration",
+                    "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", deltaXZ)
+                            + "\nlastDeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", lastDeltaXZ)
+                            + "\nhAccel " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.4f", horizontalAccel)
+                            + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + formatPitch(pitch)
+                            + "\nglideTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + elytraTicks
+                            + "\ndiveSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + String.format(Locale.ROOT, "%.3f", recentDiveSpeed));
+            steepUpAccelerationTicks = 3;
         }
 
         /*
@@ -668,6 +722,8 @@ public class ElytraA extends Check {
             upwardNoRocketTicks = 0;
             unpoweredClimbTicks = 0;
             sustainedBoostTicks = 0;
+            offAxisTicks = 0;
+            steepUpAccelerationTicks = 0;
             recentDiveSpeed = 0;
             diveTicks = 0;
             terminalBuffer = Math.max(0, terminalBuffer - 0.25);
@@ -694,7 +750,7 @@ public class ElytraA extends Check {
         }
     }
 
-    private void inferMissedRocketBoost(MovementData movementData, double pitch) {
+    private void inferRocketBoost(MovementData movementData) {
         if (!movementData.isGlidingNow()) {
             return;
         }
@@ -703,31 +759,15 @@ public class ElytraA extends Check {
             return;
         }
 
-        double deltaXZ = movementData.getDeltaXZ();
-        double lastDeltaXZ = movementData.getLastDeltaXZ();
-
-        double deltaY = movementData.getDeltaY();
-        double lastDeltaY = movementData.getLastDeltaY();
-
-        double horizontalAccel = deltaXZ - lastDeltaXZ;
-        double verticalAccel = deltaY - lastDeltaY;
-
-        double currentEnergy = deltaXZ * deltaXZ + deltaY * deltaY;
-        double lastEnergy = lastElytraDeltaXZ * lastElytraDeltaXZ + lastElytraDeltaY * lastElytraDeltaY;
-        double energyGain = currentEnergy - lastEnergy;
-
-        /*
-         * Case 1:
-         * We saw a USE_ITEM or PLAYER_BLOCK_PLACEMENT packet while gliding.
-         * If movement confirms any upward motion, forward speed, or positive acceleration, confirm the rocket!
-         */
+        double horizontalAccel = movementData.getDeltaXZ() - movementData.getLastDeltaXZ();
+        double verticalAccel = movementData.getDeltaY() - movementData.getLastDeltaY();
         boolean usedItemThenBoosted =
                 possibleRocketUseTicks > 0
                         && (
                         verticalAccel > 0.03D
                                 || horizontalAccel > 0.03D
-                                || deltaY > 0.10D
-                                || deltaXZ > 0.50D
+                                || movementData.getDeltaY() > 0.10D
+                                || movementData.getDeltaXZ() > 0.50D
                 );
 
         if (usedItemThenBoosted) {
@@ -736,33 +776,6 @@ public class ElytraA extends Check {
             return;
         }
 
-        /*
-         * Case 2:
-         * Autonomous kinematic inference.
-         * The player might be lagging, or USE_ITEM was deferred, but their movement shows clear rocket flight.
-         * Normal rocket ascent has deltaY around 0.35 - 0.75 and deltaXZ around 0.45 - 1.20 across pitches -89 to +15.
-         * Without a deep dive (recentDiveSpeed < 0.75), an unpowered elytra CANNOT maintain deltaY > 0.35 or gain energy!
-         */
-        boolean hasFireworks = playerHasFireworks();
-        boolean gainingSpeedWhileClimbing = deltaY > 0.05D && (energyGain > 0.02D || horizontalAccel > 0.04D);
-        boolean climbWithoutPriorDive = deltaY > 0.35D && recentDiveSpeed < 0.75D;
-        boolean upwardAccelerationBoost = verticalAccel > 0.06D && deltaY > 0.20D;
-        boolean horizontalRocketBoost = deltaXZ > 1.25D && horizontalAccel > 0.10D;
-
-        if (rocketInferenceCooldownTicks <= 0) {
-            if (hasFireworks) {
-                // If the player has fireworks anywhere in inventory, recognize rocket boosts reliably
-                if (climbWithoutPriorDive || gainingSpeedWhileClimbing || upwardAccelerationBoost || horizontalRocketBoost || (deltaY > 0.40D && deltaXZ > 0.45D)) {
-                    armRocketBoost(lastRocketPower, true);
-                    return;
-                }
-            } else {
-                // Even without seeing fireworks in inventory (e.g. inventory desync), infer obvious boosts
-                if ((climbWithoutPriorDive && gainingSpeedWhileClimbing) || upwardAccelerationBoost || horizontalRocketBoost) {
-                    armRocketBoost(lastRocketPower, false);
-                }
-            }
-        }
     }
 
     private boolean hasRocketBoost() {
