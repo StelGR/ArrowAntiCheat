@@ -2,6 +2,9 @@ package me.arrow.playerdata.data.impl.worldcomp;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
+import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
@@ -31,6 +34,8 @@ import java.lang.reflect.Method;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -2164,25 +2169,75 @@ public class BlockProcessor implements Data {
 
         World world = player.getWorld();
 
-        int sent = 0;
+        List<SyncBlock> toSync = new ArrayList<>();
+        while (toSync.size() < MAX_SYNC_BLOCKS_PER_FLUSH) {
+            SyncBlock block = pollQueuedSyncBlock();
+            if (block == null) break;
+            toSync.add(block);
+        }
 
-        while (sent < MAX_SYNC_BLOCKS_PER_FLUSH) {
-            SyncBlock syncBlock = pollQueuedSyncBlock();
+        if (toSync.isEmpty()) {
+            return;
+        }
 
-            if (syncBlock == null) {
-                return;
+        Map<Long, List<SyncBlock>> sections = new LinkedHashMap<>();
+        for (SyncBlock sb : toSync) {
+            int cx = sb.x >> 4;
+            int cz = sb.z >> 4;
+            int cy = sb.y >> 4;
+            long key = (((long) cx) << 42) ^ (((long) cz) << 20) ^ (cy & 0xFFFFFL);
+            sections.computeIfAbsent(key, k -> new ArrayList<>()).add(sb);
+        }
+
+        for (List<SyncBlock> sectionBlocks : sections.values()) {
+            if (sectionBlocks.size() == 1) {
+                SyncBlock syncBlock = sectionBlocks.get(0);
+                if (!CollisionUtils.isChunkLoaded(new Location(world, syncBlock.x, syncBlock.y, syncBlock.z))) continue;
+                Block block = world.getBlockAt(syncBlock.x, syncBlock.y, syncBlock.z);
+                boolean corrected = sendBlockChangeCompat(player, block);
+                if (corrected && syncBlock.removeStoredGhost) {
+                    removeGhostBlock(new Vector(syncBlock.x, syncBlock.y, syncBlock.z));
+                }
+            } else {
+                int cx = sectionBlocks.get(0).x >> 4;
+                int cz = sectionBlocks.get(0).z >> 4;
+                int cy = sectionBlocks.get(0).y >> 4;
+
+                List<WrapperPlayServerMultiBlockChange.EncodedBlock> encodedList = new ArrayList<>(sectionBlocks.size());
+                for (SyncBlock sb : sectionBlocks) {
+                    if (!CollisionUtils.isChunkLoaded(new Location(world, sb.x, sb.y, sb.z))) continue;
+                    Block b = world.getBlockAt(sb.x, sb.y, sb.z);
+                    WrappedBlockState state = PEMaterials.fromBukkitBlock(b);
+                    if (state != null) {
+                        encodedList.add(new WrapperPlayServerMultiBlockChange.EncodedBlock(state, sb.x, sb.y, sb.z));
+                        markSelfSyncedBlock(sb.x, sb.y, sb.z);
+                        if (sb.removeStoredGhost) {
+                            removeGhostBlock(new Vector(sb.x, sb.y, sb.z));
+                        }
+                    } else {
+                        sendBlockChangeCompat(player, b);
+                        if (sb.removeStoredGhost) {
+                            removeGhostBlock(new Vector(sb.x, sb.y, sb.z));
+                        }
+                    }
+                }
+
+                if (!encodedList.isEmpty()) {
+                    try {
+                        WrapperPlayServerMultiBlockChange wrapper = new WrapperPlayServerMultiBlockChange(
+                                new Vector3i(cx, cy, cz),
+                                true,
+                                encodedList.toArray(new WrapperPlayServerMultiBlockChange.EncodedBlock[0])
+                        );
+                        PacketEvents.getAPI().getPlayerManager().sendPacket(player, wrapper);
+                    } catch (Throwable t) {
+                        for (SyncBlock sb : sectionBlocks) {
+                            Block b = world.getBlockAt(sb.x, sb.y, sb.z);
+                            sendBlockChangeCompat(player, b);
+                        }
+                    }
+                }
             }
-
-            if (!CollisionUtils.isChunkLoaded(new Location(world, syncBlock.x, syncBlock.y, syncBlock.z))) return;
-
-            Block block = world.getBlockAt(syncBlock.x, syncBlock.y, syncBlock.z);
-            boolean corrected = sendBlockChangeCompat(player, block);
-
-            if (corrected && syncBlock.removeStoredGhost) {
-                removeGhostBlock(new Vector(syncBlock.x, syncBlock.y, syncBlock.z));
-            }
-
-            sent++;
         }
     }
 

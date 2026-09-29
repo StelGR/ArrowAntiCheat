@@ -56,8 +56,8 @@ public class IllegalMoveC extends Check {
             if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetBuffers(); return; }
             if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) { resetBuffers(); return; }
             if (exempt("dead", profile.getPlayer().isDead())) { resetBuffers(); return; }
-            if (exempt("onBoat", movementData.isOnBoat())) { resetBuffers(); return; }
-            if (exempt("nearBoat", movementData.isNearBoat())) { resetBuffers(); return; }
+//            if (exempt("onBoat", movementData.isOnBoat())) { resetBuffers(); return; }
+//            if (exempt("nearBoat", movementData.isNearBoat())) { resetBuffers(); return; }
             if (exempt("nearWater", movementData.isNearWater())) { resetBuffers(); return; }
             if (exempt("insideLiquid", movementData.isInsideLiquid())) { resetBuffers(); return; }
 

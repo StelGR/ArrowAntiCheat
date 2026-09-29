@@ -1,7 +1,10 @@
 package me.arrow.playerdata.cache;
 
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
+import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.ChunkSnapshot;
 import org.bukkit.Material;
+import org.bukkit.material.MaterialData;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -19,6 +22,7 @@ public class SnapshotAdapter {
     private static final MethodHandle GET_BLOCK_TYPE_ID_MH;
     private static final MethodHandle IS_SECTION_EMPTY_MH;
     private static final MethodHandle GET_BLOCK_DATA_MH;
+    private static final MethodHandle GET_LEGACY_BLOCK_DATA_MH;
 
     private static final Material[] ID_TO_MATERIAL = new Material[256];
 
@@ -28,6 +32,7 @@ public class SnapshotAdapter {
         MethodHandle getBlockTypeId = null;
         MethodHandle isSectionEmpty = null;
         MethodHandle getBlockData = null;
+        MethodHandle legacyBlockData = null;
 
         try {
             // Modern (1.13 - 26.2): Material getBlockType(int, int, int)
@@ -46,11 +51,30 @@ public class SnapshotAdapter {
             isSectionEmpty = lookup.unreflect(m);
         } catch (Throwable ignored) {}
 
+
         try {
-            Method m = ChunkSnapshot.class.getMethod("getBlockData", int.class, int.class, int.class);
-            getBlockData = lookup.unreflect(m);
+            Method m = ChunkSnapshot.class.getMethod(
+                    "getBlockData",
+                    int.class, int.class, int.class
+            );
+
+            /*
+             * Legacy Bukkit:
+             *   int getBlockData(int, int, int)
+             *
+             * Modern Bukkit:
+             *   BlockData getBlockData(int, int, int)
+             */
+            Class<?> returnType = m.getReturnType();
+
+            if (returnType == int.class || returnType == byte.class || returnType == short.class) {
+                legacyBlockData = lookup.unreflect(m);
+            } else {
+                getBlockData = lookup.unreflect(m);
+            }
         } catch (Throwable ignored) {}
 
+        GET_LEGACY_BLOCK_DATA_MH = legacyBlockData;
         GET_BLOCK_TYPE_MH = getBlockType;
         GET_BLOCK_TYPE_ID_MH = getBlockTypeId;
         IS_SECTION_EMPTY_MH = isSectionEmpty;
@@ -84,6 +108,8 @@ public class SnapshotAdapter {
         }
     }
 
+
+
     /**
      * Resolves the block Material from a ChunkSnapshot across all Minecraft versions.
      */
@@ -111,6 +137,99 @@ public class SnapshotAdapter {
         }
 
         return Material.AIR;
+    }
+
+    /**
+     * Legacy block metadata/data value.
+     *
+     * Returns:
+     *   0 on modern versions
+     *   0-15 on legacy versions
+     */
+    public static int getLegacyBlockData(
+            ChunkSnapshot snapshot,
+            int x,
+            int y,
+            int z
+    ) {
+        if (snapshot == null || GET_LEGACY_BLOCK_DATA_MH == null) {
+            return -1;
+        }
+
+        try {
+            Object value =
+                    GET_LEGACY_BLOCK_DATA_MH.invoke(
+                            snapshot,
+                            x,
+                            y,
+                            z
+                    );
+
+            if (value instanceof Number number) {
+                return number.intValue() & 0xFF;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return -1;
+    }
+
+    /**
+     * Returns the complete Bukkit/PacketEvents block state.
+     *
+     * Modern:
+     *   ChunkSnapshot#getBlockData()
+     *
+     * Legacy:
+     *   block ID + legacy metadata -> MaterialData -> WrappedBlockState
+     */
+    public static WrappedBlockState getState(
+            ChunkSnapshot snapshot,
+            int x,
+            int y,
+            int z
+    ) {
+        if (snapshot == null) {
+            return null;
+        }
+
+        /*
+         * Modern 1.13+.
+         */
+        Object modernData = getBlockData(snapshot, x, y, z);
+
+        if (modernData != null) {
+            WrappedBlockState state = PEMaterials.fromBukkitBlockData(modernData);
+
+            if (state != null) {
+                return state;
+            }
+        }
+
+        /*
+         * Legacy 1.7-1.12.
+         *
+         * The metadata is part of the state. Do NOT throw it away and convert
+         * only the block ID to Material.
+         */
+        Material material = getMaterial(snapshot, x, y, z);
+
+        if (material == null || material == Material.AIR) {
+            return null;
+        }
+
+        int data = getLegacyBlockData(snapshot, x, y, z);
+
+        try {
+            MaterialData materialData = new MaterialData(material, (byte) (data & 0xFF));
+            return PEMaterials.fromBukkitMaterialData(materialData);
+        } catch (Throwable ignored) {
+        }
+
+        /*
+         * Last fallback: material only.
+         */
+        return PEMaterials.fromBukkitMaterial(material);
     }
 
     /**

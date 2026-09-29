@@ -918,6 +918,35 @@ public class ReflectionUtils {
         return defaultValue;
     }
 
+    /** Reads a Bukkit entity attribute without linking the check to a
+     * version-specific Attribute enum. */
+    public static double getEntityAttributeValue(Entity entity, String attributeName, double defaultValue) {
+        return getEntityAttributeNumber(entity, attributeName, defaultValue, false);
+    }
+
+    public static double getEntityAttributeBaseValue(Entity entity, String attributeName, double defaultValue) {
+        return getEntityAttributeNumber(entity, attributeName, defaultValue, true);
+    }
+
+    private static double getEntityAttributeNumber(Entity entity, String attributeName,
+                                                   double defaultValue, boolean baseValue) {
+        if (entity == null || attributeName == null) return defaultValue;
+        if (!ATTRIBUTE_INITIALIZED) initAttributes();
+
+        try {
+            if (ATTRIBUTE_CLASS != null) {
+                Object attribute = ATTRIBUTE_ENUM_CACHE.computeIfAbsent(attributeName, ReflectionUtils::resolveAttribute);
+                Method getAttribute = findCompatibleMethod(entity.getClass(), "getAttribute", ATTRIBUTE_CLASS);
+                if (attribute != null && getAttribute != null) {
+                    Double value = readAttributeNumber(getAttribute.invoke(entity, attribute), baseValue);
+                    if (value != null) return value;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return defaultValue;
+    }
+
     public static double getAttributeBaseValue(Player player, String attributeName, double defaultValue) {
         if (player == null) return defaultValue;
 

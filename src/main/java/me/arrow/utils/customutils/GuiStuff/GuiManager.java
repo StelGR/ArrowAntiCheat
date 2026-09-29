@@ -14,6 +14,7 @@ import me.arrow.managers.themes.Theme;
 import me.arrow.managers.themes.ThemeManager;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.tasks.TickTask;
+import me.arrow.utils.ReflectionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.customutils.animationSystem.Animation;
@@ -33,6 +34,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BiConsumer;
+
 import static me.arrow.utils.customutils.GuiStuff.GuiUtility.*;
 import static me.arrow.utils.customutils.OtherUtility.guiLine;
 import static me.arrow.utils.customutils.OtherUtility.translate;
@@ -118,7 +121,7 @@ public class GuiManager {
                 true
         ));
 
-        ItemStack skullItem = GuiUtility.createPlayerHeadItem(serverVersion);
+        ItemStack skullItem = createPlayerHeadItem(serverVersion);
 
         gui.setItem(13, generateSkull(
                 skullItem,
@@ -140,7 +143,7 @@ public class GuiManager {
             }
         }
 
-        java.util.function.BiConsumer<Integer, List<String>> updateLore = (slot, lore) -> {
+        BiConsumer<Integer, List<String>> updateLore = (slot, lore) -> {
             ItemStack item = gui.getItem(slot);
 
             if (item == null || item.getType() == Material.AIR) {
@@ -235,6 +238,7 @@ public class GuiManager {
                 extraDebugLore.add(translate(" &7Yaw: " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getLocation().getYaw()));
             }
             extraDebugLore.add(translate("&7Elytra: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isWearingFunctionalElytra()));
+            extraDebugLore.add(translate("&7Collisions: " + MsgType.MAIN_THEME_COLOR.getMessage() + (movementData != null ? movementData.getCollidingEntityCount() : 0 + " (Possible Error?)")));
             extraDebugLore.add(translate("&7Air Bridging: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isAirBridging(info.getPlayer().getLocation())));
             extraDebugLore.add(translate("&7Ghost Block: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isOnGhostBlock()));
             extraDebugLore.add(translate("&7Teleporting: " + MsgType.MAIN_THEME_COLOR.getMessage() + info.isExempt().isTeleports()));
@@ -248,9 +252,9 @@ public class GuiManager {
             extraDebugLore.add("");
 
             try {
-                double baseVal = me.arrow.utils.ReflectionUtils.getAttributeBaseValue(playerForInfo, "MOVEMENT_SPEED", 0.1D);
-                double val = me.arrow.utils.ReflectionUtils.getAttributeValue(playerForInfo, "MOVEMENT_SPEED", playerForInfo.getWalkSpeed() / 2.0D);
-                double effectiveVal = me.arrow.utils.ReflectionUtils.getPlayerMovementSpeed(playerForInfo);
+                double baseVal = ReflectionUtils.getAttributeBaseValue(playerForInfo, "MOVEMENT_SPEED", 0.1D);
+                double val = ReflectionUtils.getAttributeValue(playerForInfo, "MOVEMENT_SPEED", playerForInfo.getWalkSpeed() / 2.0D);
+                double effectiveVal = ReflectionUtils.getPlayerMovementSpeed(playerForInfo);
 
                 if (baseVal >= 0.0 && val >= 0.0) {
                     extraDebugLore.add(translate("&7Movement Attribute:"));
@@ -574,31 +578,31 @@ public class GuiManager {
 
 
     public void openChecksGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(player, 27, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Select Category"));
+        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Select Category"));
 
-        gui.setItem(10, GuiUtility.generateItem(new ItemStack(Material.IRON_SWORD, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Combat"),
+        gui.setItem(10, generateItem(new ItemStack(Material.IRON_SWORD, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Combat"),
             Arrays.asList(
-                OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the combat checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+                translate(guiLine()),
+                translate("&7Manage the combat checks"),
+                translate(guiLine())
             ), true));
 
-        gui.setItem(13, GuiUtility.generateItem(new ItemStack(Material.SUGAR, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Movement"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the combat checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(13, generateItem(new ItemStack(Material.SUGAR, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Movement"),
+        Arrays.asList(translate(guiLine()),
+                translate("&7Manage the combat checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(16, GuiUtility.generateItem(createItem("REDSTONE_TORCH", "REDSTONE_TORCH_ON"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Misc"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the misc checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(16, generateItem(createItem("REDSTONE_TORCH", "REDSTONE_TORCH_ON"), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Misc"),
+        Arrays.asList(translate(guiLine()),
+                translate("&7Manage the misc checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(22, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Click to go back."),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(22, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
+        Arrays.asList(translate(guiLine()),
+                translate("&7Click to go back."),
+                translate(guiLine())
         )));
 
 
@@ -612,55 +616,55 @@ public class GuiManager {
     }
 
     public void openCombatChecksGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(player, 27, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Combat Checks"));
+        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Combat Checks"));
 
-        gui.setItem(10, GuiUtility.generateItem(new ItemStack(Material.NETHER_STAR, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Aim Assist"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the aim assist checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(10, generateItem(new ItemStack(Material.NETHER_STAR, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Aim Assist"),
+        Arrays.asList(translate(guiLine()),
+                translate("&7Manage the aim assist checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(11, GuiUtility.generateItem(new ItemStack(Material.BLAZE_ROD, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "BackTrack"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the backtrack checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(11, generateItem(new ItemStack(Material.BLAZE_ROD, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "BackTrack"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the backtrack checks"),
+                        translate(guiLine())
                 )));
 
-        gui.setItem(12, GuiUtility.generateItem(new ItemStack(Material.LEVER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "AutoClicker"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the autoclicker checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(12, generateItem(new ItemStack(Material.LEVER, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "AutoClicker"),
+        Arrays.asList(translate(guiLine()),
+                translate("&7Manage the autoclicker checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(13, GuiUtility.generateItem(createItem("WOODEN_SWORD", "WOOD_SWORD"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Hitbox"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the hitbox checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(13, generateItem(createItem("WOODEN_SWORD", "WOOD_SWORD"), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Hitbox"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the hitbox checks"),
+                        translate(guiLine())
                 ), true));
 
 
-        gui.setItem(14, GuiUtility.generateItem(new ItemStack(Material.STICK, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Reach"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the reach checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(14, generateItem(new ItemStack(Material.STICK, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Reach"),
+        Arrays.asList(translate(guiLine()),
+                translate("&7Manage the reach checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(15, GuiUtility.generateItem(createItem("COBWEB", "WEB"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Velocity"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the velocity checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(15, generateItem(createItem("COBWEB", "WEB"), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Velocity"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the velocity checks"),
+                        translate(guiLine())
                 )));
 
-        gui.setItem(16, GuiUtility.generateItem(new ItemStack(Material.DIAMOND_SWORD, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "KillAura"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the killaura checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(16, generateItem(new ItemStack(Material.DIAMOND_SWORD, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "KillAura"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the killaura checks"),
+                        translate(guiLine())
                 ), true));
 
-        gui.setItem(22, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Click to go back."),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(22, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
+        Arrays.asList(translate(guiLine()),
+                translate("&7Click to go back."),
+                translate(guiLine())
         )));
 
         List<ItemStack> themedSpacers = createThemedSpacer(27);
@@ -675,49 +679,49 @@ public class GuiManager {
 
     public void openMovementChecksGUI(Player player) {
         ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
-        Inventory gui = Bukkit.createInventory(player, 27, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Movement Checks"));
+        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Movement Checks"));
 
-        gui.setItem(10, GuiUtility.generateItem(new ItemStack(Material.FEATHER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Fly"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the fly checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(10, generateItem(new ItemStack(Material.FEATHER, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Fly"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the fly checks"),
+                        translate(guiLine())
                 )));
-        gui.setItem(11, GuiUtility.generateItem(new ItemStack(Material.SUGAR, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Speed"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the speed checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(11, generateItem(new ItemStack(Material.SUGAR, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Speed"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the speed checks"),
+                        translate(guiLine())
                 )));
-        gui.setItem(12, GuiUtility.generateItem(new ItemStack(Material.RABBIT_FOOT, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Motion"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the motion checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(12, generateItem(new ItemStack(Material.RABBIT_FOOT, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Motion"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the motion checks"),
+                        translate(guiLine())
                 )));
-        gui.setItem(13, GuiUtility.generateItem(createItem("OAK_BOAT", "BOAT"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Vehicle"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the vehicle checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(13, generateItem(createItem("OAK_BOAT", "BOAT"), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Vehicle"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the vehicle checks"),
+                        translate(guiLine())
                 )));
-        gui.setItem(14, GuiUtility.generateItem(new ItemStack(Material.ANVIL, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ground"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the ground checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(14, generateItem(new ItemStack(Material.ANVIL, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Ground"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the ground checks"),
+                        translate(guiLine())
                 )));
-        gui.setItem(15, GuiUtility.generateItem(new ItemStack(serverVersion.isNewerThanOrEquals(ServerVersion.V_1_9) ? Material.ELYTRA : Material.BARRIER, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Elytra"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the elytra checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
-                )));
-
-        gui.setItem(16, GuiUtility.generateItem(createItem("LEATHER_BOOTS", "LEATHER_BOOTS"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "IllegalMove"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the IllegalMove checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(15, generateItem(new ItemStack(serverVersion.isNewerThanOrEquals(ServerVersion.V_1_9) ? Material.ELYTRA : Material.BARRIER, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Elytra"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the elytra checks"),
+                        translate(guiLine())
                 )));
 
-        gui.setItem(22, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Click to go back."),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(16, generateItem(createItem("LEATHER_BOOTS", "LEATHER_BOOTS"), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "IllegalMove"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the IllegalMove checks"),
+                        translate(guiLine())
+                )));
+
+        gui.setItem(22, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Click to go back."),
+                        translate(guiLine())
                 )));
 
         List<ItemStack> themedSpacers = createThemedSpacer(27);
@@ -730,60 +734,60 @@ public class GuiManager {
     }
 
     public void openMiscChecksGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(player, 45, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Misc Checks"));
+        Inventory gui = Bukkit.createInventory(player, 45, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Misc Checks"));
 
-        gui.setItem(10, GuiUtility.generateItem(new ItemStack(Material.TNT, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Bad Packets"),
-            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the bad packets checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(10, generateItem(new ItemStack(Material.TNT, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Bad Packets"),
+            Arrays.asList(translate(guiLine()),
+                translate("&7Manage the bad packets checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(12, GuiUtility.generateItem(createItem("GRASS_BLOCK", "GRASS"), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Interact"),
-            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the interact checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(12, generateItem(createItem("GRASS_BLOCK", "GRASS"), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Interact"),
+            Arrays.asList(translate(guiLine()),
+                translate("&7Manage the interact checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(14, GuiUtility.generateItem(new ItemStack(Material.CHEST, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Inventory"),
-            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the inventory checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(14, generateItem(new ItemStack(Material.CHEST, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Inventory"),
+            Arrays.asList(translate(guiLine()),
+                translate("&7Manage the inventory checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(16, GuiUtility.generateItem(new ItemStack(Material.SUGAR, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "No Slowdown"),
-            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the no slowdown checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(16, generateItem(new ItemStack(Material.SUGAR, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "No Slowdown"),
+            Arrays.asList(translate(guiLine()),
+                translate("&7Manage the no slowdown checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(28, GuiUtility.generateItem(new ItemStack(Material.SANDSTONE_STAIRS, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Scaffold"),
-            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the scaffold checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(28, generateItem(new ItemStack(Material.SANDSTONE_STAIRS, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Scaffold"),
+            Arrays.asList(translate(guiLine()),
+                translate("&7Manage the scaffold checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(30, GuiUtility.generateItem(new ItemStack(Material.REDSTONE, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Timer"),
-            Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Manage the timer checks"),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(30, generateItem(new ItemStack(Material.REDSTONE, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Timer"),
+            Arrays.asList(translate(guiLine()),
+                translate("&7Manage the timer checks"),
+                translate(guiLine())
         )));
 
-        gui.setItem(32, GuiUtility.generateItem(new ItemStack(Material.DIAMOND_AXE, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Macro"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the Macro checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(32, generateItem(new ItemStack(Material.DIAMOND_AXE, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Macro"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the Macro checks"),
+                        translate(guiLine())
                 )));
 
-        gui.setItem(34, GuiUtility.generateItem(new ItemStack(Material.ENDER_PEARL, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Phase"),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&7Manage the Phase checks"),
-                        OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(34, generateItem(new ItemStack(Material.ENDER_PEARL, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Phase"),
+                Arrays.asList(translate(guiLine()),
+                        translate("&7Manage the Phase checks"),
+                        translate(guiLine())
                 )));
 
-        gui.setItem(40, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Click to go back."),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(40, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
+        Arrays.asList(translate(guiLine()),
+                translate("&7Click to go back."),
+                translate(guiLine())
         )));
 
         List<ItemStack> themedSpacers = createThemedSpacer(45);
@@ -797,7 +801,7 @@ public class GuiManager {
 
 
     public void openArrowCheckGUI(Player player, String checkType, String uiName) {
-        Inventory gui = Bukkit.createInventory(player, 27, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
+        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
 
         int slot = 0;
 
@@ -810,17 +814,17 @@ public class GuiManager {
 
                 Material bookMaterial = check.isEnabled() ? Material.ENCHANTED_BOOK : Material.BOOK;
 
-                gui.setItem(slot, GuiUtility.generateItem(new ItemStack(bookMaterial, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + check.getFullCheckName()),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&fEnabled: " + enabledStatus),
-                        OtherUtility.translate("&fPunishable: " + punishableStatus),
-                        OtherUtility.translate("&fPunish VL: &b" + check.getMaxVl()),
-                        OtherUtility.translate("&fPunish Mode: &b" + check.getPunishMode()),
-                        OtherUtility.translate("&fMode: &b" + check.getCheckMode()),
-                        OtherUtility.translate(""),
-                        OtherUtility.translate("&fDescription:"),
-                        OtherUtility.translate("&7" + check.getDescription()),
-                        OtherUtility.translate(OtherUtility.guiLine()))));
+                gui.setItem(slot, generateItem(new ItemStack(bookMaterial, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + check.getFullCheckName()),
+                Arrays.asList(translate(guiLine()),
+                        translate("&fEnabled: " + enabledStatus),
+                        translate("&fPunishable: " + punishableStatus),
+                        translate("&fPunish VL: &b" + check.getMaxVl()),
+                        translate("&fPunish Mode: &b" + check.getPunishMode()),
+                        translate("&fMode: &b" + check.getCheckMode()),
+                        translate(""),
+                        translate("&fDescription:"),
+                        translate("&7" + check.getDescription()),
+                        translate(guiLine()))));
 
                 slot++;
 
@@ -831,17 +835,17 @@ public class GuiManager {
         }
 
 
-        gui.setItem(26, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Click to go back."),
-                OtherUtility.translate(OtherUtility.guiLine())
+        gui.setItem(26, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
+        Arrays.asList(translate(guiLine()),
+                translate("&7Click to go back."),
+                translate(guiLine())
         )));
 
         player.openInventory(gui);
     }
 
     public void openArrowCheckSpeedGUI(Player player, String checkType1, String checkType2, String uiName) {
-        Inventory gui = Bukkit.createInventory(player, 27, OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
+        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
 
         int slot = 0;
 
@@ -852,17 +856,17 @@ public class GuiManager {
 
                 Material bookMaterial = check.isEnabled() ? Material.ENCHANTED_BOOK : Material.BOOK;
 
-                gui.setItem(slot, GuiUtility.generateItem(new ItemStack(bookMaterial, 1), OtherUtility.translate(MsgType.MAIN_THEME_COLOR.getMessage() + check.getFullCheckName()),
-                Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                        OtherUtility.translate("&fEnabled: " + enabledStatus),
-                        OtherUtility.translate("&fPunishable: " + punishableStatus),
-                        OtherUtility.translate("&fPunish VL: &b" + check.getMaxVl()),
-                        OtherUtility.translate("&fPunish Mode: &b" + check.getPunishMode()),
-                        OtherUtility.translate("&fMode: &b" + check.getCheckMode()),
-                        OtherUtility.translate(""),
-                        OtherUtility.translate("&fDescription:"),
-                        OtherUtility.translate("&7" + check.getDescription()),
-                        OtherUtility.translate(OtherUtility.guiLine()))));
+                gui.setItem(slot, generateItem(new ItemStack(bookMaterial, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + check.getFullCheckName()),
+                Arrays.asList(translate(guiLine()),
+                        translate("&fEnabled: " + enabledStatus),
+                        translate("&fPunishable: " + punishableStatus),
+                        translate("&fPunish VL: &b" + check.getMaxVl()),
+                        translate("&fPunish Mode: &b" + check.getPunishMode()),
+                        translate("&fMode: &b" + check.getCheckMode()),
+                        translate(""),
+                        translate("&fDescription:"),
+                        translate("&7" + check.getDescription()),
+                        translate(guiLine()))));
 
                 slot++;
 
@@ -873,10 +877,10 @@ public class GuiManager {
         }
 
 
-        gui.setItem(26, GuiUtility.generateItem(new ItemStack(Material.BARRIER, 1), OtherUtility.translate("&cBack"),
-        Arrays.asList(OtherUtility.translate(OtherUtility.guiLine()),
-                OtherUtility.translate("&7Click to go back."),
-                OtherUtility.translate(OtherUtility.guiLine()))));
+        gui.setItem(26, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
+        Arrays.asList(translate(guiLine()),
+                translate("&7Click to go back."),
+                translate(guiLine()))));
 
         player.openInventory(gui);
     }

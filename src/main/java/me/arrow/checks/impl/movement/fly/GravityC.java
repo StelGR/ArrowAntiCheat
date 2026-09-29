@@ -51,15 +51,17 @@ public class GravityC extends Check {
             ActionData actionData = profile.getActionData();
             if (exempt("noMovementData", movementData == null)) { resetGravityBuffer(); return; }
             if (exempt("onBoat", movementData.isOnBoat())) { resetGravityBuffer(); return; }
-            if (exempt("nearBoat", movementData.isNearBoat())) { resetGravityBuffer(); return; }
+            //if (exempt("nearBoat", movementData.isNearBoat())) { resetGravityBuffer(); return; }
             if (exempt("nearShulker", movementData.isNearShulker())) { resetGravityBuffer(); return; }
             if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) { resetGravityBuffer(); return; }
             if (exempt("nearLava", movementData.isNearLava())) { resetGravityBuffer(); return; }
             if (exempt("nearWater", movementData.isNearWater())) { resetGravityBuffer(); return; }
             if (exempt("insideLiquid", movementData.isInsideLiquid())) { resetGravityBuffer(); return; }
             if (exempt("nearClimbable", movementData.isNearClimbable())) { resetGravityBuffer(); return; }
+            if (exempt("nearWall", movementData.isNearWall() || movementData.isNearPane())) { resetGravityBuffer(); return; }
             if (exempt("vehicle", profile.getExempt().isVehicle())) { resetGravityBuffer(); return; }
             if (exempt("cancelled", profile.shouldCancel())) { resetGravityBuffer(); return; }
+            if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(5 + (profile.getConnectionData().getClientTickTrans() * 2))) { resetGravityBuffer(); return; }
             if (exempt("startup", profile.getTick() < 120)) { resetGravityBuffer(); return; }
             if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) { resetGravityBuffer(); return; }
             if (exempt("nearBerries", movementData.getNearbyBlocksResult() != null
@@ -119,8 +121,9 @@ public class GravityC extends Check {
         if (onLadder) { debugExempt("ladder", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (onWeb) { debugExempt("web", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (inLiquid) { debugExempt("liquid", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (nearBed) { debugExempt("bed", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (underBlock) { debugExempt("underBlock", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        boolean underBlockExempt = underBlock || md.isLastUnderblock() || md.getSinceUnderblockTicks() <= 2
+                || md.isUnderBoat() || md.isLastUnderBoat() || md.getSinceUnderBoatTicks() <= 3;
+        if (underBlockExempt) { debugExempt("underBlock", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (profile.isBouncingOnSlime()) { debugExempt("bouncingOnSlime", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (hasVelocity) { debugExempt("hasVelocity", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isRiptiding()) { debugExempt("riptiding", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
@@ -169,6 +172,11 @@ public class GravityC extends Check {
             return;
         }
         if (exempt("predictUpwardsWithoutMaterial", md.getSincePredictUpwardsTicksWithoutMaterial() < 10)) {
+            lastOffset = 0.0D;
+            return;
+        }
+
+        if (exempt("predictDownwardsWithoutMaterial", md.getSincePredictDownwardsTicksWithoutMaterial() < 10)) {
             lastOffset = 0.0D;
             return;
         }

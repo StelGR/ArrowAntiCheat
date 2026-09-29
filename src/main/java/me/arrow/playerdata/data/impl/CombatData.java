@@ -13,6 +13,7 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPl
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.*;
@@ -59,6 +60,8 @@ public class CombatData implements Data {
 
     @Override
     public void processReceive(PacketReceiveEvent event) {
+        long profiler = Profiler.start();
+        try {
 
         if (event.getPacketType() == PacketType.Play.Client.ANIMATION
                 && PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_21_11)) {
@@ -158,7 +161,9 @@ public class CombatData implements Data {
             dropping = false;
             usedSpear = false;
         }
-
+        } finally {
+            Profiler.stop("CombatData", profiler);
+        }
     }
 
     @Override

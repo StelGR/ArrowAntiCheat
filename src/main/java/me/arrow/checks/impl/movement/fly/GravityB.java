@@ -232,7 +232,7 @@ public class GravityB extends Check {
     boolean isExempt(MovementData movementData) {
         if (exempt("cancelled", profile.shouldCancel())) return true;
         if (exempt("onBoat", movementData.isOnBoat())) return true;
-        if (exempt("nearBoat", movementData.isNearBoat())) return true;
+        //if (exempt("nearBoat", movementData.isNearBoat())) return true;
         if (exempt("nearShulker", movementData.isNearShulker())) return true;
         if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return true;
         if (exempt("nearClimbable", movementData.isNearClimbable())) return true;
@@ -245,13 +245,6 @@ public class GravityB extends Check {
         if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) return true;
         if (exempt("levitation", profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) return true;
 
-        ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-        if (exempt("worldTrackerMovement", world.shouldExemptMovementChecks())) { resetGravityBuffer(); return true; }
-        if (exempt("worldNextToGhostWall", world.nextToGhostWall)) { resetGravityBuffer(); return true; }
-        if (exempt("worldPhysicsMismatch", world.physicsMismatch)) { resetGravityBuffer(); return true; }
-        if (exempt("worldOnGhostBlock", world.onGhostBlock)) { resetGravityBuffer(); return true; }
-        if (exempt("worldInsideGhostBlock", world.insideGhostBlock)) { resetGravityBuffer(); return true; }
-        if (exempt("worldUnderGhostBlock", world.underGhostBlock)) { resetGravityBuffer(); return true; }
         if (exempt("cancelledBlockPlaceAbove", profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2)))) { resetGravityBuffer(); return true; }
 
         if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {

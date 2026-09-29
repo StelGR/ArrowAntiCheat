@@ -7,6 +7,7 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSt
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.managers.profile.Profile;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.EntityUtil;
 import org.bukkit.Location;
@@ -55,54 +56,59 @@ public class VehicleData implements Data {
 
     @Override
     public void processReceive(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(STEER_VEHICLE)) {
-            WrapperPlayClientSteerVehicle wrapperPlayClientSteerVehicle = new WrapperPlayClientSteerVehicle(event);
+        long profiler = Profiler.start();
+        try {
+            if (event.getPacketType().equals(STEER_VEHICLE)) {
+                WrapperPlayClientSteerVehicle wrapperPlayClientSteerVehicle = new WrapperPlayClientSteerVehicle(event);
 
-            if (wrapperPlayClientSteerVehicle.isUnmount()) {
-                profile.getVehicleTicks().reset();
-            }
-        }
-
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
-
-            if (profile.getPlayer().isInsideVehicle()) {
-                sinceVehicleTicks = 0;
-
-                if (profile.getPlayer().getVehicle() != null) {
-                    updateSnapshot(profile.getPlayer().getVehicle());
-                    vehicleMoveTicks++;
-                }
-
-                if (VehicleTicks < 20) {
-                    VehicleTicks++;
-                }
-            } else {
-                sinceVehicleTicks++;
-
-                if (VehicleTicks > 0) {
-                    VehicleTicks--;
-                }
-
-                if (vehicleLocation != null) {
-                    lastVehicleLocation = vehicleLocation.clone();
-                    lastDeltaX = deltaX;
-                    lastDeltaY = deltaY;
-                    lastDeltaZ = deltaZ;
-                    lastDeltaXZ = deltaXZ;
-                    lastVehicleOnGround = vehicleOnGround;
-                    lastVehicleHasGravity = vehicleHasGravity;
-                    lastVehicleType = vehicleType;
+                if (wrapperPlayClientSteerVehicle.isUnmount()) {
+                    profile.getVehicleTicks().reset();
                 }
             }
 
-            if (EntityUtil.isNearBoat(profile)) {
-                sinceNearVehicleTicks = 0;
-            } else {
-                sinceNearVehicleTicks++;
+            if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
+                    || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
+                    || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
+                    || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+
+                if (profile.getPlayer().isInsideVehicle()) {
+                    sinceVehicleTicks = 0;
+
+                    if (profile.getPlayer().getVehicle() != null) {
+                        updateSnapshot(profile.getPlayer().getVehicle());
+                        vehicleMoveTicks++;
+                    }
+
+                    if (VehicleTicks < 20) {
+                        VehicleTicks++;
+                    }
+                } else {
+                    sinceVehicleTicks++;
+
+                    if (VehicleTicks > 0) {
+                        VehicleTicks--;
+                    }
+
+                    if (vehicleLocation != null) {
+                        lastVehicleLocation = vehicleLocation.clone();
+                        lastDeltaX = deltaX;
+                        lastDeltaY = deltaY;
+                        lastDeltaZ = deltaZ;
+                        lastDeltaXZ = deltaXZ;
+                        lastVehicleOnGround = vehicleOnGround;
+                        lastVehicleHasGravity = vehicleHasGravity;
+                        lastVehicleType = vehicleType;
+                    }
+                }
+
+                if (EntityUtil.isNearBoat(profile)) {
+                    sinceNearVehicleTicks = 0;
+                } else {
+                    sinceNearVehicleTicks++;
+                }
             }
+        } finally {
+            Profiler.stop("VehicleData", profiler);
         }
     }
 

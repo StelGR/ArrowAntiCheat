@@ -196,6 +196,6 @@ public class SpeedUtilities {
     }
     
     public static double getAfterJumpSpeed(Profile profile) {
-        return 0.76D + (0.008D * getSpeedPotionLevel(profile));
+        return 0.63D + (0.008D * getSpeedPotionLevel(profile));
     }
 }

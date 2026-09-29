@@ -153,8 +153,8 @@ public class IllegalMoveB extends Check {
         }
 
         if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return true;
-        if (exempt("onBoat", movementData.isOnBoat())) return true;
-        if (exempt("nearBoat", movementData.isNearBoat())) return true;
+        //if (exempt("onBoat", movementData.isOnBoat())) return true;
+        //if (exempt("nearBoat", movementData.isNearBoat())) return true;
         if (exempt("nearWall", movementData.isNearWall())) return true;
         if (exempt("nearWater", movementData.isNearWater())) return true;
         if (exempt("nearLava", movementData.isNearLava())) return true;

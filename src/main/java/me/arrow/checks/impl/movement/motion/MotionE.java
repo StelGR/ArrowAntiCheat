@@ -60,7 +60,7 @@ public class MotionE extends Check {
             if (exempt("cancelled", profile.shouldCancel())) return;
             if (exempt("underBlock", movement.isUnderblock())) return;
             if (exempt("onBoat", movement.isOnBoat())) return;
-            if (exempt("nearBoat", movement.isNearBoat())) return;
+           // if (exempt("nearBoat", movement.isNearBoat())) return;
             if (exempt("nearBubble", movement.isNearBubble())) return;
             int clientTickTrans = profile.getConnectionData() == null
                     ? 0 : profile.getConnectionData().getClientTickTrans();

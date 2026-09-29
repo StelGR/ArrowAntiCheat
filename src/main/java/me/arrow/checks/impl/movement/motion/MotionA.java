@@ -10,7 +10,6 @@ import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
@@ -67,19 +66,16 @@ public class MotionA extends Check {
 
             try {
 
-                if (exempt("onBoat", profile.getMovementData().isOnBoat())) return;
-                if (exempt("nearBoat", profile.getMovementData().isNearBoat())) return;
+//                if (exempt("onBoat", profile.getMovementData().isOnBoat())) return;
+
 
                 MovementData movementData = profile.getMovementData();
 
-                ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
+                if (exempt("nearBoat", profile.getMovementData().isNearBoat())
+                        && (movementData.getDeltaY() > 0 || movementData.getLastDeltaY() > 0)
+                        && (movementData.getDeltaY() < 0.7 && movementData.getLastDeltaY() < 0.7)) return;
+                if (exempt("cancelledBlockPlaceAbove", profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2)))) { return; }
 
-                if (exempt("worldTrackerMovement", world.shouldExemptMovementChecks())) return;
-                if (exempt("worldNextToGhostWall", world.nextToGhostWall)) return;
-                if (exempt("worldPhysicsMismatch", world.physicsMismatch)) return;
-                if (exempt("worldOnGhostBlock", world.onGhostBlock)) return;
-                if (exempt("worldInsideGhostBlock", world.insideGhostBlock)) return;
-                if (exempt("worldUnderGhostBlock", world.underGhostBlock)) return;
                 if (exempt("underGhostBlock", profile.getBlockProcessor().isUnderGhostBlock())) return;
 
                 int ghostLiquidWebTicks = Math.min(

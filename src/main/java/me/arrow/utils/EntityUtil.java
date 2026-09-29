@@ -1,6 +1,8 @@
 package me.arrow.utils;
 
 import me.arrow.managers.profile.Profile;
+import me.arrow.playerdata.processors.impl.CollisionProcessor;
+import me.arrow.utils.custom.BoundingBox;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -50,9 +52,48 @@ public class EntityUtil {
             return false;
         }
 
+        BoundingBox box = profile.getBoundingBox();
+        if (box != null && CollisionProcessor.isOnBoat(profile.getPlayer().getUniqueId(), box)) {
+            return true;
+        }
+
         EntityCache cache = getOrQueueRefresh(profile);
 
-        return profile.getMovementData().isOnGround() && cache.onBoat;
+        return cache.onBoat;
+    }
+
+    public static boolean isUnderBoat(Profile profile) {
+        if (profile == null || profile.getPlayer() == null || profile.getMovementData() == null) {
+            return false;
+        }
+
+        BoundingBox box = profile.getBoundingBox();
+        if (box != null && CollisionProcessor.isUnderBoat(profile.getPlayer().getUniqueId(), box)) {
+            return true;
+        }
+
+        EntityCache cache = getOrQueueRefresh(profile);
+
+        return cache.underBoat;
+    }
+
+    public static boolean isNearBoatSide(Profile profile) {
+        if (profile == null || profile.getPlayer() == null || profile.getMovementData() == null) {
+            return false;
+        }
+
+        BoundingBox box = profile.getBoundingBox();
+        if (box != null && CollisionProcessor.isNearBoatSide(profile.getPlayer().getUniqueId(), box)) {
+            return true;
+        }
+
+        EntityCache cache = getOrQueueRefresh(profile);
+
+        return cache.nearBoatSide;
+    }
+
+    public static boolean isBesideBoat(Profile profile) {
+        return isNearBoatSide(profile);
     }
 
     public static boolean isNearBoat(Profile profile) {
@@ -159,9 +200,26 @@ public class EntityUtil {
 
         EntityCache cache = CACHE.computeIfAbsent(player.getUniqueId(), uuid -> new EntityCache());
 
-        cache.onBoat = profile.getMovementData() != null
-                && profile.getMovementData().isOnGround()
-                && anyNearbyNow(player, 2.0D, EntityUtil::isBoat);
+        cache.onBoat =
+                profile.getMovementData() != null
+                        && CollisionProcessor.isOnBoat(
+                        player.getUniqueId(),
+                        profile.getBoundingBox()
+                );
+
+        cache.underBoat =
+                profile.getMovementData() != null
+                        && CollisionProcessor.isUnderBoat(
+                        player.getUniqueId(),
+                        profile.getBoundingBox()
+                );
+
+        cache.nearBoatSide =
+                profile.getMovementData() != null
+                        && CollisionProcessor.isNearBoatSide(
+                        player.getUniqueId(),
+                        profile.getBoundingBox()
+                );
 
         cache.nearBoat = anyNearbyNow(player, 4.0D, EntityUtil::isBoat);
         cache.nearShulker = anyNearbyNow(player, 4.0D, EntityUtil::isShulker);
@@ -450,6 +508,8 @@ public class EntityUtil {
     static class EntityCache {
         volatile boolean queued;
         volatile boolean onBoat;
+        volatile boolean underBoat;
+        volatile boolean nearBoatSide;
         volatile boolean nearBoat;
         volatile boolean nearShulker;
         volatile boolean nearGhast;

@@ -441,6 +441,13 @@ public class Checks implements Initializer {
         ELYTRA_A_PUNISH_MODE("ElytraA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         ELYTRA_A_MAX_VL("ElytraA.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        ELYTRA_B("ElytraB.enabled", true, "Should we enable this module?"),
+        ELYTRA_B_MODE("ElytraB.mode", CheckMode.FLAG.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
+        ELYTRA_B_PUNISH("ElytraB.punish", "", "Punishment settings"),
+        ELYTRA_B_PUNISH_ENABLED("ElytraB.punish.enabled", false, "Should punishments be enabled for this check?"),
+        ELYTRA_B_PUNISH_MODE("ElytraB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        ELYTRA_B_MAX_VL("ElytraB.punish.vl", 25, "The maximum violation amount a player needs to reach in order to get punished"),
+
         GRAVITY_A("GravityA.enabled", true, "Should we enable this module?"),
         GRAVITY_A_MODE("GravityA.mode", CheckMode.BOTH.getCheckMode(), "Choose whether to flag, mitigate or do both (Must type all caps either FLAG, MITIGATE or BOTH)"),
         GRAVITY_A_PUNISH("GravityA.punish", "", "Punishment settings"),
@@ -616,7 +623,19 @@ public class Checks implements Initializer {
         VEHICLE_A_PUNISH("VehicleA.punish", "", "Punishment settings"),
         VEHICLE_A_PUNISH_ENABLED("VehicleA.punish.enabled", false, "Should punishments be enabled for this check?"),
         VEHICLE_A_PUNISH_MODE("VehicleA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        VEHICLE_A_MAX_VL("VehicleA.punish.vl", 200, "The maximum violation amount a player needs to reach in order to get punished");
+        VEHICLE_A_MAX_VL("VehicleA.punish.vl", 200, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        VEHICLE_B("VehicleB.enabled", false, "Should we enable this module?"),
+        VEHICLE_B_PUNISH("VehicleB.punish", "", "Punishment settings"),
+        VEHICLE_B_PUNISH_ENABLED("VehicleB.punish.enabled", false, "Should punishments be enabled for this check?"),
+        VEHICLE_B_PUNISH_MODE("VehicleB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        VEHICLE_B_MAX_VL("VehicleB.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        VEHICLE_C("VehicleC.enabled", false, "Should we enable this module?"),
+        VEHICLE_C_PUNISH("VehicleC.punish", "", "Punishment settings"),
+        VEHICLE_C_PUNISH_ENABLED("VehicleC.punish.enabled", false, "Should punishments be enabled for this check?"),
+        VEHICLE_C_PUNISH_MODE("VehicleC.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        VEHICLE_C_MAX_VL("VehicleC.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished");
 
         @Getter
         private final String key;

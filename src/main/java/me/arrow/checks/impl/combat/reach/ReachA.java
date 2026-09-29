@@ -44,7 +44,7 @@ public class ReachA extends Check {
     int MAX_HISTORY_SAMPLES;
     int MIN_HISTORY_SAMPLES;
 
-    double MAX_VALID_DISTANCE = 20D;
+    double MAX_VALID_DISTANCE = 10D;
 
     double BASE_BOX_EXPAND_HORIZONTAL;
     double BASE_BOX_EXPAND_VERTICAL;
@@ -233,7 +233,7 @@ public class ReachA extends Check {
 
             historyAmount = getHistoryAmount(samples.size(), attackerPingTicks, targetPingTicks);
             List<CustomLocation> historySamples = getLastSamples(samples, historyAmount);
-            precisionHistory = snapshotSamples(targetProfile.getMovementData().getReachPastLocations());
+            precisionHistory = snapshotSamples(targetProfile.getMovementData().getPastLocations());
             compensatedSamples = getCompensatedSamples(
                     historySamples,
                     attackerPingTicks,

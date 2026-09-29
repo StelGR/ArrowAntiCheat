@@ -11,6 +11,8 @@ import me.arrow.core.check.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.playerdata.cache.ChunkCache;
+import me.arrow.utils.custom.materials.MaterialType;
 import org.bukkit.Material;
 import com.github.retrooper.packetevents.protocol.item.ItemStack;
 
@@ -30,75 +32,38 @@ public class InteractE extends Check {
         int y = packet.getBlockPosition().getY();
         int z = packet.getBlockPosition().getZ();
 
-        int face;
-        try {
-            face = packet.getFace().getFaceValue();
-        } catch (Throwable ignored) {
-            face = -1;
-        }
-
-        if (face < 0 || face > 5 || (x == -1 && y == -1 && z == -1)) return;
-
+//        int face;
+//        try {
+//            face = packet.getFace().getFaceValue();
+//        } catch (Throwable ignored) {
+//            face = -1;
+//        }
+//
+//        if (face < 0 || face > 5 || (x == -1 && y == -1 && z == -1)) return;
+//
+//
         ItemStack itemStack = packet.getItemStack().orElse(null);
-        org.bukkit.inventory.ItemStack bukkitStack = null;
-        if (itemStack != null) {
-            bukkitStack = SpigotConversionUtil.toBukkitItemStack(itemStack);
-        }
+        org.bukkit.inventory.ItemStack bukkitStack = SpigotConversionUtil.toBukkitItemStack(itemStack);
+
         Material placedMat = (bukkitStack != null) ? bukkitStack.getType() : null;
         if (placedMat == null || !placedMat.isSolid()) {
-            decreaseBufferBy(0.25);
             return;
         }
 
-        if (hasThinPlacementSupport(x, y, z)) {
-            decreaseBufferBy(0.25);
-            return;
-        }
-
-        /*
-         * A missing chunk-cache entry is unknown, not air. Treating it as air made
-         * legitimate 1.8 fence/bar clicks look like an air placement.
-         */
-        if (isKnownAir(x, y, z)
-                && isKnownAir(x + 1, y, z) && isKnownAir(x - 1, y, z)
-                && isKnownAir(x, y + 1, z) && isKnownAir(x, y - 1, z)
-                && isKnownAir(x, y, z + 1) && isKnownAir(x, y, z - 1)) {
-            if (increaseBuffer() > 1.0) {
-                fail("Air Place", "x " + MsgType.MAIN_THEME_COLOR.getMessage() + x
-                        + "\ny " + MsgType.MAIN_THEME_COLOR.getMessage() + y
-                        + "\nz " + MsgType.MAIN_THEME_COLOR.getMessage() + z
-                        + "\nplacedBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + (placedMat == Material.AIR ? "air" : placedMat.toString()));
-            }
-        } else {
-            decreaseBufferBy(0.25);
+        if (isAir(x, y, z)
+                && isAir(x + 1, y, z) && isAir(x - 1, y, z)
+                && isAir(x, y + 1, z) && isAir(x, y - 1, z)
+                && isAir(x, y, z + 1) && isAir(x, y, z - 1)) {
+            fail("Air Place", "x " + MsgType.MAIN_THEME_COLOR.getMessage() + x
+                    + "\ny " + MsgType.MAIN_THEME_COLOR.getMessage() + y
+                    + "\nz " + MsgType.MAIN_THEME_COLOR.getMessage() + z
+                    + "\nplacedBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + (placedMat == Material.AIR ? "air" : placedMat.toString()));
         }
     }
 
-    private boolean isKnownAir(int x, int y, int z) {
-        Material mat = profile.getBlockProcessor().getServerMaterial(x, y, z);
-        return mat != null && mat.name().contains("AIR");
-    }
-
-    private boolean hasThinPlacementSupport(int x, int y, int z) {
-        return isThinSupport(x, y, z)
-                || isThinSupport(x + 1, y, z) || isThinSupport(x - 1, y, z)
-                || isThinSupport(x, y + 1, z) || isThinSupport(x, y - 1, z)
-                || isThinSupport(x, y, z + 1) || isThinSupport(x, y, z - 1);
-    }
-
-    private boolean isThinSupport(int x, int y, int z) {
-        Material material = profile.getBlockProcessor().getServerMaterial(x, y, z);
-
-        if (material == null) {
-            return false;
-        }
-
-        String name = material.name();
-        return name.contains("FENCE")
-                || name.contains("BARS")
-                || name.contains("PANE")
-                || name.endsWith("_WALL")
-                || name.contains("FENCE_GATE");
+    private boolean isAir(int x, int y, int z) {
+        Material mat = ChunkCache.get().getBlock(profile.getMovementData().getLocation().getWorld(), x, y, z);
+        return mat == null || MaterialType.isMaterial(mat.name(), MaterialType.AIR);
     }
 
     @Override

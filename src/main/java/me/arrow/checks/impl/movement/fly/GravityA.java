@@ -286,20 +286,13 @@ public class GravityA extends Check {
 
         if (exempt("noMovementData", movementData == null)) return true;
         if (exempt("onBoat", movementData.isOnBoat())) return true;
-        if (exempt("nearBoat", movementData.isNearBoat())) return true;
+        if (exempt("underboat", movementData.isUnderBoat() || movementData.isLastUnderBoat() || movementData.getSinceUnderBoatTicks() <= 3)) return true;
+        //if (exempt("nearBoat", movementData.isNearBoat())) return true;
         if (exempt("cancelled", profile.shouldCancel())) return true;
         if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return true;
         if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) return true;
         if (exempt("levitation", movementData.getSinceLevitationEffectTicks() < 10)) return true;
 
-        ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-
-        if (exempt("worldTrackerMovement", world.shouldExemptMovementChecks())) { resetGravityBuffer(); return true; }
-        if (exempt("worldNextToGhostWall", world.nextToGhostWall)) { resetGravityBuffer(); return true; }
-        if (exempt("worldPhysicsMismatch", world.physicsMismatch)) { resetGravityBuffer(); return true; }
-        if (exempt("worldOnGhostBlock", world.onGhostBlock)) { resetGravityBuffer(); return true; }
-        if (exempt("worldInsideGhostBlock", world.insideGhostBlock)) { resetGravityBuffer(); return true; }
-        if (exempt("worldUnderGhostBlock", world.underGhostBlock)) { resetGravityBuffer(); return true; }
         if (exempt("cancelledBlockPlaceAbove", profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2)))) { resetGravityBuffer(); return true; }
 
         if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
@@ -359,7 +352,7 @@ public class GravityA extends Check {
             return true;
         }
         if (movementData.isNearWebs()) { debugExempt("nearWebs", "GravityA"); return true; }
-        if (movementData.isUnderblock()) { debugExempt("underblock", "GravityA"); return true; }
+        if (movementData.isUnderblock() || movementData.isLastUnderblock() || movementData.getSinceUnderblockTicks() <= 2) { debugExempt("underblock", "GravityA"); return true; }
         if (movementData.isNearBed()) { debugExempt("nearBed", "GravityA"); return true; }
         if (movementData.isNearHoney()) { debugExempt("nearHoney", "GravityA"); return true; }
         if (movementData.isNearDripLeaf()) { debugExempt("nearDripLeaf", "GravityA"); return true; }
@@ -388,7 +381,10 @@ public class GravityA extends Check {
             bufferA -= Math.min(bufferA, 0.75D);
             return true;
         }
-        if (exempt("predictDownwardsWithoutMaterial", movementData.getSincePredictDownwardsTicksWithoutMaterial() < 5)) {
+
+        double expected = -0.0784000015258789D;
+        if (exempt("predictDownwardsWithoutMaterial", movementData.getSincePredictDownwardsTicksWithoutMaterial() < 5)
+                && Math.abs(movementData.getDeltaY() - expected) < 1E-6) {
             bufferA -= Math.min(bufferA, 0.75D);
             return true;
         }

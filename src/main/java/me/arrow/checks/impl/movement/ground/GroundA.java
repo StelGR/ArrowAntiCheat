@@ -88,18 +88,25 @@ public class GroundA extends Check {
                     }
                 } else decreaseBufferBy(0.25);
 
-                if (invalid3) {
-                    if (increaseBuffer() > 1) {
-                        fail("Mismatched ground status (4)" ,
-                                "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
-                                        + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround2
-                                        + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
-                                        + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
-                                        + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
-                                        + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
-                                        + "\nserverAirTicks (2) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks());
-                    }
-                } else decreaseBufferBy(0.25);
+                int ghostLiquidWebTicks = Math.min(
+                        profile.getBlockProcessor().getLastGhostLiquidWebTick(),
+                        profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
+                );
+
+                if (!exempt("ghostPhysics", ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4))) {
+                    if (invalid3) {
+                        if (increaseBuffer() > 1) {
+                            fail("Mismatched ground status (4)" ,
+                                    "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
+                                            + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround2
+                                            + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
+                                            + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
+                                            + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
+                                            + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
+                                            + "\nserverAirTicks (2) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks());
+                        }
+                    } else decreaseBufferBy(0.25);
+                }
             } finally {
                 Profiler.stop("Ground A (2, 3, 4)", profiler);
             }
@@ -124,7 +131,7 @@ public class GroundA extends Check {
                                 && movementData.getCustomAirTicks() > 1
                         : (!serverGround && clientGround);
 
-                if (invalid && movementData.getSincePredictUpwardsTicks() > 10) {
+                if (invalid && movementData.getSincePredictUpwardsTicks() > 10 && !movementData.isInsideWater()) {
                     if (increaseBuffer() > 2) {
                         fail("Mismatched ground status (1)",
                                 "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
@@ -144,33 +151,6 @@ public class GroundA extends Check {
 
 
     boolean isExempt1(MovementData movementData) {
-        ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-
-        if (world.shouldExemptMovementChecks()) {
-            ChatUtils.debugExempt("worldTrackerMovement", "GroundA");
-            return true;
-        }
-
-        if (world.physicsMismatch) {
-            ChatUtils.debugExempt("worldPhysicsMismatch", "GroundA");
-            return true;
-        }
-
-        if (world.onGhostBlock) {
-            ChatUtils.debugExempt("worldOnGhostBlock", "GroundA");
-            return true;
-        }
-
-        if (world.underGhostBlock) {
-            ChatUtils.debugExempt("worldUnderGhostBlock", "GroundA");
-            return true;
-        }
-
-        if (world.insideGhostBlock) {
-            ChatUtils.debugExempt("worldInsideGhostBlock", "GroundA");
-            return true;
-        }
-
         if (profile.shouldCancel()) {
             ChatUtils.debugExempt("cancelled", "GroundA");
             return true;

@@ -5,7 +5,6 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
 import me.arrow.checks.types.Check;
-import me.arrow.checks.impl.misc.interact.InteractD;
 import me.arrow.core.check.CheckType;
 import me.arrow.core.check.annotation.Experimental;
 import me.arrow.enums.MsgType;
@@ -15,10 +14,14 @@ import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.CustomLocation;
+import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
+
+import java.util.List;
 
 /**
  * Checks that a side-face block placement is aimed at a visible face of its
@@ -72,9 +75,9 @@ public class ScaffoldD extends Check {
         }
 
         PlacementSnapshot placement = snapshotAtPlacement(movement, profile.getRotationData());
-        InteractD.FaceTraceResult trace = placement == null ? InteractD.FaceTraceResult.UNKNOWN
+        FaceTraceResult trace = placement == null ? FaceTraceResult.UNKNOWN
                 : traceEyeSight(placement, clickedX, clickedY, clickedZ, face);
-        if (trace == InteractD.FaceTraceResult.CLEAR || trace == InteractD.FaceTraceResult.UNKNOWN) {
+        if (trace == FaceTraceResult.CLEAR || trace == FaceTraceResult.UNKNOWN) {
             decay();
             return;
         }
@@ -120,10 +123,18 @@ public class ScaffoldD extends Check {
      * later rotation: a fast spin after sending the packet cannot make an
      * invisible face look valid.
      */
-    private InteractD.FaceTraceResult traceEyeSight(PlacementSnapshot placement,
+    public enum FaceTraceResult {
+        CLEAR,
+        BLOCKED,
+        MISS,
+        UNKNOWN
+    }
+
+
+    private FaceTraceResult traceEyeSight(PlacementSnapshot placement,
                                                      int x, int y, int z, int face) {
         if (placement.world == null) {
-            return InteractD.FaceTraceResult.UNKNOWN;
+            return FaceTraceResult.UNKNOWN;
         }
 
         double yawRadians = Math.toRadians(placement.yaw);
@@ -134,7 +145,7 @@ public class ScaffoldD extends Check {
                 -Math.sin(pitchRadians),
                 horizontal * Math.cos(yawRadians)
         );
-        return InteractD.traceBlockFace(
+        return traceBlockFace(
                 placement.world,
                 new Vector(placement.eyeX, placement.eyeY, placement.eyeZ),
                 direction,
@@ -142,6 +153,199 @@ public class ScaffoldD extends Check {
                 4.75D + placement.reachAllowance,
                 placement.edgeAllowance
         );
+    }
+    private static final double FACE_TRACE_EPSILON = 1.0E-5D;
+
+
+    public static FaceTraceResult traceBlockFace(World world,
+                                                 Vector eye,
+                                                 Vector direction,
+                                                 int targetX,
+                                                 int targetY,
+                                                 int targetZ,
+                                                 int face,
+                                                 double maxDistance,
+                                                 double tolerance) {
+        if (world == null || eye == null || direction == null || face < 0 || face > 5
+                || maxDistance <= 0.0D) {
+            return FaceTraceResult.UNKNOWN;
+        }
+
+        Vector unitDirection = direction.clone();
+        if (unitDirection.lengthSquared() <= 1.0E-12D) {
+            return FaceTraceResult.MISS;
+        }
+        unitDirection.normalize();
+
+        try {
+            if (!world.isChunkLoaded(targetX >> 4, targetZ >> 4)) {
+                return FaceTraceResult.UNKNOWN;
+            }
+
+            Block target = world.getBlockAt(targetX, targetY, targetZ);
+            List<PEMaterials.CollisionBounds> targetBounds = PEMaterials.getCollisionBounds(target);
+            if (targetBounds == null || targetBounds.isEmpty()) {
+                return FaceTraceResult.UNKNOWN;
+            }
+
+            double faceDistance = Double.MAX_VALUE;
+            boolean enteredTarget = false;
+            for (PEMaterials.CollisionBounds bounds : targetBounds) {
+                double distance = getFaceIntersectionDistance(
+                        eye, unitDirection, bounds, face, maxDistance, tolerance
+                );
+                if (distance < 0.0D) continue;
+
+                double entry = getBlockRayBoxEntryDistance(eye, unitDirection, bounds, maxDistance);
+                if (entry < 0.0D || Math.abs(distance - entry) > tolerance) {
+                    continue;
+                }
+
+                enteredTarget = true;
+                faceDistance = Math.min(faceDistance, distance);
+            }
+
+            if (!enteredTarget || faceDistance == Double.MAX_VALUE) {
+                return FaceTraceResult.MISS;
+            }
+
+            Vector end = eye.clone().add(unitDirection.clone().multiply(faceDistance));
+            int minX = floorRay(Math.min(eye.getX(), end.getX()));
+            int maxX = floorRay(Math.max(eye.getX(), end.getX()));
+            int minY = floorRay(Math.min(eye.getY(), end.getY()));
+            int maxY = floorRay(Math.max(eye.getY(), end.getY()));
+            int minZ = floorRay(Math.min(eye.getZ(), end.getZ()));
+            int maxZ = floorRay(Math.max(eye.getZ(), end.getZ()));
+
+            for (int x = minX; x <= maxX; x++) {
+                for (int y = minY; y <= maxY; y++) {
+                    for (int z = minZ; z <= maxZ; z++) {
+                        if (x == targetX && y == targetY && z == targetZ) {
+                            continue;
+                        }
+                        if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+                            return FaceTraceResult.UNKNOWN;
+                        }
+
+                        Block block = world.getBlockAt(x, y, z);
+                        for (PEMaterials.CollisionBounds bounds : PEMaterials.getCollisionBounds(block)) {
+                            double distance = getBlockRayBoxEntryDistance(eye, unitDirection, bounds, faceDistance);
+                            if (distance > FACE_TRACE_EPSILON && distance + tolerance < faceDistance) {
+                                return FaceTraceResult.BLOCKED;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return FaceTraceResult.CLEAR;
+        } catch (Throwable ignored) {
+            return FaceTraceResult.UNKNOWN;
+        }
+    }
+
+    private static double getFaceIntersectionDistance(Vector origin,
+                                                      Vector direction,
+                                                      PEMaterials.CollisionBounds bounds,
+                                                      int face,
+                                                      double maxDistance,
+                                                      double tolerance) {
+        double plane;
+        double coordinate;
+        double normalDot;
+
+        switch (face) {
+            case 0:
+                plane = bounds.minY;
+                coordinate = direction.getY();
+                normalDot = -direction.getY();
+                break;
+            case 1:
+                plane = bounds.maxY;
+                coordinate = direction.getY();
+                normalDot = direction.getY();
+                break;
+            case 2:
+                plane = bounds.minZ;
+                coordinate = direction.getZ();
+                normalDot = -direction.getZ();
+                break;
+            case 3:
+                plane = bounds.maxZ;
+                coordinate = direction.getZ();
+                normalDot = direction.getZ();
+                break;
+            case 4:
+                plane = bounds.minX;
+                coordinate = direction.getX();
+                normalDot = -direction.getX();
+                break;
+            case 5:
+                plane = bounds.maxX;
+                coordinate = direction.getX();
+                normalDot = direction.getX();
+                break;
+            default:
+                return -1.0D;
+        }
+
+        if (Math.abs(coordinate) < FACE_TRACE_EPSILON || normalDot >= -FACE_TRACE_EPSILON) {
+            return -1.0D;
+        }
+
+        double originCoordinate = face <= 1 ? origin.getY()
+                : face <= 3 ? origin.getZ() : origin.getX();
+        double distance = (plane - originCoordinate) / coordinate;
+        if (distance <= FACE_TRACE_EPSILON || distance > maxDistance) {
+            return -1.0D;
+        }
+
+        double hitX = origin.getX() + direction.getX() * distance;
+        double hitY = origin.getY() + direction.getY() * distance;
+        double hitZ = origin.getZ() + direction.getZ() * distance;
+        return hitX >= bounds.minX - tolerance && hitX <= bounds.maxX + tolerance
+                && hitY >= bounds.minY - tolerance && hitY <= bounds.maxY + tolerance
+                && hitZ >= bounds.minZ - tolerance && hitZ <= bounds.maxZ + tolerance
+                ? distance : -1.0D;
+    }
+
+    private static double getBlockRayBoxEntryDistance(Vector origin,
+                                                      Vector direction,
+                                                      PEMaterials.CollisionBounds bounds,
+                                                      double maxDistance) {
+        double[] range = {0.0D, maxDistance};
+
+        if (!clipRayAxis(origin.getX(), direction.getX(), bounds.minX, bounds.maxX, range)
+                || !clipRayAxis(origin.getY(), direction.getY(), bounds.minY, bounds.maxY, range)
+                || !clipRayAxis(origin.getZ(), direction.getZ(), bounds.minZ, bounds.maxZ, range)) {
+            return -1.0D;
+        }
+
+        return range[0] <= maxDistance ? range[0] : -1.0D;
+    }
+
+    private static boolean clipRayAxis(double origin, double direction,
+                                       double minimum, double maximum, double[] range) {
+        if (Math.abs(direction) < 1.0E-9D) {
+            return origin >= minimum && origin <= maximum;
+        }
+
+        double first = (minimum - origin) / direction;
+        double second = (maximum - origin) / direction;
+        if (first > second) {
+            double swap = first;
+            first = second;
+            second = swap;
+        }
+
+        range[0] = Math.max(range[0], first);
+        range[1] = Math.min(range[1], second);
+        return range[0] <= range[1] && range[1] >= 0.0D;
+    }
+
+    private static int floorRay(double value) {
+        int integer = (int) value;
+        return value < integer ? integer - 1 : integer;
     }
 
     private double eyeHeight() {
