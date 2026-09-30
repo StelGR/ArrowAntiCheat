@@ -5,9 +5,11 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAnimation;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import lombok.Getter;
@@ -63,7 +65,7 @@ public class CombatData implements Data {
         long profiler = Profiler.start();
         try {
 
-        if (event.getPacketType() == PacketType.Play.Client.ANIMATION
+        if (isAttackPacket(event.getPacketType())
                 && PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_21_11)) {
 
             WrapperPlayClientAnimation wrapper = new WrapperPlayClientAnimation(event);
@@ -76,6 +78,14 @@ public class CombatData implements Data {
                 }
             }
 
+        }
+        if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+            WrapperPlayClientAttack attackPacket = new WrapperPlayClientAttack(event);
+            this.lastLastAttackedEntityID = lastAttackedEntityID;
+            this.lastAttackedEntityID = attackPacket.getEntityId();
+            this.attackedTicks = 0;
+            target = attackPacket.getEntityId();
+            attacked = true;
         }
         if (event.getPacketType().equals(INTERACT_ENTITY)) {
             WrapperPlayClientInteractEntity useEntityPacket = new WrapperPlayClientInteractEntity(event);
@@ -200,4 +210,10 @@ public class CombatData implements Data {
 
         armAnimationMovements = 0;
     }
+
+    public boolean isAttackPacket(PacketTypeCommon packet) {
+        return packet == PacketType.Play.Client.ANIMATION || packet == ATTACK;
+    }
+
+
 }

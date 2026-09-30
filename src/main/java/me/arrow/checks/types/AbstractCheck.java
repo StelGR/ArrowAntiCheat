@@ -13,7 +13,6 @@ import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.misc.timer.*;
 import me.arrow.checks.impl.movement.ground.GroundC;
 import me.arrow.checks.impl.simulation.*;
-import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.files.commentedfiles.CommentedFileConfiguration;
 import me.arrow.managers.profile.Profile;
@@ -88,9 +87,8 @@ public abstract class AbstractCheck {
         this.fullCheckName = this.checkName + (type.isEmpty() ? "" : (" (" + type + ")"));
     }
 
-
-    protected void debug(Object info) {
-        PlatformBackend.get().getServer().broadcastMessage(String.valueOf(info));
+    public void debug(Object info) {
+        OtherUtility.log(info.toString());
     }
 
     public void fail(String verboseTitle, String verboseInfo) {

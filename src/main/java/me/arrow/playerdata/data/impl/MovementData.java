@@ -1174,7 +1174,7 @@ public class MovementData implements Data {
             sincePredictUpwardsTicksWithoutMaterial = predictUp ? 0 : sincePredictUpwardsTicksWithoutMaterial + 1;
             sincePredictDownwardsTicksWithoutMaterial = predictDown ? 0 : sincePredictDownwardsTicksWithoutMaterial + 1;
             sincePredictDownwardsTicks = movingDown || (predictDown && isNearStepMaterial()) ? 0 : sincePredictDownwardsTicks + 1;
-            sincePredictUpwardsTicks = movingUp || (predictUp && isNearStepMaterial())? 0 : sincePredictUpwardsTicks + 1;
+            sincePredictUpwardsTicks = movingUp || (predictUp && isNearStepMaterial()) ? 0 : sincePredictUpwardsTicks + 1;
             sinceNearGhastTicks = nearGhast ? 0 : sinceNearGhastTicks + 1;
             sinceTeleportTicks = profile.getExempt().isTeleports() ? 0 : sinceTeleportTicks + 1;
             isRiptiding = sinceRiptidingTicks < 20;

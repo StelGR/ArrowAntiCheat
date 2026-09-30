@@ -3,6 +3,7 @@ package me.arrow.checks.impl.combat.aimassist;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import me.arrow.Arrow;
 import me.arrow.core.check.annotation.Experimental;
@@ -71,6 +72,13 @@ public class AimG extends Check {
             if (profile.getCombatData().getAttackedTicks() <= COMBAT_SAMPLE_TICKS) {
                 collectTargetSample(profile.getCombatData().getTarget());
             }
+            return;
+        }
+
+        // New 26.3 dedicated attack packet.
+        if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+            WrapperPlayClientAttack attackPacket = new WrapperPlayClientAttack(event);
+            collectTargetSample(attackPacket.getEntityId());
             return;
         }
 

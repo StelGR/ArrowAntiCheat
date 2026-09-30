@@ -55,7 +55,6 @@ public class CheckHolder {
     private int checksSize;
     private boolean testing; //Used for testing new checks
 
-
     @Getter
     private Movement movementCheck;
     @Getter
@@ -68,8 +67,6 @@ public class CheckHolder {
     public CheckHolder(Profile profile) {
         this.profile = profile;
     }
-
-
 
     public void runChecks(PacketReceiveEvent event) {
         for (int i = 0; i < this.checksSize; i++) {
