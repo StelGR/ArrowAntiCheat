@@ -6,6 +6,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.item.type.ItemTypes;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientClickWindow;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientHeldItemChange;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityStatus;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetSlot;
@@ -252,11 +253,13 @@ public class MacroA extends Check {
         if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
             return true;
         }
-
+        // ANIMATION packet also represents an attack for CPS counting
+        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
+            return true;
+        }
         if (!event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
             return false;
         }
-
         try {
             WrapperPlayClientInteractEntity interact = new WrapperPlayClientInteractEntity(event);
             return interact.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK;

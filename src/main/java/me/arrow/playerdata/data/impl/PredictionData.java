@@ -138,6 +138,9 @@ public class PredictionData implements Data {
             useItem = false;
             useShield = false;
         }
+        if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+            hit = true;
+        }
         if (event.getPacketType().equals(INTERACT_ENTITY)) {
             WrapperPlayClientInteractEntity wrappedInUseEntityPacket = new WrapperPlayClientInteractEntity(event);
 
