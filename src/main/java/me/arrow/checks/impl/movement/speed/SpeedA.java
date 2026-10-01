@@ -376,7 +376,8 @@ public class SpeedA extends Check {
                 airLimitDebug += ", 3rdTickJump";
             }
 
-            if (movementData.getSinceMovingOnIceTicks() < 20 || movementData.getSinceMovingOnSlimeTicks() < 20) {
+            if ((movementData.getSinceMovingOnIceTicks() < 20 && movementData.getSinceMovingOnIceTicks() > 5)
+                    || (movementData.getSinceMovingOnSlimeTicks() < 20 && movementData.getSinceMovingOnSlimeTicks() > 5)) {
                 expectedSpeed += 0.01D;
                 airLimitDebug += ", 20TicksSinceIce/Slime";
             }

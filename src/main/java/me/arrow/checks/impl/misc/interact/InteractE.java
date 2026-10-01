@@ -32,21 +32,20 @@ public class InteractE extends Check {
         int y = packet.getBlockPosition().getY();
         int z = packet.getBlockPosition().getZ();
 
-//        int face;
-//        try {
-//            face = packet.getFace().getFaceValue();
-//        } catch (Throwable ignored) {
-//            face = -1;
-//        }
-//
-//        if (face < 0 || face > 5 || (x == -1 && y == -1 && z == -1)) return;
-//
-//
+        int face;
+        try {
+            face = packet.getFace().getFaceValue();
+        } catch (Throwable ignored) {
+            face = -1;
+        }
+
+        if (face < 0 || face > 5 || (x == -1 && y == -1 && z == -1)) return;
+
         ItemStack itemStack = packet.getItemStack().orElse(null);
         org.bukkit.inventory.ItemStack bukkitStack = SpigotConversionUtil.toBukkitItemStack(itemStack);
 
         Material placedMat = (bukkitStack != null) ? bukkitStack.getType() : null;
-        if (placedMat == null || !placedMat.isSolid()) {
+        if (placedMat == null || !placedMat.isBlock()) {
             return;
         }
 

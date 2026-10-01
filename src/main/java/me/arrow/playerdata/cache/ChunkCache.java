@@ -70,7 +70,6 @@ public class ChunkCache {
                 workers,
                 60L, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
-
                 new ThreadFactory() {
                     private final AtomicInteger id = new AtomicInteger(1);
                     @Override
@@ -89,68 +88,8 @@ public class ChunkCache {
         return (((long) chunkX) << 32) | (chunkZ & 0xFFFFFFFFL);
     }
 
-    /**
-     * Load all currently loaded chunks in batches of 20. Intended to be called from a dedicated thread
-     * to avoid blocking the main server thread. This method processes chunks synchronously within the
-     * calling thread but limits the number of chunks processed at once to reduce CPU spikes.
-     */
-    public void cacheAllLoadedChunksBatched() {
-        if (PlatformBackend.get().isFabric()) {
-            this.initialized = true;
-            return;
-        }
-
-        try {
-            // Give server time to load worlds before gathering chunks
-
-
-            if (PlatformBackend.get().getServer() == null) {
-                this.initialized = true;
-                return;
-            }
-
-            java.util.List<Chunk> allChunks = new java.util.ArrayList<>();
-            for (World world : PlatformBackend.get().getServer().getWorlds()) {
-                if (world == null) continue;
-                Chunk[] loaded = world.getLoadedChunks();
-                if (loaded == null) continue;
-                java.util.Collections.addAll(allChunks, loaded);
-            }
-
-            if (allChunks.isEmpty()) {
-                this.initialized = true;
-                return;
-            }
-
-            int batchSize = 20;
-            int totalBatches = (allChunks.size() + batchSize - 1) / batchSize;
-            java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(totalBatches);
-
-            for (int i = 0; i < allChunks.size(); i += batchSize) {
-                int end = Math.min(i + batchSize, allChunks.size());
-                java.util.List<Chunk> batch = allChunks.subList(i, end);
-                // Process each batch asynchronously in the dedicated chunk worker pool
-                chunkExecutor.execute(() -> {
-                    try {
-                        batch.forEach(this::ensureChunkCached);
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-
-            // Wait for all async batch tasks to finish
-            latch.await();
-        } catch (Throwable ignored) {
-            // In case of unexpected errors, ensure the cache is marked initialized to avoid repeated attempts.
-        } finally {
-            this.initialized = true;
-        }
-    }
-
-
     private static boolean shouldStoreCollisionState(WrappedBlockState state) {
-        if (state == null || state.getType() == null) {
+        if (state == null) {
             return false;
         }
 
@@ -256,7 +195,6 @@ public class ChunkCache {
         long start = Profiler.start();
         try {
             World world = chunk.getWorld();
-            if (world == null) return;
             int cx = chunk.getX();
             int cz = chunk.getZ();
             int minY = getWorldMinY(world);
@@ -292,7 +230,6 @@ public class ChunkCache {
     /**
      * Ensures the chunk the player is currently standing in is loaded and
      * queued for asynchronous caching.
-     *
      * This is useful when the client/server moves into a chunk which has not
      * yet been observed through CHUNK_DATA.
      */
@@ -335,9 +272,6 @@ public class ChunkCache {
                      * This explicitly loads the chunk if it isn't loaded yet.
                      */
                     Chunk chunk = world.getChunkAt(chunkX, chunkZ);
-                    if (chunk == null) {
-                        return;
-                    }
 
                     ChunkSnapshot snapshot = chunk.getChunkSnapshot(false, false, false);
 
@@ -409,8 +343,7 @@ public class ChunkCache {
                                         z
                                 );
 
-                        if (state != null
-                                && PEMaterials.requiresStatefulCollision(state)) {
+                        if (PEMaterials.requiresStatefulCollision(state)) {
 
                             cached.setState(
                                     x,
@@ -520,7 +453,7 @@ public class ChunkCache {
     public static boolean isWaterMaterial(Material material) {
         if (material == null) return false;
         int ord = material.ordinal();
-        return ord >= 0 && ord < WATER_MATERIALS.length && WATER_MATERIALS[ord];
+        return ord < WATER_MATERIALS.length && WATER_MATERIALS[ord];
     }
 
     private static final boolean[] WATER_MATERIALS;
@@ -559,20 +492,18 @@ public class ChunkCache {
                 World world = Bukkit.getWorld(worldName);
                 if (world != null && world.isChunkLoaded(chunkX, chunkZ)) {
                     Chunk c = world.getChunkAt(chunkX, chunkZ);
-                    if (c != null) {
-                        ChunkSnapshot snapshot = c.getChunkSnapshot(false, false, false);
-                        chunkExecutor.execute(() -> {
-                            try {
-                                if (getChunk(worldName, chunkX, chunkZ) != null) return;
-                                CachedChunk cached = new CachedChunk(chunkX, chunkZ);
-                                cacheFromSnapshot(snapshot, cached, getWorldMinY(world), getWorldMaxY(world));
-                                putChunk(worldName, chunkX, chunkZ, cached);
-                            } finally {
-                                unmarkQueued(worldName, chunkX, chunkZ);
-                            }
-                        });
-                        return;
-                    }
+                    ChunkSnapshot snapshot = c.getChunkSnapshot(false, false, false);
+                    chunkExecutor.execute(() -> {
+                        try {
+                            if (getChunk(worldName, chunkX, chunkZ) != null) return;
+                            CachedChunk cached = new CachedChunk(chunkX, chunkZ);
+                            cacheFromSnapshot(snapshot, cached, getWorldMinY(world), getWorldMaxY(world));
+                            putChunk(worldName, chunkX, chunkZ, cached);
+                        } finally {
+                            unmarkQueued(worldName, chunkX, chunkZ);
+                        }
+                    });
+                    return;
                 }
             } catch (Throwable ignored) {}
             unmarkQueued(worldName, chunkX, chunkZ);
@@ -623,7 +554,7 @@ public class ChunkCache {
      * Full cubes keep the compact material-only representation.
      */
     public void setBlockState(String worldName, int x, int y, int z, WrappedBlockState state) {
-        if (worldName == null || state == null || state.getType() == null) return;
+        if (worldName == null || state == null) return;
 
         Material material = PEMaterials.materialFromState(state.getType());
         if (material == null) return;
@@ -641,7 +572,7 @@ public class ChunkCache {
      * shares it by state ID. Packet-thread collision checks never read Bukkit.
      */
     public void requestCollisionShape(World world, int x, int y, int z, WrappedBlockState state) {
-        if (world == null || state == null || PlatformBackend.get().isFabric()
+        if (world == null || PlatformBackend.get().isFabric()
                 || !shouldStoreCollisionState(state)
                 || PEMaterials.hasCachedCollisionShape(state)) {
             return;
@@ -984,7 +915,6 @@ public class ChunkCache {
     public void queueBukkitChunk(Chunk chunk) {
         if (chunk == null) return;
         World world = chunk.getWorld();
-        if (world == null) return;
         String worldName = world.getName();
         int cx = chunk.getX();
         int cz = chunk.getZ();
@@ -1033,9 +963,7 @@ public class ChunkCache {
                     for (int localZ = 0; localZ < 16; localZ++) {
                         try {
                             WrappedBlockState state = section.get(localX, localY, localZ);
-                            if (state == null) continue;
                             StateType type = state.getType();
-                            if (type == null) continue;
 
                             Material material = PEMaterials.materialFromState(type);
                             if (material != null && material != Material.AIR) {

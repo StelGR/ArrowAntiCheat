@@ -53,6 +53,11 @@ public class MathHelper {
         return (float) Math.sqrt(var0);
     }
 
+
+    public static float square(float value) {
+        return value * value;
+    }
+
     public static int d(float var0) {
         int var1 = (int) var0;
         return var0 < (float) var1 ? var1 - 1 : var1;

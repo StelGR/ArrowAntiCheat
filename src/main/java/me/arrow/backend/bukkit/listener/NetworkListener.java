@@ -56,10 +56,6 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
         final Profile profile = this.plugin.getProfileManager().getProfile(player);
         if (profile == null) return;
 
-        // Note: ChunkCache is updated globally by ChunkCacheListener (registered once),
-        // so we do NOT call processServerPacket() here — doing so would write to the
-        // cache once per online player instead of once per packet.
-
         profile.handleSend(event);
 
 

@@ -265,6 +265,41 @@ public class PEMaterials {
     }
 
     /**
+     * Returns only a state the target protocol can represent. A null result is
+     * intentional: callers should preserve the already-translated client view
+     * instead of replacing it with an invalid modern block ID.
+     */
+    public static WrappedBlockState mapToClientStrictly(WrappedBlockState source, ClientVersion clientVersion) {
+        if (source == null) {
+            return null;
+        }
+
+        if (clientVersion == null) {
+            return source.clone();
+        }
+
+        boolean sourceIsAir = source.getType().isAir();
+
+        try {
+            WrappedBlockState mapped = WrappedBlockState.getByString(clientVersion, source.toString());
+            if (sourceIsAir || !mapped.getType().isAir()) {
+                return mapped;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            WrappedBlockState mapped = source.getType().createBlockState(clientVersion);
+            if (sourceIsAir || !mapped.getType().isAir()) {
+                return mapped;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return null;
+    }
+
+    /**
      * Exact for real blocks on modern servers. On legacy servers, where Bukkit
      * exposes no voxel shape, this intentionally uses a conservative potential-
      * collision fallback so a partial block is not treated as air.
@@ -542,7 +577,7 @@ public class PEMaterials {
         if (!wl) {
             try {
                 String str = state.toString();
-                if (str != null && str.toLowerCase(Locale.ROOT).contains("waterlogged=true")) {
+                if (str.toLowerCase(Locale.ROOT).contains("waterlogged=true")) {
                     wl = true;
                 }
             } catch (Throwable ignored) {}
@@ -575,10 +610,7 @@ public class PEMaterials {
         if (name.endsWith("_PANE") || name.equals("IRON_BARS") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE") || name.equals("IRON_FENCE")) {
             return paneBounds(null, x, y, z);
         }
-        if (name.equals("HEAVY_CORE")) {
-            return Collections.singletonList(new CollisionBounds(x + 0.25D, y, z + 0.25D, x + 0.75D, y + 0.5D, z + 0.75D));
-        }
-        if (name.endsWith("_HEAD") || name.endsWith("_SKULL")) {
+        if (name.endsWith("_HEAD") || name.endsWith("_SKULL") || name.equals("HEAVY_CORE")) {
             return Collections.singletonList(new CollisionBounds(x + 0.25D, y, z + 0.25D, x + 0.75D, y + 0.5D, z + 0.75D));
         }
         if (name.equals("BIG_DRIPLEAF")) {
@@ -587,20 +619,16 @@ public class PEMaterials {
         if (name.contains("DAYLIGHT_DETECTOR")) {
             return lowFullBounds(x, y, z, .375D);
         }
-        if (name.equals("SCULK_SHRIEKER")) {
-            return lowFullBounds(x, y, z, .5D);
-        }
-        if (name.equals("SCULK_SENSOR") || name.equals("CALIBRATED_SCULK_SENSOR")) {
-            return centeredLowBounds(x, y, z, .0625D, .5D);
-        }
-        if (name.equals("LIGHTNING_ROD")) {
-            return lightningRodBounds(null, x, y, z);
-        }
+        return switch (name) {
+            case "SCULK_SHRIEKER" -> lowFullBounds(x, y, z, .5D);
+            case "SCULK_SENSOR", "CALIBRATED_SCULK_SENSOR" -> centeredLowBounds(x, y, z, .0625D, .5D);
+            case "LIGHTNING_ROD" -> lightningRodBounds(null, x, y, z);
+            default -> Collections.singletonList(new CollisionBounds(
+                    x, y, z,
+                    x + 1.0D, y + 1.0D, z + 1.0D
+            ));
+        };
 
-        return Collections.singletonList(new CollisionBounds(
-                x, y, z,
-                x + 1.0D, y + 1.0D, z + 1.0D
-        ));
     }
 
     /**
@@ -638,7 +666,7 @@ public class PEMaterials {
      * voxel shape remains preferred when a Block is safely available.
      */
     public static List<CollisionBounds> getCollisionBounds(WrappedBlockState state, int x, int y, int z) {
-        if (state == null || state.getType() == null) return null;
+        if (state == null) return null;
 
         /*
          * Legacy state IDs are useful for identifying the block state, but the
@@ -671,14 +699,16 @@ public class PEMaterials {
         if (name.contains("DAYLIGHT_DETECTOR")) {
             return lowFullBounds(x, y, z, .375D);
         }
-        if (name.equals("SCULK_SHRIEKER")) {
-            return lowFullBounds(x, y, z, .5D);
-        }
-        if (name.equals("SCULK_SENSOR") || name.equals("CALIBRATED_SCULK_SENSOR")) {
-            return centeredLowBounds(x, y, z, .0625D, .5D);
-        }
-        if (name.equals("LIGHTNING_ROD")) {
-            return lightningRodBounds(state, x, y, z);
+        switch (name) {
+            case "SCULK_SHRIEKER" -> {
+                return lowFullBounds(x, y, z, .5D);
+            }
+            case "SCULK_SENSOR", "CALIBRATED_SCULK_SENSOR" -> {
+                return centeredLowBounds(x, y, z, .0625D, .5D);
+            }
+            case "LIGHTNING_ROD" -> {
+                return lightningRodBounds(state, x, y, z);
+            }
         }
         if (name.endsWith("_FENCE_GATE") || name.equals("FENCE_GATE")) {
             return fenceGateBounds(state, x, y, z);
@@ -689,7 +719,7 @@ public class PEMaterials {
         if (name.endsWith("_WALL") || name.equals("COBBLE_WALL")) {
             return wallBounds(state, x, y, z);
         }
-        if (name.endsWith("_PANE") || name.equals("IRON_BARS") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE") || name.equals("IRON_FENCE")) {
+        if (name.endsWith("_PANE") || name.equals("IRON_BARS") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE")) {
             return paneBounds(state, x, y, z);
         }
         if (isSlab(state) || name.endsWith("_SLAB") || name.endsWith("_STEP")) {
@@ -900,6 +930,10 @@ public class PEMaterials {
         return !"NONE".equals(name) && !"FALSE".equals(name) && !"null".equals(name);
     }
 
+    public static WrappedBlockState fromBukkitBlockStrictlyForClient(Block block, ClientVersion clientVersion) {
+        return mapToClientStrictly(fromBukkitBlock(block), clientVersion);
+    }
+
     /**
      * Returns world-space collision boxes. Modern blocks use their exact live
      * voxel shape. Legacy blocks use a conservative unit box only when the
@@ -985,17 +1019,6 @@ public class PEMaterials {
                 || isObviousPartialCollisionName(name);
     }
 
-    public static boolean intersectsCollision(Block block,
-                                              double minX, double minY, double minZ,
-                                              double maxX, double maxY, double maxZ) {
-        for (CollisionBounds bounds : getCollisionBounds(block)) {
-            if (bounds.intersects(minX, minY, minZ, maxX, maxY, maxZ)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     private static List<CollisionBounds> getModernCollisionBounds(Block block) {
         if (BLOCK_GET_COLLISION_SHAPE == null) {
@@ -1558,8 +1581,7 @@ public class PEMaterials {
              * Existing runtime objects.
              */
             for (Object candidate : candidates) {
-                if (candidate != null
-                        && parameter.isInstance(candidate)) {
+                if (parameter.isInstance(candidate)) {
                     match = candidate;
                     break;
                 }
@@ -1618,8 +1640,7 @@ public class PEMaterials {
     }
 
     private static Object createLegacyProbeBox(Class<?> expectedType) {
-        if (expectedType == null
-                || !isLegacyAabbType(expectedType)) {
+        if (!isLegacyAabbType(expectedType)) {
             return null;
         }
 
@@ -2340,13 +2361,13 @@ public class PEMaterials {
         }
     }
 
-    private static final class LocalCollisionBounds {
-        private final double minX;
-        private final double minY;
-        private final double minZ;
-        private final double maxX;
-        private final double maxY;
-        private final double maxZ;
+    private static class LocalCollisionBounds {
+        double minX;
+        double minY;
+        double minZ;
+        double maxX;
+        double maxY;
+        double maxZ;
 
         private LocalCollisionBounds(double minX, double minY, double minZ,
                                      double maxX, double maxY, double maxZ) {
@@ -2359,13 +2380,13 @@ public class PEMaterials {
         }
     }
 
-    public static final class CollisionBounds {
-        public final double minX;
-        public final double minY;
-        public final double minZ;
-        public final double maxX;
-        public final double maxY;
-        public final double maxZ;
+    public static class CollisionBounds {
+        public double minX;
+        public double minY;
+        public double minZ;
+        public double maxX;
+        public double maxY;
+        public double maxZ;
 
         public CollisionBounds(double minX, double minY, double minZ,
                                double maxX, double maxY, double maxZ) {

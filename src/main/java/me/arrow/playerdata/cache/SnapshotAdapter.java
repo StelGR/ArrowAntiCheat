@@ -141,7 +141,7 @@ public class SnapshotAdapter {
 
     /**
      * Legacy block metadata/data value.
-     *
+
      * Returns:
      *   0 on modern versions
      *   0-15 on legacy versions
@@ -176,10 +176,10 @@ public class SnapshotAdapter {
 
     /**
      * Returns the complete Bukkit/PacketEvents block state.
-     *
+
      * Modern:
      *   ChunkSnapshot#getBlockData()
-     *
+
      * Legacy:
      *   block ID + legacy metadata -> MaterialData -> WrappedBlockState
      */

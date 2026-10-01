@@ -1,11 +1,11 @@
 package me.arrow.playerdata.data.impl.worldcomp;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.PacketEvents;
-import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
-import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
@@ -22,6 +22,12 @@ import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.EventTimer;
 import me.arrow.utils.customutils.EvictingList;
 import me.arrow.utils.custom.materials.PEMaterials;
+import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.connection.UserConnection;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.CodecException;
+import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -34,12 +40,10 @@ import java.lang.reflect.Method;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-// this is a GPT improved processor from MrPlugin, it syncs ghost blocks
+// this is a GPT improved processor from MrPlugin, it syncs ghost blocks (does not work on 1.8)
 // and properly accounts for world guard blocks, so it really helps fix alot of bugs with ghost blocks
 // such as the piston glitch i found where if you place a block by spamming on a piston that's moving with 1 extra tick delay
 // you can make any block become a ghost block
@@ -170,7 +174,7 @@ public class BlockProcessor implements Data {
             handleBlockPlacePacket(event);
         }
 
-        if (isMovement(event)) {
+        if (OtherUtility.isFlying(event.getPacketType())) {
             handleMovementPacket(event);
         }
     }
@@ -2169,75 +2173,25 @@ public class BlockProcessor implements Data {
 
         World world = player.getWorld();
 
-        List<SyncBlock> toSync = new ArrayList<>();
-        while (toSync.size() < MAX_SYNC_BLOCKS_PER_FLUSH) {
-            SyncBlock block = pollQueuedSyncBlock();
-            if (block == null) break;
-            toSync.add(block);
-        }
+        int sent = 0;
 
-        if (toSync.isEmpty()) {
-            return;
-        }
+        while (sent < MAX_SYNC_BLOCKS_PER_FLUSH) {
+            SyncBlock syncBlock = pollQueuedSyncBlock();
 
-        Map<Long, List<SyncBlock>> sections = new LinkedHashMap<>();
-        for (SyncBlock sb : toSync) {
-            int cx = sb.x >> 4;
-            int cz = sb.z >> 4;
-            int cy = sb.y >> 4;
-            long key = (((long) cx) << 42) ^ (((long) cz) << 20) ^ (cy & 0xFFFFFL);
-            sections.computeIfAbsent(key, k -> new ArrayList<>()).add(sb);
-        }
-
-        for (List<SyncBlock> sectionBlocks : sections.values()) {
-            if (sectionBlocks.size() == 1) {
-                SyncBlock syncBlock = sectionBlocks.get(0);
-                if (!CollisionUtils.isChunkLoaded(new Location(world, syncBlock.x, syncBlock.y, syncBlock.z))) continue;
-                Block block = world.getBlockAt(syncBlock.x, syncBlock.y, syncBlock.z);
-                boolean corrected = sendBlockChangeCompat(player, block);
-                if (corrected && syncBlock.removeStoredGhost) {
-                    removeGhostBlock(new Vector(syncBlock.x, syncBlock.y, syncBlock.z));
-                }
-            } else {
-                int cx = sectionBlocks.get(0).x >> 4;
-                int cz = sectionBlocks.get(0).z >> 4;
-                int cy = sectionBlocks.get(0).y >> 4;
-
-                List<WrapperPlayServerMultiBlockChange.EncodedBlock> encodedList = new ArrayList<>(sectionBlocks.size());
-                for (SyncBlock sb : sectionBlocks) {
-                    if (!CollisionUtils.isChunkLoaded(new Location(world, sb.x, sb.y, sb.z))) continue;
-                    Block b = world.getBlockAt(sb.x, sb.y, sb.z);
-                    WrappedBlockState state = PEMaterials.fromBukkitBlock(b);
-                    if (state != null) {
-                        encodedList.add(new WrapperPlayServerMultiBlockChange.EncodedBlock(state, sb.x, sb.y, sb.z));
-                        markSelfSyncedBlock(sb.x, sb.y, sb.z);
-                        if (sb.removeStoredGhost) {
-                            removeGhostBlock(new Vector(sb.x, sb.y, sb.z));
-                        }
-                    } else {
-                        sendBlockChangeCompat(player, b);
-                        if (sb.removeStoredGhost) {
-                            removeGhostBlock(new Vector(sb.x, sb.y, sb.z));
-                        }
-                    }
-                }
-
-                if (!encodedList.isEmpty()) {
-                    try {
-                        WrapperPlayServerMultiBlockChange wrapper = new WrapperPlayServerMultiBlockChange(
-                                new Vector3i(cx, cy, cz),
-                                true,
-                                encodedList.toArray(new WrapperPlayServerMultiBlockChange.EncodedBlock[0])
-                        );
-                        PacketEvents.getAPI().getPlayerManager().sendPacket(player, wrapper);
-                    } catch (Throwable t) {
-                        for (SyncBlock sb : sectionBlocks) {
-                            Block b = world.getBlockAt(sb.x, sb.y, sb.z);
-                            sendBlockChangeCompat(player, b);
-                        }
-                    }
-                }
+            if (syncBlock == null) {
+                return;
             }
+
+            if (!CollisionUtils.isChunkLoaded(new Location(world, syncBlock.x, syncBlock.y, syncBlock.z))) return;
+
+            Block block = world.getBlockAt(syncBlock.x, syncBlock.y, syncBlock.z);
+            sendBlockChangeCompat(player, block);
+
+            if (syncBlock.removeStoredGhost) {
+                removeGhostBlock(new Vector(syncBlock.x, syncBlock.y, syncBlock.z));
+            }
+
+            sent++;
         }
     }
 
@@ -2291,30 +2245,100 @@ public class BlockProcessor implements Data {
         return key;
     }
 
-    boolean sendBlockChangeCompat(Player player, Block block) {
-        // Sends the authoritative server state through the normal Via translation pipeline.
+    void sendBlockChangeCompat(Player player, Block block) {
+        // Sends the authoritative block state using modern or legacy Bukkit APIs.
         if (player == null || block == null || !player.isOnline()) {
-            return false;
+            return;
         }
 
         Location location = block.getLocation();
 
         if (location.getWorld() == null) {
-            return false;
+            return;
         } else {
             player.getWorld();
         }
 
         if (!location.getWorld().getName().equals(player.getWorld().getName())) {
-            return false;
+            return;
+        }
+
+        // PacketEvents writes server-format block changes. Send 1.8 repairs
+        // through ViaVersion's transform first so the client never receives
+        // that modern payload under the legacy S23 packet id.
+        if (usesLegacyBlockChange()) {
+            trySendViaLegacyBlockChange(player, block);
+            return;
         }
 
         if (tryModernSendBlockChange(player, block, location)) {
-            return true;
+            return;
         }
 
         tryLegacySendBlockChange(player, block, location);
-        return cachedLegacySendBlockChangeMethod != null;
+    }
+
+    boolean usesLegacyBlockChange() {
+        // PacketEvents reports the client protocol negotiated through ViaVersion.
+        ClientVersion version = data.getVersion();
+        return version != null && version.isOlderThanOrEquals(ClientVersion.V_1_8);
+    }
+
+    boolean trySendViaLegacyBlockChange(Player player, Block block) {
+        ByteBuf packet = null;
+
+        try {
+            UserConnection connection = Via.getManager().getConnectionManager()
+                    .getConnectedClient(player.getUniqueId());
+
+            if (connection == null || !connection.isActive()) {
+                return false;
+            }
+
+            WrappedBlockState state = PEMaterials.fromBukkitBlock(block);
+
+            if (state == null && isAirLike(block.getType())) {
+                state = WrappedBlockState.getByString("minecraft:air");
+            }
+
+            if (state == null) {
+                return false;
+            }
+
+            ClientVersion serverProtocol = PacketEvents.getAPI().getServerManager().getVersion().toClientVersion();
+            packet = Unpooled.buffer(16);
+            writeVarInt(packet, PacketType.Play.Server.BLOCK_CHANGE.getId(serverProtocol));
+            packet.writeLong(packBlockPosition(block.getX(), block.getY(), block.getZ()));
+            writeVarInt(packet, state.getGlobalId());
+
+            connection.transformClientbound(packet, CodecException::new);
+            markSelfSyncedBlock(block.getX(), block.getY(), block.getZ());
+            connection.sendRawPacket(packet);
+            data.getClientWorldTracker().acknowledgeClientSync(
+                    block.getX(), block.getY(), block.getZ()
+            );
+            return true;
+        } catch (Throwable ignored) {
+            if (packet != null && packet.refCnt() > 0) {
+                packet.release();
+            }
+            return false;
+        }
+    }
+
+    long packBlockPosition(int x, int y, int z) {
+        return ((long) x & 0x3FFFFFFL) << 38
+                | ((long) z & 0x3FFFFFFL) << 12
+                | ((long) y & 0xFFFL);
+    }
+
+    void writeVarInt(ByteBuf buffer, int value) {
+        while ((value & ~0x7F) != 0) {
+            buffer.writeByte((value & 0x7F) | 0x80);
+            value >>>= 7;
+        }
+
+        buffer.writeByte(value);
     }
 
     boolean sameBlock(Vector vector, int x, int y, int z) {
@@ -2323,14 +2347,6 @@ public class BlockProcessor implements Data {
                 && vector.getBlockX() == x
                 && vector.getBlockY() == y
                 && vector.getBlockZ() == z;
-    }
-
-    boolean isMovement(PacketReceiveEvent event) {
-        // Checks whether a packet is a movement/flying packet.
-        return event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
     }
 
     boolean isAirLike(Material material) {
