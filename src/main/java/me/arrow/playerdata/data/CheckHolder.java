@@ -127,6 +127,7 @@ public class CheckHolder {
                 new AimI(this.profile),
                 new AimJ(this.profile),
                 new AimK(this.profile),
+                new AimL(this.profile),
 
                 new AutoClickerA(this.profile),
                 new AutoClickerB(this.profile),
