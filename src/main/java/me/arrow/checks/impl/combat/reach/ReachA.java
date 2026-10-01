@@ -632,7 +632,7 @@ public class ReachA extends Check {
 
         verbose(
                 this.getClass().getSimpleName(),
-                finalBestDistance,
+                finalValidationDistance,
                 allowedReach,
                 "Distance: " + format(finalBestDistance)
                         + "\nconservativeDistance " + format(decisionDistance)

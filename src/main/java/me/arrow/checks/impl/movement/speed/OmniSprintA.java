@@ -111,12 +111,6 @@ public class OmniSprintA extends Check {
             MovementPredictionUtil.DirectionalMovement velocityDirection =
                     MovementPredictionUtil.predictDirectionalMovement(deltaX, deltaZ, yaw);
 
-            double airInputX = deltaX - (lastDeltaX * AIR_HORIZONTAL_FRICTION);
-            double airInputZ = deltaZ - (lastDeltaZ * AIR_HORIZONTAL_FRICTION);
-            double airInputXZ = Math.hypot(airInputX, airInputZ);
-
-            MovementPredictionUtil.DirectionalMovement airInputDirection =
-                    MovementPredictionUtil.predictDirectionalMovement(airInputX, airInputZ, yaw);
 
             boolean sprinting = actionData.isSprinting();
             boolean lastSprinting = actionData.isLastSprinting();
@@ -217,16 +211,16 @@ public class OmniSprintA extends Check {
              * this will buffer.
              */
             boolean usefulAirInput =
-                    airInputXZ > MIN_AIR_INPUT_XZ
-                            && airInputDirection.isMoving();
+                    deltaXZ > MIN_AIR_INPUT_XZ
+                            && velocityDirection.isMoving();
 
             boolean airInputImpossible =
-                    airInputDirection.getAbsoluteAngle() >= AIR_INVALID_INPUT_ANGLE
-                            || airInputDirection.getDot() < AIR_MIN_INPUT_FORWARD_DOT;
+                    velocityDirection.getAbsoluteAngle() >= AIR_INVALID_INPUT_ANGLE
+                            || velocityDirection.getDot() < AIR_MIN_INPUT_FORWARD_DOT;
 
             boolean airInputHardImpossible =
-                    airInputDirection.getAbsoluteAngle() >= AIR_HARD_INVALID_INPUT_ANGLE
-                            || airInputDirection.getDot() < AIR_HARD_BACKWARD_INPUT_DOT;
+                    velocityDirection.getAbsoluteAngle() >= AIR_HARD_INVALID_INPUT_ANGLE
+                            || velocityDirection.getDot() < AIR_HARD_BACKWARD_INPUT_DOT;
 
             boolean airInvalid =
                     air
@@ -241,20 +235,20 @@ public class OmniSprintA extends Check {
             verbose(this.getClass().getSimpleName(), Math.max(groundBuffer, airBuffer), 8,
                     MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (OmniSprint)\n" +
                             " * velocitySector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
-                            "\nairInputSector " + MsgType.MAIN_THEME_COLOR.getMessage() + airInputDirection.getSector() +
+//                            "\nairInputSector " + MsgType.MAIN_THEME_COLOR.getMessage() + airInputDirection.getSector() +
 
                             "\nvelocityAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getSignedAngle()) +
                             "\nvelocityAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getAbsoluteAngle()) +
                             "\nvelocityDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getDot()) +
                             "\nvelocityCross " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getCross()) +
 
-                            "\nairInputX " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputX) +
-                            "\nairInputZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputZ) +
-                            "\nairInputXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputXZ) +
-                            "\nairInputAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getSignedAngle()) +
-                            "\nairInputAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getAbsoluteAngle()) +
-                            "\nairInputDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getDot()) +
-                            "\nairInputCross " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getCross()) +
+//                            "\nairInputX " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputX) +
+//                            "\nairInputZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputZ) +
+//                            "\nairInputXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputXZ) +
+//                            "\nairInputAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getSignedAngle()) +
+//                            "\nairInputAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getAbsoluteAngle()) +
+//                            "\nairInputDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getDot()) +
+//                            "\nairInputCross " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getCross()) +
 
                             "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(yaw) +
                             "\ndeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(rotationData.getDeltaYaw()) +
@@ -284,7 +278,7 @@ public class OmniSprintA extends Check {
             handleGround(groundInvalid, groundHardImpossible);
             handleAir(airInvalid, airInputHardImpossible);
 
-            if (airInputDirection.isForward()) return;
+            //if (airInputDirection.isForward()) return;
 
             if (groundBuffer > 8.0D) {
                 fail("Sprinting in impossible direction (ground)",
@@ -306,18 +300,20 @@ public class OmniSprintA extends Check {
                 return;
             }
 
-            if (airBuffer > 6.5D) {
+            if (airBuffer > 6.5D
+                    //&& airInputDirection.getSector() == velocityDirection.getSector()
+            ) {
                 fail("Sprinting in impossible direction (air)",
                         "type " + MsgType.MAIN_THEME_COLOR.getMessage() + "air" +
                                 "\nvelocitySector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
-                                "\nairInputSector " + MsgType.MAIN_THEME_COLOR.getMessage() + airInputDirection.getSector() +
+//                                "\nairInputSector " + MsgType.MAIN_THEME_COLOR.getMessage() + airInputDirection.getSector() +
                                 "\nvelocityAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getSignedAngle()) +
                                 "\nvelocityAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getAbsoluteAngle()) +
                                 "\nvelocityDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getDot()) +
-                                "\nairInputAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getSignedAngle()) +
-                                "\nairInputAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getAbsoluteAngle()) +
-                                "\nairInputDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getDot()) +
-                                "\nairInputXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputXZ) +
+                                //"\nairInputAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getSignedAngle()) +
+                                //"\nairInputAbsAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getAbsoluteAngle()) +
+                                //"\nairInputDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputDirection.getDot()) +
+                                //"\nairInputXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(airInputXZ) +
                                 "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(yaw) +
                                 "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(deltaXZ) +
                                 "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks() +

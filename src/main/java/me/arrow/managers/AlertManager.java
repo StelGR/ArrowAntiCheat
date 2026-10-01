@@ -6,7 +6,6 @@ import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.webhook.DiscordWebhookQueue;
 import me.arrow.backend.bukkit.PlatformBackend;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;

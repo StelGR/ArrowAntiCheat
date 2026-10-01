@@ -68,7 +68,6 @@ public class MotionA extends Check {
 
 //                if (exempt("onBoat", profile.getMovementData().isOnBoat())) return;
 
-
                 MovementData movementData = profile.getMovementData();
 
                 if (exempt("nearBoat", profile.getMovementData().isNearBoat())

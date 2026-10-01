@@ -7,7 +7,6 @@ import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkData;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.Data;
@@ -26,14 +25,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ClientWorldTracker implements Data {
     private static final int PENDING_UPDATE_TICKS = 4;
     private static final int AUTO_SYNC_COOLDOWN_TICKS = 10;
-    private static final int PASSIVE_SYNC_INTERVAL_TICKS = 1;
     private static final int MAX_CLIENT_OVERRIDES = 2048;
 
     private final Profile profile;
     private final Map<Long, ClientBlock> clientOverrides = new ConcurrentHashMap<>();
     private final Map<Long, PendingArea> pendingAreas = new ConcurrentHashMap<>();
     private volatile CollisionResult lastCollisionResult = new CollisionResult();
-    private int tick, lastCollisionScanTick = -1, lastAutoSyncTick = AUTO_SYNC_COOLDOWN_TICKS + 1, lastPassiveSyncTick;
+    private int tick, lastCollisionScanTick = -1, lastAutoSyncTick = AUTO_SYNC_COOLDOWN_TICKS + 1;
 
     public ClientWorldTracker(Profile profile) {
         this.profile = profile;
@@ -44,14 +42,8 @@ public class ClientWorldTracker implements Data {
         if (!OtherUtility.isFlying(event.getPacketType())) return;
         tick++;
         lastAutoSyncTick++;
-        lastPassiveSyncTick++;
         pendingAreas.entrySet().removeIf(entry -> entry.getValue().expiresAt < tick);
         preCheckScan();
-        if (Config.Setting.GHOST_BLOCK_FIX.getBoolean()
-                && lastPassiveSyncTick >= PASSIVE_SYNC_INTERVAL_TICKS) {
-            syncNearbyCollisionBlocks();
-            lastPassiveSyncTick = 0;
-        }
     }
 
     @Override
@@ -184,21 +176,15 @@ public class ClientWorldTracker implements Data {
         profile.getBlockProcessor().syncRealBlocksInBoxAsync(x - 1, y - 1, z - 1, x + 1, y + 2, z + 1, 36, true);
     }
 
-    /**
-     * The server cannot read the player's rendered chunk. This symmetric
-     * five-block cube is proactively resent every movement tick; right-clicks
-     * are only an additional correction trigger.
-     */
-    private void syncNearbyCollisionBlocks() {
-        CustomLocation location = location();
-        if (location == null || profile.getBlockProcessor() == null) return;
-        int x = location.getBlockX(), y = location.getBlockY(), z = location.getBlockZ();
-        profile.getBlockProcessor().syncRealBlocksInBoxAsync(x - 2, y - 2, z - 2, x + 2, y + 2, z + 2, 125, false);
-    }
-
     public boolean hasPendingNear(int x, int y, int z, int margin) {
         for (PendingArea pending : pendingAreas.values()) if (pending.contains(x, y, z, margin)) return true;
         return false;
+    }
+
+    /** Records a targeted correction without treating a legacy visual alias as a desync. */
+    public void acknowledgeClientSync(int x, int y, int z) {
+        clientOverrides.remove(blockKey(x, y, z));
+        lastCollisionScanTick = -1;
     }
 
     private void markPending(PendingArea area) {

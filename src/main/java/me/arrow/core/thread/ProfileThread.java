@@ -1,5 +1,7 @@
 package me.arrow.core.thread;
 
+import lombok.Getter;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -10,11 +12,8 @@ public class ProfileThread {
 
     private final ExecutorService thread = Executors.newSingleThreadExecutor();
 
+    @Getter
     private int profileCount;
-
-    public int getProfileCount() {
-        return profileCount;
-    }
 
     public void execute(Runnable runnable) {
 

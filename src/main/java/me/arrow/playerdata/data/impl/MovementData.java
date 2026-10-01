@@ -477,48 +477,53 @@ public class MovementData implements Data {
     }
 
     private void handleNearbyBlocks() {
-        boolean async = true;
+        long profiler = Profiler.start();
+        try {
+            boolean async = true;
 
         /*
         Handle collisions
         NOTE: You should ALWAYS use NMS if you plan on supporting 1.9+
         For a production server, DO NOT use spigot's api. It's slow. (Especially for Blocks, Chunks, Materials)
          */
-        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(
-                getLocation(), getLastLocation(), async
-        );
+            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(
+                    getLocation(), getLastLocation(), async
+            );
 //        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(
 //                getLocation().clone().add(0, 1, 0),
 //                async
 //        );
 
-        this.nearbyBlocksResult = nearbyBlocksResult;
+            this.nearbyBlocksResult = nearbyBlocksResult;
 
-        /*
-         * Air ticks require present support, or a downward movement proven to
-         * have landed on a collision top. A wall beside the player is neither.
-         */
-        boolean hasGroundSupport = nearbyBlocksResult.hasExactGroundSupport()
-                || nearbyBlocksResult.hasLandingGroundSupport();
+            /*
+             * Air ticks require present support, or a downward movement proven to
+             * have landed on a collision top. A wall beside the player is neither.
+             */
+            boolean hasGroundSupport = nearbyBlocksResult.hasExactGroundSupport()
+                    || nearbyBlocksResult.hasLandingGroundSupport();
 
-        customInAir = !hasGroundSupport
-                && !nearbyBlocksResult.hasUnresolvedCollisionShape()
+            customInAir = !hasGroundSupport
+                    && !nearbyBlocksResult.hasUnresolvedCollisionShape()
 //                && !nearbyBlocksResult2.isNearGround()
-                && !profile.isExempt().isFlight()
-                && !nearHoney
-                && !nearClimbable
-                && !nearPowderSnow
-                && !profile.shouldCancel()
-                && !profile.getPlayer().isInsideVehicle()
-                && !isNearBoat()
-                && !isOnBoat()
-                && !nearWebs
-                && !profile.isBouncingOnSlime();
+                    && !profile.isExempt().isFlight()
+                    && !nearHoney
+                    && !nearClimbable
+                    && !nearPowderSnow
+                    && !profile.shouldCancel()
+                    && !profile.getPlayer().isInsideVehicle()
+                    && !isNearBoat()
+                    && !isOnBoat()
+                    && !nearWebs
+                    && !profile.isBouncingOnSlime();
 
-        collidingEntityCount = supportsEntityCollisionCheck()
-                ? CollisionProcessor.getCollidingEntityCount(profile.getPlayer(), profile.getBoundingBox())
-                : 0;
-        isColliding = collidingEntityCount > 0;
+            collidingEntityCount = supportsEntityCollisionCheck()
+                    ? CollisionProcessor.getCollidingEntityCount(profile.getPlayer(), profile.getBoundingBox())
+                    : 0;
+            isColliding = collidingEntityCount > 0;
+        } finally {
+            Profiler.stop("MovementData (Blocks 1)", profiler);
+        }
     }
 
     void processBlocks() {
@@ -717,7 +722,7 @@ public class MovementData implements Data {
 
 
         }  finally {
-            Profiler.stop("MovementData (Blocks)", profiler);
+            Profiler.stop("MovementData (Blocks 2)", profiler);
         }
     }
 
@@ -932,7 +937,7 @@ public class MovementData implements Data {
 
             profile.setBoundingBox(createPlayerBox());
 
-            handleNearbyBlocks();
+
 
             float newFrictionFactor = CollisionUtils.getBlockSlipperiness(
                     CollisionUtils.getMaterial(this.location.clone().subtract(0D, .825D, 0D))
@@ -988,7 +993,8 @@ public class MovementData implements Data {
             moving = (deltaXZ != 0.0D && deltaXZ != lastDeltaXZ) || (deltaY != 0.0D && deltaY != lastDeltaY);
 
         }  finally {
-            Profiler.stop("MovementData (playerdata without ticks)", profiler);
+            Profiler.stop("MovementData (playerdata without ticks or blocks)", profiler);
+            handleNearbyBlocks();
             updateTicks();
         }
     }

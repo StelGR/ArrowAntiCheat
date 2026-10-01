@@ -51,15 +51,13 @@ public class IllegalMoveA extends Check {
                 if (exempt("recentVehicle", profile.getVehicleData().getSinceVehicleTicks() < 5)) return;
                 if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
                 if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans())) return;
-
                 if (exempt("reelingIn", profile.getExempt().isReelingIn())) return;
-
                 if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
 
                 double deltaY = movementData.getDeltaY();
                 double deltaXZ = movementData.getDeltaXZ();
 
-                String data = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (1)\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                String data = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                         + "\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                         + "\n * nearWall " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isNearWall()
                         + "\n * lastNearWall " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastNearWall()
@@ -67,21 +65,6 @@ public class IllegalMoveA extends Check {
                         + "\n * nearWallPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPacketNearWall()
                         + "\n * nearWall(2) " + MsgType.MAIN_THEME_COLOR.getMessage() + CollisionUtils.isNearWall(movementData.getLocation());
 
-                String data2 = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (2)\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                        + "\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                        + "\n * nearWall " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isNearWall()
-                        + "\n * lastNearWall " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastNearWall()
-                        + "\n * lastLastNearWall " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastLastNearWall()
-                        + "\n * nearWallPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPacketNearWall()
-                        + "\n * nearWall(2) " + MsgType.MAIN_THEME_COLOR.getMessage() + CollisionUtils.isNearWall(movementData.getLocation());
-
-                String data3 = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (3)\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                        + "\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                        + "\n * nearWall " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isNearWall()
-                        + "\n * lastNearWall " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastNearWall()
-                        + "\n * lastLastNearWall " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isLastLastNearWall()
-                        + "\n * nearWallPacket " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPacketNearWall()
-                        + "\n * nearWall(2) " + MsgType.MAIN_THEME_COLOR.getMessage() + CollisionUtils.isNearWall(movementData.getLocation());
 
                 if (deltaY < -3.921
                         && !(movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))
@@ -112,7 +95,7 @@ public class IllegalMoveA extends Check {
                     fail("Impossible deltaXZ movement", "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ);
                 }
 
-                verbose(this.getClass().getSimpleName(), deltaY, 1, data2);
+                verbose(this.getClass().getSimpleName(), deltaY, 1, data);
 
 
                 int ghostLiquidWebTicks = Math.min(
@@ -155,7 +138,7 @@ public class IllegalMoveA extends Check {
                         && !profile.getVelocityData().isTakingVelocity()
                         && movementData.getSinceRiptidingTicks() > 15
                         && !movementData.isGlidingOrRecentlyGlided(25))) {
-                    verbose(this.getClass().getSimpleName(), deltaY, stepHeight, data3);
+                    verbose(this.getClass().getSimpleName(), deltaY, stepHeight, data);
                     fail("Step?", "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                             + "\nmaxStepHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + stepHeight);
                 }
