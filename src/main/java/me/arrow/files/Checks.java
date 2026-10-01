@@ -189,14 +189,21 @@ public class Checks implements Initializer {
 
         AIM_K("AimK.enabled", true, "Should we enable this module?"),
         AIM_K_PUNISH("AimK.punish", "", "Punishment settings"),
-        AIM_K_PUNISH_ENABLED("AimK.punish.enabled", false, "Should punishments be enabled for this check?"),
-        AIM_K_PUNISH_MODE("AimK.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        AIM_K_MAX_VL("AimK.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
+        AIM_K_PUNISH_ENABLED("AimK.punish.enabled", true, "Should punishments be enabled for this check?"),
+        AIM_K_PUNISH_MODE("AimK.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        AIM_K_MAX_VL("AimK.punish.vl", 25, "The maximum violation amount a player needs to reach in order to get punished"),
+
+
+        AIM_L("AimL.enabled", true, "Should we enable this module?"),
+        AIM_L_PUNISH("AimL.punish", "", "Punishment settings"),
+        AIM_L_PUNISH_ENABLED("AimL.punish.enabled", true, "Should punishments be enabled for this check?"),
+        AIM_L_PUNISH_MODE("AimL.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        AIM_L_MAX_VL("AimL.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
         REACH_A("ReachA.enabled", true, "Should we enable this module?"),
         REACH_A_MAX_SAMPLES("ReachA.maxSamples", 40, "Do not touch this if you don't know what you are doing."),
         REACH_A_FLAG_SAMPLES("ReachA.flagSamples", 16, "Do not touch this if you don't know what you are doing."),
-        REACH_A_MINIMUM_REACH("ReachA.minimumReach", 3.0005, "The measured reach distance at which Reach A starts flagging."),
+        REACH_A_MINIMUM_REACH("ReachA.minimumReach", 3.01, "The measured reach distance at which Reach A starts flagging."),
         REACH_A_BOX_EXPAND_HORIZONTAL("ReachA.boxExpandHorizontal", 0.035, "Do not touch this if you don't know what you are doing."),
         REACH_A_BOX_EXPAND_VERTICAL("ReachA.boxExpandVertical", 0.035, "Do not touch this if you don't know what you are doing."),
         REACH_A_MAX_LAG_BOX_EXPAND("ReachA.maxLagBoxExpand", 0.13, "Do not touch this if you don't know what you are doing."),

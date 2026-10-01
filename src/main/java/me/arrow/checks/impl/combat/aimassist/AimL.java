@@ -36,7 +36,7 @@ public class AimL extends Check {
         float lastDeltaPitch = rotationData.getLastDeltaPitch();
         float lastDeltaYaw = rotationData.getLastDeltaYaw();
 
-        if(rotationData.getCinematicProcessor().isCinematic() || rotationData.getSensitivityProcessor().getMcpSensitivity() > 150) {
+        if(rotationData.getCinematicProcessor().isCinematic()) {
             rotation.clear();
         }
 
