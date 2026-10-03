@@ -36,9 +36,9 @@ public class AimL extends Check {
         float lastDeltaPitch = rotationData.getLastDeltaPitch();
         float lastDeltaYaw = rotationData.getLastDeltaYaw();
 
-        if(rotationData.getCinematicProcessor().isCinematic()) {
-            rotation.clear();
-        }
+//        if(rotationData.getCinematicProcessor().isCinematic()) {
+//            rotation.clear();
+//        }
 
         if(deltaPitch != lastDeltaPitch && deltaYaw != lastDeltaYaw) {
             if(!rotation.isEmpty() && Math.hypot(deltaYaw, deltaPitch) > 1 && deltaYaw > 0 && deltaPitch > 0) {

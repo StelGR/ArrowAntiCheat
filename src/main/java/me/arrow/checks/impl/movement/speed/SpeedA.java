@@ -289,40 +289,7 @@ public class SpeedA extends Check {
                 airLimitDebug += ", movingOnHoneyTicks";
             }
 
-            if (movementData.getSinceSpeedPotionEffectTicks() < 15 && movementData.getSinceSpeedPotionEffectTicks() > 0) {
-                expectedSpeed += 0.05;
-                airLimitDebug += ", sincePotionEffectTicks < 15";
-            }
-            VelocityData vd = profile.getVelocityData();
 
-            double explosionH = 0.0;
-
-            Vector expFvc = vd.getExplosionKnockback();
-            if (expFvc != null) {
-                explosionH = Math.hypot(expFvc.getX(), expFvc.getZ());
-            }
-
-            double kbComponent = Math.max(Math.abs(vd.getVelocityH()), 0.0);
-
-            if (vd.getVelocityTicks() == 1) {
-                expectedSpeed += 0.03;
-                airLimitDebug += ", velocityTick 1";
-            }
-
-            double explosionComponent = 0.0;
-            if (explosionH > 0.0) {
-                explosionComponent = (explosionH * 6) + 0.2D;
-            }
-
-            expectedSpeed += kbComponent + explosionComponent;
-
-            if (kbComponent > 0) {
-                airLimitDebug += ", velocity";
-            }
-
-            if (explosionComponent > 0) {
-                airLimitDebug += ", explosionVelocity";
-            }
 
 //            double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
 //            if (movementData.isInsideWater()) {
@@ -332,19 +299,7 @@ public class SpeedA extends Check {
 
 
 
-            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2);
 
-            if (currentlyRiptiding) {
-                double riptideCap = 0.25 + (0.75 * profile.getPredictionData().riptideLevel());
-
-                if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
-                if (movementData.isInsideWater()) riptideCap += 1;
-
-                if (movementData.getSinceRiptidingTicks() > 10) riptideCap /= 2;
-
-                expectedSpeed += riptideCap;
-                airLimitDebug += ", riptide";
-            }
 
             double maxJumpHeight = MoveUtils.getJumpMotion(profile);
 
@@ -432,7 +387,7 @@ public class SpeedA extends Check {
 //                airLimitDebug += ", movingIce + underBlock";
 //            }
 
-            expectedSpeed += movementData.elytraMomentum();
+
             //expectedSpeed += movementData.getDolphinGraceBoost();
 
             if (movementData.isWaterPredictionActive()) {
@@ -457,6 +412,57 @@ public class SpeedA extends Check {
                     airLimitDebug +=
                             ", waterMomentum(" + waterMomentum + ")";
                 }
+            }
+
+            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2);
+
+            if (currentlyRiptiding) {
+                double riptideCap = 0.3 + (0.75 * profile.getPredictionData().riptideLevel());
+
+                if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
+                if (movementData.isInsideWater()) riptideCap += 1;
+
+                if (movementData.getSinceRiptidingTicks() > 10) riptideCap /= 2;
+
+                expectedSpeed += riptideCap;
+                airLimitDebug += ", riptide";
+            }
+
+            expectedSpeed += movementData.elytraMomentum();
+
+            if (movementData.getSinceSpeedPotionEffectTicks() < 15 && movementData.getSinceSpeedPotionEffectTicks() > 0) {
+                expectedSpeed += 0.05;
+                airLimitDebug += ", sincePotionEffectTicks < 15";
+            }
+            VelocityData vd = profile.getVelocityData();
+
+            double explosionH = 0.0;
+
+            Vector expFvc = vd.getExplosionKnockback();
+            if (expFvc != null) {
+                explosionH = Math.hypot(expFvc.getX(), expFvc.getZ());
+            }
+
+            double kbComponent = Math.max(Math.abs(vd.getVelocityH()), 0.0);
+
+            if (vd.getVelocityTicks() == 1) {
+                expectedSpeed += 0.03;
+                airLimitDebug += ", velocityTick 1";
+            }
+
+            double explosionComponent = 0.0;
+            if (explosionH > 0.0) {
+                explosionComponent = (explosionH * 6) + 0.2D;
+            }
+
+            expectedSpeed += kbComponent + explosionComponent;
+
+            if (kbComponent > 0) {
+                airLimitDebug += ", velocity";
+            }
+
+            if (explosionComponent > 0) {
+                airLimitDebug += ", explosionVelocity";
             }
 
 //            int ghostLiquidWebTicks = Math.min(

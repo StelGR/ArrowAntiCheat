@@ -50,13 +50,13 @@ public class OmniSprintA extends Check {
      */
     private static final double AIR_HORIZONTAL_FRICTION = 0.91D;
 
-    private static final double AIR_INVALID_INPUT_ANGLE = 70.0D;
+    private static final double AIR_INVALID_INPUT_ANGLE = 90.0D;
     private static final double AIR_HARD_INVALID_INPUT_ANGLE = 105.0D;
 
     private static final double AIR_MIN_INPUT_FORWARD_DOT = 0.30D;
     private static final double AIR_HARD_BACKWARD_INPUT_DOT = -0.10D;
 
-    private static final double MIN_AIR_INPUT_XZ = 0.0035D;
+    private static final double MIN_AIR_INPUT_XZ = 0.234D;
 
     private static final double MIN_GROUND_DELTA_XZ = 0.075D;
     private static final double MIN_AIR_DELTA_XZ = 0.055D;

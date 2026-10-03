@@ -44,8 +44,8 @@ public class AimK extends Check {
         if (diff > 1.0f && Math.round(diff) == diff) {
             if (diff == this.suspiciousYaw) {
                 fail("Invalid Yaw Difference","predicted " + MsgType.MAIN_THEME_COLOR.getMessage() + suspiciousYaw
-                        + " diff " + MsgType.MAIN_THEME_COLOR.getMessage() + diff
-                        + " deltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.abs(rotationData.getYaw() - rotationData.getLastYaw()));
+                        + "\ndiff " + MsgType.MAIN_THEME_COLOR.getMessage() + diff
+                        + "\ndeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.abs(rotationData.getYaw() - rotationData.getLastYaw()));
             }
             this.suspiciousYaw = (float)Math.round(diff);
         }
