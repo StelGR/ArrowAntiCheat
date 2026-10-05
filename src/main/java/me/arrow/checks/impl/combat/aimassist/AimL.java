@@ -6,11 +6,15 @@ import me.arrow.checks.impl.combat.aimassist.aimassistUtil.RotationFrame;
 import me.arrow.checks.impl.combat.aimassist.aimassistUtil.Vector3dm;
 import me.arrow.checks.types.Check;
 import me.arrow.core.check.CheckType;
+import me.arrow.core.check.annotation.Experimental;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.customutils.EvictingList;
 
+
+//credits: neuralense
+@Experimental
 public class AimL extends Check {
 
     final private EvictingList<Vector3dm> rotation = new EvictingList<>(200);
@@ -40,16 +44,16 @@ public class AimL extends Check {
 //            rotation.clear();
 //        }
 
-        if(deltaPitch != lastDeltaPitch && deltaYaw != lastDeltaYaw) {
-            if(!rotation.isEmpty() && Math.hypot(deltaYaw, deltaPitch) > 1 && deltaYaw > 0 && deltaPitch > 0) {
-                if(rotation.contains(new Vector3dm(deltaYaw, deltaPitch, 0))) {
-                    if(buffer++ > 4) {
+        if (deltaPitch != lastDeltaPitch && deltaYaw != lastDeltaYaw) {
+            if (!rotation.isEmpty() && Math.hypot(deltaYaw, deltaPitch) > 1 && deltaYaw > 0 && deltaPitch > 0) {
+                if (rotation.contains(new Vector3dm(deltaYaw, deltaPitch, 0))) {
+                    if (buffer++ > 4) {
                         fail("Invalid Rotation Heuristics", "deltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
-                                + " deltaPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaPitch
-                                + " previousYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaYaw
-                                + " previousPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaPitch
-                                + " samples " + MsgType.MAIN_THEME_COLOR.getMessage() + rotation.size()
-                                + " buffer " + MsgType.MAIN_THEME_COLOR.getMessage() + buffer);
+                                + "\ndeltaPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaPitch
+                                + "\npreviousYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaYaw
+                                + "\npreviousPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaPitch
+                                + "\nsamples " + MsgType.MAIN_THEME_COLOR.getMessage() + rotation.size()
+                                + "\nbuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + buffer);
                         buffer = 3.5;
                     }
                 } else {
