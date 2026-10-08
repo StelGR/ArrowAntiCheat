@@ -77,7 +77,7 @@ public class GravityC extends Check {
             if (exempt("worldUnderGhostBlock", world.underGhostBlock)) { resetGravityBuffer(); return; }
             if (exempt("cancelledBlockPlaceAbove", profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2)))) { resetGravityBuffer(); return; }
 
-            if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetGravityBuffer(); return; }
+            if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) { resetGravityBuffer(); return; }
 
             if (exempt("recentDamage", profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2)))) {
                 lastOffset = 0.0D;
@@ -127,7 +127,7 @@ public class GravityC extends Check {
         if (profile.isBouncingOnSlime()) { debugExempt("bouncingOnSlime", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (hasVelocity) { debugExempt("hasVelocity", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isRiptiding()) { debugExempt("riptiding", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) { debugExempt("teleport", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
+        if (md.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) { debugExempt("teleport", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isNearContact()) { debugExempt("contact", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.isNearWater()) { debugExempt("nearWater", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (md.elytraMomentum() > 0) { debugExempt("elytraMomentum", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }

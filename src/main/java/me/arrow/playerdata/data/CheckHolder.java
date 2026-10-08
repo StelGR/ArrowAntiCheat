@@ -7,6 +7,7 @@ import me.arrow.managers.profiler.Profiler;
 import me.arrow.core.check.annotation.Testing;
 import me.arrow.checks.impl.combat.aimassist.*;
 import me.arrow.checks.impl.combat.autoclicker.*;
+import me.arrow.checks.impl.suspicion.Suspicion;
 import me.arrow.checks.impl.combat.backtrack.BackTrackA;
 import me.arrow.checks.impl.combat.backtrack.BackTrackB;
 import me.arrow.checks.impl.combat.killaura.KillauraA;
@@ -20,6 +21,7 @@ import me.arrow.checks.impl.misc.interact.InteractB;
 import me.arrow.checks.impl.misc.interact.InteractC;
 import me.arrow.checks.impl.misc.interact.InteractD;
 import me.arrow.checks.impl.misc.interact.InteractE;
+import me.arrow.checks.impl.misc.interact.InteractF;
 import me.arrow.checks.impl.misc.inventory.InventoryA;
 import me.arrow.checks.impl.misc.scaffold.*;
 import me.arrow.checks.impl.misc.timer.TimerA;
@@ -126,8 +128,8 @@ public class CheckHolder {
                 new AimH2(this.profile),
                 new AimI(this.profile),
                 new AimJ(this.profile),
-                new AimK(this.profile),
-                new AimL(this.profile),
+//                new AimK(this.profile),
+//                new AimL(this.profile), //current implementations are shit
 
                 new AutoClickerA(this.profile),
                 new AutoClickerB(this.profile),
@@ -160,6 +162,7 @@ public class CheckHolder {
                 new InteractC(this.profile),
                 new InteractD(this.profile),
                 new InteractE(this.profile),
+                new InteractF(this.profile),
 
                 new InventoryA(this.profile),
 
@@ -210,7 +213,9 @@ public class CheckHolder {
                 new TimerC(this.profile),
                 new VehicleA(this.profile),
                 new VehicleB(this.profile),
-                new VehicleC(this.profile)
+                new VehicleC(this.profile),
+
+                new Suspicion(this.profile)
 
         );
 

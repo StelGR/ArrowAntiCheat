@@ -56,19 +56,25 @@ public class DamageData implements Data {
         record(event.getCause());
 
         if (event.getCause() != EntityDamageEvent.DamageCause.PROJECTILE
-                || !(event instanceof EntityDamageByEntityEvent damageByEntity)
-                || !(damageByEntity.getDamager() instanceof Projectile projectile)) {
+                || !(event instanceof EntityDamageByEntityEvent)) {
             return;
         }
 
+        EntityDamageByEntityEvent damageByEntity = (EntityDamageByEntityEvent) event;
+        if (!(damageByEntity.getDamager() instanceof Projectile)) {
+            return;
+        }
+
+        Projectile projectile = (Projectile) damageByEntity.getDamager();
         Object shooter = projectile.getShooter();
 
-        if (shooter instanceof Player shooterPlayer
+        if (shooter instanceof Player
                 && profile.getPlayer() != null
-                && shooterPlayer.getUniqueId().equals(profile.getPlayer().getUniqueId())) {
+                && ((Player) shooter).getUniqueId().equals(profile.getPlayer().getUniqueId())) {
             this.lastSelfProjectileTick = profile.getTick();
 
-            if (projectile instanceof Arrow arrow) {
+            if (projectile instanceof Arrow) {
+                Arrow arrow = (Arrow) projectile;
                 this.lastSelfBowTick = profile.getTick();
                 this.lastSelfBowPunchLevel = getArrowKnockbackStrength(arrow);
             }

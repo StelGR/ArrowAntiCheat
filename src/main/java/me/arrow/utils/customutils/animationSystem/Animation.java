@@ -45,11 +45,11 @@ public abstract class Animation {
     }
 
     public static Animation create(Type type, AnimationManager manager, Player player) {
-        return switch (type) {
-            case ANVIL -> new AnvilAnimation(manager, player);
-            case NOISY -> new NoisyAnimation(manager, player);
-            default -> new DestroyedAnimation(manager, player);
-        };
+        switch (type) {
+            case ANVIL: return new AnvilAnimation(manager, player);
+            case NOISY: return new NoisyAnimation(manager, player);
+            default: return new DestroyedAnimation(manager, player);
+        }
     }
 
     public Location getOrigin() {

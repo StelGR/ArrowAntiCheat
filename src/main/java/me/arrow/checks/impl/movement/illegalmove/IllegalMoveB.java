@@ -141,7 +141,7 @@ public class IllegalMoveB extends Check {
     boolean isExempt(MovementData movementData) {
 
         if (exempt("cancelled", profile.shouldCancel())) return true;
-        if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return true;
+        if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return true;
         if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;
         if (exempt("dead", profile.getPlayer().isDead())) return true;
         if (exempt("vehicle", profile.isExempt().vehicle())) return true;

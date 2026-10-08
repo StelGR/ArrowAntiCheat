@@ -33,7 +33,8 @@ public enum CheckType {
     MOVEMENT("Movement", CheckCategory.MOVEMENT),
     NETWORK("Network", CheckCategory.CONNECTION),
     COMBAT("Combat", CheckCategory.COMBAT),
-    WORLD("World", CheckCategory.WORLD);
+    WORLD("World", CheckCategory.WORLD),
+    SUSPICION("Suspicion", CheckCategory.SUSPICION);
 
     private final String checkName;
     private final CheckCategory checkCategory;

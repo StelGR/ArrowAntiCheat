@@ -183,7 +183,8 @@ public class GeneralEventListener implements Listener {
             if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) ((PlayerPreLoginEvent) event).disallow(PlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
         }
 
-        if (event instanceof PlayerJoinEvent joinEvent) {
+        if (event instanceof PlayerJoinEvent) {
+            PlayerJoinEvent joinEvent = (PlayerJoinEvent) event;
             final Player joiningPlayer = joinEvent.getPlayer();
             final UUID joiningUuid = joiningPlayer.getUniqueId();
 
@@ -316,7 +317,8 @@ public class GeneralEventListener implements Listener {
 
         if (event instanceof PlayerFishEvent) {
             try {
-                if (((PlayerFishEvent) event).getState() == PlayerFishEvent.State.REEL_IN && ((PlayerFishEvent) event).getHook().getHookedEntity() instanceof Player target) {
+                if (((PlayerFishEvent) event).getState() == PlayerFishEvent.State.REEL_IN && ((PlayerFishEvent) event).getHook().getHookedEntity() instanceof Player) {
+                    Player target = (Player) ((PlayerFishEvent) event).getHook().getHookedEntity();
                     Profile user = Arrow.getInstance().getProfileManager().getProfile(target);
                     if (user != null) {
                         user.getReelingTicks().reset();
@@ -326,7 +328,8 @@ public class GeneralEventListener implements Listener {
         }
 
 
-        if (event instanceof EntityDamageEvent damageEvent) {
+        if (event instanceof EntityDamageEvent) {
+            EntityDamageEvent damageEvent = (EntityDamageEvent) event;
             if (!(damageEvent.getEntity() instanceof Player)) return;
 
             Profile user = Arrow.getInstance().getProfileManager().getProfile((Player) damageEvent.getEntity());
@@ -361,7 +364,8 @@ public class GeneralEventListener implements Listener {
             }
         }
 
-        if (event instanceof BlockBreakEvent blockBreakEvent) {
+        if (event instanceof BlockBreakEvent) {
+            BlockBreakEvent blockBreakEvent = (BlockBreakEvent) event;
             Profile user = Arrow.getInstance().getProfileManager().getProfile(blockBreakEvent.getPlayer());
 
             if (user != null) {
@@ -701,6 +705,20 @@ public class GeneralEventListener implements Listener {
 //                    event.setDamage(event.getDamage() * 0.25);
 
                 if (event.getDamager() instanceof Player) {
+                    Player damager = (Player) event.getDamager();
+                    if (Config.Setting.NEURAL_DAMAGE_REDUCTION.getBoolean()) {
+                        Profile damagerProfile = Arrow.getInstance().getProfileManager().getProfile(damager);
+                        if (damagerProfile != null) {
+                            double trust = damagerProfile.getTrustFactor().getTrust();
+                            if (trust < 50.0) {
+                                // For every 10 trust lost under 50, reduce damage by 10% (down to 0% at -50 trust)
+                                double multiplier = 1.0 - ((50.0 - trust) / 100.0);
+                                multiplier = Math.max(0.0, Math.min(1.0, multiplier));
+                                event.setDamage(event.getDamage() * multiplier);
+                            }
+                        }
+                    }
+
                     if (Config.Setting.TEST_SERVER_MODE_PREVENT_DAMAGE.getBoolean() && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
                         if (event.getDamager().getWorld().getName().equals(Config.Setting.TEST_SERVER_MODE_WORLD.getString()))
                             event.setDamage(0.0);

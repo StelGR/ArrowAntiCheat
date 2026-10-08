@@ -61,14 +61,13 @@ public class MotionE extends Check {
             if (exempt("underBlock", movement.isUnderblock())) return;
             if (exempt("onBoat", movement.isOnBoat())) return;
            // if (exempt("nearBoat", movement.isNearBoat())) return;
-            if (exempt("nearBubble", movement.isNearBubble())) return;
+          //  if (exempt("nearBubble", movement.isNearBubble())) return;
             int clientTickTrans = profile.getConnectionData() == null
                     ? 0 : profile.getConnectionData().getClientTickTrans();
             int underPlaceTicks = profile.getActionData() == null
                     ? Integer.MAX_VALUE : profile.getActionData().getLastConfirmedUnderPlaceTicks();
 
-            if (exempt("teleports", movement.getSinceTeleportTicks()
-                    < 5 + (clientTickTrans * 4))) return;
+            if (exempt("teleports", movement.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return;
             if (exempt("swimming", isSwimming())) return;
             if (exempt("riptiding", movement.getSinceRiptidingTicks() < 5)) return;
             if (exempt("underPlace", underPlaceTicks < 5)) return;

@@ -403,13 +403,13 @@ public class ScaffoldD extends Check {
     }
 
     private String faceName(int face) {
-        return switch (face) {
-            case 2 -> "NORTH";
-            case 3 -> "SOUTH";
-            case 4 -> "WEST";
-            case 5 -> "EAST";
-            default -> "UNKNOWN";
-        };
+        switch (face) {
+            case 2: return "NORTH";
+            case 3: return "SOUTH";
+            case 4: return "WEST";
+            case 5: return "EAST";
+            default: return "UNKNOWN";
+        }
     }
 
     private String faceLocation(int x, int y, int z, int face) {

@@ -8,8 +8,8 @@ import me.arrow.utils.customutils.animationSystem.Animation;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Stream;
 
 @Getter
 public class Config implements Initializer {
@@ -133,6 +133,10 @@ public class Config implements Initializer {
         SIMULATION_MODE("simulation_mode", false, "Should we enable simulation mode (parody)"),
         CANCEL_DUPLICATE_PACKET("cancel_duplicate_packet", true, "Should duplicate 1.17+ movement packets (from item use, attack, or bow spam) be cancelled? Recommended: true"),
 
+        NEURAL("neural", "", "Neural Network Settings"),
+        NEURAL_SERVER_URL("neural.server_url", "https://cloud.arrow-anticheat.xyz/", "The URL of the neural network inference server.", "Training is controlled from the server itself"),
+        NEURAL_DAMAGE_REDUCTION("neural.damage_reduction_enabled", true, "Should suspicious players with low trust factor have their damage reduced?", "At 50 trust: 100% damage, for every 10 trust lost under 50, damage is reduced by 10% (down to 0% at -50 trust)."),
+
         DEBUG("debug", false, "DO NOT TOUCH UNLESS YOU KNOW WHAT YOU ARE DOING");
 
         @Getter
@@ -234,7 +238,7 @@ public class Config implements Initializer {
             if (exists && this.excluded) return false;
 
             if (fileConfiguration.get(this.key) == null) {
-                List<String> comments = Stream.of(this.comments).toList();
+                List<String> comments = Arrays.asList(this.comments);
                 if (this.defaultValue != null) {
                     fileConfiguration.set(this.key, this.defaultValue, comments.toArray(new String[0]));
                 } else {

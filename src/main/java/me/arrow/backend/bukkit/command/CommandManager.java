@@ -35,6 +35,7 @@ public class CommandManager implements TabExecutor {
         this.subCommands.add(new InfoCommand(plugin));
         this.subCommands.add(new ReloadCommand(plugin));
         this.subCommands.add(new ProfilerCommand(plugin));
+        this.subCommands.add(new TrainingCommand(plugin));
     }
 
     @Override
@@ -77,14 +78,15 @@ public class CommandManager implements TabExecutor {
             return this.subCommands.stream().map(SubCommand::getName).collect(Collectors.toList());
         }
 
-        if (args.length == 2 && sender instanceof Player player && args[0].equals("verbose")) {
+        if (args.length == 2 && sender instanceof Player && args[0].equals("verbose")) {
+            Player player = (Player) sender;
             Profile profile = Arrow.getInstance().getProfileManager().getProfile(player);
             if (profile == null) return Collections.emptyList();
 
             return Arrays.stream(profile.getCheckHolder().getChecks())
                     .map(check -> check.getClass().getSimpleName()) // only class name, no package
                     .filter(name -> name.startsWith(args[1]))
-                    .toList();
+                    .collect(Collectors.toList());
         }
 
         return null;

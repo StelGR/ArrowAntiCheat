@@ -1772,8 +1772,11 @@ public class BlockProcessor implements Data {
             Object inventory = data.getPlayer().getInventory();
             Object stack = inventory.getClass().getMethod("getItemInMainHand").invoke(inventory);
 
-            if (stack instanceof ItemStack item && item.getType() != Material.AIR) {
-                return item.getType();
+            if (stack instanceof ItemStack) {
+                ItemStack item = (ItemStack) stack;
+                if (item.getType() != Material.AIR) {
+                    return item.getType();
+                }
             }
         } catch (Throwable ignored) {
         }
@@ -1805,8 +1808,11 @@ public class BlockProcessor implements Data {
             Object inventory = data.getPlayer().getInventory();
             Object stack = inventory.getClass().getMethod("getItemInOffHand").invoke(inventory);
 
-            if (stack instanceof ItemStack item && item.getType() != Material.AIR) {
-                return item.getType();
+            if (stack instanceof ItemStack) {
+                ItemStack item = (ItemStack) stack;
+                if (item.getType() != Material.AIR) {
+                    return item.getType();
+                }
             }
         } catch (Throwable ignored) {
         }

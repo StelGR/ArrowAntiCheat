@@ -127,7 +127,7 @@ public class GravityD extends Check {
                 if (world.underGhostBlock) { resetGravityD("worldUnderGhostBlock"); return; }
                 if (profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (transTicks * 2))) { resetGravityD("cancelledBlockPlaceAbove"); return; }
 
-                if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+                if (movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) {
                     resetGravityD("recentTeleport");
                     return;
                 }
@@ -431,7 +431,7 @@ public class GravityD extends Check {
         if (exempt("vehicle", profile.getExempt().isVehicle())) return true;
         if (exempt("slimeBounce", profile.isBouncingOnSlime())) return true;
         if (exempt("geysers", profile.getGeysersTracker().isBeingPushed())) return true;
-        if (exempt("teleports", data.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return true;
+        if (exempt("teleports", data.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return true;
         if (exempt("gliding", data.isGlidingOrRecentlyGlided(25))) return true;
         if (exempt("riptiding", data.getSinceRiptidingTicks() < 10 + transTicks)) return true;
         if (exempt("underBlock", data.isUnderblock() || data.isLastUnderblock() || data.getSinceUnderblockTicks() <= 2)) return true;
@@ -911,7 +911,7 @@ public class GravityD extends Check {
     private boolean isGravityDExempt(MovementData data, int transTicks) {
         if (profile.shouldCancel()) { resetGravityD("shouldCancel"); return true; }
         if (profile.isBouncingOnSlime()) { resetGravityD("bouncingOnSlime"); return true; }
-        if (data.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+        if (data.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) {
             resetGravityD("teleporting");
             return true;
         }

@@ -17,8 +17,10 @@ import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
+import me.arrow.backend.bukkit.PlatformBackend;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.GameMode;
+import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -46,28 +48,27 @@ public class HitboxA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
-            handleAttack(event);
+        if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+            WrapperPlayClientAttack attack = new WrapperPlayClientAttack(event);
+            handleAttack(attack.getEntityId());
+        } else if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
+            WrapperPlayClientInteractEntity packet;
+            try {
+                packet = new WrapperPlayClientInteractEntity(event);
+            } catch (Throwable ignored) {
+                return;
+            }
+            if (packet.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
+                handleAttack(packet.getEntityId());
+            }
         } else if (OtherUtility.isFlying(event.getPacketType())) {
             missBuffer = Math.max(0.0D, missBuffer - 0.035D);
             decreaseBufferBy(0.02D);
         }
     }
 
-    private void handleAttack(PacketReceiveEvent event) {
-        WrapperPlayClientInteractEntity packet;
-
-        try {
-            packet = new WrapperPlayClientInteractEntity(event);
-        } catch (Throwable ignored) {
-            return;
-        }
-
-        if (packet.getAction() != WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
-            return;
-        }
-
-        Profile target = resolveTarget(packet.getEntityId());
+    private void handleAttack(int entityId) {
+        Profile target = resolveTarget(entityId);
 
         if (target == null || isExempt(profile, target)) {
             return;
@@ -75,24 +76,34 @@ public class HitboxA extends Check {
 
         MovementData movement = profile.getMovementData();
         RotationData rotation = profile.getRotationData();
-        List<CustomLocation> history = snapshot(target.getMovementData().getPastLocations());
 
-        if (movement == null || rotation == null || movement.getLocation() == null || history.size() < 4) {
+        if (movement == null || rotation == null || movement.getLocation() == null) {
             return;
         }
 
+        List<CustomLocation> history = snapshot(target.getMovementData().getPastLocations());
         int pingTicks = getPingTicks(profile);
         List<CustomLocation> positions = getRenderedPositions(history, pingTicks);
 
-        if (positions.size() < 16) {
-            return;
+        if (positions.isEmpty()) {
+            CustomLocation targetLoc = target.getMovementData().getLocation();
+            if (targetLoc != null) {
+                positions.add(targetLoc);
+            } else {
+                return;
+            }
         }
 
         List<Vector> directions = getPossibleDirections(rotation);
         double[] eyes = getPossibleEyeHeights();
         double margin = getProtocolMargin();
         double forgivingMargin = margin + Math.min(0.075D, 0.025D + pingTicks * 0.004D);
-        CustomLocation attacker = movement.getLocation();
+
+        List<CustomLocation> attackerLocations = new ArrayList<>();
+        attackerLocations.add(movement.getLocation());
+        if (movement.getLastLocation() != null) {
+            attackerLocations.add(movement.getLastLocation());
+        }
 
         boolean rayHit = false;
         boolean forgivingHit = false;
@@ -104,28 +115,30 @@ public class HitboxA extends Check {
             BoundingBox forgivingBox = createTargetBox(position, forgivingMargin, forgivingMargin * 0.75D);
             Vector center = new Vector(position.getX(), position.getY() + 0.9D, position.getZ());
 
-            for (double eyeHeight : eyes) {
-                Vector eye = new Vector(attacker.getX(), attacker.getY() + eyeHeight, attacker.getZ());
+            for (CustomLocation attacker : attackerLocations) {
+                for (double eyeHeight : eyes) {
+                    Vector eye = new Vector(attacker.getX(), attacker.getY() + eyeHeight, attacker.getZ());
 
-                if (inside(eye, box)) {
-                    rayHit = true;
-                    break;
-                }
-
-                for (Vector direction : directions) {
-                    double hit = box.rayTrace(eye, direction, 6.0D);
-                    double forgiving = forgivingBox.rayTrace(eye, direction, 6.0D);
-
-                    if (hit >= 0.0D && hit <= 6.0D) {
+                    if (inside(eye, box)) {
                         rayHit = true;
+                        break;
                     }
 
-                    if (forgiving >= 0.0D && forgiving <= 6.0D) {
-                        forgivingHit = true;
-                    }
+                    for (Vector direction : directions) {
+                        double hit = box.rayTrace(eye, direction, 6.0D);
+                        double forgiving = forgivingBox.rayTrace(eye, direction, 6.0D);
 
-                    bestCenterLine = Math.min(bestCenterLine, distancePointToRay(eye, direction, center));
-                    bestCenterAngle = Math.min(bestCenterAngle, angleToPoint(eye, direction, center));
+                        if (hit >= 0.0D && hit <= 6.0D) {
+                            rayHit = true;
+                        }
+
+                        if (forgiving >= 0.0D && forgiving <= 6.0D) {
+                            forgivingHit = true;
+                        }
+
+                        bestCenterLine = Math.min(bestCenterLine, distancePointToRay(eye, direction, center));
+                        bestCenterAngle = Math.min(bestCenterAngle, angleToPoint(eye, direction, center));
+                    }
                 }
             }
 
@@ -161,27 +174,49 @@ public class HitboxA extends Check {
             return;
         }
 
-        double evidence = pingTicks >= 5 ? 0.45D : recentFlick ? 0.60D : 1.0D;
+        // True miss: Crosshair does not intersect target's bounding box across any valid position
+        double evidence;
+        if (bestCenterAngle >= 45.0D) {
+            evidence = 1.75D;
+        } else if (bestCenterAngle >= 20.0D) {
+            evidence = 1.25D;
+        } else if (bestCenterAngle >= 8.0D) {
+            evidence = pingTicks >= 5 ? 0.60D : recentFlick ? 0.70D : 1.0D;
+        } else {
+            evidence = pingTicks >= 5 ? 0.40D : recentFlick ? 0.50D : 0.75D;
+        }
+
         missBuffer = Math.min(8.0D, missBuffer + evidence);
 
-        if (increaseBufferBy(evidence) > 3.0D && missBuffer > 3.0D && bestCenterAngle > 26) {
+        if (increaseBufferBy(evidence) >= 2.5D && missBuffer >= 2.5D) {
             fail("Invalid Hitbox Interaction",
                     "centerLine " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestCenterLine)
-                            + "\ncenterAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestCenterAngle)
+                            + "\ncenterAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestCenterAngle) + "°"
                             + "\nmargin " + MsgType.MAIN_THEME_COLOR.getMessage() + format(margin)
                             + "\nforgivingMargin " + MsgType.MAIN_THEME_COLOR.getMessage() + format(forgivingMargin)
                             + "\nrecentFlick " + MsgType.MAIN_THEME_COLOR.getMessage() + recentFlick
                             + "\npingTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + pingTicks
                             + "\npositions " + MsgType.MAIN_THEME_COLOR.getMessage() + positions.size());
 
-            missBuffer = Math.max(1.5D, missBuffer - 1.5D);
-            decreaseBufferBy(1.5D);
+            missBuffer = Math.max(1.0D, missBuffer - 1.0D);
+            decreaseBufferBy(1.0D);
         }
     }
 
     private Profile resolveTarget(int entityId) {
-        UUID uuid = profile.getCombatData().getTrackedEntities().get(entityId);
-        return uuid == null ? null : Arrow.getInstance().getProfileManager().getProfile(uuid);
+        if (profile.getCombatData() != null && profile.getCombatData().getTrackedEntities() != null) {
+            UUID uuid = profile.getCombatData().getTrackedEntities().get(entityId);
+            if (uuid != null) {
+                Profile target = Arrow.getInstance().getProfileManager().getProfile(uuid);
+                if (target != null) return target;
+            }
+        }
+        for (Player player : PlatformBackend.get().getServer().getOnlinePlayers()) {
+            if (player.getEntityId() == entityId) {
+                return Arrow.getInstance().getProfileManager().getProfile(player);
+            }
+        }
+        return null;
     }
 
     private boolean isExempt(Profile attacker, Profile target) {
@@ -231,6 +266,7 @@ public class HitboxA extends Check {
     }
 
     private List<CustomLocation> getRenderedPositions(List<CustomLocation> history, int pingTicks) {
+        if (history == null || history.isEmpty()) return Collections.emptyList();
         int newest = history.size() - 1;
         int expectedAge = Math.min(newest, Math.max(0, pingTicks + 1));
         int youngest = Math.max(0, expectedAge - 1);

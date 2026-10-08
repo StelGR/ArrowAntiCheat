@@ -778,9 +778,9 @@ public class GuiManager {
                         translate(guiLine())
                 )));
 
-        gui.setItem(34, generateItem(new ItemStack(Material.ENDER_PEARL, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Phase"),
+        gui.setItem(34, generateItem(new ItemStack(Material.ENDER_PEARL, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Suspicion"),
                 Arrays.asList(translate(guiLine()),
-                        translate("&7Manage the Phase checks"),
+                        translate("&7Manage the Suspicion checks"),
                         translate(guiLine())
                 )));
 

@@ -5,6 +5,7 @@ import lombok.Setter;
 import me.arrow.Arrow;
 import me.arrow.api.events.AnticheatViolationEvent;
 import me.arrow.api.events.VerboseEvent;
+import me.arrow.checks.impl.suspicion.Suspicion;
 import me.arrow.core.check.annotation.Development;
 import me.arrow.core.check.annotation.Experimental;
 import me.arrow.core.check.CheckCategory;
@@ -33,8 +34,6 @@ public abstract class AbstractCheck {
     @Getter
     private final boolean enabled, canPunish;
 
-
-
     @Getter
     @Setter
     private String checkName, checkType, fullCheckName, description, checkMode, punishMode;
@@ -58,8 +57,6 @@ public abstract class AbstractCheck {
         this.checkName = check.getCheckName();
         this.checkType = type;
         this.description = description;
-
-
 
         final CommentedFileConfiguration config = Arrow.getInstance().getChecks();
         final String checkName = this.checkName;
@@ -101,25 +98,22 @@ public abstract class AbstractCheck {
                 || this instanceof GroundC
                 || this instanceof TimerA
                 || this instanceof TimerB
-                || this instanceof TimerC)) {
+                || this instanceof TimerC
+                || this instanceof Suspicion)) {
 
             switch (getCategory()) {
-                case MOVEMENT -> {
+                case MOVEMENT:
                     profile.getCheckHolder().getMovementCheck().fail(this.checkName, verboseTitle, verboseInfo);
                     return;
-                }
-                case COMBAT -> {
+                case COMBAT:
                     profile.getCheckHolder().getCombatCheck().fail(this.checkName, verboseTitle, verboseInfo);
                     return;
-                }
-                case CONNECTION -> {
+                case CONNECTION:
                     profile.getCheckHolder().getNetworkCheck().fail(this.checkName, verboseTitle, verboseInfo);
                     return;
-                }
-                case WORLD -> {
+                case WORLD:
                     profile.getCheckHolder().getWorldCheck().fail(this.checkName, verboseTitle, verboseInfo);
                     return;
-                }
             }
         }
 

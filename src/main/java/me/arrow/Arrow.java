@@ -45,6 +45,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -212,9 +213,9 @@ public class Arrow {
                     "\\$$$$$$$ |$$ |      $$ |      \\$$$$$$  |\\$$$$$\\$$$$  |",
                     " \\_______|\\__|      \\__|       \\______/  \\_____\\____/ "
             };
-            List<String> printMessage = new ArrayList<>(List.of(HEADER));
+            List<String> printMessage = new ArrayList<>(Arrays.asList(HEADER));
             printMessage.forEach(msg -> log (translate("&6" + msg)));
-            printMessage.removeAll(List.of(HEADER));
+            printMessage.removeAll(Arrays.asList(HEADER));
             log("");
             log(translate("&6" + "=================================================================="));
             log(translate("&6" + "➪  Version&7: &b" + getVersion()));
@@ -345,6 +346,9 @@ public class Arrow {
             RodData.init(getHost());
             CollisionProcessor.start();
 
+            me.arrow.neural.NeuralNetManager.initialize();
+            log(translate("\u00266" + "➪  Neural Network Manager Initialized"));
+
             long endTime = System.currentTimeMillis();
 
             log("");
@@ -420,6 +424,8 @@ public class Arrow {
             if (this.checks != null) {
                 this.checks.shutdown();
             }
+
+            me.arrow.neural.NeuralNetManager.shutdown();
 
             if (this.configuration != null) {
                 this.configuration.shutdown();

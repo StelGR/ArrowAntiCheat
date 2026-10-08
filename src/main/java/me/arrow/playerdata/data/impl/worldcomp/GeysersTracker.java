@@ -90,9 +90,10 @@ public class GeysersTracker implements Processor {
                             if (!CollisionUtils.isChunkLoaded(new Location(world, x, y, z))) continue;
                             Block block = world.getBlockAt(x, y, z);
 
-                            if (!(block.getBlockData() instanceof PotentSulfur sulfur)) {
+                            if (!(block.getBlockData() instanceof PotentSulfur)) {
                                 continue;
                             }
+                            PotentSulfur sulfur = (PotentSulfur) block.getBlockData();
 
                             if (!isActiveGeyserState(sulfur.getPotentSulfurState())) {
                                 continue;

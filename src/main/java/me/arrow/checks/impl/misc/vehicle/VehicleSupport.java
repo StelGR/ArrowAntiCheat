@@ -145,7 +145,8 @@ final class VehicleSupport {
     }
 
     static int effectLevel(Entity entity, String effectName) {
-        if (!(entity instanceof LivingEntity living)) return 0;
+        if (!(entity instanceof LivingEntity)) return 0;
+        LivingEntity living = (LivingEntity) entity;
         try {
             for (PotionEffect effect : living.getActivePotionEffects()) {
                 if (effect != null && effect.getType() != null
@@ -162,7 +163,7 @@ final class VehicleSupport {
         try {
             Method method = horse.getClass().getMethod("getJumpStrength");
             Object value = method.invoke(horse);
-            if (value instanceof Number number) return number.doubleValue();
+            if (value instanceof Number) return ((Number) value).doubleValue();
         } catch (Throwable ignored) {
         }
         return 0.7D;

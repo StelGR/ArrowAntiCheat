@@ -631,11 +631,11 @@ public class ElytraA extends Check {
     }
 
     private int getRocketBoostDuration(int power) {
-        return switch (Math.max(1, Math.min(3, power))) {
-            case 2 -> 46;
-            case 3 -> 58;
-            default -> 34;
-        };
+        switch (Math.max(1, Math.min(3, power))) {
+            case 2: return 46;
+            case 3: return 58;
+            default: return 34;
+        }
     }
 
     private double getRocketUpwardAllowance(double pitch) {
@@ -684,7 +684,8 @@ public class ElytraA extends Check {
         }
 
         try {
-            if (item.getItemMeta() instanceof FireworkMeta meta) {
+            if (item.getItemMeta() instanceof FireworkMeta) {
+                FireworkMeta meta = (FireworkMeta) item.getItemMeta();
                 return Math.max(1, Math.min(3, meta.getPower()));
             }
         } catch (Throwable ignored) {
@@ -695,7 +696,8 @@ public class ElytraA extends Check {
             assert meta != null;
             Object power = meta.getClass().getMethod("getPower").invoke(meta);
 
-            if (power instanceof Number number) {
+            if (power instanceof Number) {
+                Number number = (Number) power;
                 return Math.max(1, Math.min(3, number.intValue()));
             }
         } catch (Throwable ignored) {

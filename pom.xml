@@ -192,9 +192,10 @@
         </dependency>
     </dependencies>
     <properties>
-        <!-- Keep the plugin compatible with Java 16 server JVMs even when
-             Maven itself is run with a newer JDK. -->
-        <maven.compiler.release>16</maven.compiler.release>
+        <!-- Keep the plugin compatible with Java 8+ server JVMs (Java 8 through Java 25) -->
+        <maven.compiler.release>8</maven.compiler.release>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>

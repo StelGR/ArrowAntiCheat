@@ -4,6 +4,7 @@ import me.arrow.Arrow;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
+import me.arrow.managers.profile.Profile;
 import me.arrow.managers.themes.Theme;
 import me.arrow.managers.themes.ThemeManager;
 import me.arrow.backend.bukkit.PlatformBackend;
@@ -38,9 +39,10 @@ public class GuiListener implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) {
+        if (!(event.getWhoClicked() instanceof Player)) {
             return;
         }
+        Player player = (Player) event.getWhoClicked();
 
         String inventoryTitle = getInventoryTitle(event);
         if (inventoryTitle == null) {
@@ -306,7 +308,7 @@ public class GuiListener implements Listener {
                 break;
 
             case 34:
-                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Phase", "Phase"));
+                openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, "Suspicion", "Suspicion"));
                 break;
         }
     }
@@ -426,7 +428,7 @@ public class GuiListener implements Listener {
                     || plainTitle.contains("Slowdown")
                     || plainTitle.contains("Scaffold")
                     || plainTitle.contains("Macro")
-                    || plainTitle.contains("Phase")
+                    || plainTitle.contains("Suspicion")
                     || plainTitle.contains("Timer")) {
                 Arrow.getGuiManager().openMiscChecksGUI(player);
             }
@@ -658,7 +660,7 @@ public class GuiListener implements Listener {
                 }
 
                 try {
-                    var profile = Arrow.getInstance().getProfileManager().getProfile(online);
+                    Profile profile = Arrow.getInstance().getProfileManager().getProfile(online);
                     if (profile == null || profile.getCheckHolder() == null || profile.getCheckHolder().getChecks() == null) {
                         continue;
                     }

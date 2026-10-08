@@ -58,12 +58,16 @@ public class RotationData implements Data {
         try {
             if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
                 final WrapperPlayClientPlayerPositionAndRotation wrapper =
-                        new WrapperPlayClientPlayerPositionAndRotation(event);
+                        (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerPositionAndRotation)
+                                ? (WrapperPlayClientPlayerPositionAndRotation) event.getLastUsedWrapper()
+                                : new WrapperPlayClientPlayerPositionAndRotation(event);
 
                 processRotation(wrapper.getYaw(), wrapper.getPitch());
             } else if (event.getPacketType().equals(PLAYER_ROTATION)) {
                 final WrapperPlayClientPlayerRotation wrapper =
-                        new WrapperPlayClientPlayerRotation(event);
+                        (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerRotation)
+                                ? (WrapperPlayClientPlayerRotation) event.getLastUsedWrapper()
+                                : new WrapperPlayClientPlayerRotation(event);
 
                 processRotation(wrapper.getYaw(), wrapper.getPitch());
             }

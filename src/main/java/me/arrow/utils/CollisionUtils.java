@@ -204,15 +204,20 @@ public class CollisionUtils {
             return MoveUtils.FRICTION;
         }
 
-        return switch (type) {
-            case SLIME_BLOCK -> .8F;
-            case ICE, PACKED_ICE -> .98F;
-            case BLUE_ICE -> .989F;
-            default -> {
-                if ("FROSTED_ICE".equals(type.name())) yield .98F;
-                yield MoveUtils.FRICTION_FACTOR;
-            }
-        };
+        switch (type) {
+            case SLIME_BLOCK:
+                return .8F;
+            case ICE:
+            case PACKED_ICE:
+                return .98F;
+            case BLUE_ICE:
+                return .989F;
+            default:
+                if ("FROSTED_ICE".equals(type.name())) {
+                    return .98F;
+                }
+                return MoveUtils.FRICTION_FACTOR;
+        }
     }
 
     private static boolean usesAirFriction(final Material material) {
@@ -1072,7 +1077,17 @@ public class CollisionUtils {
                                 : null;
 
                         if (legacyData >= 0
-                                && PEMaterials.isLegacySlabMaterial(material)) {
+                                && (PEMaterials.isLegacySlabMaterial(material) || PEMaterials.isStair(material))) {
+
+                            boxes = PEMaterials.getCollisionBounds(
+                                    material,
+                                    legacyData,
+                                    x,
+                                    y,
+                                    z
+                            );
+
+                        } else if (PEMaterials.isStair(material)) {
 
                             boxes = PEMaterials.getCollisionBounds(
                                     material,

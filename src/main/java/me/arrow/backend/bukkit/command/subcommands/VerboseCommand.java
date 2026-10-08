@@ -55,10 +55,11 @@ public class VerboseCommand extends SubCommand {
 
     @Override
     protected void perform(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player senderPlayer)) {
+        if (!(sender instanceof Player)) {
             sender.sendMessage(translate("&cOnly players can use this command."));
             return;
         }
+        Player senderPlayer = (Player) sender;
 
         if (args.length < 2 || args.length > 3) {
             sender.sendMessage(translate("&cUsage: /arrow verbose <check|All> [player]"));

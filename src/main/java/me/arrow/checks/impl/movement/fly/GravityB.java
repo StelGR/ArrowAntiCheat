@@ -247,7 +247,7 @@ public class GravityB extends Check {
 
         if (exempt("cancelledBlockPlaceAbove", profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2)))) { resetGravityBuffer(); return true; }
 
-        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+        if (movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) {
             debugExempt("teleporting", "GravityB");
             return true;
         }

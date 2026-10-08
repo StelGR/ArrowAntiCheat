@@ -489,11 +489,12 @@ public class PredictionData implements Data {
     private int getRiptideActivePackets() {
         int level = riptideLevel();
 
-        int base = switch (level) {
-            case 3 -> 24;
-            case 2 -> 20;
-            default -> 16;
-        };
+        int base;
+        switch (level) {
+            case 3: base = 24; break;
+            case 2: base = 20; break;
+            default: base = 16; break;
+        }
 
         return Math.min(50, base + getRiptideStartWaitPackets());
     }

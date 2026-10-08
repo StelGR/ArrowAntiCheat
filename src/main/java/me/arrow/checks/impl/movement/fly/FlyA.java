@@ -292,9 +292,8 @@ public class FlyA extends Check {
                 profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
         );
 
-        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
-            debugExempt("ghostphysics + resetting airticks", "FlyA");
-            movementData.setCustomAirTicks(0);
+        if (ghostLiquidWebTicks < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+            debugExempt("ghostphysics", "FlyA");
             return true;
         }
 
@@ -313,7 +312,7 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (movementData.getSinceTeleportTicks() <= 4 || profile.isExempt().isTeleports()) {
             ChatUtils.debugExempt("teleports", "FlyA");
             return true;
         }

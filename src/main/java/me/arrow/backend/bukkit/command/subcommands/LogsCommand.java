@@ -116,7 +116,8 @@ public class LogsCommand extends SubCommand {
             }
         }
 
-        if (sender instanceof Player player) {
+        if (sender instanceof Player) {
+            Player player = (Player) sender;
 
             TextComponent nav = new TextComponent("");
 
