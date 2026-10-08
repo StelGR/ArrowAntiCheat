@@ -1,29 +1,59 @@
 package me.arrow.playerdata.data.impl;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.teleport.RelativeFlag;
 import com.github.retrooper.packetevents.protocol.world.Location;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPong;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientTeleportConfirm;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientWindowConfirmation;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
 import lombok.Getter;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
+import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.util.Vector;
 
 import java.util.Iterator;
-import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
+/**
+ * Transaction-based teleport tracking across Minecraft 1.7 through 26.3+.
+ *
+ * Protocol details:
+ * 1. Server sends PLAYER_POSITION_AND_LOOK with target coordinates (and teleportId on 1.9+).
+ * 2. Immediately following the teleport packet on the wire, the server attaches a transaction:
+ *    - 1.17+: WrapperPlayServerPing with a dedicated negative integer ID.
+ *    - 1.7 - 1.16: WrapperPlayServerWindowConfirmation (window 0) with a dedicated negative short ID.
+ * 3. Client receives the teleport and transaction in TCP order.
+ * 4. Client sends confirmation:
+ *    - 1.9+: WrapperPlayClientTeleportConfirm (teleportId).
+ *    - 1.17+: WrapperPlayClientPong (pingId).
+ *    - 1.7 - 1.16: WrapperPlayClientWindowConfirmation (actionId).
+ * 5. Teleport record transitions to CONFIRMED state upon receiving ANY valid confirmation.
+ * 6. The subsequent movement packet landing at the target coordinates applies the teleport deterministically.
+ *    - The landing tick is granted exact 1-tick exemption.
+ *    - Transition deltas are cleanly zeroed out in MovementData so checks never false-flag.
+ *    - No artificial ping-inflated tick extensions are required.
+ * 7. Clients cannot spoof unsolicited teleports: records are created strictly by server sends,
+ *    and movements to un-teleported locations will not match.
+ */
 @Getter
 public class TeleportData implements Data {
 
     private final Profile profile;
 
-    public final LinkedList<Teleport> locations = new LinkedList<>();
+    private final List<TeleportRecord> pendingTeleports = new CopyOnWriteArrayList<>();
 
     public int teleportAmount;
     public int zeroAmount;
@@ -32,59 +62,27 @@ public class TeleportData implements Data {
     public int trackedTps;
 
     /**
-     * Match window for the client position to equal the server teleport position.
-     * Keep small: this is strict matching, not an "exempt because maybe".
+     * Match tolerance for confirmed teleport landing.
+     * 1.0 block is tight enough that cheaters cannot divert to another position,
+     * yet accounts for Bedrock single-precision floats and landing on block edges/slabs.
      */
-    private static final double TELEPORT_MATCH_DIST = 0.00125D;
-    private static final double TELEPORT_EXACT_DIST = 1.0E-4D;
+    private static final double TELEPORT_ACCEPT_DISTANCE = 1.0D;
 
     /**
-     * If the client applies a large teleport (e.g. /spawn), sometimes you won't hit the tiny match dist
-     * due to relative flags / rounding / chunk load / interpolation.
-     * This is ONLY used when a pending teleport exists and the player's per-tick displacement is huge.
+     * Negative ID counters to completely prevent collision with TransactionProcessor,
+     * VelocityData, or vanilla window inventory clicks.
      */
-    private static final double FAR_APPLY_MAX_DIST = 12.0D; // blocks to accept closest pending target
-    private static final double FAR_APPLY_MIN_STEP = 2.25D; // must have moved at least this much in one tick
+    private int nextPingId = -100000;
+    private short nextTransId = (short) -10000;
 
-    /**
-     * SECURITY: teleport exemption is ALWAYS 1 tick, regardless of ping.
-     * We do NOT extend exemption based on timeout/ping.
-     */
-    private static final int EXEMPT_TICKS_ON_SEND = 1;
-    private static final int EXEMPT_TICKS_ON_MATCH = 1;
-
-    /**
-     * How long we keep pending teleports around for matching (NOT exemption).
-     * This can be higher without creating the slow-timer exploit, because we don't exempt while waiting.
-     */
-    private static final int MIN_TELEPORT_TIMEOUT_TICKS = 2;
-    private static final int MAX_TELEPORT_TIMEOUT_TICKS = 40;
-
-    private boolean teleportPhaseActive;     // "exempt active" (1-tick windows)
-    private boolean possiblyTeleporting;     // same as above, kept for compatibility
-
-    private int exemptTicksRemaining;        // counts down; when > 0 -> exempt
-
+    private boolean teleportAppliedThisTick;
+    private int exemptTicksRemaining;
     private int ticksSinceTeleportMatch = 1000;
 
-    private Location fromLocation;
+    private Vector lastTeleportTarget;
 
     public TeleportData(Profile profile) {
         this.profile = profile;
-    }
-
-    @Override
-    public void processReceive(PacketReceiveEvent event) {
-        PacketTypeCommon pkt = event.getPacketType();
-
-        if (!(pkt.equals(PacketType.Play.Client.PLAYER_FLYING)
-                || pkt.equals(PacketType.Play.Client.PLAYER_POSITION)
-                || pkt.equals(PacketType.Play.Client.PLAYER_ROTATION)
-                || pkt.equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION))) {
-            return;
-        }
-
-        handleFlying(new WrapperPlayClientPlayerFlying(event));
     }
 
     @Override
@@ -94,282 +92,328 @@ public class TeleportData implements Data {
         }
 
         WrapperPlayServerPlayerPositionAndLook packet = new WrapperPlayServerPlayerPositionAndLook(event);
-        Vector serverPos = getVector(packet);
+        Vector targetPos = resolveTargetVector(packet);
 
-        if (serverPos == null) {
+        if (targetPos == null) {
             return;
         }
 
-        locations.add(new Teleport(serverPos));
-        teleportsPending = locations.size();
+        int teleportId = -1;
+        try {
+            teleportId = packet.getTeleportId();
+        } catch (Throwable ignored) {
+        }
+
+        boolean modern = PacketEvents.getAPI()
+                .getServerManager()
+                .getVersion()
+                .isNewerThanOrEquals(ServerVersion.V_1_17);
+
+        int modernPingId = modern ? getNextPingId() : 0;
+        short legacyTransId = modern ? 0 : getNextTransId();
+
+        TeleportRecord record = new TeleportRecord(
+                teleportId,
+                modernPingId,
+                legacyTransId,
+                targetPos,
+                packet.getYaw(),
+                packet.getPitch(),
+                System.currentTimeMillis()
+        );
+
+        pendingTeleports.add(record);
+        teleportsPending = pendingTeleports.size();
         teleportAmount++;
 
-        teleportTicks = 0;
-        ticksSinceTeleportMatch = 1000;
-
-        // 1 tick exempt immediately on send (regardless of ping)
-        exemptTicksRemaining = Math.max(exemptTicksRemaining, EXEMPT_TICKS_ON_SEND);
-        teleportPhaseActive = true;
-        possiblyTeleporting = true;
-
-        updateExemptState();
+        // Send transaction immediately after PLAYER_POSITION_AND_LOOK is written to the channel
+        event.getTasksAfterSend().add(() -> {
+            if (modern) {
+                profile.sendPacket(new WrapperPlayServerPing(modernPingId));
+            } else {
+                profile.sendPacket(new WrapperPlayServerWindowConfirmation(0, legacyTransId, false));
+            }
+        });
 
         if (Config.Setting.DEBUG.getBoolean()) {
             OtherUtility.log(profile.getPlayer().getName()
-                    + " Teleport queued. pending=" + teleportsPending
-                    + " pos=" + serverPos
-                    + " timeout=" + getTeleportTimeoutTicks()
-                    + " exemptTicks=" + exemptTicksRemaining);
+                    + " [Teleport] Queued server teleport. pending=" + teleportsPending
+                    + " target=" + targetPos
+                    + " teleportId=" + teleportId
+                    + " transId=" + (modern ? modernPingId : legacyTransId));
         }
     }
 
-    private Vector getVector(WrapperPlayServerPlayerPositionAndLook packet) {
-        try {
-            double x = packet.getX();
-            double y = packet.getY();
-            double z = packet.getZ();
+    @Override
+    public void processReceive(PacketReceiveEvent event) {
+        PacketTypeCommon pkt = event.getPacketType();
 
-            org.bukkit.Location current = null;
+        // 1. Handle 1.9+ TeleportConfirm
+        if (pkt.equals(PacketType.Play.Client.TELEPORT_CONFIRM)) {
+            WrapperPlayClientTeleportConfirm confirm = new WrapperPlayClientTeleportConfirm(event);
+            int confirmId = confirm.getTeleportId();
 
-            if (profile.getPlayer() != null && profile.getPlayer().isOnline()) {
-                current = profile.getPlayer().getLocation();
+            for (TeleportRecord record : pendingTeleports) {
+                if (record.getTeleportId() == confirmId) {
+                    record.setConfirmed(true);
+                    record.setConfirmTimestamp(System.currentTimeMillis());
+                    if (Config.Setting.DEBUG.getBoolean()) {
+                        OtherUtility.log(profile.getPlayer().getName()
+                                + " [Teleport] TeleportConfirm received for id=" + confirmId);
+                    }
+                    break;
+                }
             }
-
-            if (current != null) {
-                if (packet.isRelativeFlag(RelativeFlag.X)) x += current.getX();
-                if (packet.isRelativeFlag(RelativeFlag.Y)) y += current.getY();
-                if (packet.isRelativeFlag(RelativeFlag.Z)) z += current.getZ();
-            }
-
-            return new Vector(x, y, z);
-        } catch (Throwable ignored) {
-            if (profile.getPlayer() != null && profile.getPlayer().isOnline()) {
-                org.bukkit.Location location = profile.getPlayer().getLocation();
-                return new Vector(location.getX(), location.getY(), location.getZ());
-            }
+            return;
         }
 
-        return null;
+        // 2. Handle 1.17+ Pong
+        if (pkt.equals(PacketType.Play.Client.PONG)) {
+            WrapperPlayClientPong pong = new WrapperPlayClientPong(event);
+            int pongId = pong.getId();
+
+            if (pongId < 0) {
+                for (TeleportRecord record : pendingTeleports) {
+                    if (record.getModernPingId() == pongId) {
+                        record.setConfirmed(true);
+                        record.setConfirmTimestamp(System.currentTimeMillis());
+                        if (Config.Setting.DEBUG.getBoolean()) {
+                            OtherUtility.log(profile.getPlayer().getName()
+                                    + " [Teleport] Pong confirmation received for pingId=" + pongId);
+                        }
+                        break;
+                    }
+                }
+            }
+            return;
+        }
+
+        // 3. Handle 1.7 - 1.16 Window Confirmation
+        if (pkt.equals(PacketType.Play.Client.WINDOW_CONFIRMATION)) {
+            WrapperPlayClientWindowConfirmation trans = new WrapperPlayClientWindowConfirmation(event);
+            short actionId = trans.getActionId();
+
+            if (actionId < 0) {
+                for (TeleportRecord record : pendingTeleports) {
+                    if (record.getLegacyActionId() == actionId) {
+                        record.setConfirmed(true);
+                        record.setConfirmTimestamp(System.currentTimeMillis());
+                        if (Config.Setting.DEBUG.getBoolean()) {
+                            OtherUtility.log(profile.getPlayer().getName()
+                                    + " [Teleport] WindowConfirmation received for actionId=" + actionId);
+                        }
+                        break;
+                    }
+                }
+            }
+            return;
+        }
+
+        // 4. Handle client movement packets
+        if (!(pkt.equals(PacketType.Play.Client.PLAYER_FLYING)
+                || pkt.equals(PacketType.Play.Client.PLAYER_POSITION)
+                || pkt.equals(PacketType.Play.Client.PLAYER_ROTATION)
+                || pkt.equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION))) {
+            return;
+        }
+
+        WrapperPlayClientPlayerFlying flying = profile.getWrapperPlayClientPlayerFlying(event);
+        if (flying != null) {
+            handleFlying(flying);
+        }
     }
 
     private void handleFlying(WrapperPlayClientPlayerFlying packet) {
         teleportTicks++;
+        teleportAppliedThisTick = false;
 
         if (ticksSinceTeleportMatch < 1000) {
             ticksSinceTeleportMatch++;
         }
 
-        boolean positionChanged = packet.hasPositionChanged();
-        boolean matched = false;
-        boolean exactMatched = false;
-
-        Vector currentPosition;
-        Vector previousPosition = null;
-
-        if (positionChanged) {
-            Location location = packet.getLocation();
-            currentPosition = new Vector(
-                    location.getPosition().getX(),
-                    location.getPosition().getY(),
-                    location.getPosition().getZ()
-            );
-
-            if (fromLocation != null) {
-                previousPosition = new Vector(
-                        fromLocation.getPosition().getX(),
-                        fromLocation.getPosition().getY(),
-                        fromLocation.getPosition().getZ()
-                );
-            }
-
-            // Normal strict matching
-            if (!locations.isEmpty()) {
-                Iterator<Teleport> iterator = locations.iterator();
-                while (iterator.hasNext()) {
-                    Teleport teleport = iterator.next();
-                    teleport.ageTicks++;
-
-                    double currentDistance = teleport.position.distance(currentPosition);
-                    double previousDistance = previousPosition != null
-                            ? teleport.position.distance(previousPosition)
-                            : Double.MAX_VALUE;
-
-                    if (currentDistance <= TELEPORT_MATCH_DIST || previousDistance <= TELEPORT_MATCH_DIST) {
-                        iterator.remove();
-
-                        matched = true;
-                        exactMatched = currentDistance <= TELEPORT_EXACT_DIST || previousDistance <= TELEPORT_EXACT_DIST;
-
-                        teleportsPending = locations.size();
-
-                        teleportTicks = 0;
-                        ticksSinceTeleportMatch = 0;
-
-                        // 1 tick exempt on confirmed apply (regardless of ping)
-                        exemptTicksRemaining = Math.max(exemptTicksRemaining, EXEMPT_TICKS_ON_MATCH);
-
-                        zeroAmount++;
-                        trackedTps++;
-
-                        if (Config.Setting.DEBUG.getBoolean()) {
-                            OtherUtility.log(profile.getPlayer().getName()
-                                    + " Teleport matched. pending=" + teleportsPending
-                                    + " currentDist=" + currentDistance
-                                    + " previousDist=" + previousDistance
-                                    + " exemptTicks=" + exemptTicksRemaining);
-                        }
-
-                        break;
-                    }
-
-                    if (teleport.ageTicks > getTeleportTimeoutTicks()) {
-                        iterator.remove();
-                        teleportsPending = locations.size();
-                    }
-                }
-            }
-
-            // Fallback for large teleports (/spawn, etc) where strict dist might miss due to relative/rounding
-            if (!matched && previousPosition != null && !locations.isEmpty()) {
-                double step = currentPosition.distance(previousPosition);
-
-                if (step >= FAR_APPLY_MIN_STEP) {
-                    Teleport closest = null;
-                    double best = Double.MAX_VALUE;
-
-                    for (Teleport t : locations) {
-                        double d = t.position.distance(currentPosition);
-                        if (d < best) {
-                            best = d;
-                            closest = t;
-                        }
-                    }
-
-                    if (closest != null && best <= FAR_APPLY_MAX_DIST) {
-                        locations.remove(closest);
-                        teleportsPending = locations.size();
-
-                        matched = true;
-                        exactMatched = best <= TELEPORT_MATCH_DIST;
-
-                        teleportTicks = 0;
-                        ticksSinceTeleportMatch = 0;
-
-                        exemptTicksRemaining = Math.max(exemptTicksRemaining, EXEMPT_TICKS_ON_MATCH);
-
-                        zeroAmount++;
-                        trackedTps++;
-
-                        if (Config.Setting.DEBUG.getBoolean()) {
-                            OtherUtility.log(profile.getPlayer().getName()
-                                    + " Teleport FAR-applied. pending=" + teleportsPending
-                                    + " step=" + step
-                                    + " dist=" + best
-                                    + " exemptTicks=" + exemptTicksRemaining);
-                        }
-                    }
-                }
-            }
-
-            fromLocation = packet.getLocation();
-
-        } else {
-            // No position change this tick: just age / expire pending teleports (no exemption)
-            if (!locations.isEmpty()) {
-                for (Teleport teleport : locations) {
-                    teleport.ageTicks++;
-                }
-                locations.removeIf(tp -> tp.ageTicks > getTeleportTimeoutTicks());
-                teleportsPending = locations.size();
-            }
-        }
-
-        // Expire very old queue (safety)
-        if (teleportTicks > getTeleportTimeoutTicks()) {
-            locations.clear();
-            teleportsPending = 0;
-        }
-
-        // Exemption state is ONLY controlled by exemptTicksRemaining
-        possiblyTeleporting = matched || exactMatched || exemptTicksRemaining > 0;
-        teleportPhaseActive = exemptTicksRemaining > 0;
-
         if (exemptTicksRemaining > 0) {
             exemptTicksRemaining--;
         }
 
-        updateExemptState();
-
-        if (Config.Setting.DEBUG.getBoolean()) {
-            OtherUtility.log(profile.getPlayer().getName()
-                    + " Flying tick: position=" + positionChanged
-                    + " matched=" + matched
-                    + " teleporting=" + isTeleporting()
-                    + " pending=" + teleportsPending
-                    + " teleportTicks=" + teleportTicks
-                    + " exemptTicks=" + exemptTicksRemaining
-                    + " timeout=" + getTeleportTimeoutTicks());
+        Vector currentPos = null;
+        if (packet.hasPositionChanged()) {
+            Location loc = packet.getLocation();
+            currentPos = new Vector(loc.getX(), loc.getY(), loc.getZ());
+        } else if (profile.getMovementData() != null && profile.getMovementData().getLocation() != null) {
+            CustomLocation loc = profile.getMovementData().getLocation();
+            currentPos = new Vector(loc.getX(), loc.getY(), loc.getZ());
         }
+
+        TeleportRecord matched = null;
+
+        if (currentPos != null && !pendingTeleports.isEmpty()) {
+            for (TeleportRecord record : pendingTeleports) {
+                if (!record.isConfirmed()) {
+                    continue;
+                }
+
+                double dist = currentPos.distance(record.getTargetPosition());
+                if (dist <= TELEPORT_ACCEPT_DISTANCE) {
+                    matched = record;
+                    break;
+                }
+            }
+        }
+
+        if (matched != null) {
+            // Remove matched record and any prior records superseded by it
+            int index = pendingTeleports.indexOf(matched);
+            if (index >= 0) {
+                for (int i = 0; i <= index; i++) {
+                    if (!pendingTeleports.isEmpty()) {
+                        pendingTeleports.remove(0);
+                    }
+                }
+            } else {
+                pendingTeleports.remove(matched);
+            }
+
+            teleportsPending = pendingTeleports.size();
+            teleportAppliedThisTick = true;
+            exemptTicksRemaining = 1;
+            teleportTicks = 0;
+            ticksSinceTeleportMatch = 0;
+            lastTeleportTarget = matched.getTargetPosition();
+            zeroAmount++;
+            trackedTps++;
+
+            if (Config.Setting.DEBUG.getBoolean()) {
+                OtherUtility.log(profile.getPlayer().getName()
+                        + " [Teleport] MATCHED confirmed teleport. Target=" + matched.getTargetPosition()
+                        + " Pos=" + currentPos
+                        + " Pending remaining=" + teleportsPending);
+            }
+        }
+
+        // Age pending records and prune expired ones
+        int timeoutTicks = getTeleportTimeoutTicks();
+        Iterator<TeleportRecord> iterator = pendingTeleports.iterator();
+        while (iterator.hasNext()) {
+            TeleportRecord record = iterator.next();
+            if (++record.ageFlyingTicks > timeoutTicks) {
+                pendingTeleports.remove(record);
+                teleportsPending = pendingTeleports.size();
+            }
+        }
+
+        updateExemptState();
+    }
+
+    private Vector resolveTargetVector(WrapperPlayServerPlayerPositionAndLook packet) {
+        try {
+            double x = packet.getX();
+            double y = packet.getY();
+            double z = packet.getZ();
+
+            CustomLocation current = profile.getMovementData() != null ? profile.getMovementData().getLocation() : null;
+            org.bukkit.Location bukkitLoc = null;
+            if (current == null && profile.getPlayer() != null && profile.getPlayer().isOnline()) {
+                bukkitLoc = profile.getPlayer().getLocation();
+            }
+
+            double curX = current != null ? current.getX() : (bukkitLoc != null ? bukkitLoc.getX() : 0.0);
+            double curY = current != null ? current.getY() : (bukkitLoc != null ? bukkitLoc.getY() : 0.0);
+            double curZ = current != null ? current.getZ() : (bukkitLoc != null ? bukkitLoc.getZ() : 0.0);
+
+            if (packet.isRelativeFlag(RelativeFlag.X)) x += curX;
+            if (packet.isRelativeFlag(RelativeFlag.Y)) y += curY;
+            if (packet.isRelativeFlag(RelativeFlag.Z)) z += curZ;
+
+            return new Vector(x, y, z);
+        } catch (Throwable ignored) {
+            if (profile.getPlayer() != null && profile.getPlayer().isOnline()) {
+                org.bukkit.Location loc = profile.getPlayer().getLocation();
+                return new Vector(loc.getX(), loc.getY(), loc.getZ());
+            }
+        }
+        return null;
     }
 
     private void updateExemptState() {
-        profile.getExempt().setTeleports(isTeleporting());
-    }
-
-    /**
-     * IMPORTANT:
-     * This returns true ONLY for the 1-tick exemption windows (send tick and confirmed-apply tick).
-     * Pending teleports do NOT mean exemption.
-     */
-    public boolean isTeleporting() {
-        return teleportPhaseActive || possiblyTeleporting || exemptTicksRemaining > 0;
-    }
-
-    public void removeLocation(Teleport teleport) {
-        if (locations.remove(teleport)) {
-            teleportsPending = locations.size();
+        if (profile.getExempt() != null) {
+            profile.getExempt().setTeleports(isTeleporting());
         }
     }
 
-    public void reset() {
-        locations.clear();
+    public boolean isTeleporting() {
+        return teleportAppliedThisTick || exemptTicksRemaining > 0;
+    }
 
+    public boolean hasConfirmedTeleport() {
+        for (TeleportRecord record : pendingTeleports) {
+            if (record.isConfirmed()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void reset() {
+        pendingTeleports.clear();
+        teleportsPending = 0;
         teleportAmount = 0;
         zeroAmount = 0;
         teleportTicks = 1000;
-        teleportsPending = 0;
         trackedTps = 0;
-
-        teleportPhaseActive = false;
-        possiblyTeleporting = false;
-
+        teleportAppliedThisTick = false;
         exemptTicksRemaining = 0;
         ticksSinceTeleportMatch = 1000;
-
-        fromLocation = null;
-
+        lastTeleportTarget = null;
         updateExemptState();
     }
 
+    private int getNextPingId() {
+        nextPingId--;
+        if (nextPingId < -200000) {
+            nextPingId = -100000;
+        }
+        return nextPingId;
+    }
+
+    private short getNextTransId() {
+        nextTransId--;
+        if (nextTransId < -32000) {
+            nextTransId = (short) -10000;
+        }
+        return nextTransId;
+    }
+
     private int getTeleportTimeoutTicks() {
-        int pingTicks = getPingTicks();
-
-        // Keep queue longer for high ping, but this does NOT grant exemption.
-        // Clamp hard so the queue can't grow unbounded.
-        int calculated = 8 + (pingTicks * 6);
-        return Math.min(MAX_TELEPORT_TIMEOUT_TICKS, Math.max(MIN_TELEPORT_TIMEOUT_TICKS, calculated));
+        int pingTicks = profile.getConnectionData() != null ? profile.getConnectionData().getClientTickTrans() : 1;
+        return Math.min(100, Math.max(20, 10 + (pingTicks * 4)));
     }
 
-    private int getPingTicks() {
-        return 1 + (profile.getConnectionData().getClientTickTrans() * 2);
-    }
+    @Getter
+    public static class TeleportRecord {
+        private final int teleportId;
+        private final int modernPingId;
+        private final short legacyActionId;
+        private final Vector targetPosition;
+        private final float targetYaw;
+        private final float targetPitch;
+        private final long sendTimestamp;
 
-    public static class Teleport {
-        public final Vector position;
-        public int ageTicks;
+        @lombok.Setter
+        private boolean confirmed;
+        @lombok.Setter
+        private long confirmTimestamp;
+        private int ageFlyingTicks;
 
-        public Teleport(Vector position) {
-            this.position = position;
+        public TeleportRecord(int teleportId, int modernPingId, short legacyActionId,
+                              Vector targetPosition, float targetYaw, float targetPitch,
+                              long sendTimestamp) {
+            this.teleportId = teleportId;
+            this.modernPingId = modernPingId;
+            this.legacyActionId = legacyActionId;
+            this.targetPosition = targetPosition;
+            this.targetYaw = targetYaw;
+            this.targetPitch = targetPitch;
+            this.sendTimestamp = sendTimestamp;
         }
     }
 }

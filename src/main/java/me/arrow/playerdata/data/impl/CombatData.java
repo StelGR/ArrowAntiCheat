@@ -65,7 +65,7 @@ public class CombatData implements Data {
         long profiler = Profiler.start();
         try {
 
-        if (isAttackPacket(event.getPacketType())
+        if (event.getPacketType().equals(ANIMATION)
                 && PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_21_11)) {
 
             WrapperPlayClientAnimation wrapper = new WrapperPlayClientAnimation(event);

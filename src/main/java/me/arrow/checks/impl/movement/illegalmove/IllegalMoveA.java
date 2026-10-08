@@ -52,7 +52,7 @@ public class IllegalMoveA extends Check {
                 if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
                 if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans())) return;
                 if (exempt("reelingIn", profile.getExempt().isReelingIn())) return;
-                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
+                if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return;
 
                 double deltaY = movementData.getDeltaY();
                 double deltaXZ = movementData.getDeltaXZ();
@@ -67,7 +67,6 @@ public class IllegalMoveA extends Check {
 
 
                 if (deltaY < -3.921
-                        && !(movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))
                         && profile.getMovementData().getSinceRiptidingTicks() > 30
                         && !profile.getVelocityData().isTakingVelocity()) {
                     verbose(this.getClass().getSimpleName(), deltaY, -3.92, "DeltaY: " + data);

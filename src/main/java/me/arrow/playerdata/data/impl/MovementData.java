@@ -172,7 +172,9 @@ public class MovementData implements Data {
         }
 
         if (event.getPacketType().equals(PLAYER_FLYING)) {
-            WrapperPlayClientPlayerFlying move = new WrapperPlayClientPlayerFlying(event);
+            WrapperPlayClientPlayerFlying move = (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerFlying)
+                    ? (WrapperPlayClientPlayerFlying) event.getLastUsedWrapper()
+                    : new WrapperPlayClientPlayerFlying(event);
 
             this.lastLastOnGround = this.lastOnGround;
             this.lastOnGround = this.onGround;
@@ -191,7 +193,9 @@ public class MovementData implements Data {
             processLocationData();
         }
         else if (event.getPacketType().equals(PLAYER_POSITION)) {
-            WrapperPlayClientPlayerPosition move = new WrapperPlayClientPlayerPosition(event);
+            WrapperPlayClientPlayerPosition move = (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerPosition)
+                    ? (WrapperPlayClientPlayerPosition) event.getLastUsedWrapper()
+                    : new WrapperPlayClientPlayerPosition(event);
 
             this.lastLastOnGround = this.lastOnGround;
             this.lastOnGround = this.onGround;
@@ -215,9 +219,10 @@ public class MovementData implements Data {
             publishCoreMovement(move, currentTime);
             processLocationData();
         }
-
         else if (event.getPacketType().equals(PLAYER_ROTATION)) {
-            final WrapperPlayClientPlayerRotation look = new WrapperPlayClientPlayerRotation(event);
+            final WrapperPlayClientPlayerRotation look = (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerRotation)
+                    ? (WrapperPlayClientPlayerRotation) event.getLastUsedWrapper()
+                    : new WrapperPlayClientPlayerRotation(event);
 
             this.lastOnGround = this.onGround;
             this.onGround = look.isOnGround();
@@ -236,7 +241,9 @@ public class MovementData implements Data {
         }
 
         else if (event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)) {
-            final WrapperPlayClientPlayerPositionAndRotation posLook = new WrapperPlayClientPlayerPositionAndRotation(event);
+            final WrapperPlayClientPlayerPositionAndRotation posLook = (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerPositionAndRotation)
+                    ? (WrapperPlayClientPlayerPositionAndRotation) event.getLastUsedWrapper()
+                    : new WrapperPlayClientPlayerPositionAndRotation(event);
 
             this.lastLastOnGround = this.lastOnGround;
             this.lastOnGround = this.onGround;
@@ -283,9 +290,10 @@ public class MovementData implements Data {
 
         try {
             for (EntityData<?> entry : metadata.getEntityMetadata()) {
-                if (entry.getIndex() != 0 || !(entry.getValue() instanceof Byte flags)) {
+                if (entry.getIndex() != 0 || !(entry.getValue() instanceof Byte)) {
                     continue;
                 }
+                Byte flags = (Byte) entry.getValue();
 
                 metadataGliding = (flags & 0x80) == 0x80;
 
@@ -330,6 +338,50 @@ public class MovementData implements Data {
 
 
     private void processLocationData() {
+
+        if (profile.getTeleportData().isTeleporting()) {
+            this.lastLocation = this.location;
+            this.lastLastLocation = this.location;
+
+            this.deltaX = 0.0;
+            this.deltaZ = 0.0;
+            this.deltaXZ = 0.0;
+            this.deltaY = 0.0;
+
+            this.lastDeltaX = 0.0;
+            this.lastDeltaZ = 0.0;
+            this.lastDeltaXZ = 0.0;
+            this.lastDeltaY = 0.0;
+
+            this.accelXZ = 0.0;
+            this.lastAccelXZ = 0.0;
+            this.accelY = 0.0;
+            this.lastAccelY = 0.0;
+
+            this.sinceTeleportTicks = 0;
+
+            lastServerYGround = serverYGround;
+
+            ChunkCache.get().ensurePlayerChunkLoaded(location);
+
+            serverYGround = getLocation().getY() % 0.015625 == 0.0
+                    || getLocation().getY() % 0.015625 <= 0.009;
+
+            lastPositionYGround = positionYGround;
+            positionYGround = getLocation().getY() % 0.015625 < 0.009;
+
+            if (onGround && serverGround && !customInAir) {
+                setLastGroundLocation(getLocation());
+                getPastGroundLocations().add(getLastGroundLocation());
+            }
+
+            updateNearWallState();
+            wasWasInWater = wasInWater;
+            wasInWater = isInsideWater;
+            processBlocks();
+            updateTicks();
+            return;
+        }
 
         final double lastDeltaX = this.deltaX;
         final double deltaX = this.location.getX() - this.lastLocation.getX();
@@ -507,6 +559,8 @@ public class MovementData implements Data {
                     && !nearbyBlocksResult.hasUnresolvedCollisionShape()
 //                && !nearbyBlocksResult2.isNearGround()
                     && !profile.isExempt().isFlight()
+                    && !profile.isExempt().isTeleports()
+                    && getSinceTeleportTicks() > 1
                     && !nearHoney
                     && !nearClimbable
                     && !nearPowderSnow
@@ -910,11 +964,28 @@ public class MovementData implements Data {
         if (isMaterial(name, BUBBLE)) return true;
         if (isMaterialEqual(name, TRANSPARENT)) return true;
 
-        return switch (name) {
-            case "TORCH", "SOUL_TORCH", "FIRE", "SOUL_FIRE", "REDSTONE", "WHEAT", "RAIL", "LEVER", "REDSTONE_TORCH",
-                 "STONE_BUTTON", "OAK_BUTTON", "ACTIVATOR_RAIL", "TALL_GRASS", "LARGE_FERN", "LEAF_LITTER", "LIGHT", "LONG_GRASS" -> true;
-            default -> false;
-        };
+        switch (name) {
+            case "TORCH":
+            case "SOUL_TORCH":
+            case "FIRE":
+            case "SOUL_FIRE":
+            case "REDSTONE":
+            case "WHEAT":
+            case "RAIL":
+            case "LEVER":
+            case "REDSTONE_TORCH":
+            case "STONE_BUTTON":
+            case "OAK_BUTTON":
+            case "ACTIVATOR_RAIL":
+            case "TALL_GRASS":
+            case "LARGE_FERN":
+            case "LEAF_LITTER":
+            case "LIGHT":
+            case "LONG_GRASS":
+                return true;
+            default:
+                return false;
+        }
     }
 
     private boolean supportsEntityCollisionCheck() {
@@ -1388,12 +1459,12 @@ public class MovementData implements Data {
     }
 
     private float getDolphinGraceBonusCap(int depthStriderLevel) {
-        return switch (depthStriderLevel) {
-            case 1 -> 0.602f;
-            case 2 -> 1.049f;
-            case 3 -> 1.494f;
-            default -> 0.146f;
-        };
+        switch (depthStriderLevel) {
+            case 1: return 0.602f;
+            case 2: return 1.049f;
+            case 3: return 1.494f;
+            default: return 0.146f;
+        }
     }
 
     private boolean containsStepMaterial(CollisionUtils.NearbyBlocksResult result) {

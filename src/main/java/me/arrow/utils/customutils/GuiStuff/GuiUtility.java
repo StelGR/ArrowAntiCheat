@@ -577,23 +577,25 @@ public class GuiUtility {
         if (index != -1 && index + 1 < color.length()) {
             char colorChar = Character.toLowerCase(color.charAt(index + 1));
 
-            return switch (colorChar) {
-                case '0' -> Material.matchMaterial("BLACK_STAINED_GLASS_PANE");
-                case '1' -> Material.matchMaterial("BLUE_STAINED_GLASS_PANE");
-                case '2' -> Material.matchMaterial("GREEN_STAINED_GLASS_PANE");
-                case '3' -> Material.matchMaterial("CYAN_STAINED_GLASS_PANE");
-                case '4', 'c' -> Material.matchMaterial("RED_STAINED_GLASS_PANE");
-                case '5' -> Material.matchMaterial("PURPLE_STAINED_GLASS_PANE");
-                case '6' -> Material.matchMaterial("ORANGE_STAINED_GLASS_PANE");
-                case '7' -> Material.matchMaterial("GRAY_STAINED_GLASS_PANE");
-                case '8' -> Material.matchMaterial("LIGHT_GRAY_STAINED_GLASS_PANE");
-                case '9', 'b' -> Material.matchMaterial("LIGHT_BLUE_STAINED_GLASS_PANE");
-                case 'a' -> Material.matchMaterial("LIME_STAINED_GLASS_PANE");
-                case 'd' -> Material.matchMaterial("PINK_STAINED_GLASS_PANE");
-                case 'e' -> Material.matchMaterial("YELLOW_STAINED_GLASS_PANE");
-                case 'f' -> Material.matchMaterial("WHITE_STAINED_GLASS_PANE");
-                default -> Material.matchMaterial("WHITE_STAINED_GLASS_PANE");
-            };
+            switch (colorChar) {
+                case '0': return Material.matchMaterial("BLACK_STAINED_GLASS_PANE");
+                case '1': return Material.matchMaterial("BLUE_STAINED_GLASS_PANE");
+                case '2': return Material.matchMaterial("GREEN_STAINED_GLASS_PANE");
+                case '3': return Material.matchMaterial("CYAN_STAINED_GLASS_PANE");
+                case '4':
+                case 'c': return Material.matchMaterial("RED_STAINED_GLASS_PANE");
+                case '5': return Material.matchMaterial("PURPLE_STAINED_GLASS_PANE");
+                case '6': return Material.matchMaterial("ORANGE_STAINED_GLASS_PANE");
+                case '7': return Material.matchMaterial("GRAY_STAINED_GLASS_PANE");
+                case '8': return Material.matchMaterial("LIGHT_GRAY_STAINED_GLASS_PANE");
+                case '9':
+                case 'b': return Material.matchMaterial("LIGHT_BLUE_STAINED_GLASS_PANE");
+                case 'a': return Material.matchMaterial("LIME_STAINED_GLASS_PANE");
+                case 'd': return Material.matchMaterial("PINK_STAINED_GLASS_PANE");
+                case 'e': return Material.matchMaterial("YELLOW_STAINED_GLASS_PANE");
+                case 'f': return Material.matchMaterial("WHITE_STAINED_GLASS_PANE");
+                default: return Material.matchMaterial("WHITE_STAINED_GLASS_PANE");
+            }
         }
         return Material.matchMaterial("WHITE_STAINED_GLASS_PANE");
     }
@@ -603,21 +605,24 @@ public class GuiUtility {
         if (index != -1 && index + 1 < color.length()) {
             char colorChar = Character.toLowerCase(color.charAt(index + 1));
 
-            return switch (colorChar) {
-                case '1' -> 11;
-                case '2' -> 13;
-                case '3' -> 9;
-                case '4', 'c' -> 14;
-                case '5' -> 10;
-                case '6', 'e' -> 4;
-                case '7' -> 8;
-                case '8' -> 7;
-                case '9', 'b' -> 3;
-                case 'a' -> 5;
-                case 'd' -> 6;
-                case 'f' -> 0;
-                default -> 15;
-            };
+            switch (colorChar) {
+                case '1': return 11;
+                case '2': return 13;
+                case '3': return 9;
+                case '4':
+                case 'c': return 14;
+                case '5': return 10;
+                case '6':
+                case 'e': return 4;
+                case '7': return 8;
+                case '8': return 7;
+                case '9':
+                case 'b': return 3;
+                case 'a': return 5;
+                case 'd': return 6;
+                case 'f': return 0;
+                default: return 15;
+            }
         }
         return 15;
     }

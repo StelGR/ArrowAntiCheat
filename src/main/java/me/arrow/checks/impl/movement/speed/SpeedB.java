@@ -56,7 +56,7 @@ public class SpeedB extends Check {
         if (exempt("cancelled", profile.shouldCancel())) { resetMovement(deltaX, deltaZ); return; }
         if (exempt("dead", profile.getPlayer().isDead())) { resetMovement(deltaX, deltaZ); return; }
         if (exempt("notRespawned", !profile.isExempt().isRespawned())) { resetMovement(deltaX, deltaZ); return; }
-        if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetMovement(deltaX, deltaZ); return; }
+        if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) { resetMovement(deltaX, deltaZ); return; }
         if (exempt("vehicle", profile.isExempt().vehicle())) { resetMovement(deltaX, deltaZ); return; }
 
         if (exempt("reelingIn", profile.getExempt().isReelingIn())) { lastMove = new Vector(deltaX, 0.0, deltaZ); return; }
@@ -460,7 +460,7 @@ public class SpeedB extends Check {
                 threshold += 0.15D;
             }
 
-            if (movementData.getSinceTeleportTicks() <= 2 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+            if (movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) {
                 threshold += 0.3D;
             }
 
@@ -524,7 +524,7 @@ public class SpeedB extends Check {
             // min/max order forced every bad frame to add exactly 4.0.
             double bufferAddition = Math.min(7.5D, Math.max(1.0D, closest * 50.0D));
             // Karhu: 50 when near-sneak with small bestNormal, 35 otherwise
-            int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 50 : 35;
+            int required = bestNormal < 0.06 && actionData.getSinceSneakingTicks() <= 3 ? 70 : 45;
 
             MovementPredictionUtil.DirectionalMovement strafeDir =
                     MovementPredictionUtil.predictDirectionalMovement(deltaX, deltaZ, yaw);
@@ -560,21 +560,18 @@ public class SpeedB extends Check {
                             // Do not re-arm an already flagged local buffer at
                             // required - 5; one more imperfect combat frame
                             // would then immediately flag again.
-                            this.vlBuffer = 20.0D;
+                            this.vlBuffer = 32.5D;
                         }
                     } else {
-                        // pass1 true, pass2 false → small decrease (Karhu)
-                        this.decrease(0.1);
+                        this.decrease(0.2);
                     }
                 } else {
-                    // A matching prediction must clear stale evidence.  This
-                    // is also how Karhu handles a failed first comparison.
                     this.decrease(0.1);
                 }
             } else if (valid) {
-                this.decrease(0.01);
+                this.decrease(0.015);
             } else {
-                this.decrease(0.005);
+                this.decrease(0.01);
             }
 
             verbose(this.getClass().getSimpleName(), this.vlBuffer, required, "Verbose (Accel)"
@@ -677,7 +674,7 @@ public class SpeedB extends Check {
         if (profile.getPlayer().isFlying()) return "flying";
         if (!profile.isExempt().isRespawned()) return "notRespawned";
         if (profile.isExempt().vehicle()) return "vehicle";
-        if (movementData.getSinceTeleportTicks() <= 2 + (profile.getConnectionData().getClientTickTrans() * 4)) return "teleport";
+        if (movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) return "teleport";
         if (movementData.getSinceOnGhostBlock() <= 2) return "ghostBlock";
         if (movementData.getSinceGlidingTicks() < 30) return "gliding";
         if (movementData.getSinceRiptidingTicks() < 30) return "riptiding";

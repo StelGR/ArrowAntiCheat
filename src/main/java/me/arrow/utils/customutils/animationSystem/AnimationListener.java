@@ -113,7 +113,8 @@ public class AnimationListener implements Listener {
             return manager.isInAnimation((Player) entity);
         }
 
-        if (entity instanceof Projectile projectile) {
+        if (entity instanceof Projectile) {
+            Projectile projectile = (Projectile) entity;
             ProjectileSource source = projectile.getShooter();
 
             if (source instanceof Player) {

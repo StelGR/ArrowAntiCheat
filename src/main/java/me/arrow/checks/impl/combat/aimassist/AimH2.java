@@ -68,7 +68,7 @@ public class AimH2 extends Check {
                                                 + "\nlastDeltaPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaPitch
                                                 + "\ndeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaYaw
                                                 + "\nlastDeltaYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaYaw);
-                                violations = 0;
+                                violations = 12;
                             }
                         }
                         else {

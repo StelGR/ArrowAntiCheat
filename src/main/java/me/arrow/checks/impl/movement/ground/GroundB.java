@@ -44,7 +44,7 @@ public class GroundB extends Check {
 
             if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return;
             if (exempt("vehicle", profile.getExempt().isVehicle())) return;
-            if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
+            if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return;
             if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
             if (exempt("recentVehicle", profile.getVehicleData().getSinceVehicleTicks() < 5)) return;
             if (exempt("insideLiquid", movementData.isInsideLiquid())) return;

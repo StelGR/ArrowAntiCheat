@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPong;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientWindowConfirmation;
@@ -190,6 +191,11 @@ public class VelocityB extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
+        if (event.getPacketType() == PacketType.Play.Client.ATTACK) {
+            handleAttackPacket(event);
+            return;
+        }
+
         if (event.getPacketType() == PacketType.Play.Client.INTERACT_ENTITY) {
             handleAttack(event);
             return;
@@ -267,23 +273,36 @@ public class VelocityB extends Check {
         }
     }
 
-    private void handleAttack(PacketReceiveEvent event) {
-        WrapperPlayClientInteractEntity wrapper = new WrapperPlayClientInteractEntity(event);
-        if (wrapper.getAction() != WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
-            return;
-        }
-
+    private void registerAttack(int entityId) {
         /* KarhuPlayer.checkVelocity counts every ATTACK packet. */
         ++this.pendingAttacks;
 
         /* Karhu VelocityB's own AttackEvent branch only accepts players. */
         if (profile.getCombatData() != null
                 && profile.getCombatData().getTrackedEntities() != null
-                && profile.getCombatData().getTrackedEntities().containsKey(wrapper.getEntityId())) {
+                && profile.getCombatData().getTrackedEntities().containsKey(entityId)) {
             this.attack = true;
             ++this.attacks;
         }
     }
+
+    private void handleAttackPacket(PacketReceiveEvent event) {
+        WrapperPlayClientAttack wrapper = new WrapperPlayClientAttack(event);
+        registerAttack(wrapper.getEntityId());
+    }
+
+    private void handleAttack(PacketReceiveEvent event) {
+        WrapperPlayClientInteractEntity wrapper = new WrapperPlayClientInteractEntity(event);
+        if (wrapper.getAction() != WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
+            return;
+        }
+
+        registerAttack(wrapper.getEntityId());
+    }
+
+
+
+
 
     private void evaluatePrediction(VelocityKeys keys, MovementData movementData, float f4) {
         double dClientKb = movementData.getDeltaXZ();
@@ -1190,9 +1209,10 @@ public class VelocityB extends Check {
             if (this == object) {
                 return true;
             }
-            if (!(object instanceof TransactionKey other)) {
+            if (!(object instanceof TransactionKey)) {
                 return false;
             }
+            TransactionKey other = (TransactionKey) object;
 
             return this.modern == other.modern && this.id == other.id;
         }

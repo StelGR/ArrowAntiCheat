@@ -157,10 +157,11 @@ public class PasteLogsCommand extends SubCommand {
     private void sendPasteMessage(CommandSender sender, String targetName, int amount, String pasteUrl) {
         String message = translate("&aPasted &e" + amount + " &alogs for &e" + targetName + "&a: &7" + pasteUrl);
 
-        if (!(sender instanceof Player player)) {
+        if (!(sender instanceof Player)) {
             sender.sendMessage(message);
             return;
         }
+        Player player = (Player) sender;
 
         TextComponent component = new TextComponent(translate("&aPasted &e" + amount + " &alogs for &e" + targetName + "&a: "));
 

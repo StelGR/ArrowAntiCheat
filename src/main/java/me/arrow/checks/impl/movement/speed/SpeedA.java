@@ -132,9 +132,9 @@ public class SpeedA extends Check {
 
             //if (profile.isSwimming() && movementData.isNearWater()) allowedLimit += 0.137;
 
-            if (profile.getActionData().hasRecentPistonUpdate(5 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+            if (profile.getActionData().hasRecentPistonUpdate(8 + (profile.getConnectionData().getClientTickTrans() * 2))) {
                 if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed C: is extending (Piston Update)");
-                allowedLimit += 0.1295;
+                allowedLimit += 0.354;
             }
 
             if (serverGroundTicks <= 6) allowedLimit += 0.095;
@@ -289,18 +289,6 @@ public class SpeedA extends Check {
                 airLimitDebug += ", movingOnHoneyTicks";
             }
 
-
-
-//            double depthStriderBoost = SpeedUtilities.getDepthStriderBoost(profile);
-//            if (movementData.isInsideWater()) {
-//                expectedSpeed += depthStriderBoost;
-//                airLimitDebug += ", depthStriderBoost";
-//            }
-
-
-
-
-
             double maxJumpHeight = MoveUtils.getJumpMotion(profile);
 
             if (isVanillaJumpStart(deltaY, maxJumpHeight, clientAirTicks)) {
@@ -428,8 +416,6 @@ public class SpeedA extends Check {
                 airLimitDebug += ", riptide";
             }
 
-            expectedSpeed += movementData.elytraMomentum();
-
             if (movementData.getSinceSpeedPotionEffectTicks() < 15 && movementData.getSinceSpeedPotionEffectTicks() > 0) {
                 expectedSpeed += 0.05;
                 airLimitDebug += ", sincePotionEffectTicks < 15";
@@ -465,20 +451,12 @@ public class SpeedA extends Check {
                 airLimitDebug += ", explosionVelocity";
             }
 
-//            int ghostLiquidWebTicks = Math.min(
-//                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-//                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-//            );
-//
-//            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-//                expectedSpeed += 0.2;
-//                airLimit += ", physicsCancel";
-//            }
-
             if (movementData.getSincePredictUpwardsTicks() < 10) {
                 expectedSpeed += 0.03;
                 airLimitDebug += ", predictUpwards";
             }
+
+            expectedSpeed += movementData.elytraMomentum();
 
             String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
@@ -595,7 +573,7 @@ public class SpeedA extends Check {
     boolean isExemptGround(MovementData movementData) {
         if (exempt("cancelled", profile.shouldCancel())) return true;
         if (exempt("onBoat", movementData.isOnBoat())) return true;
-        if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
+        if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return true;
         if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;
         if (exempt("vehicle", profile.isExempt().vehicle())) return true;
         if (exempt("reelingIn", profile.getExempt().isReelingIn())) return true;
@@ -614,7 +592,7 @@ public class SpeedA extends Check {
 
     boolean isExemptAir(MovementData movementData) {
         if (exempt("cancelled", profile.shouldCancel())) return true;
-        if (exempt("teleports", movementData.getSinceTeleportTicks() < 5)) return true;
+        if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return true;
         //if (exempt("onBoat", profile.getMovementData().isOnBoat())) return true;
         if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;
         if (exempt("vehicle", profile.isExempt().vehicle())) return true;

@@ -7,14 +7,12 @@ import me.arrow.utils.customutils.Math.GeneralMath;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.Serial;
 import java.io.Serializable;
 import java.util.Random;
 
 //credits: https://github.com/GrimAnticheat/Grim/blob/2.0/common/src/main/java/ac/grim/grimac/utils/math/Vector3dm.java
 
 public class Vector3dm implements Cloneable, Serializable {
-    @Serial
     private static final long serialVersionUID = -2657651106777219169L;
     private static final Random random = new Random();
     public static final double epsilon = 1.0E-6;
@@ -350,7 +348,11 @@ public class Vector3dm implements Cloneable, Serializable {
     @Contract(value = "null -> false", pure = true)
     @Override
     public boolean equals(Object obj) {
-        return obj instanceof Vector3dm other && Math.abs(this.x - other.x) < 1.0E-6 && Math.abs(this.y - other.y) < 1.0E-6 && Math.abs(this.z - other.z) < 1.0E-6 && this.getClass().equals(obj.getClass());
+        if (!(obj instanceof Vector3dm)) {
+            return false;
+        }
+        Vector3dm other = (Vector3dm) obj;
+        return Math.abs(this.x - other.x) < 1.0E-6 && Math.abs(this.y - other.y) < 1.0E-6 && Math.abs(this.z - other.z) < 1.0E-6 && this.getClass().equals(obj.getClass());
     }
 
     @Override

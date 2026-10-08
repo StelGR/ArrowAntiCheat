@@ -1090,9 +1090,10 @@ public class ReflectionUtils {
 
     private static Double getMovementSpeedWithoutSprintModifiers(Object instance, double baseValue) {
         Object modifiersObject = invokeNoArg(instance, "getModifiers", "c", "a");
-        if (!(modifiersObject instanceof Collection<?> modifiers)) {
+        if (!(modifiersObject instanceof Collection<?>)) {
             return null;
         }
+        Collection<?> modifiers = (Collection<?>) modifiersObject;
 
         double additive = 0.0D;
         double multiplyBase = 0.0D;
@@ -1110,11 +1111,17 @@ public class ReflectionUtils {
             }
 
             switch (operation) {
-                case 0 -> additive += amount;
-                case 1 -> multiplyBase += amount;
-                case 2 -> multiplyTotal *= 1.0D + amount;
-                default -> {
-                }
+                case 0:
+                    additive += amount;
+                    break;
+                case 1:
+                    multiplyBase += amount;
+                    break;
+                case 2:
+                    multiplyTotal *= 1.0D + amount;
+                    break;
+                default:
+                    break;
             }
         }
 
@@ -1136,11 +1143,13 @@ public class ReflectionUtils {
 
     private static int readModifierOperation(Object modifier) {
         Object operation = invokeNoArg(modifier, "getOperation", "d");
-        if (operation instanceof Number number) {
+        if (operation instanceof Number) {
+            Number number = (Number) operation;
             int value = number.intValue();
             return value >= 0 && value <= 2 ? value : -1;
         }
-        if (operation instanceof Enum<?> operationEnum) {
+        if (operation instanceof Enum<?>) {
+            Enum<?> operationEnum = (Enum<?>) operation;
             return modifierOperationFromName(operationEnum.name(), operationEnum.ordinal());
         }
         if (operation != null) {

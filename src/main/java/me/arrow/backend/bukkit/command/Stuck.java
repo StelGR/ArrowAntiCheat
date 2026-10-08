@@ -16,10 +16,11 @@ import static me.arrow.utils.customutils.OtherUtility.parseLocation;
 public class Stuck implements CommandExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd, @NotNull String Label, String[] args) {
-        if (!(sender instanceof Player player)) {
+        if (!(sender instanceof Player)) {
             OtherUtility.log("&cOnly players may use this command.");
             return false;
         }
+        Player player = (Player) sender;
 
         if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
             player.teleport(parseLocation(Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_SPAWN.getString(), Config.Setting.TEST_SERVER_MODE_WORLD.getString()), PlayerTeleportEvent.TeleportCause.PLUGIN);

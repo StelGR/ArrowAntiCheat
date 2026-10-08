@@ -241,40 +241,71 @@ public class InteractD extends Check {
         double ty = targetLocation.getY();
         double tz = targetLocation.getZ();
 
-        Vector[] probes = {
-            new Vector(tx, ty + targetHeight * 0.85D, tz),  // head
-            new Vector(tx, ty + targetHeight * 0.5D,  tz),  // center
-            new Vector(tx, ty + 0.2D,                 tz)    // feet
-        };
+        // ── Check 1: Attacker's direct look vector vs target hitbox ─
+        // If the attacker's crosshair intersects the target's bounding box
+        // and there is no solid block between eye and that intersection,
+        // the attack has a clear line of sight (100% legitimate).
+        Vector lookDir = getDirection(attackerRotation.getYaw(), attackerRotation.getPitch());
+        Double tHit = rayAabbIntersection(
+                eye, lookDir,
+                tx - 0.4D, ty - 0.1D, tz - 0.4D,
+                tx + 0.4D, ty + targetHeight + 0.1D, tz + 0.4D
+        );
 
-        // ── Cast a ray from eye toward each probe point ─────────────
-        // If ANY ray is clear, the attack is legitimate.
-        // Only flag when ALL rays are blocked.
         BlockHit nearestHit = null;
         boolean anyVisible = false;
 
-        for (Vector probe : probes) {
-            Vector diff = probe.clone().subtract(eye);
-            double dist = diff.length();
-
-            if (dist <= 1.0E-5D) {
+        if (tHit != null && tHit > 0.05D && tHit <= MAX_RAY_DISTANCE) {
+            BlockHit lookHit = stepRaytrace(world, eye, lookDir, Math.max(0.0D, tHit - 0.05D));
+            if (lookHit == null) {
                 anyVisible = true;
-                break;
+            } else {
+                nearestHit = lookHit;
             }
-            if (dist > MAX_RAY_DISTANCE) {
-                continue;
-            }
+        }
 
-            Vector direction = diff.clone().normalize();
-            BlockHit hit = stepRaytrace(world, eye, direction, dist);
+        // ── Check 2: Target 3D hitbox probe points ──────────────────
+        // If look vector was blocked or didn't directly hit the hitbox
+        // (e.g. killaura, silent aura, or minor latency desync),
+        // test rays toward the entire 3D hitbox volume (center, edges, corners).
+        // Only if EVERY point on the hitbox is blocked by a solid block
+        // (e.g., completely enclosed in an iron bar cage or behind a wall)
+        // do we flag.
+        if (!anyVisible) {
+            double[] xOffsets = {-0.25D, 0.0D, 0.25D};
+            double[] zOffsets = {-0.25D, 0.0D, 0.25D};
+            double[] yHeights = {0.2D, targetHeight * 0.5D, targetHeight * 0.85D};
 
-            if (hit == null) {
-                anyVisible = true;
-                break;
-            }
+            for (double h : yHeights) {
+                if (anyVisible) break;
+                for (double dx : xOffsets) {
+                    if (anyVisible) break;
+                    for (double dz : zOffsets) {
+                        Vector probe = new Vector(tx + dx, ty + h, tz + dz);
+                        Vector diff = probe.clone().subtract(eye);
+                        double dist = diff.length();
 
-            if (nearestHit == null || hit.distance < nearestHit.distance) {
-                nearestHit = hit;
+                        if (dist <= 1.0E-5D) {
+                            anyVisible = true;
+                            break;
+                        }
+                        if (dist > MAX_RAY_DISTANCE) {
+                            continue;
+                        }
+
+                        Vector direction = diff.clone().normalize();
+                        BlockHit hit = stepRaytrace(world, eye, direction, dist);
+
+                        if (hit == null) {
+                            anyVisible = true;
+                            break;
+                        }
+
+                        if (nearestHit == null || hit.distance < nearestHit.distance) {
+                            nearestHit = hit;
+                        }
+                    }
+                }
             }
         }
 
@@ -327,6 +358,9 @@ public class InteractD extends Check {
         int lastBlockX = Integer.MIN_VALUE;
         int lastBlockY = Integer.MIN_VALUE;
         int lastBlockZ = Integer.MIN_VALUE;
+        Material mat = null;
+        List<PEMaterials.CollisionBounds> boundsList = null;
+        boolean skipBlock = false;
 
         for (double travelled = 0.0D; travelled <= maxDistance; travelled += step) {
             double x = eye.getX() + direction.getX() * travelled;
@@ -337,61 +371,62 @@ public class InteractD extends Check {
             int by = floor(y);
             int bz = floor(z);
 
-            // Skip if we're still in the same block as the last step.
-            if (bx == lastBlockX && by == lastBlockY && bz == lastBlockZ) {
-                continue;
+            if (bx != lastBlockX || by != lastBlockY || bz != lastBlockZ) {
+                lastBlockX = bx;
+                lastBlockY = by;
+                lastBlockZ = bz;
+
+                mat = cache.getBlock(world, bx, by, bz);
+
+                // Uncached chunk → treat as solid (prevents bypass via uncached areas).
+                if (mat == null) {
+                    mat = Material.OBSIDIAN;
+                }
+
+                // Skip air and non-solid/ignored blocks.
+                if (isIgnoredRayBlock(mat)) {
+                    skipBlock = true;
+                    boundsList = null;
+                    continue;
+                }
+
+                // Skip blocks the client has legitimately broken or
+                // that are pending a server update.
+                BlockKey key = BlockKey.of(world, bx, by, bz);
+                if (isClientPredictedAir(key) || isServerUpdateInFlight(key)) {
+                    skipBlock = true;
+                    boundsList = null;
+                    continue;
+                }
+
+                skipBlock = false;
+                // We have a solid block — check collision bounds for precision.
+                WrappedBlockState state = cache.getBlockState(world, bx, by, bz);
+                String n = mat.name();
+                if (n.equals("IRON_BARS") || n.equals("IRON_FENCE")
+                        || n.endsWith("_PANE") || n.equals("THIN_GLASS") || n.equals("GLASS_PANE")) {
+                    boundsList = PEMaterials.paneBounds(state, world, bx, by, bz);
+                } else {
+                    boundsList = state != null
+                            ? PEMaterials.getCollisionBounds(state, bx, by, bz)
+                            : PEMaterials.getCollisionBounds(mat, bx, by, bz);
+                }
             }
-            lastBlockX = bx;
-            lastBlockY = by;
-            lastBlockZ = bz;
 
-            Material mat = cache.getBlock(world, bx, by, bz);
-
-            // Uncached chunk → treat as solid (prevents bypass via uncached areas).
-            if (mat == null) {
-                mat = Material.OBSIDIAN;
-            }
-
-            // Skip air and non-solid/ignored blocks.
-            if (isIgnoredRayBlock(mat)) {
-                continue;
-            }
-
-            // Skip blocks the client has legitimately broken or
-            // that are pending a server update.
-            BlockKey key = BlockKey.of(world, bx, by, bz);
-            if (isClientPredictedAir(key) || isServerUpdateInFlight(key)) {
-                continue;
-            }
-
-            // We have a solid block — check collision bounds for precision.
-            WrappedBlockState state = cache.getBlockState(world, bx, by, bz);
-            List<PEMaterials.CollisionBounds> boundsList = state != null
-                    ? PEMaterials.getCollisionBounds(state, bx, by, bz)
-                    : PEMaterials.getCollisionBounds(mat, bx, by, bz);
-
-            if (boundsList == null || boundsList.isEmpty()) {
+            if (skipBlock || boundsList == null || boundsList.isEmpty()) {
                 continue;
             }
 
             // Verify the ray point is actually inside one of the
-            // collision bounds (handles partial blocks like slabs, stairs).
-            boolean insideBounds = false;
+            // collision bounds (handles partial blocks like slabs, stairs, iron bars).
             for (PEMaterials.CollisionBounds bounds : boundsList) {
                 if (x >= bounds.minX && x <= bounds.maxX
                         && y >= bounds.minY && y <= bounds.maxY
                         && z >= bounds.minZ && z <= bounds.maxZ) {
-                    insideBounds = true;
-                    break;
+                    // First solid block hit.
+                    return new BlockHit(mat, new Vector3i(bx, by, bz), travelled);
                 }
             }
-
-            if (!insideBounds) {
-                continue;
-            }
-
-            // First solid block hit.
-            return new BlockHit(mat, new Vector3i(bx, by, bz), travelled);
         }
 
         return null;
@@ -423,7 +458,7 @@ public class InteractD extends Check {
             return true;
         }
 
-        // Vegetation, decorations, and other pass-through blocks.
+        // Vegetation, decorations, and pass-through blocks.
         return name.contains("TALL_GRASS")
                 || name.endsWith("_GRASS")
                 || name.contains("FLOWER")
@@ -447,7 +482,56 @@ public class InteractD extends Check {
                 || name.equals("REDSTONE")
                 || name.equals("TRIPWIRE")
                 || name.equals("TRIPWIRE_HOOK")
-                || name.equals("STRING");
+                || name.equals("STRING")
+                || name.contains("LADDER");
+    }
+
+    private Double rayAabbIntersection(Vector rayOrigin, Vector rayDir,
+                                       double minX, double minY, double minZ,
+                                       double maxX, double maxY, double maxZ) {
+        double tMin = 0.0D;
+        double tMax = MAX_RAY_DISTANCE;
+
+        // X slab
+        if (Math.abs(rayDir.getX()) < 1.0E-8D) {
+            if (rayOrigin.getX() < minX || rayOrigin.getX() > maxX) return null;
+        } else {
+            double invD = 1.0D / rayDir.getX();
+            double t1 = (minX - rayOrigin.getX()) * invD;
+            double t2 = (maxX - rayOrigin.getX()) * invD;
+            if (t1 > t2) { double tmp = t1; t1 = t2; t2 = tmp; }
+            tMin = Math.max(tMin, t1);
+            tMax = Math.min(tMax, t2);
+            if (tMin > tMax) return null;
+        }
+
+        // Y slab
+        if (Math.abs(rayDir.getY()) < 1.0E-8D) {
+            if (rayOrigin.getY() < minY || rayOrigin.getY() > maxY) return null;
+        } else {
+            double invD = 1.0D / rayDir.getY();
+            double t1 = (minY - rayOrigin.getY()) * invD;
+            double t2 = (maxY - rayOrigin.getY()) * invD;
+            if (t1 > t2) { double tmp = t1; t1 = t2; t2 = tmp; }
+            tMin = Math.max(tMin, t1);
+            tMax = Math.min(tMax, t2);
+            if (tMin > tMax) return null;
+        }
+
+        // Z slab
+        if (Math.abs(rayDir.getZ()) < 1.0E-8D) {
+            if (rayOrigin.getZ() < minZ || rayOrigin.getZ() > maxZ) return null;
+        } else {
+            double invD = 1.0D / rayDir.getZ();
+            double t1 = (minZ - rayOrigin.getZ()) * invD;
+            double t2 = (maxZ - rayOrigin.getZ()) * invD;
+            if (t1 > t2) { double tmp = t1; t1 = t2; t2 = tmp; }
+            tMin = Math.max(tMin, t1);
+            tMax = Math.min(tMax, t2);
+            if (tMin > tMax) return null;
+        }
+
+        return tMin;
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -625,7 +709,8 @@ public class InteractD extends Check {
         @Override
         public boolean equals(Object object) {
             if (this == object) return true;
-            if (!(object instanceof BlockKey other)) return false;
+            if (!(object instanceof BlockKey)) return false;
+            BlockKey other = (BlockKey) object;
             return x == other.x && y == other.y && z == other.z && world.equals(other.world);
         }
 

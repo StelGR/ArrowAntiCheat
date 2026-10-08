@@ -51,7 +51,6 @@ public class GroundC extends Check {
                 if (exempt("startup", profile.getTick() < 60)) return;
                 //if (exempt("nearBoat", movementData.isNearBoat())) return;
                 if (exempt("noLocation", movementData.getLocation() == null)) return;
-                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) return;
                 if (exempt("teleports", profile.isExempt().isTeleports())) return;
                 //if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return;
                 if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) return;
@@ -60,12 +59,8 @@ public class GroundC extends Check {
 
                 boolean serverPositionGround = movementData.isPositionYGround();
                 boolean serverPositionGroundLast = movementData.isLastPositionYGround();
-
                 boolean serverYGround = movementData.isServerYGround();
-
-
                 boolean serverGround = movementData.isServerGround();
-
 
                 String verboseInfo = "clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + ground
                         + "\nserverPositionGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverPositionGround
@@ -88,7 +83,7 @@ public class GroundC extends Check {
                  * The place support helper verifies that the block actually exists,
                  * so cancelled/ghost tower attempts do not receive this exemption.
                  */
-                if (exempt("underPlaceSupport", profile.getActionData().hasRecentUnderPlaceSupport(10 + (trans * 2)))) return;
+                if (exempt("underPlaceSupport", profile.getActionData().hasRecentUnderPlaceSupport(12 + (trans * 4)))) return;
                 if (exempt("underBreak", profile.getActionData().hasRecentConfirmedUnderBreak(5 + (trans * 2)))) return;
                 if (exempt("towerBlockPlace", profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans))) return;
                 if (exempt("pistonUpdate", profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2)))) return;

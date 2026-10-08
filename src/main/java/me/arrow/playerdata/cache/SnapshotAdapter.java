@@ -165,8 +165,8 @@ public class SnapshotAdapter {
                             z
                     );
 
-            if (value instanceof Number number) {
-                return number.intValue() & 0xFF;
+            if (value instanceof Number) {
+                return ((Number) value).intValue() & 0xFF;
             }
         } catch (Throwable ignored) {
         }

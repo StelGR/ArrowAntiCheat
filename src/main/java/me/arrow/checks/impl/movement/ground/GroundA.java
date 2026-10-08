@@ -54,7 +54,6 @@ public class GroundA extends Check {
                 boolean invalid3 = serverGround != clientGround
                         && !movementData.isNearWater()
                         && !movementData.isNearLava()
-                        && movementData.getSinceTeleportTicks() > 10
                         && !profile.getVelocityData().isTakingVelocity()
                         && movementData.getSincePredictUpwardsTicks() > 10
                         && movementData.getSincePredictDownwardsTicks() > 10
@@ -171,7 +170,7 @@ public class GroundA extends Check {
             return true;
         }
 
-        if (profile.isExempt().isTeleports()) {
+        if (movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) {
             ChatUtils.debugExempt("teleports", "GroundA");
             return true;
         }
@@ -303,7 +302,7 @@ public class GroundA extends Check {
             return true;
         }
 
-        if (profile.isExempt().isTeleports()) {
+        if (movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) {
             ChatUtils.debugExempt("teleports", "GroundA");
             return true;
         }

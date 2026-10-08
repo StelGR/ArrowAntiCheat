@@ -271,12 +271,12 @@ public class Profile implements CoreProfile {
 
         this.connectionData.processReceive(event);
         this.velocityData.processReceive(event);
+        this.teleportData.processReceive(event);
         this.actionData.processReceive(event);
         this.movementData.processReceive(event);
         this.rotationData.processReceive(event);
         this.combatData.processReceive(event);
         this.rodData.processReceive(event);
-        this.teleportData.processReceive(event);
         this.predictionData.processReceive(event);
         this.potionData.processReceive(event);
         this.vehicleData.processReceive(event);
@@ -342,7 +342,7 @@ public class Profile implements CoreProfile {
         WrapperPlayClientPlayerFlying flying = getWrapperPlayClientPlayerFlying(event);
 
         // Teleports can never be duplicate packets
-        if (getTeleportData().isTeleporting() || getTeleportData().getTeleportTicks() <= 1) {
+        if (getTeleportData().hasConfirmedTeleport() || getTeleportData().isTeleporting() || getTeleportData().getTeleportTicks() <= 1) {
             if (flying.hasPositionChanged()) {
                 this.lastFlyingPosition = new Vector3d(
                         flying.getLocation().getX(),
@@ -397,11 +397,12 @@ public class Profile implements CoreProfile {
         return false;
     }
 
-    private WrapperPlayClientPlayerFlying getWrapperPlayClientPlayerFlying(PacketReceiveEvent event) {
-        WrapperPlayClientPlayerFlying flying;
+    public WrapperPlayClientPlayerFlying getWrapperPlayClientPlayerFlying(PacketReceiveEvent event) {
         if (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerFlying) {
-            flying = (WrapperPlayClientPlayerFlying) event.getLastUsedWrapper();
-        } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+            return (WrapperPlayClientPlayerFlying) event.getLastUsedWrapper();
+        }
+        WrapperPlayClientPlayerFlying flying;
+        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
             flying = new WrapperPlayClientPlayerPositionAndRotation(event);
         } else if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
             flying = new WrapperPlayClientPlayerPosition(event);

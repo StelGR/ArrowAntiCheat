@@ -229,7 +229,8 @@ public class OtherUtility {
             Class<?> itemFlagClass = Class.forName("org.bukkit.inventory.ItemFlag");
             Object flag = Enum.valueOf((Class<Enum>) itemFlagClass.asSubclass(Enum.class), flagName);
 
-            Method addItemFlags = meta.getClass().getMethod("addItemFlags", itemFlagClass.arrayType());
+            Class<?> arrayClass = java.lang.reflect.Array.newInstance(itemFlagClass, 0).getClass();
+            Method addItemFlags = meta.getClass().getMethod("addItemFlags", arrayClass);
             Object array = java.lang.reflect.Array.newInstance(itemFlagClass, 1);
             java.lang.reflect.Array.set(array, 0, flag);
 

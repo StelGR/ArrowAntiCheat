@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import me.arrow.core.check.CheckType;
 import me.arrow.checks.types.Check;
@@ -46,8 +47,17 @@ public class KillauraA extends Check {
 
         PacketTypeCommon packetType = event.getPacketType();
 
+        if (packetType.equals(PacketType.Play.Client.ATTACK)) {
+            WrapperPlayClientAttack attack = new WrapperPlayClientAttack(event);
+            handleAttack(attack.getEntityId());
+            return;
+        }
+
         if (packetType.equals(PacketType.Play.Client.INTERACT_ENTITY)) {
-            handleAttack(event);
+            WrapperPlayClientInteractEntity packet = new WrapperPlayClientInteractEntity(event);
+            if (packet.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
+                handleAttack(packet.getEntityId());
+            }
             return;
         }
 
@@ -56,13 +66,13 @@ public class KillauraA extends Check {
         }
     }
 
-    private void handleAttack(PacketReceiveEvent event) {
+    private void handleAttack(int targetEntityId) {
 
-        WrapperPlayClientInteractEntity packet = new WrapperPlayClientInteractEntity(event);
 
-        if (packet.getAction() != WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
-            return;
-        }
+
+
+
+
 
         MovementData movementData = profile.getMovementData();
         ActionData actionData = profile.getActionData();
@@ -81,13 +91,13 @@ public class KillauraA extends Check {
 
         inferredSprintOnAttack = isMovingLikeSprint(movementData);
 
-        lastAttackTargetPlayer = resolveTargetPlayer(packet.getEntityId());
+        lastAttackTargetPlayer = resolveTargetPlayer(targetEntityId);
 
         CombatData combatData = profile.getCombatData();
 
         try {
             Player attacked = PlatformBackend.get().getServer().getPlayer(
-                    Objects.requireNonNull(combatData.getTrackedEntities().get(packet.getEntityId()))
+                    Objects.requireNonNull(combatData.getTrackedEntities().get(targetEntityId))
             );
 
             if (attacked != null) {

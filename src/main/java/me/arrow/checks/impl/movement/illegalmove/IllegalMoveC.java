@@ -53,7 +53,7 @@ public class IllegalMoveC extends Check {
             ActionData actionData = profile.getActionData();
 
             if (exempt("cancelled", profile.shouldCancel())) { resetBuffers(); return; }
-            if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetBuffers(); return; }
+            if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) { resetBuffers(); return; }
             if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) { resetBuffers(); return; }
             if (exempt("dead", profile.getPlayer().isDead())) { resetBuffers(); return; }
 //            if (exempt("onBoat", movementData.isOnBoat())) { resetBuffers(); return; }

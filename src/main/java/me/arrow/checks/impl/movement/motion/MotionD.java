@@ -50,7 +50,7 @@ public class MotionD extends Check {
                 if (exempt("slimeBounce", profile.isBouncingOnSlime())) { resetMotionBuffer(); return; }
                 if (exempt("onSlime", movementData.isOnSlime())) { resetMotionBuffer(); return; }
                 if (exempt("movingUnderBlock", movementData.getMovingUnderblockTicks() > 0)) { resetMotionBuffer(); return; }
-                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetMotionBuffer(); return; }
+                if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) { resetMotionBuffer(); return; }
                 if (exempt("underBlock", movementData.isUnderblock())) { resetMotionBuffer(); return; }
                 if (exempt("nearBed", movementData.isNearBed())) { resetMotionBuffer(); return; }
                 if (exempt("onBoat", movementData.isOnBoat())) { resetMotionBuffer(); return; }

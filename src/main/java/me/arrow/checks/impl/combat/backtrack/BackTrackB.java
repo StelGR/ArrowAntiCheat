@@ -63,6 +63,11 @@ public class BackTrackB extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
+        if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+            lastAttackTime = System.currentTimeMillis();
+            return;
+        }
+
         if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
             WrapperPlayClientInteractEntity wrapper = new WrapperPlayClientInteractEntity(event);
 

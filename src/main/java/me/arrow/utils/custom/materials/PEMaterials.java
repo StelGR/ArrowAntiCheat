@@ -4,7 +4,9 @@ import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
+import me.arrow.playerdata.cache.ChunkCache;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.material.MaterialData;
 
@@ -522,6 +524,12 @@ public class PEMaterials {
         return state != null && stateName(state).endsWith("_STAIRS");
     }
 
+    public static boolean isStair(Material material) {
+        if (material == null) return false;
+        String name = material.name();
+        return name.endsWith("_STAIRS") || name.equals("STAIRS") || name.contains("STAIR");
+    }
+
     public static boolean isSlab(WrappedBlockState state) {
         if (state == null) return false;
         String name = stateName(state);
@@ -604,11 +612,14 @@ public class PEMaterials {
         if (name.equals("DIRT_PATH") || name.equals("GRASS_PATH")) {
             return lowFullBounds(x, y, z, .9375D);
         }
-        if (name.contains("FENCE") || name.contains("WALL")) {
+        if ((name.contains("FENCE") && !name.equals("IRON_FENCE")) || name.contains("WALL")) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.5D, z + 1.0D));
         }
         if (name.endsWith("_PANE") || name.equals("IRON_BARS") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE") || name.equals("IRON_FENCE")) {
             return paneBounds(null, x, y, z);
+        }
+        if (isStair(material)) {
+            return stairBounds(-1, x, y, z);
         }
         if (name.endsWith("_HEAD") || name.endsWith("_SKULL") || name.equals("HEAVY_CORE")) {
             return Collections.singletonList(new CollisionBounds(x + 0.25D, y, z + 0.25D, x + 0.75D, y + 0.5D, z + 0.75D));
@@ -619,15 +630,19 @@ public class PEMaterials {
         if (name.contains("DAYLIGHT_DETECTOR")) {
             return lowFullBounds(x, y, z, .375D);
         }
-        return switch (name) {
-            case "SCULK_SHRIEKER" -> lowFullBounds(x, y, z, .5D);
-            case "SCULK_SENSOR", "CALIBRATED_SCULK_SENSOR" -> centeredLowBounds(x, y, z, .0625D, .5D);
-            case "LIGHTNING_ROD" -> lightningRodBounds(null, x, y, z);
-            default -> Collections.singletonList(new CollisionBounds(
-                    x, y, z,
-                    x + 1.0D, y + 1.0D, z + 1.0D
-            ));
-        };
+        if (name.equals("SCULK_SHRIEKER")) {
+            return lowFullBounds(x, y, z, .5D);
+        }
+        if (name.equals("SCULK_SENSOR") || name.equals("CALIBRATED_SCULK_SENSOR")) {
+            return centeredLowBounds(x, y, z, .0625D, .5D);
+        }
+        if (name.equals("LIGHTNING_ROD")) {
+            return lightningRodBounds(null, x, y, z);
+        }
+        return Collections.singletonList(new CollisionBounds(
+                x, y, z,
+                x + 1.0D, y + 1.0D, z + 1.0D
+        ));
 
     }
 
@@ -699,27 +714,25 @@ public class PEMaterials {
         if (name.contains("DAYLIGHT_DETECTOR")) {
             return lowFullBounds(x, y, z, .375D);
         }
-        switch (name) {
-            case "SCULK_SHRIEKER" -> {
-                return lowFullBounds(x, y, z, .5D);
-            }
-            case "SCULK_SENSOR", "CALIBRATED_SCULK_SENSOR" -> {
-                return centeredLowBounds(x, y, z, .0625D, .5D);
-            }
-            case "LIGHTNING_ROD" -> {
-                return lightningRodBounds(state, x, y, z);
-            }
+        if (name.equals("SCULK_SHRIEKER")) {
+            return lowFullBounds(x, y, z, .5D);
+        }
+        if (name.equals("SCULK_SENSOR") || name.equals("CALIBRATED_SCULK_SENSOR")) {
+            return centeredLowBounds(x, y, z, .0625D, .5D);
+        }
+        if (name.equals("LIGHTNING_ROD")) {
+            return lightningRodBounds(state, x, y, z);
         }
         if (name.endsWith("_FENCE_GATE") || name.equals("FENCE_GATE")) {
             return fenceGateBounds(state, x, y, z);
         }
-        if (name.endsWith("_FENCE") || name.equals("FENCE") || name.equals("IRON_FENCE")) {
+        if ((name.endsWith("_FENCE") && !name.equals("IRON_FENCE")) || name.equals("FENCE")) {
             return fenceBounds(state, x, y, z);
         }
         if (name.endsWith("_WALL") || name.equals("COBBLE_WALL")) {
             return wallBounds(state, x, y, z);
         }
-        if (name.endsWith("_PANE") || name.equals("IRON_BARS") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE")) {
+        if (name.endsWith("_PANE") || name.equals("IRON_BARS") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE") || name.equals("IRON_FENCE")) {
             return paneBounds(state, x, y, z);
         }
         if (isSlab(state) || name.endsWith("_SLAB") || name.endsWith("_STEP")) {
@@ -731,6 +744,9 @@ public class PEMaterials {
                 return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
             }
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + .5D, z + 1.0D));
+        }
+        if (isStair(state) || isStair(material)) {
+            return stairBounds(state, x, y, z);
         }
 
         return requiresStatefulCollision(material)
@@ -901,11 +917,30 @@ public class PEMaterials {
         return boxes;
     }
 
-    private static List<CollisionBounds> paneBounds(WrappedBlockState state, int x, int y, int z) {
-        boolean north = state != null && isConnected(state.getNorth());
-        boolean south = state != null && isConnected(state.getSouth());
-        boolean west = state != null && isConnected(state.getWest());
-        boolean east = state != null && isConnected(state.getEast());
+    public static List<CollisionBounds> paneBounds(WrappedBlockState state, World world, int x, int y, int z) {
+        boolean north = false;
+        boolean south = false;
+        boolean west = false;
+        boolean east = false;
+
+        if (state != null) {
+            north = isConnected(state.getNorth());
+            south = isConnected(state.getSouth());
+            west = isConnected(state.getWest());
+            east = isConnected(state.getEast());
+        } else if (world != null) {
+            ChunkCache cache = ChunkCache.get();
+            Material nMat = cache.getBlock(world, x, y, z - 1);
+            Material sMat = cache.getBlock(world, x, y, z + 1);
+            Material wMat = cache.getBlock(world, x - 1, y, z);
+            Material eMat = cache.getBlock(world, x + 1, y, z);
+
+            north = isPaneConnectable(nMat);
+            south = isPaneConnectable(sMat);
+            west = isPaneConnectable(wMat);
+            east = isPaneConnectable(eMat);
+        }
+
         boolean hasSide = north || south || west || east;
         List<CollisionBounds> boxes = new ArrayList<>(5);
 
@@ -915,19 +950,118 @@ public class PEMaterials {
         if (north) boxes.add(new CollisionBounds(x + .4375D, y, z, x + .5625D, y + 1.0D, z + .5D));
         if (south) boxes.add(new CollisionBounds(x + .4375D, y, z + .5D, x + .5625D, y + 1.0D, z + 1.0D));
         if (west) boxes.add(new CollisionBounds(x, y, z + .4375D, x + .5D, y + 1.0D, z + .5625D));
-        if (east) boxes.add(new CollisionBounds(x + .5D, y, z + .4375D, x + 1.0D, y + 1.0D, z + 1.0D));
+        if (east) boxes.add(new CollisionBounds(x + .5D, y, z + .4375D, x + 1.0D, y + 1.0D, z + .5625D));
 
         if (!hasSide) {
-            // Standalone or unparsed legacy pane: thin centered cross bounds rather than full cube
+            // Standalone or unparsed legacy pane: thin centered cross bounds
             boxes.add(new CollisionBounds(x + .4375D, y, z, x + .5625D, y + 1.0D, z + 1.0D));
+            boxes.add(new CollisionBounds(x, y, z + .4375D, x + 1.0D, y + 1.0D, z + .5625D));
         }
 
         return boxes;
     }
 
+    public static List<CollisionBounds> paneBounds(WrappedBlockState state, int x, int y, int z) {
+        return paneBounds(state, null, x, y, z);
+    }
+
+    public static boolean isPaneConnectable(Material mat) {
+        if (mat == null || mat == Material.AIR) return false;
+        String name = mat.name();
+        if (name.equals("IRON_BARS") || name.equals("IRON_FENCE")
+                || name.endsWith("_PANE") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE")
+                || name.endsWith("_WALL") || name.equals("COBBLE_WALL")
+                || name.endsWith("_FENCE") || name.equals("FENCE")
+                || name.endsWith("_FENCE_GATE") || name.equals("FENCE_GATE")) {
+            return true;
+        }
+        try {
+            return mat.isSolid() && mat.isOccluding();
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private static boolean isConnected(Object value) {
         String name = String.valueOf(value);
         return !"NONE".equals(name) && !"FALSE".equals(name) && !"null".equals(name);
+    }
+
+    public static List<CollisionBounds> stairBounds(int legacyData, int x, int y, int z) {
+        List<CollisionBounds> boxes = new ArrayList<>(3);
+        boolean top = legacyData >= 0 && (legacyData & 0x4) != 0;
+
+        // Base slab: bottom half if normal (y to y+0.5), top half if upside-down (y+0.5 to y+1.0)
+        double baseMinY = top ? y + 0.5D : y;
+        double baseMaxY = top ? y + 1.0D : y + 0.5D;
+        boxes.add(new CollisionBounds(x, baseMinY, z, x + 1.0D, baseMaxY, z + 1.0D));
+
+        // Step half: opposite half of the base
+        double stepMinY = top ? y : y + 0.5D;
+        double stepMaxY = top ? y + 0.5D : y + 1.0D;
+
+        if (legacyData >= 0) {
+            int dir = legacyData & 0x3;
+            switch (dir) {
+                case 0:
+                    boxes.add(new CollisionBounds(x + 0.5D, stepMinY, z, x + 1.0D, stepMaxY, z + 1.0D)); // East
+                    break;
+                case 1:
+                    boxes.add(new CollisionBounds(x, stepMinY, z, x + 0.5D, stepMaxY, z + 1.0D)); // West
+                    break;
+                case 2:
+                    boxes.add(new CollisionBounds(x, stepMinY, z + 0.5D, x + 1.0D, stepMaxY, z + 1.0D)); // South
+                    break;
+                case 3:
+                    boxes.add(new CollisionBounds(x, stepMinY, z, x + 1.0D, stepMaxY, z + 0.5D)); // North
+                    break;
+            }
+        } else {
+            // Unknown orientation fallback: add North step
+            boxes.add(new CollisionBounds(x, stepMinY, z, x + 1.0D, stepMaxY, z + 0.5D));
+        }
+
+        return boxes;
+    }
+
+    public static List<CollisionBounds> stairBounds(WrappedBlockState state, int x, int y, int z) {
+        List<CollisionBounds> boxes = new ArrayList<>(3);
+        boolean top = false;
+        String facing = "NORTH";
+
+        if (state != null) {
+            try {
+                String half = String.valueOf(state.getHalf());
+                top = "TOP".equalsIgnoreCase(half);
+            } catch (Throwable ignored) {}
+            try {
+                facing = String.valueOf(state.getFacing()).toUpperCase(Locale.ROOT);
+            } catch (Throwable ignored) {}
+        }
+
+        double baseMinY = top ? y + 0.5D : y;
+        double baseMaxY = top ? y + 1.0D : y + 0.5D;
+        boxes.add(new CollisionBounds(x, baseMinY, z, x + 1.0D, baseMaxY, z + 1.0D));
+
+        double stepMinY = top ? y : y + 0.5D;
+        double stepMaxY = top ? y + 0.5D : y + 1.0D;
+
+        switch (facing) {
+            case "EAST":
+                boxes.add(new CollisionBounds(x + 0.5D, stepMinY, z, x + 1.0D, stepMaxY, z + 1.0D));
+                break;
+            case "WEST":
+                boxes.add(new CollisionBounds(x, stepMinY, z, x + 0.5D, stepMaxY, z + 1.0D));
+                break;
+            case "SOUTH":
+                boxes.add(new CollisionBounds(x, stepMinY, z + 0.5D, x + 1.0D, stepMaxY, z + 1.0D));
+                break;
+            default:
+                boxes.add(new CollisionBounds(x, stepMinY, z, x + 1.0D, stepMaxY, z + 0.5D)); // NORTH
+                break;
+        }
+
+        return boxes;
     }
 
     public static WrappedBlockState fromBukkitBlockStrictlyForClient(Block block, ClientVersion clientVersion) {
@@ -975,6 +1109,16 @@ public class PEMaterials {
          */
         if (LEGACY_SERVER
                 && isLegacyPartialMaterial(block.getType())) {
+            Material mat = block.getType();
+            if (isStair(mat)) {
+                return stairBounds(block.getData(), block.getX(), block.getY(), block.getZ());
+            }
+            if (isLegacySlabMaterial(mat)) {
+                return getCollisionBounds(mat, block.getData(), block.getX(), block.getY(), block.getZ());
+            }
+            if (mat.name().equals("IRON_FENCE") || mat.name().equals("IRON_BARS") || mat.name().endsWith("_PANE")) {
+                return paneBounds(null, block.getX(), block.getY(), block.getZ());
+            }
             return Collections.emptyList();
         }
 
@@ -1051,9 +1195,10 @@ public class PEMaterials {
 
             Object raw = boxesMethod.invoke(shape);
 
-            if (!(raw instanceof Collection<?> rawBoxes)) {
+            if (!(raw instanceof Collection<?>)) {
                 return null;
             }
+            Collection<?> rawBoxes = (Collection<?>) raw;
 
             List<LocalCollisionBounds> local = new ArrayList<>(rawBoxes.size());
 
@@ -1255,6 +1400,16 @@ public class PEMaterials {
                             y + 0.5D,
                             z + 1.0D
                     )
+            );
+        }
+
+        String name = normalize(material.name());
+        if (isStair(material)) {
+            return stairBounds(legacyData, x, y, z);
+        }
+        if (name.contains("DOUBLE_STEP") || name.contains("DOUBLE_SLAB")) {
+            return Collections.singletonList(
+                    new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D)
             );
         }
 

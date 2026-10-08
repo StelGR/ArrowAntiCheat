@@ -21,7 +21,7 @@ public class AimL extends Check {
     double buffer = 0;
 
     public AimL(Profile profile) {
-        super(profile, CheckType.AIM, "L", "Invalid rotation heuristics");
+        super(profile, CheckType.AIM, "L", "Disabled");
     }
 
     @Override
@@ -32,6 +32,7 @@ public class AimL extends Check {
 
         if (profile.isExempt().isTeleports()) return;
         if (profile.isExempt().isVehicle()) return;
+        if (profile.getMovementData().getMovingTicks() < 5) return;
 
         RotationData rotationData = profile.getRotationData();
 

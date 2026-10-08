@@ -4,5 +4,6 @@ public enum CheckCategory {
     COMBAT,
     MOVEMENT,
     WORLD,
-    CONNECTION
+    CONNECTION,
+    SUSPICION
 }

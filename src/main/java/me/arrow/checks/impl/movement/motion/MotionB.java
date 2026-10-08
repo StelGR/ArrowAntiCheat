@@ -45,7 +45,7 @@ public class MotionB extends Check {
                 MovementData movementData = profile.getMovementData();
 
                 if (exempt("cancelled", profile.shouldCancel())) { resetBuffers(); return; }
-                if (exempt("teleports", movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetBuffers(); return; }
+                if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) { resetBuffers(); return; }
                 if (exempt("slimeBounce", profile.isBouncingOnSlime())) { resetBuffers(); return; }
                 if (exempt("onSlime", movementData.isOnSlime())) { resetBuffers(); return; }
                 if (exempt("nearShulker", movementData.isNearShulker())) { resetBuffers(); return; }

@@ -494,9 +494,10 @@ public class BoundingBox {
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
-        } else if (!(obj instanceof BoundingBox other)) {
+        } else if (!(obj instanceof BoundingBox)) {
             return false;
         } else {
+            BoundingBox other = (BoundingBox) obj;
             if (Double.doubleToLongBits(getMaxX()) != Double.doubleToLongBits(other.getMaxX())) {
                 return false;
             } else if (Double.doubleToLongBits(getMaxY()) != Double.doubleToLongBits(other.getMaxY())) {

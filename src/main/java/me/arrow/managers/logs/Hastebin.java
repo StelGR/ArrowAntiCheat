@@ -39,8 +39,8 @@ public class Hastebin {
             connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8");
 
             String body =
-                    "content=" + URLEncoder.encode(contents, StandardCharsets.UTF_8)
-                            + "&source=" + URLEncoder.encode("Arrow Anticheat", StandardCharsets.UTF_8);
+                    "content=" + URLEncoder.encode(contents, "UTF-8")
+                            + "&source=" + URLEncoder.encode("Arrow Anticheat", "UTF-8");
 
             try (OutputStream outputStream = connection.getOutputStream()) {
                 outputStream.write(body.getBytes(StandardCharsets.UTF_8));

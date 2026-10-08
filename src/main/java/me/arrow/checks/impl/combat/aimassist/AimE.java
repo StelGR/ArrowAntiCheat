@@ -76,7 +76,7 @@ public class AimE extends Check {
 
             if (!heuristics.isFinished()) return;
 
-            var result = heuristics.getResult();
+            RotationHeuristics.HeuristicsResult result = heuristics.getResult();
             double avg = result.getAverage();
             double min = result.getMin();
             double max = result.getMax();
@@ -89,7 +89,7 @@ public class AimE extends Check {
 
             double stdDev = MathUtil.getStandardDeviation(rotationHistory);
             double skew = MathUtil.getSkewness(rotationHistory);
-            var outliers = MathUtil.getOutliers(rotationHistory);
+            me.arrow.utils.customutils.Tuple<List<Double>, List<Double>> outliers = MathUtil.getOutliers(rotationHistory);
             double outlierRatio = (outliers.one.size() + outliers.two.size()) / (double) rotationHistory.size();
 
             double uniqueRatio = (rotationHistory.size() - duplicates) / (double) rotationHistory.size();

@@ -8,8 +8,9 @@ import me.arrow.managers.Initializer;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.stream.Stream;
 
 @Getter
 public class Checks implements Initializer {
@@ -369,6 +370,12 @@ public class Checks implements Initializer {
         INTERACT_E_PUNISH_MODE("InteractE.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         INTERACT_E_MAX_VL("InteractE.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        INTERACT_F("InteractF.enabled", true, "Should we enable this module?"),
+        INTERACT_F_PUNISH("InteractF.punish", "", "Punishment settings"),
+        INTERACT_F_PUNISH_ENABLED("InteractF.punish.enabled", true, "Should punishments be enabled for this check?"),
+        INTERACT_F_PUNISH_MODE("InteractF.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        INTERACT_F_MAX_VL("InteractF.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
+
         INVENTORY_A("InventoryA.enabled", true, "Should we enable this module?"),
         INVENTORY_A_PUNISH("InventoryA.punish", "", "Punishment settings"),
         INVENTORY_A_PUNISH_ENABLED("InventoryA.punish.enabled", true, "Should punishments be enabled for this check?"),
@@ -626,6 +633,12 @@ public class Checks implements Initializer {
         NOSLOWDOWN_A_PUNISH_MODE("NoSlowdownA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         NOSLOWDOWN_A_MAX_VL("NoSlowdownA.punish.vl", 15, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        SUSPICION("Suspicion.enabled", true, "Should we enable this module?"),
+        SUSPICION_PUNISH("Suspicion.punish", "", "Punishment settings"),
+        SUSPICION_PUNISH_ENABLED("Suspicion.punish.enabled", false, "Should punishments be enabled for this check?"),
+        SUSPICION_PUNISH_MODE("Suspicion.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        SUSPICION_MAX_VL("Suspicion.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
+
         VEHICLE_A("VehicleA.enabled", false, "Should we enable this module?"),
         VEHICLE_A_PUNISH("VehicleA.punish", "", "Punishment settings"),
         VEHICLE_A_PUNISH_ENABLED("VehicleA.punish.enabled", false, "Should punishments be enabled for this check?"),
@@ -672,16 +685,16 @@ public class Checks implements Initializer {
         public boolean getBoolean() {
             this.loadValue();
 
-            if (this.value instanceof Boolean bool) {
-                return bool;
+            if (this.value instanceof Boolean) {
+                return (Boolean) this.value;
             }
 
-            if (this.value instanceof String string) {
-                return Boolean.parseBoolean(string);
+            if (this.value instanceof String) {
+                return Boolean.parseBoolean((String) this.value);
             }
 
-            if (this.defaultValue instanceof Boolean bool) {
-                return bool;
+            if (this.defaultValue instanceof Boolean) {
+                return (Boolean) this.defaultValue;
             }
 
             return false;
@@ -718,24 +731,24 @@ public class Checks implements Initializer {
         }
 
         private double getNumber() {
-            if (this.value instanceof Number number) {
-                return number.doubleValue();
+            if (this.value instanceof Number) {
+                return ((Number) this.value).doubleValue();
             }
 
-            if (this.value instanceof String string) {
+            if (this.value instanceof String) {
                 try {
-                    return Double.parseDouble(string);
+                    return Double.parseDouble((String) this.value);
                 } catch (NumberFormatException ignored) {
                 }
             }
 
-            if (this.defaultValue instanceof Number number) {
-                return number.doubleValue();
+            if (this.defaultValue instanceof Number) {
+                return ((Number) this.defaultValue).doubleValue();
             }
 
-            if (this.defaultValue instanceof String string) {
+            if (this.defaultValue instanceof String) {
                 try {
-                    return Double.parseDouble(string);
+                    return Double.parseDouble((String) this.defaultValue);
                 } catch (NumberFormatException ignored) {
                 }
             }
@@ -747,15 +760,15 @@ public class Checks implements Initializer {
         public List<String> getStringList() {
             this.loadValue();
 
-            if (this.value instanceof List<?> list) {
-                return (List<String>) list;
+            if (this.value instanceof List<?>) {
+                return (List<String>) this.value;
             }
 
-            if (this.defaultValue instanceof List<?> list) {
-                return (List<String>) list;
+            if (this.defaultValue instanceof List<?>) {
+                return (List<String>) this.defaultValue;
             }
 
-            return List.of();
+            return Collections.emptyList();
         }
 
         private boolean setIfNotExists(CommentedFileConfiguration fileConfiguration) {
@@ -772,7 +785,7 @@ public class Checks implements Initializer {
             Object currentValue = fileConfiguration.get(this.key);
 
             if (currentValue == null) {
-                List<String> comments = Stream.of(this.comments).toList();
+                List<String> comments = Arrays.asList(this.comments);
 
                 if (this.defaultValue != null) {
                     fileConfiguration.set(this.key, this.defaultValue, comments.toArray(new String[0]));

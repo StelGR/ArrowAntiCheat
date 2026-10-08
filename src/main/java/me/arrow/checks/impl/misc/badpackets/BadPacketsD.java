@@ -24,8 +24,7 @@ public class BadPacketsD extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_DIGGING))
-        {
+        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
             WrapperPlayClientPlayerDigging digging = new WrapperPlayClientPlayerDigging(event);
             if (digging.getAction() == DiggingAction.START_DIGGING
                     || digging.getAction() == DiggingAction.FINISHED_DIGGING
@@ -36,7 +35,8 @@ public class BadPacketsD extends Check {
         else if (OtherUtility.isFlying(event.getPacketType())) {
             this.sentDigging = false;
         }
-        else if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
+        else if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)
+                || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
             if (this.sentDigging && !profile.shouldCancel()) {
                 if (increaseBuffer() > 10.0) {
                     fail("Digging while attacking","(No Debug Provided)");

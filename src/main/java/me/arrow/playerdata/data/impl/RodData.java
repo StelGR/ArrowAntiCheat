@@ -75,7 +75,8 @@ public class RodData implements Data {
                 Player owner = event.getPlayer();
                 Entity hooked = event.getHook().getHookedEntity();
 
-                if (hooked instanceof Player target && (event.getState() == PlayerFishEvent.State.CAUGHT_ENTITY || event.getState() == PlayerFishEvent.State.REEL_IN)) {
+                if (hooked instanceof Player && (event.getState() == PlayerFishEvent.State.CAUGHT_ENTITY || event.getState() == PlayerFishEvent.State.REEL_IN)) {
+                    Player target = (Player) hooked;
                     int id = target.getEntityId();
                     UUID uuid = target.getUniqueId();
 

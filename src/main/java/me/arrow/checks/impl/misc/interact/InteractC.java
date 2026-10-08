@@ -27,11 +27,16 @@ public class InteractC extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
-            WrapperPlayClientInteractEntity attack = new WrapperPlayClientInteractEntity(event);
+        if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)
+                || event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
 
-            if (attack.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
+            if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
                 attacking = true;
+            } else {
+                WrapperPlayClientInteractEntity attack = new WrapperPlayClientInteractEntity(event);
+                if (attack.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
+                    attacking = true;
+                }
             }
 
             boolean invalid1 = profile.getPredictionData().isUseShield() && attacking;

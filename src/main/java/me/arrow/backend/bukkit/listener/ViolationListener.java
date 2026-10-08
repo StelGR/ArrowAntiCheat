@@ -18,6 +18,7 @@ import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.TaskUtils;
+import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.OtherUtility;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -87,7 +88,7 @@ public class ViolationListener implements Listener {
 
         String checkPlusCheckType;
 
-        if (checkType.isEmpty() || checkName.equals(" ")) {
+        if (checkType.isEmpty() || checkType.equals(" ")) {
             checkPlusCheckType = checkName;
         } else {
             checkPlusCheckType = checkName + " (" + checkType + ")";
@@ -528,7 +529,7 @@ public class ViolationListener implements Listener {
         String clientBrand = getClientBrand(player);
         String clientVersion = getClientVersion(player);
 
-        var location = profile.getMovementData().getLocation();
+        CustomLocation location = profile.getMovementData().getLocation();
 
         String world = location.getWorld() == null
                 ? "unknown"

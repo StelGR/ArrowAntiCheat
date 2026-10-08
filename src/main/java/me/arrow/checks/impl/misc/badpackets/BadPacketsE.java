@@ -31,7 +31,8 @@ public class BadPacketsE extends Check {
         }
 
         if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)
-                || event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
+                || event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)
+                || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
 
             if (profile.shouldCancel()
                     || profile.isExempt().isTeleports()

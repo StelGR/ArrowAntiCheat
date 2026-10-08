@@ -6,6 +6,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
 import me.arrow.Arrow;
@@ -112,13 +113,18 @@ public class ReachA extends Check {
             return;
         }
 
-        if (!event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
-            return;
+        int targetEntityId = -1;
+        if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+            WrapperPlayClientAttack attack = new WrapperPlayClientAttack(event);
+            targetEntityId = attack.getEntityId();
+        } else if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
+            WrapperPlayClientInteractEntity interactEntity = new WrapperPlayClientInteractEntity(event);
+            if (interactEntity.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
+                targetEntityId = interactEntity.getEntityId();
+            }
         }
 
-        WrapperPlayClientInteractEntity interactEntity = new WrapperPlayClientInteractEntity(event);
-
-        if (interactEntity.getAction() != WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
+        if (targetEntityId == -1) {
             return;
         }
 
@@ -128,7 +134,7 @@ public class ReachA extends Check {
             }
 
             pendingAttacks.add(new PendingAttack(
-                    interactEntity.getEntityId(),
+                    targetEntityId,
                     event.getTimestamp()
             ));
         }
@@ -664,7 +670,8 @@ public class ReachA extends Check {
         }
 
         try {
-            WrapperPlayClientPlayerFlying wrapper = new WrapperPlayClientPlayerFlying(event);
+            WrapperPlayClientPlayerFlying wrapper = profile.getWrapperPlayClientPlayerFlying(event);
+            if (wrapper == null) return;
 
             float yaw = wrapper.getLocation().getYaw();
             float pitch = wrapper.getLocation().getPitch();
