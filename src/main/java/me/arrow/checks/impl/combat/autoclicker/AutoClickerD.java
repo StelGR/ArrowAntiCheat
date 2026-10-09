@@ -8,6 +8,7 @@ import me.arrow.core.check.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.utils.customutils.OtherUtility;
 
 import java.util.*;
 
@@ -36,7 +37,7 @@ public class AutoClickerD extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
+        if (!event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || !event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
             return;
         }
 

@@ -34,7 +34,7 @@ public class AutoClickerB2 extends Check{
         if (OtherUtility.isFlying(event.getPacketType())) {
             movements++;
         }
-        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
+        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
             if (profile.shouldCancel() || profile.getPredictionData().isDigging()) {
                 clickData.clear();
             }

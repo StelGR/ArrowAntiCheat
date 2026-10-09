@@ -180,7 +180,7 @@ public abstract class AbstractCheck {
         }
 
         if (Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
-            this.maxVl = 50;
+            this.maxVl = 1000;
 
             if (this.vl > this.maxVl) {
                 profile.kick("Detected L");

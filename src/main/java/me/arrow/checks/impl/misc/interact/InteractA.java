@@ -41,7 +41,7 @@ public class InteractA extends Check {
 
             this.lastDelta = delta;
 
-            if (delta > 5L && lastDelta > 5L) this.samples.add(delta);
+            this.samples.add(delta);
 
             if (!this.samples.isCollected()) return;
 

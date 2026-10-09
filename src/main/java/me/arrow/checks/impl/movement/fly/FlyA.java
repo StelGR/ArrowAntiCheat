@@ -126,7 +126,7 @@ public class FlyA extends Check {
 
                 double baseTicksVel = 4;
                 double baseVelocity = 0.01;
-                double scale = 28;
+                double scale = 32;
 
                 double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
                 airTickLimit += Math.ceil(extraFromVel);
@@ -345,7 +345,7 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (movementData.isGlidingOrRecentlyGlided(5)) {
+        if (movementData.isGlidingOrRecentlyGlided(20)) {
             ChatUtils.debugExempt("elytraGlide", "FlyA");
             return true;
         }

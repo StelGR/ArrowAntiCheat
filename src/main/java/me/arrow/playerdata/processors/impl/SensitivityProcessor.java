@@ -142,7 +142,7 @@ public class SensitivityProcessor implements Processor {
      * Integer-GCD-based float gcd. This converts floats -> scaled longs, computes long gcd,
      * then returns gcd / SCALAR as the normalized float GCD. This is the robust method Karhu-like detectors use.
      */
-    private static float getGcd(double a, double b) {
+    public static float getGcd(double a, double b) {
         // handle zeros
         if (a <= 0.0 || b <= 0.0) return 0.0f;
 
@@ -156,7 +156,7 @@ public class SensitivityProcessor implements Processor {
     }
 
     /** classic iterative gcd for longs */
-    private static long gcd(long x, long y) {
+    public static long gcd(long x, long y) {
         while (y != 0L) {
             long t = x % y;
             x = y;

@@ -17,6 +17,7 @@ import static me.arrow.utils.customutils.OtherUtility.translate;
 public class ProfilerCommand extends SubCommand {
 
     Arrow plugin;
+
     public ProfilerCommand(Arrow plugin) {
         this.plugin = plugin;
     }

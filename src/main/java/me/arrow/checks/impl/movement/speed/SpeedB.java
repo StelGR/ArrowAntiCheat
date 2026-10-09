@@ -3,6 +3,7 @@ package me.arrow.checks.impl.movement.speed;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.core.check.annotation.Experimental;
 import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
@@ -379,7 +380,7 @@ public class SpeedB extends Check {
                 return;
             }
 
-            float movementSpeed = (float) ReflectionUtils.getPlayerMovementSpeed(profile.getPlayer());
+            float movementSpeed = (float) SpeedUtilities.getMovementSpeedAttribute(profile);
             if (!Float.isFinite(movementSpeed) || movementSpeed <= 0.0F) {
                 movementSpeed = 0.1F;
             }
@@ -477,6 +478,10 @@ public class SpeedB extends Check {
                 threshold += 0.06D;
             }
 
+            if (profile.getCombatData().getAttackedTicks() < 15) {
+                threshold += 0.1D;
+            }
+
             if (movementData.getLastNearEdgeTicks() <= 3 && actionData.getSinceSneakingTicks() <= 3) {
                 if (velocity) {
                     threshold += profile.getVelocityData().getTotalHorizontalVelocity() + 0.5D;
@@ -535,7 +540,7 @@ public class SpeedB extends Check {
             if (valid && deltaXZ > 0.2D) {
                 if (pass1Exceeded) {
                     if (pass2Exceeded) {
-                        if (movingTicks <= 1.0F) {
+                        if (movingTicks <= 3.0F) {
                             if (++this.shitZeroPointThree > 3.0) {
                                 this.decrease(0.005);
                             }

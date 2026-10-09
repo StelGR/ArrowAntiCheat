@@ -12,7 +12,7 @@ import static me.arrow.utils.customutils.OtherUtility.*;
 
 public class SetbacksCommand extends SubCommand {
 
-    private final Arrow plugin;
+    Arrow plugin;
 
     public SetbacksCommand(Arrow plugin) {
         this.plugin = plugin;

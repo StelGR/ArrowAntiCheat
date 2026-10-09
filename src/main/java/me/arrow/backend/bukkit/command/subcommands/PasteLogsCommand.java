@@ -31,7 +31,7 @@ public class PasteLogsCommand extends SubCommand {
     private static final Pattern SECTION_LEGACY_COLOR = Pattern.compile("(?i)§[0-9a-fk-orx]");
     private static final Pattern ANSI_COLOR = Pattern.compile("\\u001B\\[[;\\d]*m");
 
-    private final Arrow plugin;
+    Arrow plugin;
 
     public PasteLogsCommand(Arrow plugin) {
         this.plugin = plugin;

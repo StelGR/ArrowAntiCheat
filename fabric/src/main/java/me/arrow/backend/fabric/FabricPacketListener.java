@@ -36,9 +36,8 @@ final class FabricPacketListener extends PacketListenerAbstract implements Packe
     @Override
     public void onUserDisconnect(UserDisconnectEvent event) {
         User user = event.getUser();
-        if (user != null && user.getUUID() != null) {
-            movementStates.remove(user.getUUID());
-        }
+        user.getUUID();
+        movementStates.remove(user.getUUID());
     }
 
     private void publishMovement(PacketReceiveEvent event) {
@@ -47,10 +46,7 @@ final class FabricPacketListener extends PacketListenerAbstract implements Packe
         }
 
         User user = event.getUser();
-        UUID playerId = user == null ? null : user.getUUID();
-        if (playerId == null) {
-            return;
-        }
+        UUID playerId = user.getUUID();
 
         WrapperPlayClientPlayerFlying packet = new WrapperPlayClientPlayerFlying(event);
         MovementState state = movementStates.getOrCreate(playerId);

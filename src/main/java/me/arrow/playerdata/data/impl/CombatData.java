@@ -100,7 +100,6 @@ public class CombatData implements Data {
 
             }
         }
-
         if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
             WrapperPlayClientPlayerDigging digging = new WrapperPlayClientPlayerDigging(event);
 
@@ -108,7 +107,7 @@ public class CombatData implements Data {
                 dropping = true;
             }
         }
-        if (event.getPacketType().equals(ANIMATION)) {
+        if (isAttackPacket(event.getPacketType())) {
             collectArmAnimationSample();
 
             // Handle block actions
@@ -161,16 +160,16 @@ public class CombatData implements Data {
                 || event.getPacketType().equals(PLAYER_POSITION)
                 || event.getPacketType().equals(PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PLAYER_ROTATION)) {
-            sinceUsedSpear = usedSpear ? 0 : sinceUsedSpear + 1;
+                sinceUsedSpear = usedSpear ? 0 : sinceUsedSpear + 1;
 
 
-            this.attackedTicks++;
-            attacked = false;
-            movementTicks = 0;
-            armAnimationMovements++;
-            dropping = false;
-            usedSpear = false;
-        }
+                this.attackedTicks++;
+                attacked = false;
+                movementTicks = 0;
+                armAnimationMovements++;
+                dropping = false;
+                usedSpear = false;
+            }
         } finally {
             Profiler.stop("CombatData", profiler);
         }

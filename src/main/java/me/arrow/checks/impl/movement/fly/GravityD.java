@@ -117,14 +117,6 @@ public class GravityD extends Check {
                 if (!CollisionUtils.isChunkLoaded(movementData.getLocation())) { resetStrictGravityInvariant(); resetGravityD("chunkNotLoaded"); return; }
                 if (profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0) { resetStrictGravityInvariant(); resetGravityD("levitation"); return; }
 
-                ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-
-                if (world.shouldExemptMovementChecks()) { resetGravityD("worldTrackerMovement"); return; }
-                if (world.nextToGhostWall) { resetGravityD("worldNextToGhostWall"); return; }
-                if (world.physicsMismatch) { resetGravityD("worldPhysicsMismatch"); return; }
-                if (world.onGhostBlock) { resetGravityD("worldOnGhostBlock"); return; }
-                if (world.insideGhostBlock) { resetGravityD("worldInsideGhostBlock"); return; }
-                if (world.underGhostBlock) { resetGravityD("worldUnderGhostBlock"); return; }
                 if (profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (transTicks * 2))) { resetGravityD("cancelledBlockPlaceAbove"); return; }
 
                 if (movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) {
@@ -147,7 +139,7 @@ public class GravityD extends Check {
                         profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
                 );
 
-                if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+                if (ghostLiquidWebTicks < 8 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                     resetGravityD("ghostLiquidWeb");
                     return;
                 }
@@ -222,7 +214,7 @@ public class GravityD extends Check {
                 profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
         );
 
-        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+        if (ghostLiquidWebTicks < 8 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             resetGravityD("ghostLiquidWeb");
             return false;
         }
@@ -408,7 +400,7 @@ public class GravityD extends Check {
                 profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
         );
 
-        if (ghostLiquidWebTicks < 20 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+        if (ghostLiquidWebTicks < 8 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             resetGravityD("ghostLiquidWeb");
             return false;
         }
@@ -423,8 +415,6 @@ public class GravityD extends Check {
     }
 
     private boolean isStrictGravityContextInvalid(MovementData data, int transTicks) {
-        ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-
         if (exempt("noMovementData", data == null)) return true;
         if (exempt("cancelled", profile.shouldCancel())) return true;
         if (exempt("vehicle", profile.isExempt().vehicle())) return true;
@@ -448,9 +438,6 @@ public class GravityD extends Check {
         if (exempt("onHoney", data.isOnHoney())) return true;
         if (exempt("powderSnow", data.getSincePowderSnowTicks() < 15 + transTicks)) return true;
         if (exempt("recentGhostBlock", data.getSinceOnGhostBlock() < 4 + transTicks)) return true;
-        if (exempt("worldOnGhostBlock", world.onGhostBlock)) return true;
-        if (exempt("worldInsideGhostBlock", world.insideGhostBlock)) return true;
-        if (exempt("worldUnderGhostBlock", world.underGhostBlock)) return true;
         if (exempt("underGhostBlock", profile.getBlockProcessor().isUnderGhostBlock())) return true;
         if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(data.getLocation()))) return true;
         if (exempt("recentVelocity", hasRecentGravityVelocity(transTicks))) return true;
