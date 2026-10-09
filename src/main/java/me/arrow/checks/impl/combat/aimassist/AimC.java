@@ -34,7 +34,7 @@ public class AimC extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (OtherUtility.isFlying(event.getPacketType())) {
+        if (OtherUtility.isRotation(event.getPacketType())) {
 
             RotationData rotationData = profile.getRotationData();
             if (profile.getCombatData().getAttackedTicks() < 50 && !rotationData.getCinematicProcessor().isCinematic()) {

@@ -312,7 +312,7 @@ public class GravityA extends Check {
                 profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
         );
 
-        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (ghostLiquidWebTicks < 4 + (profile.getConnectionData().getClientTickTrans() * 2)) {
             debugExempt("ghost Liquid/Web/Vine", "GravityA");
             bufferA = 0.0D;
             return true;

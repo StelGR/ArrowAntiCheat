@@ -35,9 +35,7 @@ public final class FabricRuntime {
             throw new IllegalStateException("Unable to create Arrow's Fabric config directory", exception);
         }
 
-        if (!loader.isModLoaded("packetevents")
-                || PacketEvents.getAPI() == null
-                || !PacketEvents.getAPI().isInitialized()) {
+        if (!loader.isModLoaded("packetevents") || !PacketEvents.getAPI().isInitialized()) {
             throw new IllegalStateException("Arrow requires an initialized PacketEvents Fabric backend");
         }
 

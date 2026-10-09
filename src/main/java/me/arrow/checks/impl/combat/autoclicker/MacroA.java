@@ -90,16 +90,16 @@ public class MacroA extends Check {
 
     private long lastDamageTime = -1L;
 
-    private final long[] recentEquipClicks = new long[BURST_CLICK_THRESHOLD + 2];
-    private int equipClickHead = 0;
-    private int equipClickCount = 0;
+    final long[] recentEquipClicks = new long[BURST_CLICK_THRESHOLD + 2];
+    int equipClickHead = 0;
+    int equipClickCount = 0;
 
     // Axe → Mace macro
-    private long lastAxeAttackTime = -1L;
-    private boolean switchedToMaceAfterAxe;
-    private int switchedMaceSlot = -1;
-    private ItemType lastAxeType;
-    private ItemType switchedMaceType;
+    long lastAxeAttackTime = -1L;
+    boolean switchedToMaceAfterAxe;
+    int switchedMaceSlot = -1;
+    ItemType lastAxeType;
+    ItemType switchedMaceType;
 
     public MacroA(Profile profile) {
         super(profile, CheckType.MACRO, "A",
@@ -174,7 +174,7 @@ public class MacroA extends Check {
 
             int slot = setSlot.getSlot();
             ItemStack peItem = setSlot.getItem();
-            ItemType type = peItem != null ? peItem.getType() : ItemTypes.AIR;
+            ItemType type = peItem.getType();
 
             // ── Update hotbar cache (slots 36-44) ────────────────────────
             if (slot >= HOTBAR_START_SLOT && slot <= HOTBAR_END_SLOT) {
@@ -189,7 +189,7 @@ public class MacroA extends Check {
 
             if (isInDeathGrace(now)) return;
 
-            boolean isEmpty = type == null || type == ItemTypes.AIR;
+            boolean isEmpty = type == ItemTypes.AIR;
             if (!isEmpty) return;
 
             if (profile.isExempt().isDead()) return;
@@ -221,7 +221,6 @@ public class MacroA extends Check {
             if (windowItems.getWindowId() != 0) return;
 
             List<ItemStack> items = windowItems.getItems();
-            if (items == null) return;
 
             // Populate hotbar cache from the bulk update
             for (int slot = HOTBAR_START_SLOT; slot <= HOTBAR_END_SLOT; slot++) {

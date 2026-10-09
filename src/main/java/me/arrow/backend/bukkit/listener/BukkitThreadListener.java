@@ -9,7 +9,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 /** Translates Bukkit's player lifecycle into the platform-neutral thread manager. */
-public final class BukkitThreadListener implements Listener {
+public class BukkitThreadListener implements Listener {
 
     private final Arrow arrow;
     private final ThreadManager threadManager;

@@ -111,13 +111,10 @@ public class SpeedA extends Check {
                 allowedLimit += 0.0016;
             }
 
-
-
             if (movementData.getSinceCollideTicks() < 12 + profile.getConnectionData().getClientTickTrans()) {
                 allowedLimit += 0.0275;
             }
 
-            allowedLimit += movementData.elytraMomentum();
             //allowedLimit += movementData.getDolphinGraceBoost();
             allowedLimit += movementData.isColliding() ? 0.05 : 0;
 
@@ -160,19 +157,6 @@ public class SpeedA extends Check {
                 }
             }
 
-            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2);
-
-            if (currentlyRiptiding) {
-                double riptideCap = 0.25 + (0.75 * profile.getPredictionData().riptideLevel());
-
-                if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
-                if (movementData.isInsideWater()) riptideCap += 1;
-
-                if (movementData.getSinceRiptidingTicks() > 10) riptideCap /= 2;
-
-                allowedLimit += riptideCap;
-            }
-
             double predictedDifference = 0;
 
             if (movementData.isWaterPredictionActive()) {
@@ -203,6 +187,21 @@ public class SpeedA extends Check {
                     allowedLimit += waterMomentum;
                 }
             }
+
+            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2);
+
+            if (currentlyRiptiding) {
+                double riptideCap = 0.25 + (0.75 * profile.getPredictionData().riptideLevel());
+
+                if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
+                if (movementData.isInsideWater()) riptideCap += 1;
+
+                if (movementData.getSinceRiptidingTicks() > 10) riptideCap /= 2;
+
+                allowedLimit += riptideCap;
+            }
+
+            allowedLimit += movementData.elytraMomentum();
 
 
             if (serverGround && deltaXZ != 0) {
@@ -417,7 +416,7 @@ public class SpeedA extends Check {
             }
 
             if (movementData.getSinceSpeedPotionEffectTicks() < 15 && movementData.getSinceSpeedPotionEffectTicks() > 0) {
-                expectedSpeed += 0.05;
+                expectedSpeed += 0.0575;
                 airLimitDebug += ", sincePotionEffectTicks < 15";
             }
             VelocityData vd = profile.getVelocityData();
@@ -575,7 +574,7 @@ public class SpeedA extends Check {
         if (exempt("onBoat", movementData.isOnBoat())) return true;
         if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return true;
         if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;
-        if (exempt("vehicle", profile.isExempt().vehicle())) return true;
+        if (exempt("vehicle", profile.isExempt().vehicle() || profile.getVehicleData().getSinceVehicleTicks() < 1)) return true;
         if (exempt("reelingIn", profile.getExempt().isReelingIn())) return true;
         if (exempt("recentGhostBlock", movementData.getSinceOnGhostBlock() < 2 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
 
@@ -595,7 +594,7 @@ public class SpeedA extends Check {
         if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return true;
         //if (exempt("onBoat", profile.getMovementData().isOnBoat())) return true;
         if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;
-        if (exempt("vehicle", profile.isExempt().vehicle())) return true;
+        if (exempt("vehicle", profile.isExempt().vehicle() || profile.getVehicleData().getSinceVehicleTicks() < 1)) return true;
         //if (exempt("nearBoat", movementData.isNearBoat())) return true;
         if (exempt("recentVehicle", profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
         if (exempt("reelingIn", profile.getExempt().isReelingIn())) return true;

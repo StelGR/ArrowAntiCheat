@@ -48,7 +48,7 @@ public class AutoClickerH extends Check {
             movements++;
         }
 
-        else if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)) {
+        else if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
             //clickerFlawOne();
 
             // do not use clickerFlawOne, it seems terrible, but the rest seem fine? i mean they don't seem to be flagging any autoclicker i've tested..

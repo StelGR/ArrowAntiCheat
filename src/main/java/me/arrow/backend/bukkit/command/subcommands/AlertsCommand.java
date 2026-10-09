@@ -13,7 +13,7 @@ import static me.arrow.utils.customutils.OtherUtility.*;
 
 public class AlertsCommand extends SubCommand {
 
-    private final Arrow plugin;
+    Arrow plugin;
 
     public AlertsCommand(Arrow plugin) {
         this.plugin = plugin;

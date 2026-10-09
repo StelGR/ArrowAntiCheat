@@ -1221,11 +1221,7 @@ public class MovementData implements Data {
             sinceGlidingTicks = glidingNow ? 0 : sinceGlidingTicks + 1;
             glidingTicks = glidingNow ? glidingTicks + 1 : 0;
 
-
-            if (++tickTime > 1) {
-                updateElytraMomentum();
-                tickTime = 0;
-            }
+            updateElytraMomentum();
 
             if (glideStartTransitionTicks > 0) {
                 glideStartTransitionTicks--;
@@ -1381,7 +1377,7 @@ public class MovementData implements Data {
         // pose actually ends.
         boolean elytraPose = metadataGliding || ReflectionUtils.isGliding(profile.getPlayer());
         if (elytraPose) {
-            elytraMomentumBonus = 0.0F;
+//            elytraMomentumBonus = 0.0F;
             lastElytraPose = true;
             return;
         }
@@ -1389,7 +1385,7 @@ public class MovementData implements Data {
         if (lastElytraPose) {
             boolean air = isCustomInAir() && !isOnGround() && !isServerGround();
             double ordinaryLimit = air ? 0.35301212D : 0.28063D;
-            elytraMomentumBonus = (float) Math.max(0.0D, Math.min(deltaXZ, 2.3) - ordinaryLimit + 0.1D);
+            elytraMomentumBonus = (float) Math.max(0.0D, Math.min(deltaXZ, 3.4) + 0.3D);
             lastElytraPose = false;
             return;
         }

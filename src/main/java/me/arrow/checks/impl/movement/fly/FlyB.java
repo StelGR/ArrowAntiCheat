@@ -233,7 +233,7 @@ public class FlyB extends Check {
                 profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
         );
 
-        if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+        if (ghostLiquidWebTicks < 3 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             debugExempt("ghostblock Physics", "Fly B");
             return true;
         }
