@@ -136,7 +136,7 @@ public class FlyA extends Check {
                 //temporary piston fix
                 if (movementData.getSinceNearSlimeTicks() <= (40 + (profile.getConnectionData().getClientTickTrans() * 2))
                         && movementData.getSinceNearPistonTicks() <= (40 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                    airTickLimit += 8;
+                    airTickLimit += 13;
                     ChatUtils.debugExempt("pistonFix", "FlyA");
                 }
 

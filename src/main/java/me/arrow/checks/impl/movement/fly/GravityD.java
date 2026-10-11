@@ -91,6 +91,10 @@ public class GravityD extends Check {
                     return;
                 }
 
+                if (exempt("reelingIn", profile.getExempt().isReelingIn())) {
+                    resetGravityD("reelingIn");
+                    return;
+                }
                 // Keep one high-confidence physics invariant independent from the broad
                 // compatibility exemptions below. Nearby non-full blocks or a client
                 // ground bit cannot make a clean ascent lose velocity instantly.
@@ -129,7 +133,7 @@ public class GravityD extends Check {
                     return;
                 }
 
-                if (profile.getVehicleData().getSinceVehicleTicks() < 1 + transTicks) {
+                if (profile.getVehicleData().getSinceVehicleTicks() < 3 + transTicks) {
                     resetGravityD("recentVehicle");
                     return;
                 }
@@ -139,7 +143,7 @@ public class GravityD extends Check {
                         profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
                 );
 
-                if (ghostLiquidWebTicks < 8 + (profile.getConnectionData().getClientTickTrans() * 4)) {
+                if (ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4)) {
                     resetGravityD("ghostLiquidWeb");
                     return;
                 }
@@ -216,6 +220,11 @@ public class GravityD extends Check {
 
         if (ghostLiquidWebTicks < 8 + (profile.getConnectionData().getClientTickTrans() * 4)) {
             resetGravityD("ghostLiquidWeb");
+            return false;
+        }
+
+        if (exempt("reelingIn", profile.getExempt().isReelingIn())) {
+            resetGravityD("reelingIn");
             return false;
         }
 
@@ -405,6 +414,11 @@ public class GravityD extends Check {
             return false;
         }
 
+        if (exempt("reelingIn", profile.getExempt().isReelingIn())) {
+            resetGravityD("reelingIn");
+            return false;
+        }
+
         if (mathematicallyStrong || strictNegativeEvidence > required) {
             fail("Negative Gravity Modification", information);
             strictNegativeEvidence = Math.max(required, strictNegativeEvidence * 0.50D);
@@ -421,7 +435,7 @@ public class GravityD extends Check {
         if (exempt("vehicle", profile.getExempt().isVehicle())) return true;
         if (exempt("slimeBounce", profile.isBouncingOnSlime())) return true;
         if (exempt("geysers", profile.getGeysersTracker().isBeingPushed())) return true;
-        if (exempt("teleports", data.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return true;
+        if (exempt("teleports", data.getSinceTeleportTicks() <= 4 || profile.isExempt().isTeleports())) return true;
         if (exempt("gliding", data.isGlidingOrRecentlyGlided(25))) return true;
         if (exempt("riptiding", data.getSinceRiptidingTicks() < 10 + transTicks)) return true;
         if (exempt("underBlock", data.isUnderblock() || data.isLastUnderblock() || data.getSinceUnderblockTicks() <= 2)) return true;
@@ -436,6 +450,10 @@ public class GravityD extends Check {
         if (exempt("bottomOfWater", data.isBottomOfWater())) return true;
         if (exempt("onSlime", data.isOnSlime())) return true;
         if (exempt("onHoney", data.isOnHoney())) return true;
+        if (exempt("reelingIn", profile.getExempt().isReelingIn())) {
+            resetGravityD("reelingIn");
+            return false;
+        }
         if (exempt("powderSnow", data.getSincePowderSnowTicks() < 15 + transTicks)) return true;
         if (exempt("recentGhostBlock", data.getSinceOnGhostBlock() < 4 + transTicks)) return true;
         if (exempt("underGhostBlock", profile.getBlockProcessor().isUnderGhostBlock())) return true;
@@ -898,7 +916,7 @@ public class GravityD extends Check {
     private boolean isGravityDExempt(MovementData data, int transTicks) {
         if (profile.shouldCancel()) { resetGravityD("shouldCancel"); return true; }
         if (profile.isBouncingOnSlime()) { resetGravityD("bouncingOnSlime"); return true; }
-        if (data.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) {
+        if (data.getSinceTeleportTicks() <= 4 || profile.isExempt().isTeleports()) {
             resetGravityD("teleporting");
             return true;
         }
@@ -1352,6 +1370,16 @@ public class GravityD extends Check {
 
         if (fallDist == 0 && airTicks == 0 && dy == 0 && ((lastDy - expected) < 1E-6) && !data.isCustomInAir() && data.isOnGround() && ((expectedDY - predictedWrong) < 1E-6)) return false;
         if (isMovingPrediction(data)) return false;
+
+        if (exempt("reelingIn", profile.getExempt().isReelingIn())) {
+            resetGravityD("reelingIn");
+            resetGravityDTrackingOnly();
+            lastGravityDObservedDY = dy;
+            lastGravityDSampleTick = data.getTick();
+            cumulativeNegativeGravity = 0.0D;
+            negGravStreak = 0;
+            return false;
+        }
 
         if (increaseBufferBy(bufferAdded) > required || negGravStreak > required) {
             fail("Negative Gravity Modification",

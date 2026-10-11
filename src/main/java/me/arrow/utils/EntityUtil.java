@@ -295,7 +295,7 @@ public class EntityUtil {
             return false;
         }
 
-        return isBoat(type) || (type != null && type.name().contains("MINECART"));
+        return isBoat(type) || type.name().contains("MINECART");
     }
 
     private static Method findEntityIsCollidable() {

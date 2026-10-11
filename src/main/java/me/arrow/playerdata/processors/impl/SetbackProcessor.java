@@ -53,7 +53,7 @@ public class SetbackProcessor implements Processor {
         // Only record as a valid setback location when the player is genuinely supported on solid ground
         boolean onSolidGround = (movementData.isServerGround() || movementData.isOnGround()) && !movementData.isCustomInAir();
 
-        if (onSolidGround && !movementData.isOnBoat() && !movementData.isNearBoat()) {
+        if (onSolidGround && !movementData.isNearBoat()) {
             World world = location.getWorld();
             int blockX = location.getBlockX();
             int blockY = (int) Math.floor(location.getY() - 0.1D);

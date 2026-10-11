@@ -147,7 +147,7 @@ public class SpeedA extends Check {
             }
 
             if (movingIceTicks > 0) {
-                allowedLimit += 0.04;
+                allowedLimit += 0.05;
 
                 if ((movementData.getMovingUnderblockTicks() > 0
                         || movementData.isUnderBoat()
@@ -201,6 +201,11 @@ public class SpeedA extends Check {
                 allowedLimit += riptideCap;
             }
 
+            if (profile.getExempt().isReelingIn()) {
+                allowedLimit += 0.3;
+                if (!profile.getRodData().isSelf()) allowedLimit += 1.7;
+            }
+
             allowedLimit += movementData.elytraMomentum();
 
 
@@ -214,6 +219,7 @@ public class SpeedA extends Check {
                                 + "\n * movementSpeedScale " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getMovementScaleGround(profile)
                                 + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                 + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
+                                + "* reeling " +  MsgType.MAIN_THEME_COLOR.getMessage() + profile.isExempt().isReelingIn() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                                 + "\n * predictedWater " + MsgType.MAIN_THEME_COLOR.getMessage() + predictedDifference
                                 + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
                                 + "\n * upTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()
@@ -324,10 +330,7 @@ public class SpeedA extends Check {
                 airLimitDebug += ", 20TicksSinceIce/Slime";
             }
 
-            if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                expectedSpeed += 0.125;
-                airLimitDebug += ", sinceEntityPush";
-            }
+
 
             if (movementData.getSinceMovingOnIceTicks() > 0 && movementData.getSinceMovingOnIceTicks() < 120) {
                 expectedSpeed += 0.003;
@@ -385,6 +388,8 @@ public class SpeedA extends Check {
 
                     expectedSpeed =
                             expectedWaterXZ + 0.015D;
+
+                    if (movementData.isNearBoat()) expectedSpeed += 0.1D;
 
                     airLimitDebug +=
                             ", waterPrediction(" + expectedWaterXZ + ")";
@@ -455,6 +460,16 @@ public class SpeedA extends Check {
                 airLimitDebug += ", predictUpwards";
             }
 
+            if (profile.getExempt().isReelingIn()) {
+                expectedSpeed += 0.3;
+                if (!profile.getRodData().isSelf()) expectedSpeed += 2.15;
+            }
+
+            if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                expectedSpeed += 0.125;
+                airLimitDebug += ", sinceEntityPush";
+            }
+
             expectedSpeed += movementData.elytraMomentum();
 
             String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()
@@ -469,6 +484,7 @@ public class SpeedA extends Check {
                     + "* moving Up Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* moving Down Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* nearStepMaterial " + movementData.isNearStepMaterial() + "\n"
+                    + "* reeling " +  MsgType.MAIN_THEME_COLOR.getMessage() + profile.isExempt().isReelingIn() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* iceTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movingIceTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* slimeTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movingSlimeTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
                     + "* honeyTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movingHoneyTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
@@ -546,11 +562,11 @@ public class SpeedA extends Check {
                                     + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                     + "\ndifference " + MsgType.MAIN_THEME_COLOR.getMessage() + difference
                                     + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
-                                    + "\nserverAirTicks  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
-                                    + "\nupwardsTicks  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()
-                                    + "\ndownwardsTicks  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks()
-                                    + "\nPUT  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicksWithoutMaterial()
-                                    + "\nPDT  " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicksWithoutMaterial()
+                                    + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
+                                    + "\nupwardsTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()
+                                    + "\ndownwardsTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks()
+                                    + "\nPUT " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicksWithoutMaterial()
+                                    + "\nPDT " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicksWithoutMaterial()
                                     + "\nisSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting());
 
                     airBuffer = Math.max(8, airBuffer);
@@ -574,14 +590,8 @@ public class SpeedA extends Check {
         if (exempt("onBoat", movementData.isOnBoat())) return true;
         if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return true;
         if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;
-        if (exempt("vehicle", profile.isExempt().vehicle() || profile.getVehicleData().getSinceVehicleTicks() < 1)) return true;
-        if (exempt("reelingIn", profile.getExempt().isReelingIn())) return true;
+        if (exempt("vehicle", profile.isExempt().vehicle() || profile.getVehicleData().getSinceVehicleTicks() <= 2)) return true;
         if (exempt("recentGhostBlock", movementData.getSinceOnGhostBlock() < 2 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
-
-//        if (movementData.isUnderblock()) {
-//            if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed A (Ground): Exempt - underblock");
-//            return true;
-//        }
 
         if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return true;
         if (exempt("soulSoil", movementData.getMovingOnSoulBlocksTicks() > 0)) return true;
@@ -592,13 +602,8 @@ public class SpeedA extends Check {
     boolean isExemptAir(MovementData movementData) {
         if (exempt("cancelled", profile.shouldCancel())) return true;
         if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return true;
-        //if (exempt("onBoat", profile.getMovementData().isOnBoat())) return true;
         if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;
-        if (exempt("vehicle", profile.isExempt().vehicle() || profile.getVehicleData().getSinceVehicleTicks() < 1)) return true;
-        //if (exempt("nearBoat", movementData.isNearBoat())) return true;
-        if (exempt("recentVehicle", profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
-        if (exempt("reelingIn", profile.getExempt().isReelingIn())) return true;
-
+        if (exempt("vehicle", profile.isExempt().vehicle() || profile.getVehicleData().getSinceVehicleTicks() <= 2)) return true;
         return false;
     }
 }

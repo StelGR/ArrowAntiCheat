@@ -11,7 +11,6 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
@@ -92,7 +91,7 @@ public class GravityA extends Check {
                 int requiredBuffer = profile.getPotionData().isHasSlowFalling() ? 4 : 2;
 
                 if (++bufferA > requiredBuffer) {
-                    fail("Not following MCP Gravity (1)",
+                    fail("Not following Gravity",
                             "motion " + MsgType.MAIN_THEME_COLOR.getMessage() + totalUp
                                     + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                     + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + prediction
@@ -286,6 +285,7 @@ public class GravityA extends Check {
 
         if (exempt("noMovementData", movementData == null)) return true;
         if (exempt("onBoat", movementData.isOnBoat())) return true;
+        if (exempt("nearShelfMushroom", movementData.isNearShelfMushroom())) return true;
         if (exempt("underboat", movementData.isUnderBoat() || movementData.isLastUnderBoat() || movementData.getSinceUnderBoatTicks() <= 3)) return true;
         //if (exempt("nearBoat", movementData.isNearBoat())) return true;
         if (exempt("cancelled", profile.shouldCancel())) return true;
@@ -364,6 +364,8 @@ public class GravityA extends Check {
         if (exempt("slimePiston", movementData.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
                 && movementData.getDeltaY() > MoveUtils.getJumpMotion(profile)
                 && movementData.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2)))) return true;
+
+        if (exempt("nearBoat", movementData.isNearBoat())) return true;
 
         if (movementData.isNearClimbable()) { debugExempt("nearClimbable", "GravityA"); return true; }
         if (profile.getExempt().isReelingIn()) { debugExempt("reelingIn", "GravityA"); return true; }

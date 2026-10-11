@@ -116,6 +116,7 @@ public class GravityC extends Check {
                 && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2);
 
         if (exempt("onSlime", onSlime)) return;
+        if (exempt("nearBoat", md.isNearBoat())) return;
         if (onHoney) { debugExempt("Honey", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (onIce) { debugExempt("Ice", "GravityC");lastOffset = 0.0D; bufferC = 0.0D; return; }
         if (onLadder) { debugExempt("ladder", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
@@ -137,6 +138,8 @@ public class GravityC extends Check {
             lastOffset = 0.0D;
             return;
         }
+
+        if (exempt("reelingIn", profile.getExempt().isReelingIn())) return;
 
         if (md.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
                 && md.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
@@ -286,7 +289,7 @@ public class GravityC extends Check {
 
         if (!clientGround) {
             if (++bufferC > 2.0D) {
-                fail("Not following MCP Gravity (3)",
+                fail("Not following Gravity",
                         info);
                 bufferC = Math.max(5, bufferC);
             }

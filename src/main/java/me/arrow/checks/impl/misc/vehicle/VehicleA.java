@@ -17,9 +17,7 @@ import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.entity.Boat;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.*;
 
 import java.util.Locale;
 
@@ -56,7 +54,16 @@ public class VehicleA extends Check {
         }
 
         final Entity vehicle = profile.getPlayer().getVehicle();
-        if (vehicle == null) {
+        if (vehicle == null
+                || !(vehicle instanceof Pig)
+                || !(vehicle instanceof Boat)
+                || !(vehicle instanceof Horse)
+                || !(vehicle instanceof Mule)
+                || !(vehicle instanceof Donkey)
+                || !(vehicle instanceof Llama)
+                || !(vehicle instanceof Camel)
+                || !(vehicle instanceof Ravager)
+                || !(vehicle instanceof HappyGhast)) {
             syncState();
             return;
         }
@@ -535,10 +542,6 @@ public class VehicleA extends Check {
 
         if (minecart) {
             return 0.04D;
-        }
-
-        if (livingMount) {
-            return 0.03D;
         }
 
         return 0.03D;

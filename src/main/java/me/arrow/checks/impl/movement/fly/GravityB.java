@@ -108,7 +108,7 @@ public class GravityB extends Check {
 
             if (!(deltaY - prediction < 1.0E-13D) && lastDeltaY > 0.0D && deltaY != 0.0D && !exempt) {
                 if (++bufferB > 5.0D) {
-                    fail("Not following MCP Gravity (2)",
+                    fail("Not following Gravity",
                             "deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                     + "\nlastDeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + lastDeltaY
                                     + "\nprediction " + MsgType.MAIN_THEME_COLOR.getMessage() + prediction

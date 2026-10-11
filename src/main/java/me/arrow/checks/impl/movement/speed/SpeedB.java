@@ -393,8 +393,8 @@ public class SpeedB extends Check {
             Vector move = new Vector(deltaX, 0.0, deltaZ);
             // Keep the same frame selection as Karhu: fromFrom chooses the
             // previous block carry multiplier; from chooses ground input force.
-            boolean wasOnBoat = movementData.isLastOnBoat() || movementData.isOnBoat() || movementData.getSinceOnBoatTicks() <= 1;
-            boolean wasWasOnBoat = movementData.isLastLastOnBoat() || movementData.getSinceOnBoatTicks() <= 2;
+            boolean wasOnBoat = movementData.isLastOnBoat();
+            boolean wasWasOnBoat = movementData.isLastLastOnBoat();
 
             // When supported by a boat, the surface acts as standard solid ground (0.6F friction).
             float lastTickFriction = wasWasOnBoat ? (0.6F * 0.91F) : (movementData.getLastFrictionFactor() * 0.91F);

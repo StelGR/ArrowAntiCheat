@@ -100,7 +100,7 @@ public class MovementData implements Data {
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround,
-        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, lastUnderblock, lastLastUnderblock, insideLiquid, climb, moving, isInsideWater, wasInWater, wasWasInWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, lastNearBoat, nearBoatSide, lastNearBoatSide, nearGhast, nearShulker, nearFence, nearPane, lastNearPane, onBoat, lastOnBoat, lastLastOnBoat, underBoat, lastUnderBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston, nearBlocksSlime, nearPowderSnow, nearSoulBlock, waterPredictionActive;
+        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, lastUnderblock, lastLastUnderblock, insideLiquid, climb, moving, isInsideWater, wasInWater, wasWasInWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, lastNearBoat, nearBoatSide, lastNearBoatSide, nearGhast, nearShulker, nearFence, nearPane, lastNearPane, onBoat, lastOnBoat, lastLastOnBoat, underBoat, lastUnderBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston, nearBlocksSlime, nearPowderSnow, nearSoulBlock, waterPredictionActive, nearShelfMushroom;
 
 
     @Getter
@@ -212,7 +212,7 @@ public class MovementData implements Data {
             this.location = new CustomLocation(
                     profile.getPlayer().getWorld(),
                     move.getLocation().getX(), move.getLocation().getY(), move.getLocation().getZ(),
-                    move.getLocation().getYaw(), move.getLocation().getPitch(),
+                    getLocation().getYaw(), getLocation().getPitch(),
                     currentTime
             );
 
@@ -235,6 +235,12 @@ public class MovementData implements Data {
 
             this.lastLastLocation = this.lastLocation;
             this.lastLocation = this.location;
+            this.location = new CustomLocation(
+                    profile.getPlayer().getWorld(),
+                    getLocation().getX(), getLocation().getY(), getLocation().getZ(),
+                    look.getYaw(), look.getPitch(),
+                    currentTime
+            );
 
             publishCoreMovement(look, currentTime);
             processLocationData();
@@ -339,6 +345,8 @@ public class MovementData implements Data {
 
     private void processLocationData() {
 
+        ChunkCache.get().ensurePlayerChunkLoaded(location);
+
         if (profile.getTeleportData().isTeleporting()) {
             this.lastLocation = this.location;
             this.lastLastLocation = this.location;
@@ -421,8 +429,6 @@ public class MovementData implements Data {
 
         lastServerYGround = serverYGround;
 
-        ChunkCache.get().ensurePlayerChunkLoaded(location);
-
         serverYGround = getLocation().getY() % 0.015625 == 0.0
                 || getLocation().getY() % 0.015625 <= 0.009;
 
@@ -462,7 +468,6 @@ public class MovementData implements Data {
         }
 
         //Process data
-
         updateNearWallState();
 
         // Snapshot the previous two water states before processBlocks replaces
@@ -493,17 +498,11 @@ public class MovementData implements Data {
         underBoat = EntityUtil.isUnderBoat(profile);
         nearBoatSide = EntityUtil.isNearBoatSide(profile);
 
-        sinceOnGround = onGround ? 0 : sinceOnGround + 1;
-
         processPlayerData();
         if (setbackProcessor != null) {
             setbackProcessor.process();
         }
-
-
     }
-
-
 
     private void updateNearWallState() {
         lastLastNearWall = lastNearWall;
@@ -533,18 +532,18 @@ public class MovementData implements Data {
         try {
             boolean async = true;
 
-        /*
-        Handle collisions
-        NOTE: You should ALWAYS use NMS if you plan on supporting 1.9+
-        For a production server, DO NOT use spigot's api. It's slow. (Especially for Blocks, Chunks, Materials)
-         */
+            /*
+            Handle collisions
+            NOTE: You should ALWAYS use NMS if you plan on supporting 1.9+
+            For a production server, DO NOT use spigot's api. It's slow. (Especially for Blocks, Chunks, Materials)
+             */
             final CollisionUtils.NearbyBlocksResult nearbyBlocksResult = CollisionUtils.getNearbyBlocks(
                     getLocation(), getLastLocation(), async
             );
-//        final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(
-//                getLocation().clone().add(0, 1, 0),
-//                async
-//        );
+//            final CollisionUtils.NearbyBlocksResult nearbyBlocksResult2 = CollisionUtils.getNearbyBlocks(
+//                    getLocation().clone().add(0, 1, 0),
+//                    async
+//            );
 
             this.nearbyBlocksResult = nearbyBlocksResult;
 
@@ -585,7 +584,6 @@ public class MovementData implements Data {
         long profiler = Profiler.start();
 
         try {
-
 
             //conditions
             NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
@@ -702,6 +700,7 @@ public class MovementData implements Data {
             nearBubble = containsMaterial(blockTypes, BUBBLE);
             nearBuggyBlock = containsMaterial(blockTypes, BUGGY_BLOCK);
             nearBed = containsMaterial(blockTypes, BED);
+            nearShelfMushroom = containsMaterial(blockTypes, SHELF_MUSHROOM);
             nearHoney = containsMaterial(blockTypes, HONEY);
             nearShulker = containsMaterial(blockTypes, SHULKER);
             nearDripLeaf = containsMaterial(blockTypes, DRIP_LEAF);
@@ -1008,8 +1007,6 @@ public class MovementData implements Data {
 
             profile.setBoundingBox(createPlayerBox());
 
-
-
             float newFrictionFactor = CollisionUtils.getBlockSlipperiness(
                     CollisionUtils.getMaterial(this.location.clone().subtract(0D, .825D, 0D))
             );
@@ -1269,6 +1266,7 @@ public class MovementData implements Data {
             sinceSoulTicks = isOnSoulSand() ? 0 : sinceSoulTicks + 1;
             sinceHoneyTicks = isOnHoney() ? 0 : sinceHoneyTicks + 1;
             sinceIceTicks = isOnIce() ? 0 : sinceIceTicks + 1;
+            sinceOnGround = onGround ? 0 : sinceOnGround + 1;
 
             dolphinGraceBoost = dolphinGraceMomentum();
 
@@ -1385,7 +1383,7 @@ public class MovementData implements Data {
         if (lastElytraPose) {
             boolean air = isCustomInAir() && !isOnGround() && !isServerGround();
             double ordinaryLimit = air ? 0.35301212D : 0.28063D;
-            elytraMomentumBonus = (float) Math.max(0.0D, Math.min(deltaXZ, 3.4) + 0.3D);
+            elytraMomentumBonus = (float) Math.max(0.0D, Math.min(deltaXZ, 3.4) + 0.5D);
             lastElytraPose = false;
             return;
         }
@@ -1395,8 +1393,8 @@ public class MovementData implements Data {
         // Carry the captured excess exactly as ordinary horizontal movement
         // would: air is 0.91, ground is block slipperiness × 0.91.
         float friction = isCustomInAir()
-                ? MoveUtils.FRICTION
-                : getFrictionFactor() * MoveUtils.FRICTION;
+                ? 0.91f
+                : getFrictionFactor() * 0.91f;
         elytraMomentumBonus *= friction;
 
         if (elytraMomentumBonus < 0.00025F) {

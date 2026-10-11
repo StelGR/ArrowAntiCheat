@@ -41,7 +41,7 @@ public class Exempt {
 
         this.respawned = profile.getSinceDeathTimer().passed();
 
-        this.reelingIn = profile.getReelingTicks().hasNotPassed();
+        this.reelingIn = profile.getReelingTicks().hasNotPassed(10);
 
         this.teleports = profile.getTeleportData().isTeleporting();
     }

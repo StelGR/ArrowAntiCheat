@@ -127,9 +127,6 @@ public class CheckHolder {
                 new AimH(this.profile),
                 new AimH2(this.profile),
                 new AimI(this.profile),
-                new AimJ(this.profile),
-//                new AimK(this.profile),
-//                new AimL(this.profile), //current implementations are shit
 
                 new AutoClickerA(this.profile),
                 new AutoClickerB(this.profile),

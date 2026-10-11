@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity;
+import lombok.Getter;
 import me.arrow.Arrow;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
@@ -41,6 +42,7 @@ public class RodData implements Data {
     private final Profile profile;
     private volatile Vector rodVelocity = new Vector(0, 0, 0);
     private volatile long rodExemptUntil = 0L;
+    private static boolean isSelf = false;
 
     private static final long EXEMPT_MS = 1000L; // how long to exempt after rod velocity arrives
     private static final long PENDING_WINDOW_MS = 1000L; // valid ms for a REEL_IN pending entry
@@ -80,7 +82,7 @@ public class RodData implements Data {
                     int id = target.getEntityId();
                     UUID uuid = target.getUniqueId();
 
-                    if (target == owner) return;
+                    if (target == owner) isSelf = false;
 
                     PENDING.put(id, new Pending(uuid, System.currentTimeMillis()));
                     if (Config.Setting.DEBUG.getBoolean()) if (PLUGIN != null)
@@ -99,7 +101,10 @@ public class RodData implements Data {
                         OtherUtility.log("[RodData] REEL_IN/CAUGHT reset ticks for target=" + target.getName() + " id=" + id + " owner=" + owner.getName());
 
                     // schedule cleanup
-                    TaskUtils.taskLater(() -> PENDING.remove(id), AUTO_REMOVE_TICKS);
+                    TaskUtils.taskLater(() -> {
+                        PENDING.remove(id);
+                        isSelf = false;
+                    }, AUTO_REMOVE_TICKS);
                 }
             } catch (NoSuchMethodError | NoSuchFieldError ignored) {}
         }
@@ -173,6 +178,7 @@ public class RodData implements Data {
 
     public Vector getRodVelocity() { return rodVelocity.clone(); }
     public boolean isRodExempt() { return System.currentTimeMillis() < rodExemptUntil; }
+    public boolean isSelf() { return isSelf; }
 
     // no-op PacketEvents hooks (we use static consumer instead)
     @Override

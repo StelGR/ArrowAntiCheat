@@ -91,13 +91,14 @@ public class MotionA extends Check {
                 if (exempt("notRespawned", !profile.isExempt().isRespawned())) return;
                 if (exempt("underPlace", profile.getActionData().hasRecentConfirmedUnderPlace(6 + (profile.getConnectionData().getClientTickTrans() * 2)))) return;
                 if (exempt("slimeBounce", profile.isBouncingOnSlime())) return;
-                if (exempt("insideVehicle", profile.getPlayer().isInsideVehicle())) return;
+                if (exempt("insideVehicle", profile.getPlayer().isInsideVehicle() || profile.getVehicleData().getSinceVehicleTicks() <= 4)) return;
                 if (exempt("nearWater", movementData.isNearWater())) return;
                 if (exempt("nearLava", movementData.isNearLava())) return;
                 if (exempt("nearWebs", movementData.isNearWebs())) return;
                 if (exempt("nearWall", movementData.isNearWall())) return;
                 if (exempt("nearBuggyBlock", movementData.isNearBuggyBlock())) return;
                 if (exempt("nearBed", movementData.isNearBed())) return;
+                if (exempt("nearShelfMushroom", movementData.isNearShelfMushroom())) return;
                 if (exempt("underBlock", movementData.isUnderblock())) return;
                 if (exempt("movingUnderBlock", movementData.getMovingUnderblockTicks() > 0)) return;
                 if (exempt("onSlime", movementData.isOnSlime())) return;
