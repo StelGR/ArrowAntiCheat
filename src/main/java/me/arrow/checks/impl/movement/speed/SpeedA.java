@@ -470,6 +470,10 @@ public class SpeedA extends Check {
                 airLimitDebug += ", sinceEntityPush";
             }
 
+            if (movementData.isNearBoat()) {
+                expectedSpeed += 0.1;
+            }
+
             expectedSpeed += movementData.elytraMomentum();
 
             String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()

@@ -445,6 +445,10 @@ public class SpeedB extends Check {
                 threshold += 0.05D;
             }
 
+            if (movementData.isNearBoat()) {
+                threshold += 0.12D;
+            }
+
             if (movementData.isNearWebs()) {
                 threshold += 0.1D;
             }
