@@ -323,7 +323,7 @@ public class FlyA extends Check {
         }
 
         if (exempt("recentBubble", movementData.getSinceBubbleTicks() < 15 + profile.getConnectionData().getClientTickTrans())) return true;
-        if (exempt("recentWater", movementData.getSinceNearWaterTicks() < 8 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
+//        if (exempt("recentWater", movementData.getSinceNearWaterTicks() < 8 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
 
         if (profile.getPlayer().isDead()) {
             ChatUtils.debugExempt("notAlive(Dead)", "FlyA");
@@ -380,7 +380,7 @@ public class FlyA extends Check {
         if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) return true;
         if (exempt("nearLava", movementData.isNearLava())) return true;
         if (exempt("nearBed", movementData.isNearBed())) return true;
-        if (exempt("onTopOfWater", movementData.isOnTopOfWater())) return true;
+        if (exempt("onTopOfWater/InsideWater", movementData.isOnTopOfWater() || movementData.getSinceInsideWaterTicks() <= 10 )) return true;
         if (exempt("nearBerries", movementData.getNearbyBlocksResult() != null
                 && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))) return true;
         if (exempt("riptiding", movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;

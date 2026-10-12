@@ -35,48 +35,51 @@ public class ClientBrandListener implements Data {
             return;
         }
 
-        // Play plugin message. The toString fallback makes this more tolerant if PacketEvents changes phase naming.
-        if (!event.getPacketType().equals(PacketType.Play.Client.PLUGIN_MESSAGE)
-                && !String.valueOf(event.getPacketType()).toUpperCase(Locale.ROOT).contains("PLUGIN_MESSAGE")) {
-            return;
-        }
-
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
+
+        // Play plugin message. The toString fallback makes this more tolerant if PacketEvents changes phase naming.
+        if (!event.getPacketType().equals(PacketType.Play.Client.PLUGIN_MESSAGE)) {
+            return;
+        }
 
         WrapperPlayClientPluginMessage payload = new WrapperPlayClientPluginMessage(event);
         String channel = payload.getChannelName();
 
-        if (!channel.toLowerCase(Locale.ROOT).endsWith("brand")) {
-            return;
-        }
+        //player.sendMessage("channel: " + channel + " data: " + payload.getData());
 
-        if (this.cache.contains(uuid)) {
-            return;
-        }
+        if (channel.contains("minecraft:register") || channel.toLowerCase(Locale.ROOT).endsWith("brand") ) {
+            String brand = decodeBrand(payload.getData());
 
-        String brand = decodeBrand(payload.getData());
+            //player.sendMessage("channel: " + channel + " data: " + payload.getData() + " brand " + brand);
 
-        if (brand == null || brand.isEmpty()) {
-            return;
-        }
-
-        this.cache.add(uuid);
-
-        TaskUtils.playerLater(player, 20L, () -> {
-            if (!player.isOnline()) return;
-
-            Profile profile = this.plugin.getProfileManager().getProfile(player);
-
-            if (profile == null) {
-                this.plugin.getProfileManager().createProfile(player);
-                profile = this.plugin.getProfileManager().getProfile(player);
+            if (brand == null || brand.isEmpty()) {
+                return;
             }
 
-            if (profile == null) return;
+            this.cache.add(uuid);
 
-            profile.setClient(normalizeBrand(brand));
-        });
+            TaskUtils.playerLater(player, 5L, () -> {
+                if (!player.isOnline()) return;
+
+                Profile profile = this.plugin.getProfileManager().getProfile(player);
+
+                if (profile == null) {
+                    this.plugin.getProfileManager().createProfile(player);
+                    profile = this.plugin.getProfileManager().getProfile(player);
+                }
+
+                if (profile == null) return;
+
+                profile.setClient(normalizeBrand(brand));
+            });
+        }
+
+//        if (this.cache.contains(uuid)) {
+//            return;
+//        }
+
+
     }
 
     private String decodeBrand(byte[] data) {
@@ -187,6 +190,10 @@ public class ClientBrandListener implements Data {
 
         if (lower.equalsIgnoreCase("cave client")) {
             return "Cave Client";
+        }
+
+        if (lower.contains("bungeecoord") || lower.contains("velocity")) {
+            return "Vanilla";
         }
 
         return brand;

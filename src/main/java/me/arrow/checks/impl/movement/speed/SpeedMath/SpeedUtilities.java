@@ -20,13 +20,9 @@ public class SpeedUtilities {
 
     // --- Core Speed Limits ---
 
-    public static double computeGroundLimit(Profile profile, VelocityData velocityData, double defaultBaseSpeed) {
+    public static double computeGroundLimit(Profile profile, double defaultBaseSpeed) {
         // Apply sprint multiplier inside movement scale (handled in getMovementScaleGround)
-        double limit = defaultBaseSpeed * getMovementScaleGround(profile);
-        if (velocityData.isTakingVelocity()) {
-            limit += velocityData.getTotalHorizontalVelocity() * 2.0D;
-        }
-        return limit;
+        return defaultBaseSpeed * getMovementScaleGround(profile);
     }
 
     public static double computeAirLimit(Profile profile, double defaultAirBaseSpeed) {

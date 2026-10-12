@@ -91,7 +91,7 @@ public class SpeedA extends Check {
         long profiler = Profiler.start();
 
         try {
-            double allowedLimit = SpeedUtilities.computeGroundLimit(profile, velocityData, DEFAULT_BASE_PER_TICK);
+            double allowedLimit = SpeedUtilities.computeGroundLimit(profile, DEFAULT_BASE_PER_TICK);
 
             double deltaX = movementData.getDeltaX();
             double deltaZ = movementData.getDeltaZ();
@@ -206,6 +206,10 @@ public class SpeedA extends Check {
                 if (!profile.getRodData().isSelf()) allowedLimit += 1.7;
             }
 
+            if (velocityData.isTakingVelocity()) {
+                allowedLimit += velocityData.getTotalHorizontalVelocity() * 1.2;
+            }
+
             allowedLimit += movementData.elytraMomentum();
 
 
@@ -219,7 +223,7 @@ public class SpeedA extends Check {
                                 + "\n * movementSpeedScale " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getMovementScaleGround(profile)
                                 + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                 + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
-                                + "* reeling " +  MsgType.MAIN_THEME_COLOR.getMessage() + profile.isExempt().isReelingIn() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
+                                + "\n * reeling " +  MsgType.MAIN_THEME_COLOR.getMessage() + profile.isExempt().isReelingIn()
                                 + "\n * predictedWater " + MsgType.MAIN_THEME_COLOR.getMessage() + predictedDifference
                                 + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
                                 + "\n * upTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()

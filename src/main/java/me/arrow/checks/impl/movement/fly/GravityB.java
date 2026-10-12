@@ -75,7 +75,7 @@ public class GravityB extends Check {
                 && profile.getActionData().hasRecentUnderPlaceSupport(20 + (profile.getConnectionData().getClientTickTrans() * 2)))) return;
 
         if (!isClientGround && !(profile.getVelocityData().isTakingVelocity()
-                && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                && profile.getVelocityData().getVelocityTicks() <= 6)) {
             double normalPrediction = (lastDeltaY - 0.08D) * 0.9800000190734863D;
 
             PredictionResult predictionResult = selectGravityPrediction(movementData, normalPrediction, true);

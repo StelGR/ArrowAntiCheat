@@ -12,9 +12,15 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPl
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPong;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientTeleportConfirm;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientWindowConfirmation;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSteerVehicle;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUseBed;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityAnimation;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPassengers;
+import com.github.retrooper.packetevents.util.Vector3i;
 import lombok.Getter;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
@@ -25,6 +31,7 @@ import org.bukkit.util.Vector;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -80,6 +87,7 @@ public class TeleportData implements Data {
     private int ticksSinceTeleportMatch = 1000;
 
     private Vector lastTeleportTarget;
+    private boolean wasSleeping;
 
     public TeleportData(Profile profile) {
         this.profile = profile;
@@ -87,7 +95,86 @@ public class TeleportData implements Data {
 
     @Override
     public void processSend(PacketSendEvent event) {
-        if (event.getPacketType() != PacketType.Play.Server.PLAYER_POSITION_AND_LOOK) {
+        PacketTypeCommon pkt = event.getPacketType();
+
+        // Bed enter (pre-1.14) – USE_BED packet contains bed block position
+        if (pkt.equals(PacketType.Play.Server.USE_BED)) {
+            try {
+                WrapperPlayServerUseBed bed = new WrapperPlayServerUseBed(event);
+                if (bed.getEntityId() == profile.getPlayer().getEntityId()) {
+                    Vector3i pos = bed.getPosition();
+                    Vector bedTarget = new Vector(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+                    addSyntheticTeleport(bedTarget);
+                }
+            } catch (Throwable ignored) {}
+            return;
+        }
+
+        // Bed enter (1.14+) – sleeping position in entity metadata
+        if (pkt.equals(PacketType.Play.Server.ENTITY_METADATA)) {
+            try {
+                if (PacketEvents.getAPI().getServerManager().getVersion()
+                        .isNewerThanOrEquals(ServerVersion.V_1_14)) {
+                    WrapperPlayServerEntityMetadata meta = new WrapperPlayServerEntityMetadata(event);
+                    if (meta.getEntityId() == profile.getPlayer().getEntityId()) {
+                        for (com.github.retrooper.packetevents.protocol.entity.data.EntityData<?> entry
+                                : meta.getEntityMetadata()) {
+                            Object value = entry.getValue();
+                            if (value instanceof Optional) {
+                                Optional<?> opt = (Optional<?>) value;
+                                if (opt.isPresent() && opt.get() instanceof Vector3i) {
+                                    // Entering bed – create synthetic teleport to bed position
+                                    Vector3i pos = (Vector3i) opt.get();
+                                    Vector bedTarget = new Vector(
+                                            pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+                                    addSyntheticTeleport(bedTarget);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {}
+            return;
+        }
+
+        // Wake up animation – grant exemption for position shift back from bed
+        if (pkt.equals(PacketType.Play.Server.ENTITY_ANIMATION)) {
+            try {
+                WrapperPlayServerEntityAnimation anim = new WrapperPlayServerEntityAnimation(event);
+                if (anim.getEntityId() == profile.getPlayer().getEntityId()
+                        && anim.getType() == WrapperPlayServerEntityAnimation.EntityAnimationType.WAKE_UP) {
+                    teleportTicks = 0;
+                    exemptTicksRemaining = Math.max(exemptTicksRemaining, getLagCompensatedExemptTicks());
+                    updateExemptState();
+                }
+            } catch (Throwable ignored) {}
+            return;
+        }
+
+        // Vehicle dismount – SET_PASSENGERS removing the player from a vehicle
+        if (pkt.equals(PacketType.Play.Server.SET_PASSENGERS)) {
+            try {
+                WrapperPlayServerSetPassengers passengers = new WrapperPlayServerSetPassengers(event);
+                int playerEntityId = profile.getPlayer().getEntityId();
+                boolean isPassenger = false;
+                for (int id : passengers.getPassengers()) {
+                    if (id == playerEntityId) {
+                        isPassenger = true;
+                        break;
+                    }
+                }
+                if (!isPassenger) {
+                    teleportTicks = 0;
+                    exemptTicksRemaining = Math.max(exemptTicksRemaining, getLagCompensatedExemptTicks());
+                    updateExemptState();
+                }
+            } catch (Throwable ignored) {}
+            return;
+        }
+
+        // Standard teleport – PLAYER_POSITION_AND_LOOK
+        if (!pkt.equals(PacketType.Play.Server.PLAYER_POSITION_AND_LOOK)) {
             return;
         }
 
@@ -126,6 +213,11 @@ public class TeleportData implements Data {
         teleportsPending = pendingTeleports.size();
         teleportAmount++;
 
+        // Immediately exempt on send – lag-compensated to cover the round-trip
+        teleportTicks = 0;
+        exemptTicksRemaining = Math.max(exemptTicksRemaining, getLagCompensatedExemptTicks());
+        updateExemptState();
+
         // Send transaction immediately after PLAYER_POSITION_AND_LOOK is written to the channel
         event.getTasksAfterSend().add(() -> {
             if (modern) {
@@ -147,6 +239,17 @@ public class TeleportData implements Data {
     @Override
     public void processReceive(PacketReceiveEvent event) {
         PacketTypeCommon pkt = event.getPacketType();
+
+        // 0. Handle vehicle dismount – the next flying packet will jump from vehicle pos to dismount pos
+        if (pkt.equals(PacketType.Play.Client.STEER_VEHICLE)) {
+            WrapperPlayClientSteerVehicle steer = new WrapperPlayClientSteerVehicle(event);
+            if (steer.isUnmount()) {
+                teleportTicks = 0;
+                exemptTicksRemaining = Math.max(exemptTicksRemaining, getLagCompensatedExemptTicks());
+                updateExemptState();
+            }
+            return;
+        }
 
         // 1. Handle 1.9+ TeleportConfirm
         if (pkt.equals(PacketType.Play.Client.TELEPORT_CONFIRM)) {
@@ -248,10 +351,9 @@ public class TeleportData implements Data {
 
         if (currentPos != null && !pendingTeleports.isEmpty()) {
             for (TeleportRecord record : pendingTeleports) {
-                if (!record.isConfirmed()) {
-                    continue;
-                }
-
+                // Match by position alone – records are only ever created by
+                // server-sent PLAYER_POSITION_AND_LOOK so this is safe.
+                // Confirmation is tracked for telemetry but not required for matching.
                 double dist = currentPos.distance(record.getTargetPosition());
                 if (dist <= TELEPORT_ACCEPT_DISTANCE) {
                     matched = record;
@@ -275,7 +377,7 @@ public class TeleportData implements Data {
 
             teleportsPending = pendingTeleports.size();
             teleportAppliedThisTick = true;
-            exemptTicksRemaining = 1;
+            exemptTicksRemaining = 3;
             teleportTicks = 0;
             ticksSinceTeleportMatch = 0;
             lastTeleportTarget = matched.getTargetPosition();
@@ -334,6 +436,21 @@ public class TeleportData implements Data {
         return null;
     }
 
+    /**
+     * Creates a synthetic teleport record for cases where the server repositions
+     * the player without sending PLAYER_POSITION_AND_LOOK (e.g. bed enter).
+     */
+    private void addSyntheticTeleport(Vector targetPos) {
+        TeleportRecord record = new TeleportRecord(-1, 0, (short) 0, targetPos, 0, 0, System.currentTimeMillis());
+        record.setConfirmed(true);
+        pendingTeleports.add(record);
+        teleportsPending = pendingTeleports.size();
+        teleportAmount++;
+        teleportTicks = 0;
+        exemptTicksRemaining = Math.max(exemptTicksRemaining, getLagCompensatedExemptTicks());
+        updateExemptState();
+    }
+
     private void updateExemptState() {
         if (profile.getExempt() != null) {
             profile.getExempt().setTeleports(isTeleporting());
@@ -386,6 +503,15 @@ public class TeleportData implements Data {
     private int getTeleportTimeoutTicks() {
         int pingTicks = profile.getConnectionData() != null ? profile.getConnectionData().getClientTickTrans() : 1;
         return Math.min(100, Math.max(20, 10 + (pingTicks * 4)));
+    }
+
+    /**
+     * Lag-compensated exempt ticks: one-way latency (pingTicks/2) + 4 tick buffer.
+     * Minimum 5 ticks, capped at 20 to prevent abuse on spoofed high-ping.
+     */
+    private int getLagCompensatedExemptTicks() {
+        int pingTicks = profile.getConnectionData() != null ? profile.getConnectionData().getClientTickTrans() : 1;
+        return Math.min(20, Math.max(5, (pingTicks / 2) + 4));
     }
 
     @Getter

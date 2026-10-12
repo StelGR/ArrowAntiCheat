@@ -600,8 +600,6 @@ public class PEMaterials {
             return Collections.emptyList();
         }
 
-
-
         String name = material.name();
         if (name.contains("SLAB") || name.contains("STEP")) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.5D, z + 1.0D));
@@ -620,6 +618,12 @@ public class PEMaterials {
         }
         if (isStair(material)) {
             return stairBounds(-1, x, y, z);
+        }
+        if (name.equals("PISTON_HEAD")
+                || name.equals("PISTON_EXTENSION")) {
+            // The facing-dependent shape must come from block state
+            // or the server's actual collision shape.
+            return null;
         }
         if (name.endsWith("_HEAD") || name.endsWith("_SKULL") || name.equals("HEAVY_CORE")) {
             return Collections.singletonList(new CollisionBounds(x + 0.25D, y, z + 0.25D, x + 0.75D, y + 0.5D, z + 0.75D));
@@ -988,7 +992,7 @@ public class PEMaterials {
     }
 
     public static List<CollisionBounds> stairBounds(int legacyData, int x, int y, int z) {
-        List<CollisionBounds> boxes = new ArrayList<>(3);
+        List<CollisionBounds> boxes = new ArrayList<>(4);
         boolean top = legacyData >= 0 && (legacyData & 0x4) != 0;
 
         // Base slab: bottom half if normal (y to y+0.5), top half if upside-down (y+0.5 to y+1.0)
@@ -1025,7 +1029,7 @@ public class PEMaterials {
     }
 
     public static List<CollisionBounds> stairBounds(WrappedBlockState state, int x, int y, int z) {
-        List<CollisionBounds> boxes = new ArrayList<>(3);
+        List<CollisionBounds> boxes = new ArrayList<>(4);
         boolean top = false;
         String facing = "NORTH";
 
