@@ -978,6 +978,19 @@ public class ChunkCache {
                                         state.getGlobalId(),
                                         storeState
                                 );
+
+                                // On pre-1.13 (legacy) servers the global ID encodes
+                                // (blockId << 4 | data). Store the lower 4 bits so
+                                // stairs and slabs resolve their orientation correctly.
+                                if (LEGACY_BLOCK_DATA_SUPPORTED) {
+                                    cached.setLegacyBlockData(
+                                            localX,
+                                            worldY,
+                                            localZ,
+                                            state.getGlobalId() & 0xF
+                                    );
+                                }
+
                                 boolean waterlogged = isWaterMaterial(material) || PEMaterials.isWaterlogged(state);
                                 if (waterlogged) {
                                     cached.setWaterlogged(localX, worldY, localZ, true);

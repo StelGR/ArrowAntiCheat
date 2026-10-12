@@ -1072,39 +1072,20 @@ public class CollisionUtils {
                             ChunkCache.get().requestCollisionShape(location.getWorld(), x, y, z, cachedState);
                         }
 
-                        List<PEMaterials.CollisionBounds> boxes = cachedState != null
-                                ? PEMaterials.getCollisionBounds(cachedState, x, y, z)
-                                : null;
+                        boolean useLegacyMetadata = legacyData >= 0
+                                && (PEMaterials.isLegacySlabMaterial(material)
+                                || PEMaterials.isStair(material));
 
-                        if (legacyData >= 0
-                                && (PEMaterials.isLegacySlabMaterial(material) || PEMaterials.isStair(material))) {
+                        List<PEMaterials.CollisionBounds> boxes;
 
+                        if (useLegacyMetadata) {
                             boxes = PEMaterials.getCollisionBounds(
-                                    material,
-                                    legacyData,
-                                    x,
-                                    y,
-                                    z
+                                    material, legacyData, x, y, z
                             );
-
-                        } else if (PEMaterials.isStair(material)) {
-
-                            boxes = PEMaterials.getCollisionBounds(
-                                    material,
-                                    legacyData,
-                                    x,
-                                    y,
-                                    z
-                            );
-
-                        } else if (cachedState != null) {
-
-                            boxes = PEMaterials.getCollisionBounds(
-                                    cachedState,
-                                    x,
-                                    y,
-                                    z
-                            );
+                        } else {
+                            boxes = cachedState != null
+                                    ? PEMaterials.getCollisionBounds(cachedState, x, y, z)
+                                    : null;
                         }
                         Block block = null;
 

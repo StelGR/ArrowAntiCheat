@@ -96,7 +96,7 @@ public class FlyB extends Check {
 
                 final boolean invalid = (acceleration > 0.0 && !vd.isTakingVelocity()) && (serverAirTicks > 8 || clientAirTicks > 8) && !profile.getPotionData().isHasSlowFalling();
 
-                double maxDeltaY = 0.05 * profile.getPotionData().getLevitationAmplifier();
+                double maxDeltaY = 0.131 * profile.getPotionData().getLevitationAmplifier();
 
                 boolean invalidLevitation =
                         profile.getPotionData().isHasLevitation()
@@ -118,7 +118,8 @@ public class FlyB extends Check {
                         + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverAirTicks
                         + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                         + "\njumpStart " + MsgType.MAIN_THEME_COLOR.getMessage() + jumpStart
-                        + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + totalVerticalVelocity;
+                        + "\nvelocity " + MsgType.MAIN_THEME_COLOR.getMessage() + totalVerticalVelocity
+                        + (profile.getPotionData().isHasLevitation() ? "\nlevitation level " + profile.getPotionData().getLevitationAmplifier() : "");
 
 
                 if (invalidLevitation || invalidLevitation2) {

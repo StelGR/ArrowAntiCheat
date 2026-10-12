@@ -28,7 +28,7 @@ public class InteractA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT)) {
+        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT) || event.getPacketType().equals(PacketType.Play.Client.USE_ITEM)) {
             final long time = event.getTimestamp();
 
             final long lastTime = this.lastTime;

@@ -113,7 +113,7 @@ public class GravityC extends Check {
         boolean clientGround = md.isOnGround();
         boolean serverGround = md.isServerGround();
         boolean hasVelocity = profile.getVelocityData().isTakingVelocity()
-                && profile.getVelocityData().getVelocityTicks() < 4 + (profile.getConnectionData().getClientTickTrans() * 2);
+                && profile.getVelocityData().getVelocityTicks() <= 6;
 
         if (exempt("onSlime", onSlime)) return;
         if (exempt("nearBoat", md.isNearBoat())) return;

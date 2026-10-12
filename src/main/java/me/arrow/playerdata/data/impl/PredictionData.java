@@ -96,7 +96,6 @@ public class PredictionData implements Data {
             profile.getSimulation().setKnownInputS(strafe);
         }
 
-
         if (event.getPacketType().equals(PLAYER_DIGGING)) {
             WrapperPlayClientPlayerDigging wrappedInBlockDigPacket = new WrapperPlayClientPlayerDigging(event);
 

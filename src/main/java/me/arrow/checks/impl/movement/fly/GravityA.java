@@ -347,7 +347,7 @@ public class GravityA extends Check {
         if (movementData.isNearLava()) { debugExempt("nearLava", "GravityA"); return true; }
         if (movementData.isNearWater()) { debugExempt("nearWater", "GravityA"); return true; }
         if (movementData.isNearBuggyBlock()) { debugExempt("nearBuggyBlock", "GravityA"); return true; }
-        if (profile.getVelocityData().getVelocityTicks() < 8 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (profile.getVelocityData().getVelocityTicks() <= 6) {
             debugExempt("isTakingVelocity", "GravityA");
             return true;
         }

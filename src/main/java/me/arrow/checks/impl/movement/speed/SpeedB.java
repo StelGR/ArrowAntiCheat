@@ -417,8 +417,11 @@ public class SpeedB extends Check {
                 // the 0.91 velocity carry multiplier above. Boat surface is 0.6F.
                 float rawFriction = wasOnBoat ? 0.6F : movementData.getFrictionFactor();
                 friction = rawFriction;
-                force = movementSpeed * 0.16277136F / (rawFriction * rawFriction * rawFriction);
-                forceSprint = movementSpeedSP * 0.16277136F / (rawFriction * rawFriction * rawFriction);
+                // Modern (>1.12.2) uses 0.21600002, legacy uses 0.16277136
+                boolean modernMovement = profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);
+                float forceConstant = modernMovement ? 0.21600002F : 0.16277136F;
+                force = movementSpeed * forceConstant / (rawFriction * rawFriction * rawFriction);
+                forceSprint = movementSpeedSP * forceConstant / (rawFriction * rawFriction * rawFriction);
             }
 
             boolean serverSprinting = profile.getPlayer().isSprinting();
