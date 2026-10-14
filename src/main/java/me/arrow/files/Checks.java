@@ -639,6 +639,18 @@ public class Checks implements Initializer {
         SUSPICION_PUNISH_MODE("Suspicion.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         SUSPICION_MAX_VL("Suspicion.punish.vl", 50, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        EXPLOIT_A("ExploitA.enabled", true, "Should we enable this module?"),
+        EXPLOIT_A_PUNISH("ExploitA.punish", "", "Punishment settings"),
+        EXPLOIT_A_PUNISH_ENABLED("ExploitA.punish.enabled", true, "Should punishments be enabled for this check?"),
+        EXPLOIT_A_PUNISH_MODE("ExploitA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        EXPLOIT_A_MAX_VL("ExploitA.punish.vl", 5, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        EXPLOIT_B("ExploitB.enabled", true, "Should we enable this module?"),
+        EXPLOIT_B_PUNISH("ExploitB.punish", "", "Punishment settings"),
+        EXPLOIT_B_PUNISH_ENABLED("ExploitB.punish.enabled", true, "Should punishments be enabled for this check?"),
+        EXPLOIT_B_PUNISH_MODE("ExploitB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        EXPLOIT_B_MAX_VL("ExploitB.punish.vl", 1, "The maximum violation amount a player needs to reach in order to get punished"),
+
         VEHICLE_A("VehicleA.enabled", false, "Should we enable this module?"),
         VEHICLE_A_PUNISH("VehicleA.punish", "", "Punishment settings"),
         VEHICLE_A_PUNISH_ENABLED("VehicleA.punish.enabled", false, "Should punishments be enabled for this check?"),

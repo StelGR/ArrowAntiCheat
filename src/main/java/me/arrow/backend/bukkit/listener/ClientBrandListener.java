@@ -9,19 +9,17 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
 import me.arrow.utils.ChatUtils;
 import me.arrow.utils.TaskUtils;
-import me.arrow.utils.custom.ExpiringSet;
 import org.bukkit.entity.Player;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import java.util.UUID;
 
 // Cleaned up version of NikV2's clientbrand listener, with packetevents 2.12.2 support
 
 public class ClientBrandListener implements Data {
 
     private final Arrow plugin;
-    private final ExpiringSet<UUID> cache = new ExpiringSet<>(5000L);
+    //private final ExpiringSet<UUID> cache = new ExpiringSet<>(5000L);
 
     public ClientBrandListener(Arrow plugin) {
         this.plugin = plugin;
@@ -36,7 +34,7 @@ public class ClientBrandListener implements Data {
         }
 
         Player player = event.getPlayer();
-        UUID uuid = player.getUniqueId();
+        //UUID uuid = player.getUniqueId();
 
         // Play plugin message. The toString fallback makes this more tolerant if PacketEvents changes phase naming.
         if (!event.getPacketType().equals(PacketType.Play.Client.PLUGIN_MESSAGE)) {
@@ -57,7 +55,7 @@ public class ClientBrandListener implements Data {
                 return;
             }
 
-            this.cache.add(uuid);
+            //this.cache.add(uuid);
 
             TaskUtils.playerLater(player, 5L, () -> {
                 if (!player.isOnline()) return;
@@ -172,7 +170,7 @@ public class ClientBrandListener implements Data {
             return "Forge";
         }
 
-        if (lower.contains("fabric")) {
+        if (lower.contains("fabri")) {
             return "Fabric";
         }
 
@@ -192,11 +190,7 @@ public class ClientBrandListener implements Data {
             return "Cave Client";
         }
 
-        if (lower.contains("bungeecoord") || lower.contains("velocity")) {
-            return "Vanilla";
-        }
-
-        return brand;
+        return "Vanilla";
     }
 
     @Override

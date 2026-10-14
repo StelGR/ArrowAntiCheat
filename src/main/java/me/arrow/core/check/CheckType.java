@@ -30,6 +30,7 @@ public enum CheckType {
     BACKTRACK("BackTrack", CheckCategory.CONNECTION),
     XRAY("XRay", CheckCategory.WORLD),
     MACRO("Macro", CheckCategory.COMBAT),
+    EXPLOIT("Exploit", CheckCategory.WORLD),
     MOVEMENT("Movement", CheckCategory.MOVEMENT),
     NETWORK("Network", CheckCategory.CONNECTION),
     COMBAT("Combat", CheckCategory.COMBAT),

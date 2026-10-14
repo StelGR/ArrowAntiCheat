@@ -29,7 +29,7 @@ public class AimD extends Check {
             SensitivityProcessor sensitivityProcessor = rotationData.getSensitivityProcessor();
             boolean validSensitivity = sensitivityProcessor.getSensitivityPercent() > 0 && sensitivityProcessor.getSensitivityPercent() < 200;
 
-            if (validSensitivity && profile.getMovementData().getSinceTeleportTicks() > 3) {
+            if (validSensitivity && profile.getMovementData().getSinceTeleportTicks() > 6) {
                 double mcpSensitivity = sensitivityProcessor.getMcpSensitivity();
 
                 float f = (float) mcpSensitivity * 0.6f + 0.2f;
