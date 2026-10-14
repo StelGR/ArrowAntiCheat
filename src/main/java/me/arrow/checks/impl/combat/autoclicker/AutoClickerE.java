@@ -23,20 +23,18 @@ public class AutoClickerE extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || !event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
-            return;
-        }
+        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+            CombatData combatData = profile.getCombatData();
 
-        CombatData combatData = profile.getCombatData();
+            if (!combatData.isArmAnimationSamplesReady()) {
+                return;
+            }
 
-        if (!combatData.isArmAnimationSamplesReady()) {
-            return;
-        }
-
-        try {
-            evaluateSamples(combatData.getArmAnimationClickSamples(), combatData.getArmAnimationCps());
-        } finally {
-            combatData.clearArmAnimationClickSamples();
+            try {
+                evaluateSamples(combatData.getArmAnimationClickSamples(), combatData.getArmAnimationCps());
+            } finally {
+                combatData.clearArmAnimationClickSamples();
+            }
         }
     }
 

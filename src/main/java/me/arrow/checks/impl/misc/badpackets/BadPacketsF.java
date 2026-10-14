@@ -72,8 +72,8 @@ public class BadPacketsF extends Check {
 
             this.ticksWithoutMovement++;
 
-            // If 30+ transactions/ticks have elapsed with zero movement packets sent
-            if (this.ticksWithoutMovement >= 30) {
+            // If 41+ transactions/ticks have elapsed with zero movement packets sent
+            if (this.ticksWithoutMovement >= 41) {
                 if (++this.buffer > 2.0D) {
                     fail("Cancelled movement packets while accepting transactions",
                             "Ticks: " + MsgType.MAIN_THEME_COLOR.getMessage() + this.ticksWithoutMovement

@@ -3,6 +3,8 @@ package me.arrow.playerdata.data;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import lombok.Getter;
+import me.arrow.checks.impl.misc.exploits.ExploitA;
+import me.arrow.checks.impl.misc.exploits.ExploitB;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.core.check.annotation.Testing;
 import me.arrow.checks.impl.combat.aimassist.*;
@@ -212,7 +214,10 @@ public class CheckHolder {
                 new VehicleB(this.profile),
                 new VehicleC(this.profile),
 
-                new Suspicion(this.profile)
+                new Suspicion(this.profile),
+
+                new ExploitA(this.profile),
+                new ExploitB(this.profile)
 
         );
 
