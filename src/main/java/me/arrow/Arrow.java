@@ -37,6 +37,7 @@ import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.customutils.animationSystem.AnimationManager;
 import me.arrow.backend.bukkit.PlatformBackend;
 import me.arrow.utils.versionutils.impl.VelocityClientVersionBridge;
+import me.arrow.utils.versionutils.impl.VelocityAlertBridge;
 import me.stel.API.ArrowAPIProvider;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginDescriptionFile;
@@ -204,6 +205,15 @@ public class Arrow {
         hasLoaded = false;
 
         TaskUtils.taskLater(() -> {
+            PacketEvents.setAPI(SpigotPacketEventsBuilder.build(Arrow.getInstance().getHost()));
+            PacketEvents.getAPI().load();
+            PacketEvents.getAPI().init();
+
+            if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_8)) {
+                OtherUtility.log(translate("&cUNSUPPORTED MINECRAFT VERSION, DISABLING"));
+                getInstance().onDisable();
+            }
+
             log("");
             final String[] HEADER = new String[] {
                     " $$$$$$\\   $$$$$$\\   $$$$$$\\   $$$$$$\\  $$\\  $$\\  $$\\ ",
@@ -220,15 +230,9 @@ public class Arrow {
             log(translate("&6" + "=================================================================="));
             log(translate("&6" + "➪  Version&7: &b" + getVersion()));
             log(translate("&6" + "➪  Platform&7: &b" + PlatformBackend.get().getPlatformType().getFriendlyName()));
+            log(translate("&6" + "➪  Server Version&7: &b" + PacketEvents.getAPI().getServerManager().getVersion().getReleaseName()));
+            log(translate("&6" + "➪  Java Version&7: &b" + System.getProperty("java.version")));
             log("");
-            PacketEvents.setAPI(SpigotPacketEventsBuilder.build(Arrow.getInstance().getHost()));
-            PacketEvents.getAPI().load();
-            PacketEvents.getAPI().init();
-
-            if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_8)) {
-                OtherUtility.log(translate("&cUNSUPPORTED MINECRAFT VERSION, DISABLING"));
-                getInstance().onDisable();
-            }
 
             (this.configuration = new Config(getHost())).initialize();
             log(translate("&6" + "➪  Config file Initialized"));
@@ -262,6 +266,8 @@ public class Arrow {
 
             if (getInstance().getHost() != null) {
                 VelocityClientVersionBridge.register(getInstance().getHost());
+                VelocityAlertBridge.register(getInstance().getHost());
+                log(translate("&6" + "➪  Velocity Bridge Channels Initialized"));
             }
 
             TickTask tickTask = new TickTask(this);
@@ -407,6 +413,7 @@ public class Arrow {
             try {
                 if (getHost() != null) {
                     VelocityClientVersionBridge.unregister(getHost());
+                    VelocityAlertBridge.unregister(getHost());
                 }
             } catch (Throwable ignored) {
             }

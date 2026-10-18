@@ -4,15 +4,14 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.util.Vector3d;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPong;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientWindowConfirmation;
+import com.github.retrooper.packetevents.wrapper.play.client.*;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
 import me.arrow.core.check.CheckType;
+import me.arrow.checks.impl.movement.speed.SpeedMath.MovementMath;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -24,6 +23,7 @@ import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.Math.MathHelper;
 import me.arrow.utils.customutils.Math.MathUtil;
 import me.arrow.utils.customutils.OtherUtility;
+import me.arrow.utils.vec.Vec3;
 import org.bukkit.Material;
 import org.bukkit.util.Vector;
 
@@ -31,6 +31,8 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
+
+import static com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.PLAYER_DIGGING;
 
 /**
  * Open-Karhu Velocity B, this was ported using AI thanks to a friend who got access to paid GPT, so you will see alot of yapping.
@@ -82,6 +84,8 @@ public class VelocityB extends Check {
     private boolean lastVelocityWasForced;
     private double lastPendingHorizontalError;
     private double lastPendingVerticalError;
+    private float karhuCurrentBlockFriction = 0.6F;
+    private float karhuLastTickBlockFriction = 0.6F;
     private float karhuCurrentFriction = 0.54600006F;
     private float karhuLastTickFriction = 0.54600006F;
 
@@ -107,7 +111,7 @@ public class VelocityB extends Check {
 
     @Override
     public void handle(PacketSendEvent event) {
-        if (profile == null || profile.getPlayer() == null) {
+        if (profile == null || profile.shouldCancel()) {
             return;
         }
 
@@ -163,6 +167,18 @@ public class VelocityB extends Check {
         while (this.pendingVelocities.size() > MAX_PENDING_VELOCITIES) {
             this.pendingVelocities.pollFirst();
         }
+
+//        if (profile.getCombatData() != null && (profile.getCombatData().isHoldingSpear() || profile.getCombatData().getSinceUsedSpear() <= 5)) {
+//            String velMsg = OtherUtility.translate("&7[&6SpearVelocity&7] &aServer sent ENTITY_VELOCITY: &ex=" + format(3, velocity.getX())
+//                    + " y=" + format(3, velocity.getY())
+//                    + " z=" + format(3, velocity.getZ())
+//                    + " &7(h=" + format(3, Math.hypot(velocity.getX(), velocity.getZ())) + ")"
+//                    + " &7| hand: &e" + profile.getCombatData().getHeldItemDebug());
+//            OtherUtility.log(velMsg);
+//            if (profile.getPlayer() != null && profile.getPlayer().isOnline()) {
+//                profile.getPlayer().sendMessage(velMsg);
+//            }
+//        }
     }
 
     private void capturePostTransactionBoundary(PacketSendEvent event) {
@@ -201,6 +217,25 @@ public class VelocityB extends Check {
             return;
         }
 
+        if (event.getPacketType().equals(PLAYER_DIGGING)) {
+            WrapperPlayClientPlayerDigging digging = new WrapperPlayClientPlayerDigging(event);
+
+            if (digging.getAction().equals(DiggingAction.STAB)) {
+                this.attack = true;
+                this.attacks = Math.max(this.attacks + 1, 1);
+                ++this.pendingAttacks;
+                if (profile.getCombatData() != null) {
+                    profile.getCombatData().setAttacked(true);
+                    profile.getCombatData().setAttackedTicks(0);
+                    profile.getCombatData().setUsedSpear(true);
+                    profile.getCombatData().setSinceUsedSpear(0);
+                    profile.getCombatData().setTarget(-1);
+                    profile.getCombatData().setLastAttackedEntityID(-1);
+                }
+                return;
+            }
+        }
+
         TransactionKey acknowledged = readClientTransaction(event);
         if (acknowledged != null) {
             handleTransactionBoundary(acknowledged);
@@ -233,15 +268,30 @@ public class VelocityB extends Check {
             if (tickVelocity != null) {
                 this.kbX = tickVelocity.getX();
                 this.kbZ = tickVelocity.getZ();
-                this.allowance = 0.001D;
+                this.allowance = 1.25E-3D;
 
-                if (this.moveTicks <= 1) {
-                    this.allowance = offsetMove() + 0.001D;
+                if (this.moveTicks <= 3) {
+                    this.allowance = offsetMove() + clamp();
+                } else if (movementData.getDeltaXZ() <= offsetMove()) {
+                    this.allowance = offsetMove() + clamp();
                 }
+            } else {
+                this.allowance = 0.0005D;
+            }
+
+            if (isNewerThan8()) {
+                this.allowance += 0.001D;
             }
 
             if (canCheckCondition()) {
-                if (this.attack) {
+                boolean isSpearRecent = profile.getCombatData() != null
+                        && profile.getCombatData().getSinceUsedSpear() <= 2;
+                boolean attackRecent = this.attack
+                        || isSpearRecent
+                        || (profile.getCombatData() != null && profile.getCombatData().getAttackedTicks() <= 1);
+                if (attackRecent) {
+                    this.attack = true;
+                    this.attacks = Math.max(this.attacks, 1);
                     bruteforceAttack(movementData);
                 }
 
@@ -277,10 +327,10 @@ public class VelocityB extends Check {
         /* KarhuPlayer.checkVelocity counts every ATTACK packet. */
         ++this.pendingAttacks;
 
-        /* Karhu VelocityB's own AttackEvent branch only accepts players. */
-        if (profile.getCombatData() != null
+        /* Accept entity attacks, or un-targeted attacks (entityId <= 0) like spear stab */
+        if (entityId <= 0 || (profile.getCombatData() != null
                 && profile.getCombatData().getTrackedEntities() != null
-                && profile.getCombatData().getTrackedEntities().containsKey(entityId)) {
+                && profile.getCombatData().getTrackedEntities().containsKey(entityId))) {
             this.attack = true;
             ++this.attacks;
         }
@@ -301,9 +351,6 @@ public class VelocityB extends Check {
     }
 
 
-
-
-
     private void evaluatePrediction(VelocityKeys keys, MovementData movementData, float f4) {
         double dClientKb = movementData.getDeltaXZ();
         float strafe = keys.strafe;
@@ -312,8 +359,12 @@ public class VelocityB extends Check {
         boolean fastMath = keys.fastMath;
         boolean thinkJump = keys.jump;
 
+        double rawKbX = this.kbX;
+        double rawKbZ = this.kbZ;
+
         if (thinkJump) {
-            float radians = movementData.getLocation().getYaw() * (float) (Math.PI / 180.0D);
+            float yaw = profile.getRotationData() != null ? profile.getRotationData().getYaw() : movementData.getLocation().getYaw();
+            float radians = yaw * (float) (Math.PI / 180.0D);
             this.kbX -= MathHelper.sin(radians) * 0.2F;
             this.kbZ += MathHelper.cos(radians) * 0.2F;
         }
@@ -335,10 +386,6 @@ public class VelocityB extends Check {
             minPtc -= 20.0D;
         }
 
-        if (profile.getCombatData().getSinceUsedSpear() < 20 && onGround) {
-            return;
-        }
-
         double maxVL = isNewerThan8() ? 12.0D : 6.5D;
         boolean reversed = dKbZ < -0.05D || dKbX < -0.05D;
 
@@ -348,7 +395,8 @@ public class VelocityB extends Check {
          * is a direct port of Karhu's state machine.
          */
         if (thinkJump) {
-            float radians = movementData.getLocation().getYaw() * (float) (Math.PI / 180.0D);
+            float yaw = profile.getRotationData() != null ? profile.getRotationData().getYaw() : movementData.getLocation().getYaw();
+            float radians = yaw * (float) (Math.PI / 180.0D);
             this.kbX -= MathHelper.sin(radians) * 0.2F;
             this.kbZ += MathHelper.cos(radians) * 0.2F;
         }
@@ -360,7 +408,44 @@ public class VelocityB extends Check {
             return;
         }
 
-        if ((p < minPtc && Math.abs(diff) > this.allowance) || (reversed && !jumped)) {
+        MovementMath sim = profile.getSimulation();
+        double simLowest = Double.MAX_VALUE;
+        if (sim != null) {
+            sim.simulateMovement(rawKbX, rawKbZ, true);
+            simLowest = sim.getTestLowest();
+        }
+
+        boolean isSpear = profile.getCombatData() != null && profile.getCombatData().isHoldingSpear();
+        int spearTicks = profile.getCombatData() != null ? profile.getCombatData().getSinceUsedSpear() : 999;
+
+        String verboseData = "pct=" + format(1, p) + "%"
+                + " | cl=" + format(3, dClientKb)
+                + " | sv=" + format(3, dKb)
+                + " | diff=" + format(4, diff)
+                + " | sim=" + format(4, simLowest)
+                + " | atks=" + this.attacks
+                + " | fit=" + this.bruteforcedAttacks
+                + " | spear=" + isSpear;
+        verbose("VelocityB", this.violations, maxVL, verboseData);
+
+
+        //if (spearTicks < 6) minPtc -= 20;
+
+//        if (isSpear || spearTicks <= 5) {
+//            String spearLog = OtherUtility.translate("&7[&6SpearVelocity&7] &fpct=&e" + format(1, p) + "%"
+//                    + " &7cl=&e" + format(3, dClientKb)
+//                    + " &7sv=&e" + format(3, dKb)
+//                    + " &7atks=&e" + this.attacks
+//                    + " &7fit=&e" + this.bruteforcedAttacks
+//                    + " &7sim=&e" + format(4, simLowest)
+//                    + " &7vl=&c" + format(2, this.violations));
+//            OtherUtility.log(spearLog);
+//            if (profile.getPlayer() != null && profile.getPlayer().isOnline()) {
+//                profile.getPlayer().sendMessage(spearLog);
+//            }
+//        }
+
+        if (((p < minPtc && Math.abs(diff) > this.allowance) || (reversed && !jumped)) && simLowest > this.allowance) {
             this.violations = Math.min(15.0D,
                     this.violations + Math.abs(1.975D - Math.abs(dClientKb / dKb)));
 
@@ -440,7 +525,7 @@ public class VelocityB extends Check {
                         for (boolean jump : BOOLEANS_REVERSED) {
                             float strafe = floats[0];
                             float forward = floats[1];
-                            float friction = moveEntityWithHeading(sprinting, movementData).inputFriction;
+                            float friction = moveEntityWithHeading(sprinting).inputFriction;
 
                             if (sneaking) {
                                 strafe = (float) (strafe * 0.3D);
@@ -454,7 +539,8 @@ public class VelocityB extends Check {
 
                             boolean didJump = false;
                             if (jump && sprinting && this.onGround) {
-                                float radians = movementData.getLocation().getYaw() * (float) (Math.PI / 180.0D);
+                                float yaw = profile.getRotationData() != null ? profile.getRotationData().getYaw() : movementData.getLocation().getYaw();
+                                float radians = yaw * (float) (Math.PI / 180.0D);
                                 this.kbX -= MathHelper.sin(radians) * 0.2F;
                                 this.kbZ += MathHelper.cos(radians) * 0.2F;
                                 didJump = true;
@@ -494,6 +580,21 @@ public class VelocityB extends Check {
                             float friction,
                             boolean fastMath,
                             MovementData movementData) {
+        boolean modernMovement = profile.getVersion() != null && profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);
+        if (modernMovement) {
+            float yaw = profile.getRotationData() != null ? profile.getRotationData().getYaw() : movementData.getLocation().getYaw();
+            Vec3 inputs = new Vec3(strafe, 0, forward);
+            double inputForce = inputs.lengthSqr();
+            if (inputForce >= 1.0E-4F) {
+                Vec3 vec3 = (inputForce > 1.0D ? inputs.normalizeModern() : inputs).scale(friction);
+                float yawSin = MathHelper.sin(yaw * ((float) Math.PI / 180F));
+                float yawCos = MathHelper.cos(yaw * ((float) Math.PI / 180F));
+                this.kbX += vec3.xCoord * (double) yawCos - vec3.zCoord * (double) yawSin;
+                this.kbZ += vec3.zCoord * (double) yawCos + vec3.xCoord * (double) yawSin;
+            }
+            return;
+        }
+
         float f = strafe * strafe + forward * forward;
         if (f >= 1.0E-4F) {
             f = MathHelper.sqrt_float(f);
@@ -514,16 +615,24 @@ public class VelocityB extends Check {
         }
     }
 
-    private HeadingData moveEntityWithHeading(boolean sprint, MovementData movementData) {
+    private HeadingData moveEntityWithHeading(boolean sprint) {
         float f4 = 0.91F;
         float f5 = getWalkSpeed();
+        boolean modernMovement = profile.getVersion() != null && profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);
 
         if (this.onGround) {
             f4 = this.karhuCurrentFriction;
-            float f = 0.16277136F / (f4 * f4 * f4);
-
-            if (sprint) {
-                f5 += f5 * 0.3F;
+            float f;
+            if (!modernMovement) {
+                f = 0.16277136F / (f4 * f4 * f4);
+                if (sprint) {
+                    f5 += f5 * 0.3F;
+                }
+            } else {
+                f = 0.21600002F / (this.karhuCurrentBlockFriction * this.karhuCurrentBlockFriction * this.karhuCurrentBlockFriction);
+                if (sprint) {
+                    f5 *= 1.3F;
+                }
             }
 
             f5 *= f;
@@ -544,7 +653,8 @@ public class VelocityB extends Check {
         diffs.put(original, new AttackFit(this.kbX, this.kbZ, 0));
 
         double unMovedOgZ;
-        for (int j = 0; ++j <= this.attacks; ogZ = unMovedOgZ) {
+        int limit = Math.max(this.attacks, 1);
+        for (int j = 0; ++j <= limit; ogZ = unMovedOgZ) {
             ogX *= 0.6D;
             ogZ *= 0.6D;
 
@@ -592,6 +702,24 @@ public class VelocityB extends Check {
                                        float forward,
                                        float friction,
                                        MovementData movementData) {
+        boolean modernMovement = profile.getVersion() != null && profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);
+        if (modernMovement) {
+            float yaw = profile.getRotationData() != null ? profile.getRotationData().getYaw() : movementData.getLocation().getYaw();
+            Vec3 inputs = new Vec3(strafe, 0, forward);
+            double inputForce = inputs.lengthSqr();
+            if (inputForce < 1.0E-4F) {
+                return null;
+            }
+
+            Vec3 vec3 = (inputForce > 1.0D ? inputs.normalizeModern() : inputs).scale(friction);
+            float yawSin = MathHelper.sin(yaw * ((float) Math.PI / 180F));
+            float yawCos = MathHelper.cos(yaw * ((float) Math.PI / 180F));
+            return new MotionPair(
+                    (float) (vec3.xCoord * (double) yawCos - vec3.zCoord * (double) yawSin),
+                    (float) (vec3.zCoord * (double) yawCos + vec3.xCoord * (double) yawSin)
+            );
+        }
+
         float f = strafe * strafe + forward * forward;
         if (f < 1.0E-4F) {
             return null;
@@ -776,23 +904,31 @@ public class VelocityB extends Check {
         double kbY = Math.abs(velocity.getY()) < minimum ? 0.0D : velocity.getY();
         double kbZ = Math.abs(velocity.getZ()) < minimum ? 0.0D : velocity.getZ();
 
-        MotionPair horizontal;
-        boolean attacked = this.pendingAttacks != 0;
-
-        if (attacked) {
-            horizontal = bruteforcePendingAttack(kbX, kbZ, movementData);
+        double horizontalError;
+        MovementMath sim = profile.getSimulation();
+        if (sim != null) {
+            sim.simulateMovement(kbX, kbZ, true);
+            horizontalError = sim.getTestLowest();
         } else {
-            horizontal = loopPendingKeys(kbX, kbZ, movementData);
+            MotionPair horizontal;
+            boolean attacked = this.pendingAttacks != 0
+                    || (profile.getCombatData() != null && (profile.getCombatData().getAttackedTicks() <= 1 || profile.getCombatData().getSinceUsedSpear() <= 2));
+            if (attacked) {
+                horizontal = bruteforcePendingAttack(kbX, kbZ, movementData);
+            } else {
+                horizontal = loopPendingKeys(kbX, kbZ, movementData);
+            }
+
+            if (horizontal == null) {
+                return null;
+            }
+
+            horizontalError = Math.hypot(
+                    movementData.getDeltaX() - horizontal.x,
+                    movementData.getDeltaZ() - horizontal.z
+            );
         }
 
-        if (horizontal == null) {
-            return null;
-        }
-
-        double horizontalError = Math.hypot(
-                movementData.getDeltaX() - horizontal.x,
-                movementData.getDeltaZ() - horizontal.z
-        );
         double verticalError = Math.abs(movementData.getDeltaY() - kbY);
 
         boolean collidedHorizontal = this.sinceBlockCollision <= 2
@@ -801,23 +937,13 @@ public class VelocityB extends Check {
         boolean collidedVertical = this.sinceVerticalCollision <= 2
                 || movementData.isUnderblock();
 
-        double precisionY;
-        double precisionH;
-
-        if (attacked) {
-            precisionY = collidedVertical ? 0.205D : 0.03125D;
-            precisionH = collidedHorizontal
-                    ? Math.max(originalHorizontal, horizontalError)
-                    : 0.03125D;
-        } else {
-            precisionY = collidedVertical ? 0.43D : 0.03125D;
-            precisionH = collidedHorizontal
-                    ? Math.max(originalHorizontal, horizontalError)
-                    : 0.031D;
-        }
+        double precisionY = collidedVertical ? 0.43D : 0.03125D;
+        double precisionH = collidedHorizontal
+                ? Math.max(originalHorizontal, horizontalError)
+                : (isNewerThan8() ? 0.045D : 0.031D);
 
         boolean verticalMatch = verticalError <= precisionY
-                || (!attacked && isJumped(movementData));
+                || isJumped(movementData);
         boolean matches = horizontalError <= precisionH && verticalMatch;
 
         return new PendingFit(matches, horizontalError, verticalError);
@@ -840,8 +966,8 @@ public class VelocityB extends Check {
                         float forward = floats[1];
 
                         if (jumped && sprint) {
-                            float radians = movementData.getLocation().getYaw()
-                                    * (float) (Math.PI / 180.0D);
+                            float yaw = profile.getRotationData() != null ? profile.getRotationData().getYaw() : movementData.getLocation().getYaw();
+                            float radians = yaw * (float) (Math.PI / 180.0D);
                             kbX -= MathHelper.sin(radians) * 0.2F;
                             kbZ += MathHelper.cos(radians) * 0.2F;
                         }
@@ -914,7 +1040,8 @@ public class VelocityB extends Check {
         double workingX = originalX;
         double workingZ = originalZ;
 
-        for (int j = 0; ++j <= this.pendingAttacks; workingZ = originalZ) {
+        int limit = Math.max(this.pendingAttacks, 1);
+        for (int j = 0; ++j <= limit; workingZ = originalZ) {
             workingX *= 0.6D;
             workingZ *= 0.6D;
 
@@ -948,6 +1075,24 @@ public class VelocityB extends Check {
                                              boolean sprint,
                                              MovementData movementData) {
         float friction = moveEntityWithHeadingPending(sprint).inputFriction;
+        boolean modernMovement = profile.getVersion() != null && profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);
+        if (modernMovement) {
+            float yaw = profile.getRotationData() != null ? profile.getRotationData().getYaw() : movementData.getLocation().getYaw();
+            Vec3 inputs = new Vec3(strafe, 0, forward);
+            double inputForce = inputs.lengthSqr();
+            if (inputForce < 1.0E-4F) {
+                return null;
+            }
+
+            Vec3 vec3 = (inputForce > 1.0D ? inputs.normalizeModern() : inputs).scale(friction);
+            float yawSin = MathHelper.sin(yaw * ((float) Math.PI / 180F));
+            float yawCos = MathHelper.cos(yaw * ((float) Math.PI / 180F));
+            return new MotionPair(
+                    (float) (vec3.xCoord * (double) yawCos - vec3.zCoord * (double) yawSin),
+                    (float) (vec3.zCoord * (double) yawCos + vec3.xCoord * (double) yawSin)
+            );
+        }
+
         float f = strafe * strafe + forward * forward;
         if (f < 1.0E-4F) {
             return null;
@@ -975,14 +1120,23 @@ public class VelocityB extends Check {
     private HeadingData moveEntityWithHeadingPending(boolean sprint) {
         float carryFriction = 0.91F;
         float inputFriction = getWalkSpeed();
+        boolean modernMovement = profile.getVersion() != null && profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);
 
         if (this.onGround) {
             carryFriction = this.karhuLastTickFriction;
-            float acceleration = 0.16277136F
-                    / (carryFriction * carryFriction * carryFriction);
-
-            if (sprint) {
-                inputFriction += inputFriction * 0.3F;
+            float acceleration;
+            if (!modernMovement) {
+                acceleration = 0.16277136F
+                        / (carryFriction * carryFriction * carryFriction);
+                if (sprint) {
+                    inputFriction += inputFriction * 0.3F;
+                }
+            } else {
+                acceleration = 0.21600002F
+                        / (this.karhuLastTickBlockFriction * this.karhuLastTickBlockFriction * this.karhuLastTickBlockFriction);
+                if (sprint) {
+                    inputFriction *= 1.3F;
+                }
             }
 
             inputFriction *= acceleration;
@@ -994,13 +1148,19 @@ public class VelocityB extends Check {
     }
 
     private void updateKarhuFrictionState(MovementData movementData) {
+        this.karhuLastTickBlockFriction = this.karhuCurrentBlockFriction;
+        this.karhuCurrentBlockFriction = lookupKarhuBlockFriction(movementData);
         this.karhuLastTickFriction = this.karhuCurrentFriction;
-        this.karhuCurrentFriction = lookupKarhuFriction(movementData);
+        this.karhuCurrentFriction = this.karhuCurrentBlockFriction * 0.91F;
     }
 
     private float lookupKarhuFriction(MovementData movementData) {
+        return lookupKarhuBlockFriction(movementData) * 0.91F;
+    }
+
+    private float lookupKarhuBlockFriction(MovementData movementData) {
         if (movementData == null || movementData.getLastLocation() == null) {
-            return 0.54600006F;
+            return 0.6F;
         }
 
         try {
@@ -1035,9 +1195,9 @@ public class VelocityB extends Check {
                 slipperiness = CollisionUtils.getBlockSlipperiness(material);
             }
 
-            return slipperiness * 0.91F;
+            return slipperiness;
         } catch (Throwable ignored) {
-            return 0.54600006F;
+            return 0.6F;
         }
     }
 
@@ -1156,13 +1316,6 @@ public class VelocityB extends Check {
 
     private String format(int places, double value) {
         return String.format(Locale.ROOT, "%." + places + "f", value);
-    }
-
-    private boolean isMovement(PacketReceiveEvent event) {
-        return event.getPacketType() == PacketType.Play.Client.PLAYER_FLYING
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_ROTATION
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION
-                || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;
     }
 
     private static class PendingVelocity {

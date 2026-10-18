@@ -2,7 +2,6 @@ package me.arrow.checks.impl.combat.aimassist;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.core.check.annotation.Experimental;
 import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.combat.aimassist.aimassistUtil.LinearRegression;
@@ -39,45 +38,43 @@ public class AimI extends Check {
 
             boolean attacking = combatData.getAttackedTicks() <= 4;
 
-            handle:
-            {
-                if (!attacking || rotationData.getCinematicProcessor().isCinematic()) break handle;
+            if (!attacking || rotationData.getCinematicProcessor().isCinematic()) return;
 
-                double deltaYaw = rotationData.getDeltaYaw();
-                double deltaPitch = rotationData.getPitch();
+            double deltaYaw = rotationData.getDeltaYaw();
+            double deltaPitch = rotationData.getPitch();
 
-                yawData.add(deltaYaw);
-                pitchData.add(deltaPitch);
+            yawData.add(deltaYaw);
+            pitchData.add(deltaPitch);
 
-                if (yawData.isFull()) {
+            if (yawData.isFull()) {
 
-                    Double[] regressionX = new Double[yawData.size()];
-                    Double[] regressionY = new Double[pitchData.size()];
+                Double[] regressionX = new Double[yawData.size()];
+                Double[] regressionY = new Double[pitchData.size()];
 
-                    regressionX = yawData.toArray(regressionX);
-                    regressionY = pitchData.toArray(regressionY);
+                regressionX = yawData.toArray(regressionX);
+                regressionY = pitchData.toArray(regressionY);
 
-                    final LinearRegression regression = new LinearRegression(regressionX, regressionY);
+                final LinearRegression regression = new LinearRegression(regressionX, regressionY);
 
-                    double standardDeviationYaw = MathUtil.getStandardDeviation(yawData);
-                    double standardDeviationPitch = MathUtil.getStandardDeviation(pitchData);
-                    double error = regression.interceptStdErr();
-                    double prediction = regression.predict(1.75);
+                double standardDeviationYaw = MathUtil.getStandardDeviation(yawData);
+                double standardDeviationPitch = MathUtil.getStandardDeviation(pitchData);
+                double error = regression.interceptStdErr();
+                double prediction = regression.predict(1.75);
 
-                    String information = "standardDeviationYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(standardDeviationYaw)
-                            + "\nstandardDeviationPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + format(standardDeviationPitch)
-                            + "\nerror " + MsgType.MAIN_THEME_COLOR.getMessage() + format(error);
+                String information = "standardDeviationYaw " + MsgType.MAIN_THEME_COLOR.getMessage() + format(standardDeviationYaw)
+                        + "\nstandardDeviationPitch " + MsgType.MAIN_THEME_COLOR.getMessage() + format(standardDeviationPitch)
+                        + "\nerror " + MsgType.MAIN_THEME_COLOR.getMessage() + format(error);
 
-                    verbose("AimI", standardDeviationYaw , standardDeviationPitch, "Verbose\n" + information);
-                    if (standardDeviationYaw > 10 && standardDeviationPitch < 4.5 && error < 0.5 && prediction > 5) {
-                        fail("Smooth Aim", information);
-                    }
-                    yawData.clear();
-                    pitchData.clear();
+                verbose("AimI", standardDeviationYaw , standardDeviationPitch, "Verbose\n" + information);
+                if (standardDeviationYaw > 10 && standardDeviationPitch < 4.5 && error < 0.5 && prediction > 5) {
+                    fail("Smooth Aim", information);
                 }
+                yawData.clear();
+                pitchData.clear();
             }
         }
     }
+
     public String format(double input) {
         return new DecimalFormat("###.###").format(input);
     }

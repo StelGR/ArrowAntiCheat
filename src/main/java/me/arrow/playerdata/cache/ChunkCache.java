@@ -565,6 +565,13 @@ public class ChunkCache {
         CachedChunk chunk = map.computeIfAbsent(chunkKey(cx, cz), k -> new CachedChunk(cx, cz));
         chunk.setState(x & 15, y, z & 15, material, state.getGlobalId(),
                 shouldStoreCollisionState(state));
+
+        if (LEGACY_BLOCK_DATA_SUPPORTED) {
+            int legacyData = PEMaterials.extractLegacyData(state, material);
+            if (legacyData >= 0) {
+                chunk.setLegacyBlockData(x & 15, y, z & 15, legacyData);
+            }
+        }
     }
 
     /**
@@ -979,16 +986,23 @@ public class ChunkCache {
                                         storeState
                                 );
 
-                                // On pre-1.13 (legacy) servers the global ID encodes
-                                // (blockId << 4 | data). Store the lower 4 bits so
-                                // stairs and slabs resolve their orientation correctly.
+                                // On pre-1.13 (legacy) servers, extract the real legacy metadata
+                                // for stairs, slabs, etc. from state and packet chunk data.
                                 if (LEGACY_BLOCK_DATA_SUPPORTED) {
-                                    cached.setLegacyBlockData(
-                                            localX,
-                                            worldY,
-                                            localZ,
-                                            state.getGlobalId() & 0xF
-                                    );
+                                    int legacyData = PEMaterials.extractLegacyData(state, material);
+                                    if (legacyData < 0) {
+                                        try {
+                                            legacyData = section.getBlockId(localX, localY, localZ) & 0xF;
+                                        } catch (Throwable ignored) {}
+                                    }
+                                    if (legacyData >= 0) {
+                                        cached.setLegacyBlockData(
+                                                localX,
+                                                worldY,
+                                                localZ,
+                                                legacyData
+                                        );
+                                    }
                                 }
 
                                 boolean waterlogged = isWaterMaterial(material) || PEMaterials.isWaterlogged(state);

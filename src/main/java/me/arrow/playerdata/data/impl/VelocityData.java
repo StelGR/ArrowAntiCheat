@@ -34,6 +34,8 @@ public class VelocityData implements Data {
     private Vector velocity = new Vector();
     private Vector velocityfvc = new Vector();
     private Vector pendingEntityVelocity = new Vector();
+    private Vector tickedVelocity = null;
+    private Vector pendingTickedVelocity = null;
 
     private Vector explosionKnockbackPacket = new Vector();
     private Vector explosionKnockback = new Vector();
@@ -87,6 +89,9 @@ public class VelocityData implements Data {
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)
                 || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)) {
+
+            this.tickedVelocity = this.pendingTickedVelocity;
+            this.pendingTickedVelocity = null;
 
             //profile.getSimulation().simulateMovement(getVelocity().getX(), getVelocity().getZ(), true);
 
@@ -203,6 +208,7 @@ public class VelocityData implements Data {
         Vector vector = copy(wrappedData.getVector());
 
         if (wrappedData.getAction() == Actions.VELOCITY) {
+            this.pendingTickedVelocity = copy(vector);
             setVelocityTicks(0);
             setEntityVelocityTicks(0);
 
@@ -236,6 +242,7 @@ public class VelocityData implements Data {
             setVelocityVSustain(vertical);
 
         } else if (wrappedData.getAction() == Actions.EXPLOSION) {
+            this.pendingTickedVelocity = copy(vector);
             setVelocityTicks(0);
             boolean stackedBeforeMovement = getExplosionVelocityTicks() == 0;
             setExplosionVelocityTicks(0);
@@ -416,6 +423,10 @@ public class VelocityData implements Data {
     public boolean isTakingVelocity() {
         return getTotalHorizontalVelocity() > 0.0D
                 || getTotalVerticalVelocity() > 0.0D;
+    }
+
+    public Vector getTickedVelocity() {
+        return tickedVelocity != null ? copy(tickedVelocity) : null;
     }
 
     private static Vector copy(Vector vector) {

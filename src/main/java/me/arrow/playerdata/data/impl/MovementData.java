@@ -100,7 +100,7 @@ public class MovementData implements Data {
 
     @Getter
     boolean onGround, lastOnGround, lastLastOnGround, serverGround, lastServerGround, serverYGround, positionYGround, lastPositionYGround, lastServerYGround,
-        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, lastUnderblock, lastLastUnderblock, insideLiquid, climb, moving, isInsideWater, wasInWater, wasWasInWater, isOnTopOfWater, isBottomOfWater, isColliding, nearBoat, lastNearBoat, nearBoatSide, lastNearBoatSide, nearGhast, nearShulker, nearFence, nearPane, lastNearPane, onBoat, lastOnBoat, lastLastOnBoat, underBoat, lastUnderBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston, nearBlocksSlime, nearPowderSnow, nearSoulBlock, waterPredictionActive, nearShelfMushroom;
+        nearWater, nearBubble, nearLava, nearContact, nearSlime, nearWebs, lastLastNearWall, lastNearWall, nearWall, nearClimbable, nearBuggyBlock, nearBed, nearHoney, nearShulkerBox, nearDripLeaf, customInAir, underblock, lastUnderblock, lastLastUnderblock, insideLiquid, climb, moving, isInsideWater, wasInWater, wasWasInWater, isOnTopOfWater, isBottomOfWater, isInsideFlowingWater, isColliding, nearBoat, lastNearBoat, nearBoatSide, lastNearBoatSide, nearGhast, nearShulker, nearFence, nearPane, lastNearPane, onBoat, lastOnBoat, lastLastOnBoat, underBoat, lastUnderBoat, onIce, onSlime, onExtendedHitboxSlime, onHoney, onSoulSand, movingUp, nearStepMaterial, movingDown, isRiptiding, nearPiston, nearBlocksSlime, nearPowderSnow, nearSoulBlock, waterPredictionActive, nearShelfMushroom;
 
 
     @Getter
@@ -715,6 +715,7 @@ public class MovementData implements Data {
 
             PlayerBoxSize boxSize = getPlayerBoxSize(profile.getPlayer());
             isInsideWater = CollisionUtils.isInsideWater(this.location, boxSize.width * 0.5D, boxSize.height);
+            isInsideFlowingWater = isInsideWater && CollisionUtils.isInsideFlowingWater(this.location, boxSize.width * 0.5D, boxSize.height);
 
             isBottomOfWater = isInsideWater && isServerGround();
             //nearWall = CollisionUtils.isNearWall(getLocation());

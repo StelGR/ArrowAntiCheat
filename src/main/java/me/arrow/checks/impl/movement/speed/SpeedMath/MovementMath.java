@@ -78,8 +78,11 @@ public class MovementMath {
     private double outputXZ;
     @Getter
     double lowestMatch;
+    @Getter
     double testLowest;
+    @Getter
     double testOutputX;
+    @Getter
     double testOutputZ;
     @Getter
     private boolean sprinting;
@@ -167,7 +170,7 @@ public class MovementMath {
         for (float[] floats : KEY_COMBOS) {
             for (boolean attack : BOOLEANS_REVERSED) {
                 for (boolean use : BOOLEANS_REVERSED) {
-                    if (bruteforceSprint) {
+                    if (bruteforceSprint || test) {
                         for (boolean sprinting : BOOLEANS_REVERSED) {
                             if (processScenario(floats, attack, use, sprinting, kbX, kbZ, test,
                                     friction, lastTickFriction, velocity, onGround, yaw, modernMovement)) {
@@ -204,7 +207,9 @@ public class MovementMath {
         for (boolean sneaking : BOOLEANS_REVERSED) {
             for (boolean jump : BOOLEANS_REVERSED) {
                 if (attack && (profile.getCombatData().getAttackedTicks() > 2 || profile.getCombatData().getTarget() == -696969)) {
-                    continue; // skip impossible case
+                    if (!test && (profile.getCombatData() == null || profile.getCombatData().getSinceUsedSpear() > 5)) {
+                        continue; // skip impossible case
+                    }
                 }
                 double currentMoveForward = moveForward;
                 double currentMoveStrafe = moveStrafe;

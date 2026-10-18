@@ -29,7 +29,7 @@ public class AimD extends Check {
             SensitivityProcessor sensitivityProcessor = rotationData.getSensitivityProcessor();
             boolean validSensitivity = sensitivityProcessor.getSensitivityPercent() > 0 && sensitivityProcessor.getSensitivityPercent() < 200;
 
-            if (validSensitivity && profile.getMovementData().getSinceTeleportTicks() > 6) {
+            if (validSensitivity && profile.getMovementData().getSinceTeleportTicks() > 12) {
                 double mcpSensitivity = sensitivityProcessor.getMcpSensitivity();
 
                 float f = (float) mcpSensitivity * 0.6f + 0.2f;
@@ -50,7 +50,7 @@ public class AimD extends Check {
                 float combined = deltaYaw + deltaPitch;
 
                 if (MathUtil.isScientificNotation(yawDifference) && pitchDifference == 0.0f) {
-                    if (increaseBuffer() > 5) {
+                    if (increaseBuffer() > 8) {
                         fail("GCD Flaw", "gcd " + MsgType.MAIN_THEME_COLOR.getMessage() + gcd
                                 + "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + yaw
                                 + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + pitch

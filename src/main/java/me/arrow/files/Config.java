@@ -135,7 +135,7 @@ public class Config implements Initializer {
 
         NEURAL("neural", "", "Neural Network Settings"),
         NEURAL_SERVER_URL("neural.server_url", "https://cloud.arrow-anticheat.xyz/", "The URL of the neural network inference server.", "Training is controlled from the server itself"),
-        NEURAL_DAMAGE_REDUCTION("neural.damage_reduction_enabled", true, "Should suspicious players with low trust factor have their damage reduced?", "At 50 trust: 100% damage, for every 10 trust lost under 50, damage is reduced by 10% (down to 0% at -50 trust)."),
+        NEURAL_DAMAGE_REDUCTION("neural.damage_reduction", true, "Should suspicious players with low trust factor have their damage reduced?", "At 50 trust: 100% damage, for every 10 trust lost under 50, damage is reduced by 10% (down to 0% at -50 trust)."),
 
         DEBUG("debug", false, "DO NOT TOUCH UNLESS YOU KNOW WHAT YOU ARE DOING");
 
