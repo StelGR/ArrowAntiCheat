@@ -20,7 +20,7 @@ import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
-import org.apache.commons.math3.util.FastMath;
+import me.arrow.utils.fastmath.FastMath;
 import org.bukkit.ChatColor;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;

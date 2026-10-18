@@ -20,7 +20,7 @@ import me.arrow.utils.ReflectionUtils;
 import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.minecraft.MathHelper;
-import org.apache.commons.math3.util.FastMath;
+import me.arrow.utils.fastmath.FastMath;
 import org.bukkit.util.Vector;
 
 // this is a very decent check, it accounts for acceleration and deceleration, the acceleration part is based off of OpenKarhu's speed b

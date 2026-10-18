@@ -21,10 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AtomicDouble;
 import me.arrow.utils.custom.Pair;
 import me.arrow.utils.customutils.Tuple;
-import org.apache.commons.math3.complex.Complex;
-import org.apache.commons.math3.transform.DftNormalization;
-import org.apache.commons.math3.transform.FastFourierTransformer;
-import org.apache.commons.math3.transform.TransformType;
+
 
 public class StreamUtil {
     public static <T> Collection<T> filter(Collection<T> data, Predicate<T> filter) {
@@ -289,31 +286,73 @@ public class StreamUtil {
     }
 
     public static double[] getMagnitudes(Collection<? extends Number> data) {
-        int n = data.size();
-        double[] dataArray = new double[n];
-        int i = 0;
-
-        for (Number number : data) {
-            dataArray[i++] = number.doubleValue();
+        if (data == null || data.isEmpty()) {
+            return new double[0];
         }
 
+        int n = data.size();
         int paddedSize = 1;
-
         while (paddedSize < n) {
             paddedSize <<= 1;
         }
 
-        double[] paddedArray = new double[paddedSize];
-        System.arraycopy(dataArray, 0, paddedArray, 0, n);
-        FastFourierTransformer transformer = new FastFourierTransformer(DftNormalization.STANDARD);
-        Complex[] fftResultComplex = transformer.transform(paddedArray, TransformType.FORWARD);
-        double[] magnitudes = new double[paddedSize / 2];
+        double[] real = new double[paddedSize];
+        double[] imag = new double[paddedSize];
+        int i = 0;
+        for (Number number : data) {
+            real[i++] = number.doubleValue();
+        }
 
-        for (int var9 = 0; var9 < paddedSize / 2; var9++) {
-            magnitudes[var9] = fftResultComplex[var9].abs();
+        fft(real, imag);
+
+        double[] magnitudes = new double[paddedSize / 2];
+        double norm = Math.sqrt(paddedSize);
+        for (int k = 0; k < magnitudes.length; k++) {
+            magnitudes[k] = Math.hypot(real[k], imag[k]) / norm;
         }
 
         return magnitudes;
+    }
+
+    private static void fft(double[] real, double[] imag) {
+        int n = real.length;
+        int j = 0;
+        for (int i = 0; i < n - 1; i++) {
+            if (i < j) {
+                double tr = real[i]; real[i] = real[j]; real[j] = tr;
+                double ti = imag[i]; imag[i] = imag[j]; imag[j] = ti;
+            }
+            int k = n >> 1;
+            while (k <= j) {
+                j -= k;
+                k >>= 1;
+            }
+            j += k;
+        }
+
+        for (int len = 2; len <= n; len <<= 1) {
+            double angle = -2.0 * Math.PI / len;
+            double wlenR = Math.cos(angle);
+            double wlenI = Math.sin(angle);
+            int half = len >> 1;
+            for (int i = 0; i < n; i += len) {
+                double wR = 1.0;
+                double wI = 0.0;
+                for (int k = 0; k < half; k++) {
+                    double uR = real[i + k];
+                    double uI = imag[i + k];
+                    double vR = real[i + k + half] * wR - imag[i + k + half] * wI;
+                    double vI = real[i + k + half] * wI + imag[i + k + half] * wR;
+                    real[i + k] = uR + vR;
+                    imag[i + k] = uI + vI;
+                    real[i + k + half] = uR - vR;
+                    imag[i + k + half] = uI - vI;
+                    double nextWR = wR * wlenR - wI * wlenI;
+                    wI = wR * wlenI + wI * wlenR;
+                    wR = nextWR;
+                }
+            }
+        }
     }
 
     public static double getAverageMagnitude(double[] magnitudes) {

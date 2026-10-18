@@ -1,7 +1,6 @@
 package me.arrow.utils;
 
 import com.google.common.base.Charsets;
-import org.apache.commons.lang3.SystemUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.ConsoleCommandSender;
@@ -78,7 +77,7 @@ public class MiscUtils {
 
                         wrappedLine.append(str, offset, spaceToWrapAt);
 
-                        wrappedLine.append(SystemUtils.LINE_SEPARATOR);
+                        wrappedLine.append(System.lineSeparator());
 
                         offset = spaceToWrapAt + 1;
 
@@ -90,7 +89,7 @@ public class MiscUtils {
 
                             wrappedLine.append(str, offset, spaceToWrapAt);
 
-                            wrappedLine.append(SystemUtils.LINE_SEPARATOR);
+                            wrappedLine.append(System.lineSeparator());
 
                             offset = spaceToWrapAt + 1;
 
