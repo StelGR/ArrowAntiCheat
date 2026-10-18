@@ -94,6 +94,8 @@ public class ChunkCache {
         }
 
         return PEMaterials.isSlab(state)
+                || PEMaterials.isPistonHead(state)
+                || PEMaterials.isPistonBase(state)
                 || PEMaterials.requiresStatefulCollision(state);
     }
 
@@ -343,7 +345,9 @@ public class ChunkCache {
                                         z
                                 );
 
-                        if (PEMaterials.requiresStatefulCollision(state)) {
+                        if (PEMaterials.requiresStatefulCollision(state)
+                                || PEMaterials.isPistonHead(state)
+                                || PEMaterials.isPistonBase(state)) {
 
                             cached.setState(
                                     x,
