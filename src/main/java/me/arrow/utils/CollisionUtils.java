@@ -1326,7 +1326,9 @@ public class CollisionUtils {
 
                         boolean useLegacyMetadata = legacyData >= 0
                                 && (PEMaterials.isLegacySlabMaterial(material)
-                                || PEMaterials.isStair(material));
+                                || PEMaterials.isStair(material)
+                                || PEMaterials.isPistonHead(material)
+                                || PEMaterials.isPistonBase(material));
 
                         List<PEMaterials.CollisionBounds> boxes;
 
@@ -1380,7 +1382,7 @@ public class CollisionUtils {
                             boxes = PEMaterials.getCollisionBounds(material, x, y, z);
                         }
 
-                        if (needsExactStateShape && !PEMaterials.hasCachedCollisionShape(cachedState)) {
+                        if (needsExactStateShape && !PEMaterials.hasCachedCollisionShape(cachedState) && boxes == null) {
                             this.unresolvedCollisionShape = true;
                         }
 

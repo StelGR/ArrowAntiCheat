@@ -170,7 +170,7 @@ public class SpeedA extends Check {
                             movementData.getExpectedWaterDeltaXZ();
 
                     predictedDifference = expectedWaterXZ;
-                    allowedLimit = expectedWaterXZ + 0.015D;
+                    allowedLimit = expectedWaterXZ + 0.005D;
 
                 } else {
 

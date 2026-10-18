@@ -365,8 +365,8 @@ public class Profile implements CoreProfile {
             );
 
             // If player was in a vehicle, has pos & look, and wasn't a teleport, it's the 1.17 duplicate packet
-            if (inVehicle && flying.hasRotationChanged()) {
-                return true;
+            if (inVehicle) {
+                return false;
             }
 
             if (this.lastFlyingPosition != null) {

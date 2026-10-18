@@ -570,6 +570,47 @@ public class PEMaterials {
         return state != null && (stateName(state).equals("CHAIN") || stateName(state).endsWith("_CHAIN"));
     }
 
+    public static boolean isPistonHead(Material material) {
+        if (material == null) return false;
+        String name = material.name();
+        return name.equals("PISTON_HEAD") || name.equals("PISTON_EXTENSION");
+    }
+
+    public static boolean isPistonHead(WrappedBlockState state) {
+        if (state == null) return false;
+        String name = stateName(state);
+        return name.equals("PISTON_HEAD") || name.equals("PISTON_EXTENSION")
+                || name.contains("PISTON_HEAD") || name.contains("PISTON_EXTENSION");
+    }
+
+    public static boolean isPistonBase(Material material) {
+        if (material == null) return false;
+        String name = material.name();
+        return name.equals("PISTON") || name.equals("STICKY_PISTON")
+                || name.equals("PISTON_BASE") || name.equals("PISTON_STICKY_BASE");
+    }
+
+    public static boolean isPistonBase(WrappedBlockState state) {
+        if (state == null) return false;
+        String name = stateName(state);
+        return name.equals("PISTON") || name.equals("STICKY_PISTON")
+                || name.equals("PISTON_BASE") || name.equals("PISTON_STICKY_BASE")
+                || (name.contains("PISTON") && !name.contains("HEAD") && !name.contains("EXTENSION") && !name.contains("MOVING"));
+    }
+
+    public static boolean isExtendedPiston(WrappedBlockState state) {
+        if (state == null) return false;
+        try {
+            Method m = state.getClass().getMethod("isExtended");
+            Object res = m.invoke(state);
+            if (res instanceof Boolean) return (Boolean) res;
+        } catch (Throwable ignored) {}
+        try {
+            return state.toString().toLowerCase(Locale.ROOT).contains("extended=true");
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
     public static boolean isWaterlogged(WrappedBlockState state) {
         if (state == null) return false;
         Boolean cached = WATERLOGGED_CACHE.get(state);
@@ -621,9 +662,7 @@ public class PEMaterials {
         }
         if (name.equals("PISTON_HEAD")
                 || name.equals("PISTON_EXTENSION")) {
-            // The facing-dependent shape must come from block state
-            // or the server's actual collision shape.
-            return null;
+            return pistonHeadBounds(null, -1, null, x, y, z);
         }
         if (name.endsWith("_HEAD") || name.endsWith("_SKULL") || name.equals("HEAVY_CORE")) {
             return Collections.singletonList(new CollisionBounds(x + 0.25D, y, z + 0.25D, x + 0.75D, y + 0.5D, z + 0.75D));
@@ -658,13 +697,17 @@ public class PEMaterials {
     public static boolean requiresStatefulCollision(Material material) {
         return material != null
                 && material != Material.AIR
-                && (isObviousPartialCollisionName(material.name()) || isNonFullShape(material));
+                && (isObviousPartialCollisionName(material.name()) || isNonFullShape(material) || isPistonHead(material) || isPistonBase(material));
     }
 
     /** State-aware form used by packet chunk data before it enters the global cache. */
     public static boolean requiresStatefulCollision(WrappedBlockState state) {
         if (state == null || MaterialType.isMaterial(state.getType().getName(), MaterialType.AIR) || state.isFluid()) {
             return false;
+        }
+
+        if (isPistonHead(state) || isPistonBase(state)) {
+            return true;
         }
 
         Material material = materialFromState(state.getType());
@@ -702,16 +745,24 @@ public class PEMaterials {
         /*
          * For legacy servers, only fall back to live NMS for blocks whose collision
          * shape cannot be determined from the WrappedBlockState (e.g. tile entities).
-         * Stairs, slabs, fences, gates, walls, and panes are fully resolved below.
+         * Stairs, slabs, fences, gates, walls, panes, and pistons are fully resolved below.
          */
         if (LEGACY_SERVER && requiresStatefulCollision(state)) {
             if (!isStair(state) && !isStair(material) && !isSlab(state) && !isLegacySlabMaterial(material)
-                    && !isFence(state) && !isFenceGate(state) && !isWall(state)) {
+                    && !isFence(state) && !isFenceGate(state) && !isWall(state)
+                    && !isPistonHead(state) && !isPistonHead(material)
+                    && !isPistonBase(state) && !isPistonBase(material)) {
                 return null;
             }
         }
 
         String name = material.name();
+        if (isPistonHead(state) || isPistonHead(material)) {
+            return pistonHeadBounds(state, -1, null, x, y, z);
+        }
+        if (isPistonBase(state) || isPistonBase(material)) {
+            return pistonBaseBounds(state, -1, null, x, y, z);
+        }
         if (name.equals("BIG_DRIPLEAF")) {
             return bigDripleafBounds(state, x, y, z);
         }
@@ -863,6 +914,173 @@ public class PEMaterials {
                 x + inset, y, z + inset,
                 x + 1.0D - inset, y + height, z + 1.0D - inset
         ));
+    }
+
+    public static List<CollisionBounds> pistonHeadBounds(WrappedBlockState state, int legacyData, Block block, int x, int y, int z) {
+        String facing = null;
+        if (state != null) {
+            try {
+                Object f = state.getFacing();
+                if (f != null) {
+                    facing = String.valueOf(f).toUpperCase(Locale.ROOT);
+                }
+            } catch (Throwable ignored) {}
+            if (facing == null || facing.isEmpty() || "NULL".equals(facing)) {
+                String str = state.toString().toUpperCase(Locale.ROOT);
+                if (str.contains("FACING=UP")) facing = "UP";
+                else if (str.contains("FACING=DOWN")) facing = "DOWN";
+                else if (str.contains("FACING=NORTH")) facing = "NORTH";
+                else if (str.contains("FACING=SOUTH")) facing = "SOUTH";
+                else if (str.contains("FACING=WEST")) facing = "WEST";
+                else if (str.contains("FACING=EAST")) facing = "EAST";
+            }
+        }
+        if (facing == null && block != null) {
+            try {
+                Object blockData = block.getBlockData();
+                if (blockData instanceof org.bukkit.block.data.Directional) {
+                    facing = ((org.bukkit.block.data.Directional) blockData).getFacing().name();
+                }
+            } catch (Throwable ignored) {}
+            if (facing == null) {
+                try {
+                    int data = block.getData() & 0x7;
+                    facing = facingFromLegacyData(data);
+                } catch (Throwable ignored) {}
+            }
+        }
+        if (facing == null && legacyData >= 0) {
+            facing = facingFromLegacyData(legacyData & 0x7);
+        }
+        if (facing == null) {
+            facing = "UP";
+        }
+
+        List<CollisionBounds> boxes = new ArrayList<>(2);
+        switch (facing) {
+            case "DOWN":
+                // Head platform: bottom 4 pixels [0, 0, 0] -> [1, 0.25, 1]
+                boxes.add(new CollisionBounds(x, y, z, x + 1.0D, y + 0.25D, z + 1.0D));
+                // Rod: 4x4 pixels centered [0.375, 0.25, 0.375] -> [0.625, 1.0, 0.625]
+                boxes.add(new CollisionBounds(x + 0.375D, y + 0.25D, z + 0.375D, x + 0.625D, y + 1.0D, z + 0.625D));
+                break;
+            case "NORTH":
+                // Head platform: north 4 pixels [0, 0, 0] -> [1, 1, 0.25]
+                boxes.add(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 0.25D));
+                // Rod: 4x4 pixels centered [0.375, 0.375, 0.25] -> [0.625, 0.625, 1.0] (top of rod is y + 0.625)
+                boxes.add(new CollisionBounds(x + 0.375D, y + 0.375D, z + 0.25D, x + 0.625D, y + 0.625D, z + 1.0D));
+                break;
+            case "SOUTH":
+                // Head platform: south 4 pixels [0, 0, 0.75] -> [1, 1, 1]
+                boxes.add(new CollisionBounds(x, y, z + 0.75D, x + 1.0D, y + 1.0D, z + 1.0D));
+                // Rod: 4x4 pixels centered [0.375, 0.375, 0] -> [0.625, 0.625, 0.75] (top of rod is y + 0.625)
+                boxes.add(new CollisionBounds(x + 0.375D, y + 0.375D, z, x + 0.625D, y + 0.625D, z + 0.75D));
+                break;
+            case "WEST":
+                // Head platform: west 4 pixels [0, 0, 0] -> [0.25, 1, 1]
+                boxes.add(new CollisionBounds(x, y, z, x + 0.25D, y + 1.0D, z + 1.0D));
+                // Rod: 4x4 pixels centered [0.25, 0.375, 0.375] -> [1.0, 0.625, 0.625] (top of rod is y + 0.625)
+                boxes.add(new CollisionBounds(x + 0.25D, y + 0.375D, z + 0.375D, x + 1.0D, y + 0.625D, z + 0.625D));
+                break;
+            case "EAST":
+                // Head platform: east 4 pixels [0.75, 0, 0] -> [1, 1, 1]
+                boxes.add(new CollisionBounds(x + 0.75D, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+                // Rod: 4x4 pixels centered [0, 0.375, 0.375] -> [0.75, 0.625, 0.625] (top of rod is y + 0.625)
+                boxes.add(new CollisionBounds(x, y + 0.375D, z + 0.375D, x + 0.75D, y + 0.625D, z + 0.625D));
+                break;
+            case "UP":
+            default:
+                // Head platform: top 4 pixels [0, 0.75, 0] -> [1, 1, 1]
+                boxes.add(new CollisionBounds(x, y + 0.75D, z, x + 1.0D, y + 1.0D, z + 1.0D));
+                // Rod: 4x4 pixels centered [0.375, 0, 0.375] -> [0.625, 0.75, 0.625]
+                boxes.add(new CollisionBounds(x + 0.375D, y, z + 0.375D, x + 0.625D, y + 0.75D, z + 0.625D));
+                break;
+        }
+        return boxes;
+    }
+
+    public static List<CollisionBounds> pistonBaseBounds(WrappedBlockState state, int legacyData, Block block, int x, int y, int z) {
+        boolean extended = false;
+        String facing = null;
+        if (state != null) {
+            extended = isExtendedPiston(state);
+            try {
+                Object f = state.getFacing();
+                if (f != null) {
+                    facing = String.valueOf(f).toUpperCase(Locale.ROOT);
+                }
+            } catch (Throwable ignored) {}
+            if (facing == null || facing.isEmpty() || "NULL".equals(facing)) {
+                String str = state.toString().toUpperCase(Locale.ROOT);
+                if (str.contains("FACING=UP")) facing = "UP";
+                else if (str.contains("FACING=DOWN")) facing = "DOWN";
+                else if (str.contains("FACING=NORTH")) facing = "NORTH";
+                else if (str.contains("FACING=SOUTH")) facing = "SOUTH";
+                else if (str.contains("FACING=WEST")) facing = "WEST";
+                else if (str.contains("FACING=EAST")) facing = "EAST";
+            }
+        }
+        if (block != null) {
+            try {
+                Object blockData = block.getBlockData();
+                if (blockData instanceof org.bukkit.block.data.type.Piston) {
+                    extended = ((org.bukkit.block.data.type.Piston) blockData).isExtended();
+                }
+                if (blockData instanceof org.bukkit.block.data.Directional) {
+                    facing = ((org.bukkit.block.data.Directional) blockData).getFacing().name();
+                }
+            } catch (Throwable ignored) {}
+            if (legacyData < 0) {
+                try {
+                    legacyData = block.getData() & 0xFF;
+                } catch (Throwable ignored) {}
+            }
+        }
+        if (legacyData >= 0) {
+            if ((legacyData & 0x8) != 0) {
+                extended = true;
+            }
+            if (facing == null) {
+                facing = facingFromLegacyData(legacyData & 0x7);
+            }
+        }
+
+        if (!extended) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+        }
+
+        if (facing == null) {
+            facing = "UP";
+        }
+
+        switch (facing) {
+            case "DOWN":
+                return Collections.singletonList(new CollisionBounds(x, y + 0.25D, z, x + 1.0D, y + 1.0D, z + 1.0D));
+            case "UP":
+                return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.75D, z + 1.0D));
+            case "NORTH":
+                return Collections.singletonList(new CollisionBounds(x, y, z + 0.25D, x + 1.0D, y + 1.0D, z + 1.0D));
+            case "SOUTH":
+                return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 0.75D));
+            case "WEST":
+                return Collections.singletonList(new CollisionBounds(x + 0.25D, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+            case "EAST":
+                return Collections.singletonList(new CollisionBounds(x, y, z, x + 0.75D, y + 1.0D, z + 1.0D));
+            default:
+                return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+        }
+    }
+
+    private static String facingFromLegacyData(int dir) {
+        switch (dir) {
+            case 0: return "DOWN";
+            case 1: return "UP";
+            case 2: return "NORTH";
+            case 3: return "SOUTH";
+            case 4: return "WEST";
+            case 5: return "EAST";
+            default: return "UP";
+        }
     }
 
     private static List<CollisionBounds> lightningRodBounds(WrappedBlockState state, int x, int y, int z) {
@@ -1082,6 +1300,13 @@ public class PEMaterials {
             return Collections.emptyList();
         }
 
+        if (isPistonHead(block.getType())) {
+            return pistonHeadBounds(null, -1, block, block.getX(), block.getY(), block.getZ());
+        }
+        if (isPistonBase(block.getType())) {
+            return pistonBaseBounds(null, -1, block, block.getX(), block.getY(), block.getZ());
+        }
+
         List<CollisionBounds> modern = getModernCollisionBounds(block);
 
         if (modern != null) {
@@ -1114,6 +1339,12 @@ public class PEMaterials {
         if (LEGACY_SERVER
                 && isLegacyPartialMaterial(block.getType())) {
             Material mat = block.getType();
+            if (isPistonHead(mat)) {
+                return pistonHeadBounds(null, block.getData(), block, block.getX(), block.getY(), block.getZ());
+            }
+            if (isPistonBase(mat)) {
+                return pistonBaseBounds(null, block.getData(), block, block.getX(), block.getY(), block.getZ());
+            }
             if (isStair(mat)) {
                 return stairBounds(block.getData(), block.getX(), block.getY(), block.getZ());
             }
@@ -1407,6 +1638,13 @@ public class PEMaterials {
             );
         }
 
+        if (isPistonHead(material)) {
+            return pistonHeadBounds(null, legacyData, null, x, y, z);
+        }
+        if (isPistonBase(material)) {
+            return pistonBaseBounds(null, legacyData, null, x, y, z);
+        }
+
         String name = normalize(material.name());
         if (isStair(material)) {
             return stairBounds(legacyData, x, y, z);
@@ -1432,6 +1670,41 @@ public class PEMaterials {
     public static int extractLegacyData(WrappedBlockState state, Material material) {
         if (state == null) {
             return -1;
+        }
+
+        if (isPistonHead(state) || isPistonHead(material)) {
+            String facing = "UP";
+            try {
+                facing = String.valueOf(state.getFacing()).toUpperCase(Locale.ROOT);
+            } catch (Throwable ignored) {}
+            int dir = 1; // UP default
+            switch (facing) {
+                case "DOWN": dir = 0; break;
+                case "UP": dir = 1; break;
+                case "NORTH": dir = 2; break;
+                case "SOUTH": dir = 3; break;
+                case "WEST": dir = 4; break;
+                case "EAST": dir = 5; break;
+            }
+            return dir;
+        }
+
+        if (isPistonBase(state) || isPistonBase(material)) {
+            String facing = "UP";
+            try {
+                facing = String.valueOf(state.getFacing()).toUpperCase(Locale.ROOT);
+            } catch (Throwable ignored) {}
+            int dir = 1; // UP default
+            switch (facing) {
+                case "DOWN": dir = 0; break;
+                case "UP": dir = 1; break;
+                case "NORTH": dir = 2; break;
+                case "SOUTH": dir = 3; break;
+                case "WEST": dir = 4; break;
+                case "EAST": dir = 5; break;
+            }
+            boolean extended = isExtendedPiston(state);
+            return (extended ? 8 : 0) | dir;
         }
 
         if (isStair(state) || isStair(material)) {
@@ -2365,6 +2638,38 @@ public class PEMaterials {
             case "END_PORTAL_FRAME":
                 Material enderPortalFrame = Material.matchMaterial("ENDER_PORTAL_FRAME");
                 if (enderPortalFrame != null) return enderPortalFrame;
+                break;
+            case "PISTON_HEAD":
+                Material pExt = Material.matchMaterial("PISTON_EXTENSION");
+                if (pExt != null) return pExt;
+                break;
+            case "PISTON_EXTENSION":
+                Material pHead = Material.matchMaterial("PISTON_HEAD");
+                if (pHead != null) return pHead;
+                break;
+            case "MOVING_PISTON":
+                Material pPiece = Material.matchMaterial("PISTON_MOVING_PIECE");
+                if (pPiece != null) return pPiece;
+                break;
+            case "PISTON_MOVING_PIECE":
+                Material mPiston = Material.matchMaterial("MOVING_PISTON");
+                if (mPiston != null) return mPiston;
+                break;
+            case "PISTON":
+                Material pBase = Material.matchMaterial("PISTON_BASE");
+                if (pBase != null) return pBase;
+                break;
+            case "PISTON_BASE":
+                Material piston = Material.matchMaterial("PISTON");
+                if (piston != null) return piston;
+                break;
+            case "STICKY_PISTON":
+                Material sBase = Material.matchMaterial("PISTON_STICKY_BASE");
+                if (sBase != null) return sBase;
+                break;
+            case "PISTON_STICKY_BASE":
+                Material sPiston = Material.matchMaterial("STICKY_PISTON");
+                if (sPiston != null) return sPiston;
                 break;
 
             case "STONE_SLAB":
