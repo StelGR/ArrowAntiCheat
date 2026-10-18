@@ -80,13 +80,9 @@ public class NeuralNetClient {
                 int code = conn.getResponseCode();
                 available = code == 200;
                 conn.disconnect();
-                if (!available) {
-                    org.bukkit.Bukkit.getLogger().warning("[NeuralNet] Server at " + serverUrl + " returned HTTP " + code);
-                }
             } catch (Throwable e) {
                 available = false;
                 trainingEnabled = false;
-                org.bukkit.Bukkit.getLogger().warning("[NeuralNet] Cannot reach " + serverUrl + "health: " + e.getMessage());
                 return;
             }
 

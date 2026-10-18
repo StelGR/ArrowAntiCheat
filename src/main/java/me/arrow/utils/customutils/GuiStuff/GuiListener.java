@@ -466,7 +466,8 @@ public class GuiListener implements Listener {
 
         String checkType = target.getClass().getSimpleName().replaceFirst("[A-Z]$", "");
         String uiName = extractUiName(plainTitle);
-        String groupedCheckType = "Fly".equalsIgnoreCase(uiName) ? "Fly" : checkType;
+        String groupedCheckType = "Fly".equalsIgnoreCase(uiName) ? "Fly"
+                : ("Interact".equalsIgnoreCase(uiName) ? "Interact" : checkType);
 
         openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, groupedCheckType, uiName));
     }

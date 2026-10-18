@@ -28,7 +28,8 @@ public class InteractA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT) || event.getPacketType().equals(PacketType.Play.Client.USE_ITEM)) {
+        if (event.getPacketType().equals(PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT)
+                || event.getPacketType().equals(PacketType.Play.Client.USE_ITEM)) {
             final long time = event.getTimestamp();
 
             final long lastTime = this.lastTime;
@@ -50,7 +51,7 @@ public class InteractA extends Check {
             final double average = getAverageLong(this.samples);
 
             if (deviation < 4D && average < 65D) {
-                fail("Placing too quickly",
+                fail("Placing/Interacting too quickly",
                         "deviation " + MsgType.MAIN_THEME_COLOR.getMessage() + deviation
                                 + "\naverage " + MsgType.MAIN_THEME_COLOR.getMessage() + average
                                 + "\ndelta " + MsgType.MAIN_THEME_COLOR.getMessage() + delta

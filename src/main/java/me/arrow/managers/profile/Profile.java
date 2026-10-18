@@ -198,7 +198,7 @@ public class Profile implements CoreProfile {
         this.nmsProcessor = new NMSProcessor(this);
         this.clientWorldTracker = new ClientWorldTracker(this);
         this.blockProcessor = new BlockProcessor(this);
-        this.clientBrandListener = new ClientBrandListener(Arrow.getInstance());
+        this.clientBrandListener = new ClientBrandListener(Arrow.getInstance(), this);
         this.geysersTracker = new GeysersTracker(this);
         this.damageData = new DamageData(this);
         this.simulation = new MovementMath(this);

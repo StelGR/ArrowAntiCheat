@@ -340,6 +340,12 @@ public class Checks implements Initializer {
         VELOCITY_B_PUNISH_MODE("VelocityB.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
         VELOCITY_B_MAX_VL("VelocityB.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
+        VELOCITY_PREDICTION("VelocityPrediction.enabled", false, "Should we enable this module?"),
+        VELOCITY_PREDICTION_PUNISH("VelocityPrediction.punish", "", "Punishment settings"),
+        VELOCITY_PREDICTION_PUNISH_ENABLED("VelocityPrediction.punish.enabled", true, "Should punishments be enabled for this check?"),
+        VELOCITY_PREDICTION_PUNISH_MODE("VelocityPrediction.punish.mode", "BAN", "What punish mode should we use for this check (KICK or BAN)"),
+        VELOCITY_PREDICTION_MAX_VL("VelocityPrediction.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
+
         INTERACT_A("InteractA.enabled", true, "Should we enable this module?"),
         INTERACT_A_PUNISH("InteractA.punish", "", "Punishment settings"),
         INTERACT_A_PUNISH_ENABLED("InteractA.punish.enabled", true, "Should punishments be enabled for this check?"),
@@ -370,11 +376,17 @@ public class Checks implements Initializer {
         INTERACT_E_PUNISH_MODE("InteractE.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         INTERACT_E_MAX_VL("InteractE.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        INTERACT_F("InteractF.enabled", true, "Should we enable this module?"),
-        INTERACT_F_PUNISH("InteractF.punish", "", "Punishment settings"),
-        INTERACT_F_PUNISH_ENABLED("InteractF.punish.enabled", true, "Should punishments be enabled for this check?"),
-        INTERACT_F_PUNISH_MODE("InteractF.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        INTERACT_F_MAX_VL("InteractF.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
+        FASTBREAK_A("FastBreakA.enabled", true, "Should we enable this module?"),
+        FASTBREAK_A_PUNISH("FastBreakA.punish", "", "Punishment settings"),
+        FASTBREAK_A_PUNISH_ENABLED("FastBreakA.punish.enabled", true, "Should punishments be enabled for this check?"),
+        FASTBREAK_A_PUNISH_MODE("FastBreakA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        FASTBREAK_A_MAX_VL("FastBreakA.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
+
+        FASTBREAK_B("FastBreakB.enabled", true, "Should we enable this module?"),
+        FASTBREAK_B_PUNISH("FastBreakB.punish", "", "Punishment settings"),
+        FASTBREAK_B_PUNISH_ENABLED("FastBreakB.punish.enabled", true, "Should punishments be enabled for this check?"),
+        FASTBREAK_B_PUNISH_MODE("FastBreakB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
+        FASTBREAK_B_MAX_VL("FastBreakB.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
         INVENTORY_A("InventoryA.enabled", true, "Should we enable this module?"),
         INVENTORY_A_PUNISH("InventoryA.punish", "", "Punishment settings"),

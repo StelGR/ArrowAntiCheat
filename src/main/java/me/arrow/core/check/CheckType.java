@@ -20,6 +20,7 @@ public enum CheckType {
     REACH("Reach", CheckCategory.COMBAT),
     VELOCITY("Velocity", CheckCategory.COMBAT),
     INVENTORY("Inventory", CheckCategory.WORLD),
+    FASTBREAK("FastBreak", CheckCategory.WORLD),
     INTERACT("Interact", CheckCategory.WORLD),
     GROUND("Ground", CheckCategory.WORLD),
     HITBOX("Hitbox", CheckCategory.COMBAT),

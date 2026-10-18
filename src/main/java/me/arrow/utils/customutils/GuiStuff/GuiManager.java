@@ -4,6 +4,7 @@ package me.arrow.utils.customutils.GuiStuff;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import me.arrow.Arrow;
+import me.arrow.backend.bukkit.PlatformBackend;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.enums.Permissions;
@@ -12,6 +13,7 @@ import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.themes.Theme;
 import me.arrow.managers.themes.ThemeManager;
+import me.arrow.neural.NeuralNetManager;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.ReflectionUtils;
@@ -56,6 +58,9 @@ public class GuiManager {
                         translate(guiLine())
                 )));
 
+        boolean cloudSuccess = NeuralNetManager.getClient() != null && NeuralNetManager.getClient().isAvailable();
+        String cloudStatus = cloudSuccess ? "&aSuccess" : "&cFailed";
+
         gui.setItem(13, generateItem(new ItemStack(Material.REDSTONE, 1),
                 translate(MsgType.MAIN_THEME_COLOR.getMessage()+ "Info"), Arrays.asList(
                         translate(guiLine()),
@@ -65,6 +70,9 @@ public class GuiManager {
                         translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7has "+MsgType.MAIN_THEME_COLOR.getMessage()+ Arrow.getInstance().getProfileManager().getProfile(player).getCheckHolder().getChecksSize() + " &7different checks"),
                         "",
                         translate("&7Server Version: "+MsgType.MAIN_THEME_COLOR.getMessage() + PacketEvents.getAPI().getServerManager().getVersion().getReleaseName()),
+                        translate("&7Platform: "+MsgType.MAIN_THEME_COLOR.getMessage() + PlatformBackend.get().getPlatformType().getFriendlyName()),
+                        translate("&7Java Version: "+MsgType.MAIN_THEME_COLOR.getMessage() + System.getProperty("java.version")),
+                        translate("&7Cloud Connection: " + cloudStatus),
                         translate(guiLine())
                 )));
 
@@ -808,7 +816,8 @@ public class GuiManager {
         for (Check check : Arrow.getInstance().getProfileManager().getProfile(player).getCheckHolder().getChecks()) {
             String className = check.getClass().getSimpleName();
             if (className.startsWith(checkType)
-                    || ("Fly".equals(checkType) && className.startsWith("Gravity"))) {
+                    || ("Fly".equals(checkType) && className.startsWith("Gravity"))
+                    || ("Interact".equals(checkType) && className.startsWith("FastBreak"))) {
                 String enabledStatus = check.isEnabled() ? "§a✓" : "§c✗";
                 String punishableStatus = check.isCanPunish() ? "§a✓" : "§c✗";
 

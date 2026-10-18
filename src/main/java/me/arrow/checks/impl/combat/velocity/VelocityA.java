@@ -70,16 +70,14 @@ public class VelocityA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!isMovement(event)) {
+        if (!isMovement(event) || profile.isExempt().isVehicle()) {
             return;
         }
-
-
 
         MovementData movementData = profile.getMovementData();
         VelocityData velocityData = profile.getVelocityData();
 
-        if (movementData.getSinceTeleportTicks() < 5 + (profile.getConnectionData().getClientTickTrans() * 4)) return;
+        if (movementData.getSinceTeleportTicks() <= 2) return;
 
         int transition = Math.max(0, profile.getConnectionData().getClientTickTrans());
         boolean verticalCollisionLimited = movementData.isNearWall()

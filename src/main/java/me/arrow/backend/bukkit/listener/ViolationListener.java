@@ -18,6 +18,7 @@ import me.arrow.managers.logs.PlayerLog;
 import me.arrow.managers.profile.Profile;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.TaskUtils;
+import me.arrow.utils.versionutils.impl.VelocityAlertBridge;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.OtherUtility;
 import net.kyori.adventure.text.Component;
@@ -88,7 +89,7 @@ public class ViolationListener implements Listener {
 
         String checkPlusCheckType;
 
-        if (checkType.isEmpty() || checkType.equals(" ")) {
+        if (checkType == null || checkType.trim().isEmpty()) {
             checkPlusCheckType = checkName;
         } else {
             checkPlusCheckType = checkName + " (" + checkType + ")";
@@ -130,6 +131,23 @@ public class ViolationListener implements Listener {
                 composedCheck,
                 sanitizeForLog(informationTitleFormatted + "\n" + informationFormatted)
         ));
+
+        try {
+            VelocityAlertBridge.sendAlert(
+                    Config.Setting.SERVER_NAME.getString(),
+                    punishedPlayer.getUniqueId(),
+                    playerName,
+                    checkName,
+                    checkType,
+                    vl,
+                    maxvl,
+                    ping,
+                    tps,
+                    MsgType.MAIN_THEME_COLOR.getMessage(),
+                    MsgType.SECOND_THEME_COLOR.getMessage()
+            );
+        } catch (Throwable ignored) {
+        }
 
         String hoverMessage = MsgType.ALERT_HOVER.getMessage()
                 .replace("%description%", alert.description)
@@ -282,7 +300,10 @@ public class ViolationListener implements Listener {
         }
 
         String tps = String.valueOf(TickTask.getTPS());
-        String checkPlusCheckType = alert.checkName + " (" + alert.checkType + ")";
+        String verboseType = alert.checkType;
+        String checkPlusCheckType = (verboseType == null || verboseType.trim().isEmpty())
+                ? alert.checkName
+                : alert.checkName + " (" + verboseType + ")";
         String playerName = punishedPlayer.getName();
 
         String hoverMessage = "%information%\n Ping: %ping%, TPS: %tps%"
@@ -355,20 +376,26 @@ public class ViolationListener implements Listener {
                 .replace("%vl%", String.valueOf(vl))
                 .replace("%tps%", tps);
 
-        if (debugMessage) {
+        boolean hasType = checkType != null && !checkType.trim().isEmpty();
+
+        if (hasType) {
             message = message
                     .replace("%checkname%", checkName)
                     .replace("%checktype%", checkType)
                     .replace("%maxvl%", String.valueOf(maxvl));
         } else {
+            // Strip any parentheses surrounding %checktype% (e.g. " &8(&6%checktype%&8)", " (%checktype%)", etc.)
+            message = message.replaceAll("(?i)\\s*(?:&[0-9a-fk-or]|§[0-9a-fk-or])*\\((?:&[0-9a-fk-or]|§[0-9a-fk-or])*%checktype%(?:&[0-9a-fk-or]|§[0-9a-fk-or])*\\)", "");
             message = message
-                    .replace("%maxvl%", String.valueOf(maxvl))
                     .replace("%checkname%", checkName)
-                    .replace("%checktype%", checkType);
+                    .replace("%checktype%", "")
+                    .replace("%maxvl%", String.valueOf(maxvl));
+            // Also clean up any accidental empty parentheses leftover
+            message = message.replaceAll("(?i)\\s*(?:&[0-9a-fk-or]|§[0-9a-fk-or])*\\((?:&[0-9a-fk-or]|§[0-9a-fk-or])*\\)", "");
         }
 
         return message
-                .replace("%checkcategory%", checkCategory)
+                .replace("%checkcategory%", checkCategory != null ? checkCategory : "")
                 .replace("%checknameandtype%", checkPlusCheckType)
                 .replace("%experimental%", experimentalFormat)
                 .replace("%ping%", ping);

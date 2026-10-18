@@ -17,13 +17,15 @@ import me.arrow.checks.impl.combat.hitbox.HitboxA;
 import me.arrow.checks.impl.combat.reach.ReachA;
 import me.arrow.checks.impl.combat.velocity.VelocityA;
 import me.arrow.checks.impl.combat.velocity.VelocityB;
+import me.arrow.checks.impl.combat.velocity.VelocityC;
 import me.arrow.checks.impl.misc.badpackets.*;
 import me.arrow.checks.impl.misc.interact.InteractA;
 import me.arrow.checks.impl.misc.interact.InteractB;
 import me.arrow.checks.impl.misc.interact.InteractC;
 import me.arrow.checks.impl.misc.interact.InteractD;
 import me.arrow.checks.impl.misc.interact.InteractE;
-import me.arrow.checks.impl.misc.interact.InteractF;
+import me.arrow.checks.impl.misc.interact.FastBreakA;
+import me.arrow.checks.impl.misc.interact.FastBreakB;
 import me.arrow.checks.impl.misc.inventory.InventoryA;
 import me.arrow.checks.impl.misc.scaffold.*;
 import me.arrow.checks.impl.misc.timer.TimerA;
@@ -125,7 +127,7 @@ public class CheckHolder {
                 new AimD(this.profile),
                 new AimE(this.profile),
                 new AimF(this.profile),
-                new AimG(this.profile),
+                //new AimG(this.profile), depricated
                 new AimH(this.profile),
                 new AimH2(this.profile),
                 new AimI(this.profile),
@@ -155,13 +157,15 @@ public class CheckHolder {
 
                 new VelocityA(this.profile),
                 new VelocityB(this.profile),
+                new VelocityC(this.profile),
 
                 new InteractA(this.profile),
                 new InteractB(this.profile),
                 new InteractC(this.profile),
                 new InteractD(this.profile),
                 new InteractE(this.profile),
-                new InteractF(this.profile),
+                new FastBreakA(this.profile),
+                new FastBreakB(this.profile),
 
                 new InventoryA(this.profile),
 

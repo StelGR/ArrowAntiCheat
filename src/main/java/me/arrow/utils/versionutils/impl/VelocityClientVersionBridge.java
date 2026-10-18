@@ -25,16 +25,12 @@ public class VelocityClientVersionBridge implements PluginMessageListener {
 
         try {
             Bukkit.getMessenger().registerIncomingPluginChannel(plugin, MODERN_CHANNEL, listener);
-            Bukkit.getLogger().info("[ArrowVersionBridge] Registered incoming channel " + MODERN_CHANNEL);
-        } catch (Throwable throwable) {
-            Bukkit.getLogger().warning("[ArrowVersionBridge] Failed to register " + MODERN_CHANNEL + ": " + throwable.getMessage());
+        } catch (Throwable ignored) {
         }
 
         try {
             Bukkit.getMessenger().registerIncomingPluginChannel(plugin, LEGACY_CHANNEL, listener);
-            Bukkit.getLogger().info("[ArrowVersionBridge] Registered incoming channel " + LEGACY_CHANNEL);
-        } catch (Throwable throwable) {
-            Bukkit.getLogger().warning("[ArrowVersionBridge] Failed to register " + LEGACY_CHANNEL + ": " + throwable.getMessage());
+        } catch (Throwable ignored) {
         }
     }
 

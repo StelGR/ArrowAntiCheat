@@ -687,18 +687,6 @@ public class PEMaterials {
     public static List<CollisionBounds> getCollisionBounds(WrappedBlockState state, int x, int y, int z) {
         if (state == null) return null;
 
-        /*
-         * Legacy state IDs are useful for identifying the block state, but the
-         * actual collision must come from the live legacy NMS block.
-         *
-         * Returning null intentionally makes CollisionUtils obtain the Bukkit
-         * Block and call getCollisionBounds(Block), which uses the legacy NMS
-         * resolver below.
-         */
-        if (LEGACY_SERVER && requiresStatefulCollision(state)) {
-            return null;
-        }
-
         List<LocalCollisionBounds> exact =
                 STATE_SHAPE_CACHE.get(state.getGlobalId());
 
@@ -709,6 +697,18 @@ public class PEMaterials {
         Material material = materialFromState(state.getType());
         if (material == null || material == Material.AIR) {
             return MaterialType.isMaterial(state.getType().getName(), MaterialType.AIR) ? Collections.emptyList() : null;
+        }
+
+        /*
+         * For legacy servers, only fall back to live NMS for blocks whose collision
+         * shape cannot be determined from the WrappedBlockState (e.g. tile entities).
+         * Stairs, slabs, fences, gates, walls, and panes are fully resolved below.
+         */
+        if (LEGACY_SERVER && requiresStatefulCollision(state)) {
+            if (!isStair(state) && !isStair(material) && !isSlab(state) && !isLegacySlabMaterial(material)
+                    && !isFence(state) && !isFenceGate(state) && !isWall(state)) {
+                return null;
+            }
         }
 
         String name = material.name();
@@ -1423,6 +1423,51 @@ public class PEMaterials {
                 y,
                 z
         );
+    }
+
+    /**
+     * Extracts the Minecraft 1.8 metadata value (0-15) from a WrappedBlockState.
+     * Returns -1 if the state cannot be converted.
+     */
+    public static int extractLegacyData(WrappedBlockState state, Material material) {
+        if (state == null) {
+            return -1;
+        }
+
+        if (isStair(state) || isStair(material)) {
+            boolean top = false;
+            try {
+                top = "TOP".equalsIgnoreCase(String.valueOf(state.getHalf()));
+            } catch (Throwable ignored) {}
+
+            String facing = "NORTH";
+            try {
+                facing = String.valueOf(state.getFacing()).toUpperCase(Locale.ROOT);
+            } catch (Throwable ignored) {}
+
+            int dir = 3; // North default
+            switch (facing) {
+                case "EAST": dir = 0; break;
+                case "WEST": dir = 1; break;
+                case "SOUTH": dir = 2; break;
+                case "NORTH": dir = 3; break;
+            }
+
+            return (top ? 4 : 0) | dir;
+        }
+
+        if (isSlab(state) || isLegacySlabMaterial(material)) {
+            try {
+                String type = String.valueOf(state.getTypeData());
+                if ("TOP".equalsIgnoreCase(type)) {
+                    return 8; // Bit 0x8 indicates top half slab
+                }
+            } catch (Throwable ignored) {}
+
+            return 0; // Bottom half slab default
+        }
+
+        return -1;
     }
 
     private static synchronized void ensureLegacyCollisionAccess(

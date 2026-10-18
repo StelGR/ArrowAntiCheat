@@ -61,14 +61,16 @@ public abstract class AbstractCheck {
         final CommentedFileConfiguration config = Arrow.getInstance().getChecks();
         final String checkName = this.checkName;
 
-        this.enabled = type.isEmpty()
-                ? config.getBoolean(checkName + checkType + ".enabled")
+        boolean hasType = type != null && !type.trim().isEmpty();
+
+        this.enabled = !hasType
+                ? config.getBoolean(checkName + (type == null ? "" : checkType) + ".enabled")
                 : config.getBoolean(checkName + checkType + ".enabled", config.getBoolean(checkName + checkType));
 
-        this.maxVl = config.getInt(checkName + checkType + ".punish.vl");
-        this.checkMode = config.getString(checkName + checkType + ".mode");
-        this.canPunish = config.getBoolean(checkName + checkType + ".punish.enabled");
-        this.punishMode = config.getString(checkName + checkType + ".punish.mode");
+        this.maxVl = config.getInt(checkName + (type == null ? "" : checkType) + ".punish.vl");
+        this.checkMode = config.getString(checkName + (type == null ? "" : checkType) + ".mode");
+        this.canPunish = config.getBoolean(checkName + (type == null ? "" : checkType) + ".punish.enabled");
+        this.punishMode = config.getString(checkName + (type == null ? "" : checkType) + ".punish.mode");
 
         if (checkMode == null) this.checkMode = CheckMode.FLAG.getCheckMode();
         if (punishMode == null) this.punishMode = "KICK";
@@ -81,7 +83,7 @@ public abstract class AbstractCheck {
 
         this.checkCategory = check.getCheckCategory();
 
-        this.fullCheckName = this.checkName + (type.isEmpty() ? "" : (" (" + type + ")"));
+        this.fullCheckName = this.checkName + (!hasType ? "" : (" (" + type + ")"));
     }
 
     public void debug(Object info) {

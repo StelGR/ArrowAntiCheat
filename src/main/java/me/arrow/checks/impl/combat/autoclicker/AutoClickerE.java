@@ -55,21 +55,21 @@ public class AutoClickerE extends Check {
                 .filter(i -> i == 0)
                 .count();
 
-        if (kur <= 0 && cps > 13) {
+        if (kur <= 0 && cps >= 13) {
             fail("Invalid Kurtosis", "Kurtosis " + MsgType.MAIN_THEME_COLOR.getMessage() + kur
                     + "\nCPS "+ MsgType.MAIN_THEME_COLOR.getMessage() + cps);
             return;
         }
 
-        boolean invalidSt = st < 0.5 || st > 1 && cps > 11;
-        boolean invalidSkew = skew > 1.2 && cps > 11;
-        boolean invalidKur = kur > 3.3 && cps > 11;
-        boolean invalidMean = mean < 2 && cps > 11;
-        boolean invalidVar = variance > 1 && cps > 11;
-        boolean invalidEntropy = entropy > 1.8 && cps > 11;
-        boolean invalidZeros = zeros > 3 && cps > 11;
-        boolean invalidRange = range > 6 && cps > 11;
-        boolean invalidOutliers = outliers > 20 && cps > 11;
+        boolean invalidSt = st < 0.5 || st > 1 && cps >= 11;
+        boolean invalidSkew = skew > 1.2 && cps >= 11;
+        boolean invalidKur = kur > 3.3 && cps >= 11;
+        boolean invalidMean = mean < 2 && cps >= 11;
+        boolean invalidVar = variance > 1 && cps >= 11;
+        boolean invalidEntropy = entropy > 1.8 && cps >= 11;
+        boolean invalidZeros = zeros > 3 && cps >= 11;
+        boolean invalidRange = range > 6 && cps >= 11;
+        boolean invalidOutliers = outliers > 20 && cps >= 11;
 
         if (invalidSt
                 || invalidSkew

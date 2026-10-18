@@ -99,6 +99,23 @@ public class VersionUtils {
         }
     }
 
+    public static int getProtocolVersion(Player player) {
+        if (player == null) return -1;
+        if (isPluginEnabled("ViaVersion")) {
+            try {
+                int protocol = Via.getAPI().getPlayerProtocolVersion(player.getUniqueId()).getVersion();
+                if (protocol > 0) return protocol;
+            } catch (Throwable ignored) {}
+        }
+        try {
+            ClientVersion ver = PacketEvents.getAPI().getPlayerManager().getClientVersion(player);
+            if (ver != null && ver != ClientVersion.UNKNOWN) {
+                return ver.getProtocolVersion();
+            }
+        } catch (Throwable ignored) {}
+        return -1;
+    }
+
     private static boolean isKnown(ClientVersion version) {
         return version != null && version != ClientVersion.UNKNOWN;
     }
