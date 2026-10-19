@@ -149,8 +149,7 @@ final class VehicleSupport {
         LivingEntity living = (LivingEntity) entity;
         try {
             for (PotionEffect effect : living.getActivePotionEffects()) {
-                if (effect != null && effect.getType() != null
-                        && effect.getType().getName().equalsIgnoreCase(effectName)) {
+                if (effect != null && effect.getType().getName().equalsIgnoreCase(effectName)) {
                     return effect.getAmplifier() + 1;
                 }
             }

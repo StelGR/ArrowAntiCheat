@@ -54,8 +54,7 @@ public class VehicleA extends Check {
         }
 
         final Entity vehicle = profile.getPlayer().getVehicle();
-        if (vehicle == null
-                || !(vehicle instanceof Pig)
+        if (!(vehicle instanceof Pig)
                 || !(vehicle instanceof Boat)
                 || !(vehicle instanceof Horse)
                 || !(vehicle instanceof Mule)

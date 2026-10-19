@@ -13,7 +13,6 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.PotionData;
-import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.ChatUtils;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.custom.CustomLocation;
@@ -249,12 +248,6 @@ public class FlyA extends Check {
 
 
     boolean isExempt(MovementData movementData, PotionData potionData) {
-        ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-
-        if (exempt("worldPhysicsMismatch", world.physicsMismatch)) return true;
-        if (exempt("worldOnGhostBlock", world.onGhostBlock)) return true;
-        if (exempt("cancelledBlockPlacement", profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2)))) return true;
-
         if (profile.shouldCancel()) {
             ChatUtils.debugExempt("shouldCancel", "FlyA");
             return true;
