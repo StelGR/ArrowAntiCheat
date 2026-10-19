@@ -89,7 +89,6 @@ public class BlockProcessor implements Data {
     double CANCELLED_PHYSICS_GHOST_RANGE_XZ = 4.0D;
     double CANCELLED_PHYSICS_GHOST_RANGE_Y = 4.0D;
 
-
     int MAX_GHOST_BLOCK_TICKS = 20 * 8;
     int MAX_CANCELLED_PLACE_GHOST_TICKS = 20;
     int MAX_CLICK_INTERACTION_GHOST_TICKS = 10;
@@ -2295,7 +2294,7 @@ public class BlockProcessor implements Data {
 
         try {
             UserConnection connection = Via.getManager().getConnectionManager()
-                    .getConnectedClient(player.getUniqueId());
+                    .getClientConnection(player.getUniqueId());
 
             if (connection == null || !connection.isActive()) {
                 return false;

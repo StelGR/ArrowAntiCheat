@@ -633,12 +633,6 @@ public class Checks implements Initializer {
         BADPACKETS_E_PUNISH_MODE("BadPacketsE.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         BADPACKETS_E_MAX_VL("BadPacketsE.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        BADPACKETS_F("BadPacketsF.enabled", true, "Should we enable this module?"),
-        BADPACKETS_F_PUNISH("BadPacketsF.punish", "", "Punishment settings"),
-        BADPACKETS_F_PUNISH_ENABLED("BadPacketsF.punish.enabled", true, "Should punishments be enabled for this check?"),
-        BADPACKETS_F_PUNISH_MODE("BadPacketsF.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
-        BADPACKETS_F_MAX_VL("BadPacketsF.punish.vl", 10, "The maximum violation amount a player needs to reach in order to get punished"),
-
         NOSLOWDOWN_A("NoSlowdownA.enabled", true, "Should we enable this module?"),
         NOSLOWDOWN_A_PUNISH("NoSlowdownA.punish", "", "Punishment settings"),
         NOSLOWDOWN_A_PUNISH_ENABLED("NoSlowdownA.punish.enabled", false, "Should punishments be enabled for this check?"),
@@ -663,21 +657,21 @@ public class Checks implements Initializer {
         EXPLOIT_B_PUNISH_MODE("ExploitB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         EXPLOIT_B_MAX_VL("ExploitB.punish.vl", 1, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        VEHICLE_A("VehicleA.enabled", false, "Should we enable this module?"),
+        VEHICLE_A("VehicleA.enabled", true, "Should we enable this module?"),
         VEHICLE_A_PUNISH("VehicleA.punish", "", "Punishment settings"),
         VEHICLE_A_PUNISH_ENABLED("VehicleA.punish.enabled", false, "Should punishments be enabled for this check?"),
         VEHICLE_A_PUNISH_MODE("VehicleA.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         VEHICLE_A_MAX_VL("VehicleA.punish.vl", 200, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        VEHICLE_B("VehicleB.enabled", false, "Should we enable this module?"),
+        VEHICLE_B("VehicleB.enabled", true, "Should we enable this module?"),
         VEHICLE_B_PUNISH("VehicleB.punish", "", "Punishment settings"),
         VEHICLE_B_PUNISH_ENABLED("VehicleB.punish.enabled", false, "Should punishments be enabled for this check?"),
         VEHICLE_B_PUNISH_MODE("VehicleB.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         VEHICLE_B_MAX_VL("VehicleB.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished"),
 
-        VEHICLE_C("VehicleC.enabled", false, "Should we enable this module?"),
+        VEHICLE_C("VehicleC.enabled", true, "Should we enable this module?"),
         VEHICLE_C_PUNISH("VehicleC.punish", "", "Punishment settings"),
-        VEHICLE_C_PUNISH_ENABLED("VehicleC.punish.enabled", false, "Should punishments be enabled for this check?"),
+        VEHICLE_C_PUNISH_ENABLED("VehicleC.punish.enabled", true, "Should punishments be enabled for this check?"),
         VEHICLE_C_PUNISH_MODE("VehicleC.punish.mode", "KICK", "What punish mode should we use for this check (KICK or BAN)"),
         VEHICLE_C_MAX_VL("VehicleC.punish.vl", 20, "The maximum violation amount a player needs to reach in order to get punished");
 

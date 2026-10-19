@@ -7,12 +7,10 @@ import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.custom.materials.MaterialType;
@@ -69,12 +67,6 @@ public class GravityC extends Check {
             if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) { resetGravityBuffer(); return; }
             if (exempt("levitation", profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) { resetGravityBuffer(); return; }
 
-            ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-            if (exempt("worldTrackerMovement", world.shouldExemptMovementChecks())) { resetGravityBuffer(); return; }
-            if (exempt("worldNextToGhostWall", world.nextToGhostWall)) { resetGravityBuffer(); return; }
-            if (exempt("worldPhysicsMismatch", world.physicsMismatch)) { resetGravityBuffer(); return; }
-            if (exempt("worldOnGhostBlock", world.onGhostBlock)) { resetGravityBuffer(); return; }
-            if (exempt("worldUnderGhostBlock", world.underGhostBlock)) { resetGravityBuffer(); return; }
             if (exempt("cancelledBlockPlaceAbove", profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2)))) { resetGravityBuffer(); return; }
 
             if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) { resetGravityBuffer(); return; }

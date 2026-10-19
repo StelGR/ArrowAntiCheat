@@ -8,7 +8,6 @@ import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.playerdata.data.impl.worldcomp.ClientWorldTracker;
 import me.arrow.utils.customutils.OtherUtility;
 
 // i think i don't need to explain this, very simple check
@@ -35,13 +34,6 @@ public class MotionD extends Check {
             try {
 
                 MovementData movementData = profile.getMovementData();
-
-                ClientWorldTracker.CollisionResult world = profile.getClientWorldTracker().getCollisionResult();
-
-                if (exempt("worldPhysicsMismatch", world.physicsMismatch)) return;
-                if (exempt("worldOnGhostBlock", world.onGhostBlock)) return;
-                if (exempt("worldUnderGhostBlock", world.underGhostBlock)) return;
-                if (exempt("worldInsideGhostBlock", world.insideGhostBlock)) return;
 
                 double deltaY = movementData.getDeltaY();
                 double lastDeltaY = movementData.getLastDeltaY();
