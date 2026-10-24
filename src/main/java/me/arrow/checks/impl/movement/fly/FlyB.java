@@ -106,9 +106,10 @@ public class FlyB extends Check {
 
                 boolean invalidLevitation2 =
                         profile.getPotionData().isHasLevitation()
-                        && deltaY == 0
-                        && movementData.getCustomAirTicks() == 0
-                        && !movementData.isUnderblock();
+                                && deltaY == 0
+                                && movementData.getServerGroundTicks() >= 10
+                                && movementData.getCustomAirTicks() == 0
+                                && !movementData.isUnderblock();
 
                 String verboseInfo = "acceleration " + MsgType.MAIN_THEME_COLOR.getMessage() + acceleration
                         + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
@@ -123,8 +124,14 @@ public class FlyB extends Check {
 
 
                 if (invalidLevitation || invalidLevitation2) {
-                    fail("Impossible acceleration with levitation", verboseInfo);
+                    if (increaseBuffer() > 4) {
+                        fail("Impossible acceleration with levitation", verboseInfo);
+                    }
+
+                } else {
+                    decreaseBufferBy(0.025);
                 }
+
 
                 if (exempt("levitation", movementData.getSinceLevitationEffectTicks() < 20 && profile.getPotionData().getLevitationTicks() > 0)) return;
 
