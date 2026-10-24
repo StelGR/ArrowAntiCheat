@@ -36,7 +36,7 @@ public class BadPacketsB extends Check {
             if (sent) {
                 if (ticks++ > 3.0D) {
                     if (profile.getPlayer().getVehicle() == null && !profile.getPlayer().isInsideVehicle()) {
-                        if (buffer++ > 5.0) {
+                        if (++buffer > 5.0D) {
                             fail("Sent vehicle packet without being in a vehicle", "(No Debug Provided)");
                         }
                     } else {

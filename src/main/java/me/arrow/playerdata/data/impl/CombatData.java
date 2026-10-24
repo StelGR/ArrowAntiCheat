@@ -1,13 +1,10 @@
 package me.arrow.playerdata.data.impl;
 
-import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
-import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import com.github.retrooper.packetevents.wrapper.play.client.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -64,21 +61,20 @@ public class CombatData implements Data {
         try {
 
 
-//        if (!OtherUtility.isFlying(event.getPacketType()) && !event.getPacketType().equals(PONG) && !event.getPacketType().equals(CLIENT_TICK_END)) {
-//            boolean holdingSpear = isHoldingSpear();
-//            if (holdingSpear || isAttackAction) {
-//                String packetName = event.getPacketType().getName();
-//                String debugMsg = OtherUtility.translate("&7[&bSpearPacket&7] &fPacket: &a" + packetName
-//                        + " &7| Hand: &e" + getHeldItemDebug()
-//                        + " &7| isSpear: &6" + holdingSpear
-//                        + " &7| atkTicks: &e" + attackedTicks
-//                        + " &7| spearTicks: &e" + sinceUsedSpear);
-//                OtherUtility.log(debugMsg);
-//                if (profile.getPlayer() != null && profile.getPlayer().isOnline()) {
-//                    profile.getPlayer().sendMessage(debugMsg);
+//            if (!OtherUtility.isFlying(event.getPacketType()) && !event.getPacketType().equals(PONG) && !event.getPacketType().equals(CLIENT_TICK_END)) {
+//                if (isHoldingSpear()) {
+//                    String packetName = event.getPacketType().getName();
+//                    String debugMsg = OtherUtility.translate("&7[&bSpearPacket&7] &fPacket: &a" + packetName
+//                            + " &7| Hand: &e" + getHeldItemDebug()
+//                            + " &7| isSpear: &6" + isHoldingSpear()
+//                            + " &7| atkTicks: &e" + attackedTicks
+//                            + " &7| spearTicks: &e" + sinceUsedSpear);
+//                    OtherUtility.log(debugMsg);
+//                    if (profile.getPlayer() != null && profile.getPlayer().isOnline()) {
+//                        profile.getPlayer().sendMessage(debugMsg);
+//                    }
 //                }
 //            }
-//        }
             if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
                 WrapperPlayClientAttack attackPacket = new WrapperPlayClientAttack(event);
                 this.lastLastAttackedEntityID = lastAttackedEntityID;
@@ -107,7 +103,7 @@ public class CombatData implements Data {
                     dropping = true;
                 }
 
-                if (digging.getAction().equals(DiggingAction.STAB)) {
+                if (digging.getAction().equals(DiggingAction.STAB) && isHoldingSpear()) {
                     this.lastLastAttackedEntityID = lastAttackedEntityID;
                     this.lastAttackedEntityID = -1;
                     this.attackedTicks = 0;
@@ -115,11 +111,13 @@ public class CombatData implements Data {
                     attacked = true;
                     usedSpear = true;
                     sinceUsedSpear = 0;
-                    collectArmAnimationSample();
                 }
             }
             if (isAttackPacket(event.getPacketType())) {
-                collectArmAnimationSample();
+                if (isHoldingSpear()) {
+                    usedSpear = true;
+                    sinceUsedSpear = 0;
+                }
 
                 // Handle block actions
                 if (profile.getLastBlockBreakTimer().hasNotPassed(20) || profile.getPredictionData().isDigging() || isDropping()) {
@@ -129,6 +127,10 @@ public class CombatData implements Data {
                     clickTimestamps.clear();
                     return;
                 }
+
+
+
+                collectArmAnimationSample();
 
                 movements.add(movementTicks);
 

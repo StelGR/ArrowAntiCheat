@@ -2,7 +2,6 @@ package me.arrow.checks.impl.misc.badpackets;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import me.arrow.core.check.CheckType;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
@@ -29,7 +28,7 @@ public class BadPacketsA extends Check {
 
         double pitch = profile.getRotationData().getPitch();
 
-        if (pitch > MoveUtils.MAXIMUM_PITCH) {
+        if (Math.abs(pitch) > MoveUtils.MAXIMUM_PITCH) {
             fail("Invalid Pitch","Pitch " + MsgType.MAIN_THEME_COLOR.getMessage() + pitch);
         }
     }

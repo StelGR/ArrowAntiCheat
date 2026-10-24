@@ -1,28 +1,21 @@
 package me.arrow.backend.bukkit;
 
+import lombok.Getter;
+import lombok.Setter;
 import me.arrow.Arrow;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 
 /** Bukkit-only plugin entrypoint. Fabric uses {@code ArrowFabricMod} instead. */
+@Setter
+@Getter
 public final class ArrowBukkitPlugin extends JavaPlugin {
 
     private Arrow arrow;
 
+    @Getter
     private static ArrowBukkitPlugin instance;
-
-    public Arrow getArrow() {
-        return arrow;
-    }
-
-    public void setArrow(Arrow arrow) {
-        this.arrow = arrow;
-    }
-
-    public static ArrowBukkitPlugin getInstance() {
-        return instance;
-    }
 
     /**
      * Bukkit-only bridge for ArrowLoader. The loader is already the registered

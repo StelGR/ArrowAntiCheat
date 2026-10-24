@@ -50,7 +50,7 @@ public class FastBreakB extends Check {
     private long lastCancelledTime;
 
     public FastBreakB(Profile profile) {
-        super(profile, CheckType.FASTBREAK, "B", "Checks for reduced block mining time");
+        super(profile, CheckType.FASTBREAK, "B", "Checks for increased mining speed.");
     }
 
     @Override
@@ -179,7 +179,7 @@ public class FastBreakB extends Check {
                 double bufferAdd = Math.min(2.0D, 0.5D + (1.0D - ratio));
 
                 if (increaseBufferBy(bufferAdd) >= 2.0D) {
-                    fail("Reduced Mining Speed",
+                    fail("Increased mining speed",
                             "block " + MsgType.MAIN_THEME_COLOR.getMessage() + block.getType().name()
                                     + "\nelapsed " + MsgType.MAIN_THEME_COLOR.getMessage() + elapsedTicks + "t (" + elapsedMillis + "ms)"
                                     + "\nmin " + MsgType.MAIN_THEME_COLOR.getMessage() + minTicks + "t"

@@ -13,6 +13,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMu
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
+import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.Data;
@@ -319,9 +320,9 @@ public class BlockProcessor implements Data {
         keepPendingPlacementPhysicsExemption();
 
         if (autoCorrectGhostBlocks
-                && this.interactingGhostBlock
+                && Config.Setting.GHOST_BLOCK_FIX.getBoolean()
                 && this.lastGhostInteractionAreaSyncTick > GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS) {
-            syncRealBlocksAroundPlayer(1, 1, 1);
+            syncRealBlocksAroundPlayer(2, 2, 2);
             this.lastGhostInteractionAreaSyncTick = 0;
         }
 
@@ -2187,7 +2188,7 @@ public class BlockProcessor implements Data {
                 return;
             }
 
-            if (!CollisionUtils.isChunkLoaded(new Location(world, syncBlock.x, syncBlock.y, syncBlock.z))) return;
+           // if (!CollisionUtils.isChunkLoaded(new Location(world, syncBlock.x, syncBlock.y, syncBlock.z))) return;
 
             Block block = world.getBlockAt(syncBlock.x, syncBlock.y, syncBlock.z);
             sendBlockChangeCompat(player, block);

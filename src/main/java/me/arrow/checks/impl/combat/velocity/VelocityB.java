@@ -207,34 +207,33 @@ public class VelocityB extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
+
+        if (profile.getCombatData().getSinceUsedSpear() <= 7) {
+            ++attacks;
+            this.attack = true;
+        }
+
+//        if (event.getPacketType() == PLAYER_DIGGING) {
+//            WrapperPlayClientPlayerDigging digging =
+//                    new WrapperPlayClientPlayerDigging(event);
+//
+//            DiggingAction action = digging.getAction();
+//
+//            if (action == DiggingAction.STAB && profile.getCombatData().isHoldingSpear()) {
+//                ++attacks;
+//                this.attack = true;
+//            }
+//        }
+
         if (event.getPacketType() == PacketType.Play.Client.ATTACK) {
             handleAttackPacket(event);
-            return;
         }
 
         if (event.getPacketType() == PacketType.Play.Client.INTERACT_ENTITY) {
             handleAttack(event);
-            return;
         }
 
-        if (event.getPacketType().equals(PLAYER_DIGGING)) {
-            WrapperPlayClientPlayerDigging digging = new WrapperPlayClientPlayerDigging(event);
 
-            if (digging.getAction().equals(DiggingAction.STAB)) {
-                this.attack = true;
-                this.attacks = Math.max(this.attacks + 1, 1);
-                ++this.pendingAttacks;
-                if (profile.getCombatData() != null) {
-                    profile.getCombatData().setAttacked(true);
-                    profile.getCombatData().setAttackedTicks(0);
-                    profile.getCombatData().setUsedSpear(true);
-                    profile.getCombatData().setSinceUsedSpear(0);
-                    profile.getCombatData().setTarget(-1);
-                    profile.getCombatData().setLastAttackedEntityID(-1);
-                }
-                return;
-            }
-        }
 
         TransactionKey acknowledged = readClientTransaction(event);
         if (acknowledged != null) {
@@ -246,11 +245,7 @@ public class VelocityB extends Check {
             return;
         }
 
-        if (profile == null
-                || profile.getPlayer() == null
-                || !profile.getPlayer().isOnline()
-                || profile.getMovementData() == null
-                || profile.getVelocityData() == null) {
+        if (profile.getPlayer() == null || !profile.getPlayer().isOnline() || profile.getMovementData() == null || profile.getVelocityData() == null) {
             resetState();
             clearPacketCombatState();
             return;
@@ -284,11 +279,9 @@ public class VelocityB extends Check {
             }
 
             if (canCheckCondition()) {
-                boolean isSpearRecent = profile.getCombatData() != null
-                        && profile.getCombatData().getSinceUsedSpear() <= 2;
                 boolean attackRecent = this.attack
-                        || isSpearRecent
-                        || (profile.getCombatData() != null && profile.getCombatData().getAttackedTicks() <= 1);
+                        //||  profile.getCombatData().getSinceUsedSpear() <= 7
+                        || profile.getCombatData().getAttackedTicks() <= 1;
                 if (attackRecent) {
                     this.attack = true;
                     this.attacks = Math.max(this.attacks, 1);
@@ -371,8 +364,9 @@ public class VelocityB extends Check {
 
         moveFlying(strafe, forward, friction, fastMath, movementData);
 
-        double dKbZ = movementData.getDeltaX() / this.kbX;
-        double dKbX = movementData.getDeltaZ() / this.kbZ;
+        double dKbX = movementData.getDeltaX() / this.kbX;
+        double dKbZ = movementData.getDeltaZ() / this.kbZ;
+
         double dKb = Math.hypot(this.kbX, this.kbZ);
         double diff = dKb - dClientKb;
         double p = dClientKb / dKb * 100.0D;
@@ -425,6 +419,7 @@ public class VelocityB extends Check {
                 + " | sim=" + format(4, simLowest)
                 + " | atks=" + this.attacks
                 + " | fit=" + this.bruteforcedAttacks
+                + " | spearTicks= " + spearTicks
                 + " | spear=" + isSpear;
         verbose("VelocityB", this.violations, maxVL, verboseData);
 

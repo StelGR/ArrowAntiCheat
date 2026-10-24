@@ -333,7 +333,7 @@ public class ClientBrandListener implements Data {
 
         String lower = brand.toLowerCase(Locale.ROOT);
 
-        if (lower.contains("lunarclient") || lower.contains("lunar client")) {
+        if (lower.contains("lunar") || lower.contains("lunarclient") || lower.contains("lunar client")) {
             return "Lunar Client";
         }
 
@@ -341,7 +341,7 @@ public class ClientBrandListener implements Data {
             return "Badlion Client";
         }
 
-        if (lower.contains("labymod")) {
+        if (lower.contains("laby")) {
             return "LabyMod";
         }
 
@@ -349,7 +349,7 @@ public class ClientBrandListener implements Data {
             return "Feather Client";
         }
 
-        if (lower.contains("forge")) {
+        if (lower.contains("forg")) {
             return "Forge";
         }
 
@@ -378,5 +378,6 @@ public class ClientBrandListener implements Data {
 
     @Override
     public void processSend(PacketSendEvent event) {
+
     }
 }
