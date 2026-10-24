@@ -58,7 +58,7 @@ public class Suspicion extends Check {
 
         boolean validSensitivity = sensitivityProcessor.getSensitivityPercent() > 0 && sensitivityProcessor.getSensitivityPercent() < 200;
 
-        if (validSensitivity) {
+        if (validSensitivity && profile.getCombatData().getSinceUsedSpear() <= 2) {
             float mcpSensitivity = (float) sensitivityProcessor.getMcpSensitivity();
 
             float f = mcpSensitivity * 0.6f + 0.2f;

@@ -7,10 +7,7 @@ import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.User;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDisconnect;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerParticle;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
+import com.github.retrooper.packetevents.wrapper.play.server.*;
 import io.github.retrooper.packetevents.adventure.serializer.legacy.LegacyComponentSerializer;
 import lombok.Getter;
 import lombok.Setter;
@@ -536,6 +533,11 @@ public class Profile implements CoreProfile {
         PacketEvents.getAPI().getPlayerManager().sendPacket(getPlayer(), wrapperPlayServerPing);
         //Bukkit.broadcastMessage(getPlayer().getName()+", sent transaction. ActionID: "+wrapperPlayServerPing.getActionId() + " Window ID: " + wrapperPlayServerPing.getWindowId() + " clientVer " + wrapperPlayServerPing.getClientVersion());
     }
+    public void sendPacket(WrapperPlayServerMultiBlockChange wrapperPlayServerMultiBlockChange) {
+        PacketEvents.getAPI().getPlayerManager().sendPacket(getPlayer(), wrapperPlayServerMultiBlockChange);
+        //Bukkit.broadcastMessage(getPlayer().getName()+", sent transaction. ActionID: "+wrapperPlayServerPing.getActionId() + " Window ID: " + wrapperPlayServerPing.getWindowId() + " clientVer " + wrapperPlayServerPing.getClientVersion());
+    }
+
     public void sendPacket(WrapperPlayServerPing wrapperPlayServerPing) {
         PacketEvents.getAPI().getPlayerManager().sendPacket(getPlayer(), wrapperPlayServerPing);
         //Bukkit.broadcastMessage(getPlayer().getName()+", sent ping. id: "+wrapperPlayServerPing.getId()  + " clientVer " + wrapperPlayServerPing.getClientVersion());

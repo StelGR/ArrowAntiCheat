@@ -207,11 +207,10 @@ public class SpeedA extends Check {
             }
 
             if (velocityData.isTakingVelocity()) {
-                allowedLimit += velocityData.getTotalHorizontalVelocity() * 1.2;
+                allowedLimit += velocityData.getTotalHorizontalVelocity() * 1.5;
             }
 
             allowedLimit += movementData.elytraMomentum();
-
 
             if (serverGround && deltaXZ != 0) {
                 verbose(this.getClass().getSimpleName(), deltaXZ, allowedLimit,

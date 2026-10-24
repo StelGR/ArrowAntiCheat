@@ -3,7 +3,6 @@ package me.arrow.checks.impl.misc.interact;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
-import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
@@ -676,9 +675,9 @@ public class InteractD extends Check {
     // ══════════════════════════════════════════════════════════════════
 
     private static class BlockHit {
-        final Material material;
-        final Vector3i position;
-        final double distance;
+        Material material;
+        Vector3i position;
+        double distance;
 
         BlockHit(Material material, Vector3i position, double distance) {
             this.material = material;
@@ -688,8 +687,8 @@ public class InteractD extends Check {
     }
 
     private static class BlockKey {
-        final UUID world;
-        final int x, y, z;
+        UUID world;
+        int x, y, z;
 
         private BlockKey(UUID world, int x, int y, int z) {
             this.world = world;

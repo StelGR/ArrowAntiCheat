@@ -1,12 +1,17 @@
 package me.arrow.playerdata.data.impl.worldcomp;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
+import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkData;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
+import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.Data;
@@ -18,6 +23,9 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -102,7 +110,7 @@ public class ClientWorldTracker implements Data {
     public CollisionResult preCheckScan() {
         if (lastCollisionScanTick == tick) return lastCollisionResult;
         CollisionResult result = scanPlayerCollision();
-        if (result.shouldAutoSync() && lastAutoSyncTick > AUTO_SYNC_COOLDOWN_TICKS) {
+        if (result.shouldAutoSync() && lastAutoSyncTick > AUTO_SYNC_COOLDOWN_TICKS && Config.Setting.GHOST_BLOCK_FIX.getBoolean()) {
             syncCollisionArea(result);
             lastAutoSyncTick = 0;
         }
