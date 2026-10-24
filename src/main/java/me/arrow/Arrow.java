@@ -102,7 +102,7 @@ public class Arrow {
     private static final GuiManager guiManager = new GuiManager();
 
     @Getter
-    private final String version = "108-pre2";
+    private final String version = "108";
 
     @Getter
     private final JavaPlugin host;     // the Bukkit plugin entrypoint
