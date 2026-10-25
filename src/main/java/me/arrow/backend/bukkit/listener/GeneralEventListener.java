@@ -162,10 +162,10 @@ public class GeneralEventListener implements Listener {
         this.processEvent(event);
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onPlayerPreJoin(PlayerPreLoginEvent event) {
-        this.processEvent(event);
-    }
+//    @EventHandler(priority = EventPriority.MONITOR)
+//    public void onPlayerPreJoin(PlayerPreLoginEvent event) {
+//        this.processEvent(event);
+//    }
 
     void processEvent(Event event) {
         process(event);
@@ -179,9 +179,9 @@ public class GeneralEventListener implements Listener {
             if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) ((AsyncPlayerPreLoginEvent) event).disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
         }
 
-        if (event instanceof PlayerPreLoginEvent) {
-            if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) ((PlayerPreLoginEvent) event).disallow(PlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
-        }
+//        if (event instanceof PlayerPreLoginEvent) {
+//            if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) ((PlayerPreLoginEvent) event).disallow(PlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
+//        }
 
         if (event instanceof PlayerJoinEvent) {
             PlayerJoinEvent joinEvent = (PlayerJoinEvent) event;

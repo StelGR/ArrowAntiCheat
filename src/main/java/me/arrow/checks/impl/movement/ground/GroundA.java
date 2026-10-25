@@ -53,7 +53,6 @@ public class GroundA extends Check {
                 boolean invalid3 = serverGround != clientGround
                         && !movementData.isNearWater()
                         && !movementData.isNearLava()
-                        && !profile.getVelocityData().isTakingVelocity()
                         && movementData.getSincePredictUpwardsTicks() > 10
                         && movementData.getSincePredictDownwardsTicks() > 10
                         && !profile.getActionData().hasRecentUnderPlaceSupport(10 + (profile.getConnectionData().getClientTickTrans() * 2))

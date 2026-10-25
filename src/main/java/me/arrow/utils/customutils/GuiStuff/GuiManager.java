@@ -94,8 +94,7 @@ public class GuiManager {
                     )));
         }
 
-
-
+        
         List<ItemStack> themedSpacers = createThemedSpacer(27);
         for (int slots = 0; slots < 27; slots++) {
             if (gui.getItem(slots) == null) {

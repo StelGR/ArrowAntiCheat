@@ -25,11 +25,16 @@ public class SetbackProcessor implements Processor {
 
     @Getter
     @Setter
+    private CustomLocation lastServerGroundLocation;
+
+    @Getter
+    @Setter
     private CustomLocation lastSafeGroundLocation;
 
     final Profile profile;
     int lastSetbackTicks;
     int lastStoredLocationTicks;
+    private boolean setbackDone;
 
     @Getter
     @Setter
@@ -43,17 +48,19 @@ public class SetbackProcessor implements Processor {
     public void process() {
         MovementData movementData = profile.getMovementData();
         CustomLocation location = movementData.getLocation();
+        if (location == null) return;
 
         // Initialize with spawn / current location if unset
-        if (this.lastSafeGroundLocation == null) {
+        if (this.lastServerGroundLocation == null) {
+            this.lastServerGroundLocation = location.clone();
             this.lastSafeGroundLocation = location.clone();
             this.safeGroundLocations.add(location.clone());
         }
 
-        // Only record as a valid setback location when the player is genuinely supported on solid ground
-        boolean onSolidGround = (movementData.isServerGround() || movementData.isOnGround()) && !movementData.isCustomInAir();
+        // Every time you have 0 air ticks, save it as lastServerGroundLocation and record in last 20
+        if (movementData.getCustomAirTicks() == 0 && !movementData.isNearBoat()) {
+            this.setbackDone = false;
 
-        if (onSolidGround && !movementData.isNearBoat()) {
             World world = location.getWorld();
             int blockX = location.getBlockX();
             int blockY = (int) Math.floor(location.getY() - 0.1D);
@@ -61,10 +68,16 @@ public class SetbackProcessor implements Processor {
 
             Material matUnder = ChunkCache.get().getBlock(world, blockX, blockY, blockZ);
             if (matUnder != null && (matUnder.isSolid() || PEMaterials.hasPotentialCollision(matUnder))) {
+                this.lastServerGroundLocation = location.clone();
                 this.lastSafeGroundLocation = location.clone();
                 this.safeGroundLocations.add(location.clone());
                 movementData.setLastSetBackLocation(location.clone());
             }
+        }
+
+        // If they have more than 20 air ticks, and didn't setback before, force them on the floor
+        if (movementData.getCustomAirTicks() > 20 && !this.setbackDone && !profile.shouldCancel() && !profile.isExempt().isTeleports()) {
+            causeSetBack("Excessive Air Ticks");
         }
 
         this.lastStoredLocationTicks = TickTask.getCurrentTick();
@@ -84,12 +97,18 @@ public class SetbackProcessor implements Processor {
             CustomLocation target = getCustomLocation(player);
 
             // Sync movement data so immediate post-setback check evaluations don't re-evaluate against cheated coords
-//            if (profile.getMovementData() != null) {
-//                profile.getMovementData().setLocation(target.clone());
-//                profile.getMovementData().setLastLocation(target.clone());
-//            }
+            if (profile.getMovementData() != null) {
+                profile.getMovementData().setLocation(target.clone());
+                profile.getMovementData().setLastLocation(target.clone());
+            }
+
+            this.lastServerGroundLocation = target.clone();
+            this.lastSafeGroundLocation = target.clone();
+            this.safeGroundLocations.clear();
+            this.safeGroundLocations.add(target.clone());
 
             this.lastSetbackTicks = TickTask.getCurrentTick();
+            this.setbackDone = true;
             teleportSetback(player, target);
 
             setbackDebug(
@@ -107,14 +126,26 @@ public class SetbackProcessor implements Processor {
     }
 
     private CustomLocation getCustomLocation(Player player) {
-        CustomLocation target = this.lastSafeGroundLocation;
+        MovementData movementData = profile.getMovementData();
+        CustomLocation target;
 
-        if (target == null && !this.safeGroundLocations.isEmpty()) {
-            target = this.safeGroundLocations.getLast();
+        // Roll back to last solid ground location if > 1 airtick; if on the floor, roll back 20 locations
+        if (movementData != null && movementData.getCustomAirTicks() > 1) {
+            target = this.lastServerGroundLocation != null ? this.lastServerGroundLocation : this.lastSafeGroundLocation;
+        } else {
+            target = !this.safeGroundLocations.isEmpty() ? this.safeGroundLocations.getFirst() : this.lastServerGroundLocation;
         }
 
-        if (target == null && profile.getMovementData() != null) {
-            target = profile.getMovementData().getLastSetBackLocation();
+        if (target == null) {
+            target = this.lastSafeGroundLocation;
+        }
+
+        if (target == null && movementData != null) {
+            target = movementData.getLastGroundLocation();
+        }
+
+        if (target == null && movementData != null) {
+            target = movementData.getLastSetBackLocation();
         }
 
         if (target == null) {

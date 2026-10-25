@@ -93,6 +93,31 @@ public class DamageData implements Data {
         return hasSelfBowBoost(ticks) ? this.lastSelfBowPunchLevel : -1;
     }
 
+    public int getLastTick() {
+        return this.lastTick;
+    }
+
+    public int getLastSelfBowTick() {
+        return this.lastSelfBowTick;
+    }
+
+    public int getLastSelfBowPunchLevel() {
+        return this.lastSelfBowPunchLevel;
+    }
+
+    public int getTicksSinceLastSelfBow() {
+        if (this.lastSelfBowTick == STALE_TICK) {
+            return Integer.MAX_VALUE;
+        }
+        return Math.max(0, profile.getTick() - this.lastSelfBowTick);
+    }
+
+    public boolean isSelfBowNoPunch(int ticks) {
+        return hasSelfBowBoost(ticks)
+                && this.lastSelfBowPunchLevel == 0
+                && this.lastSelfBowTick == this.lastTick;
+    }
+
     private static int getArrowKnockbackStrength(Arrow arrow) {
         try {
             Method method = arrow.getClass().getMethod("getKnockbackStrength");
@@ -165,7 +190,7 @@ public class DamageData implements Data {
             return false;
         }
 
-        int ticks = Math.min(Math.max(requestedTicks, 0), DEFAULT_MEMORY_TICKS);
+        int ticks = Math.max(requestedTicks, 0);
         return profile.getTick() - tick <= ticks;
     }
 

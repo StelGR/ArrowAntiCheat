@@ -557,7 +557,7 @@ public class Profile implements CoreProfile {
         return movementData.isCustomInAir()
                 && movementData.isOnGround()
                 && getTick() > 20
-                && movementData.getCustomAirTicks() >= 6
+                && movementData.getCustomAirTicks() >= 4
                 && !isExempt().isTeleports()
                 && isExempt().isRespawned()
                 && !isExempt().isDead()
@@ -567,7 +567,7 @@ public class Profile implements CoreProfile {
                         ||
                         (
                                 (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()) == 0)
-                                && movementData.getCustomAirTicks() > 10
+                                && movementData.getCustomAirTicks() >= 10
                         )
                 );
     }
