@@ -88,7 +88,7 @@ public class GroundC extends Check {
                 if (exempt("towerBlockPlace", profile.getActionData().hasRecentTowerBlockPlace(5 + (trans * 2), 2 + trans))) return;
                 if (exempt("pistonUpdate", profile.getActionData().hasRecentPistonUpdate(5 + (trans * 2)))) return;
 
-                if (serverPositionGround && serverYGround && movementData.isCustomInAir() && ground && movementData.getCustomAirTicks() >= 6) {
+                if (serverPositionGround && serverYGround && movementData.isCustomInAir() && ground && movementData.getCustomAirTicks() >= 4) {
 
                     fail("On Ghostblock? (1)", verboseInfo);
 
@@ -100,7 +100,7 @@ public class GroundC extends Check {
                 if (profile.getMovementData().getSinceOnGhostBlock() <= 1) {
 //                boolean nearEdge = CollisionUtils.isNearEdge(movementData.getLocation());
 
-                    if (movementData.getFallDistance() > 1.3 || movementData.getLastFallDistance() > 1.3) return;
+                    //if (movementData.getFallDistance() > 1.3 || movementData.getLastFallDistance() > 1.3) return;
 
                     fail("On Ghostblock? (2)", verboseInfo);
 

@@ -17,7 +17,6 @@ import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.Data;
-import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.EventTimer;
@@ -72,9 +71,9 @@ public class BlockProcessor implements Data {
     int PLACE_CONFIRMATION_GRACE_TICKS = 4;
     int PHYSICS_PLACE_CONFIRMATION_GRACE_TICKS = 10;
     int RECENT_PLACE_BLOCK_CHANGE_GRACE_TICKS = 8;
-    int PHYSICS_PLACE_AREA_RADIUS = 2;
-    int PHYSICS_PLACE_AREA_BELOW = 2;
-    int PHYSICS_PLACE_AREA_ABOVE = 3;
+    int PHYSICS_PLACE_AREA_RADIUS = 4;
+    int PHYSICS_PLACE_AREA_BELOW = 5;
+    int PHYSICS_PLACE_AREA_ABOVE = 5;
 
     /*
      * Solid/collision block attempts use their own wider body area. This is
@@ -634,7 +633,7 @@ public class BlockProcessor implements Data {
     }
 
     public boolean isCancelledBlockPlaceAbove(int maxTicks) {
-        return isCancelledPlacementIn3x3Area(maxTicks, 2, 3);
+        return isCancelledPlacementIn3x3Area(maxTicks, 0, 3);
     }
 
     public boolean isCancelledBlockPlaceBelowFeet(int maxTicks) {

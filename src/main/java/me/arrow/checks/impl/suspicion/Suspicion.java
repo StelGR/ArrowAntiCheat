@@ -53,12 +53,11 @@ public class Suspicion extends Check {
 
         // Record current tick's features
         RotationData rotationData = profile.getRotationData();
-
         SensitivityProcessor sensitivityProcessor = rotationData.getSensitivityProcessor();
 
         boolean validSensitivity = sensitivityProcessor.getSensitivityPercent() > 0 && sensitivityProcessor.getSensitivityPercent() < 200;
 
-        if (validSensitivity && profile.getCombatData().getSinceUsedSpear() >= 8) {
+        if (validSensitivity && profile.getCombatData().getSinceUsedSpear() >= 3) {
             float mcpSensitivity = (float) sensitivityProcessor.getMcpSensitivity();
 
             float f = mcpSensitivity * 0.6f + 0.2f;

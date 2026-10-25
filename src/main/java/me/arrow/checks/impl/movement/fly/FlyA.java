@@ -123,12 +123,21 @@ public class FlyA extends Check {
 
                 velMag += horizo;
 
+                int selfBowWindow = serverAirTicks + 10 + (clientTickTrans * 2);
+                boolean selfBowNoPunch = profile.getDamageData().isSelfBowNoPunch(selfBowWindow);
+
                 double baseTicksVel = 4;
                 double baseVelocity = 0.01;
                 double scale = 32;
 
-                double extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
-                airTickLimit += Math.ceil(extraFromVel);
+                double extraFromVel;
+                if (selfBowNoPunch) {
+                    extraFromVel = 3;
+                    airTickLimit += 3;
+                } else {
+                    extraFromVel = velMag <= baseVelocity ? 0 : baseTicksVel + (scale * (velMag - baseVelocity));
+                    airTickLimit += Math.ceil(extraFromVel);
+                }
 
                 if (movementData.isNearFence()) airTickLimit += 4;
 
@@ -159,6 +168,7 @@ public class FlyA extends Check {
                         + "\n * sAirTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + airTickLimit
                         + "\n * cAirTickLimit " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTickLimit
                         + "\n * extraTicksVel " + MsgType.MAIN_THEME_COLOR.getMessage() + extraFromVel
+                        + "\n * selfBowNoPunch " + MsgType.MAIN_THEME_COLOR.getMessage() + selfBowNoPunch
                         + "\n * sinceNearSlimeTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSinceNearSlimeTicks()
                         + "\n * velMag " + MsgType.MAIN_THEME_COLOR.getMessage() + velMag
                         + "\n * velocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalHorizontalVelocity()

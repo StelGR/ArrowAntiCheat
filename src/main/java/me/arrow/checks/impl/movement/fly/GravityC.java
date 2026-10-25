@@ -2,29 +2,22 @@ package me.arrow.checks.impl.movement.fly;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import me.arrow.core.check.CheckType;
-import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
-import me.arrow.utils.custom.materials.MaterialType;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
 
-import java.util.EnumSet;
 import java.util.Set;
-
-import static me.arrow.utils.ChatUtils.debugExempt;
 
 public class GravityC extends Check {
 
-    Set<EntityDamageEvent.DamageCause> IGNORED_CAUSES = buildIgnoredCauses();
+    Set<EntityDamageEvent.DamageCause> IGNORED_CAUSES = GravityUtility.IGNORED_DAMAGE_CAUSES;
 
     double bufferC;
     double lastOffset;
@@ -44,48 +37,10 @@ public class GravityC extends Check {
         long profiler = Profiler.start();
 
         try {
-
             MovementData movementData = profile.getMovementData();
             ActionData actionData = profile.getActionData();
-            if (exempt("noMovementData", movementData == null)) { resetGravityBuffer(); return; }
-            if (exempt("onBoat", movementData.isOnBoat())) { resetGravityBuffer(); return; }
-            //if (exempt("nearBoat", movementData.isNearBoat())) { resetGravityBuffer(); return; }
-            if (exempt("nearShulker", movementData.isNearShulker())) { resetGravityBuffer(); return; }
-            if (exempt("nearShulkerBox", movementData.isNearShulkerBox())) { resetGravityBuffer(); return; }
-            if (exempt("nearLava", movementData.isNearLava())) { resetGravityBuffer(); return; }
-            if (exempt("nearWater", movementData.isNearWater())) { resetGravityBuffer(); return; }
-            if (exempt("insideLiquid", movementData.isInsideLiquid())) { resetGravityBuffer(); return; }
-            if (exempt("nearClimbable", movementData.isNearClimbable())) { resetGravityBuffer(); return; }
-            if (exempt("nearWall", movementData.isNearWall() || movementData.isNearPane())) { resetGravityBuffer(); return; }
-            if (exempt("vehicle", profile.getExempt().isVehicle())) { resetGravityBuffer(); return; }
-            if (exempt("cancelled", profile.shouldCancel())) { resetGravityBuffer(); return; }
-            if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(5 + (profile.getConnectionData().getClientTickTrans() * 2))) { resetGravityBuffer(); return; }
-            if (exempt("startup", profile.getTick() < 120)) { resetGravityBuffer(); return; }
-            if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) { resetGravityBuffer(); return; }
-            if (exempt("nearBerries", movementData.getNearbyBlocksResult() != null
-                    && movementData.getNearbyBlocksResult().getBlockTypes().stream().anyMatch(material -> MaterialType.isMaterial(material.name(), MaterialType.BERRIES)))) { resetGravityBuffer(); return; }
-            if (exempt("chunkNotLoaded", !CollisionUtils.isChunkLoaded(movementData.getLocation()))) { resetGravityBuffer(); return; }
-            if (exempt("levitation", profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) { resetGravityBuffer(); return; }
+            if (isExempt(movementData)) return;
 
-            if (exempt("cancelledBlockPlaceAbove", profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (profile.getConnectionData().getClientTickTrans() * 2)))) { resetGravityBuffer(); return; }
-
-            if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) { resetGravityBuffer(); return; }
-
-            if (exempt("recentDamage", profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2)))) {
-                lastOffset = 0.0D;
-                return;
-            }
-
-            if (exempt("recentVehicle", profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
-
-            int ghostLiquidWebTicks = Math.min(
-                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-            );
-
-            if (exempt("ghostLiquidWeb", ghostLiquidWebTicks < 10 + (profile.getConnectionData().getClientTickTrans() * 4))) { resetGravityBuffer(); return; }
-
-            if (exempt("geysers", profile.getGeysersTracker().isBeingPushed())) return;
             if (!profile.isBedrockPlayer()) {
                 GravityPredictionC(movementData.getDeltaY(), movementData.getLastDeltaY(), movementData.isUnderblock(), movementData, actionData);
             }
@@ -94,108 +49,34 @@ public class GravityC extends Check {
         }
     }
 
+    private boolean isExempt(MovementData md) {
+        if (md == null || profile.getTick() < 120) {
+            resetGravityBuffer();
+            return true;
+        }
+        if (GravityUtility.isCommonGravityExempt(profile, md, "GravityC", true)) {
+            resetGravityBuffer();
+            return true;
+        }
+        if (md.getMovingOnIceTicks() > 0 || md.isNearWall() || md.isNearPane()) {
+            resetGravityBuffer();
+            return true;
+        }
+        return false;
+    }
+
     private void GravityPredictionC(double deltaY, double lastDeltaY, boolean underBlock, MovementData md, ActionData actionData) {
-        boolean inLiquid = md.isInsideWater() || md.isBottomOfWater() || md.isInsideLiquid() || md.isNearWater() || md.isNearLava();
-        boolean onWeb = md.isNearWebs();
-        boolean onLadder = md.isNearClimbable();
-        boolean onIce = md.getMovingOnIceTicks() > 0;
-        boolean onHoney = md.getMovingOnHoneyTicks() > 0;
-        boolean onSlime = md.isOnSlime();
-        boolean nearBed = md.isNearBed();
         boolean clientGround = md.isOnGround();
         boolean serverGround = md.isServerGround();
-        boolean hasVelocity = profile.getVelocityData().isTakingVelocity()
-                && profile.getVelocityData().getVelocityTicks() <= 6;
 
-        if (exempt("onSlime", onSlime)) return;
-        if (exempt("nearBoat", md.isNearBoat())) return;
-        if (onHoney) { debugExempt("Honey", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (onIce) { debugExempt("Ice", "GravityC");lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (onLadder) { debugExempt("ladder", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (onWeb) { debugExempt("web", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (inLiquid) { debugExempt("liquid", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        boolean underBlockExempt = underBlock || md.isLastUnderblock() || md.getSinceUnderblockTicks() <= 2
-                || md.isUnderBoat() || md.isLastUnderBoat() || md.getSinceUnderBoatTicks() <= 3;
-        if (underBlockExempt) { debugExempt("underBlock", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (profile.isBouncingOnSlime()) { debugExempt("bouncingOnSlime", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (hasVelocity) { debugExempt("hasVelocity", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.isRiptiding()) { debugExempt("riptiding", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) { debugExempt("teleport", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.isNearContact()) { debugExempt("contact", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.isNearWater()) { debugExempt("nearWater", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-        if (md.elytraMomentum() > 0) { debugExempt("elytraMomentum", "GravityC"); lastOffset = 0.0D; bufferC = 0.0D; return; }
-
-        if (md.isNearHoney()) {
-            debugExempt("nearHoney", "GravityC");
-            lastOffset = 0.0D;
-            return;
-        }
-
-        if (exempt("reelingIn", profile.getExempt().isReelingIn())) return;
-
-        if (md.getSinceNearSlimeTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))
-                && md.getSinceNearPistonTicks() <= (20 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            debugExempt("nearpiston + slime + bounce", "GravityC");
-            return;
-        }
-
-        if (md.isNearShulkerBox()) {
-            debugExempt("nearShulkerBox", "GravityC");
-            lastOffset = 0.0D;
-            return;
-        }
-        if (profile.shouldCancel()) {
-            debugExempt("shouldCancel", "GravityC");
-            lastOffset = 0.0D;
-            return;
-        }
-
-        final boolean slowFalling = profile.getPotionData().getSlowFallingTicks() > 0;
-
-        if (exempt("slowFalling", slowFalling)) return;
-
-        double jumpAmplifier = profile.getPotionData().getJumpAmplifier();
-        double jumpStart = MoveUtils.getJumpMotion(profile);
-        final double JUMP_TOL = 0.046D;
-
-        if (exempt("predictUpwards", md.getSincePredictUpwardsTicks() < 10)) {
-            lastOffset = 0.0D;
-            return;
-        }
-        if (exempt("predictDownwards", md.getSincePredictDownwardsTicks() < 10)) {
-            lastOffset = 0.0D;
-            return;
-        }
-        if (exempt("predictUpwardsWithoutMaterial", md.getSincePredictUpwardsTicksWithoutMaterial() < 10)) {
-            lastOffset = 0.0D;
-            return;
-        }
-
-        if (exempt("predictDownwardsWithoutMaterial", md.getSincePredictDownwardsTicksWithoutMaterial() < 10)) {
-            lastOffset = 0.0D;
-            return;
-        }
-
-        if (exempt("levitation", profile.getMovementData().getSinceLevitationEffectTicks() < 10 && profile.getPotionData().getLevitationTicks() > 0)) {
-            lastOffset = 0.0D;
-            return;
-        }
-        if (exempt("slowFalling", profile.getPotionData().isHasSlowFalling())) {
-            lastOffset = 0.0D;
-            return;
-        }
         if (deltaY == 0.0D || serverGround) {
             lastOffset = 0.0D;
             return;
         }
-        if (exempt("powderSnow", md.getSincePowderSnowTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-            lastOffset = 0.0D;
-            return;
-        }
-        if (exempt("insideWater", md.getSinceInsideWaterTicks() < 15)) {
-            lastOffset = 0.0D;
-            return;
-        }
+
+        double jumpAmplifier = profile.getPotionData().getJumpAmplifier();
+        double jumpStart = MoveUtils.getJumpMotion(profile);
+        final double JUMP_TOL = 0.046D;
 
         double jumpTolDynamic = 0.06D + (jumpAmplifier * 0.02D);
         if (!clientGround && Math.abs(deltaY - jumpStart) <= jumpTolDynamic) {
@@ -210,14 +91,14 @@ public class GravityC extends Check {
         final double EPS = 1.0E-8D;
         double normalPred1 = (lastDeltaY - G) * DRAG;
         if (Math.abs(normalPred1) < 0.005D) normalPred1 = 0.0D;
-        PredictionResult pred1Result = selectGravityPrediction(md, normalPred1, true, actionData);
+        GravityUtility.PredictionResult pred1Result = GravityUtility.selectGravityPrediction(profile, md, actionData, normalPred1, true);
         double pred1 = pred1Result.prediction;
         double off1 = Math.abs(deltaY - pred1);
         if (off1 < EPS) { lastOffset = off1; return; }
 
         double normalPred2 = (normalPred1 - G) * DRAG;
         if (Math.abs(normalPred2) < 0.005D) normalPred2 = 0.0D;
-        PredictionResult pred2Result = selectGravityPrediction(md, normalPred2, true, actionData);
+        GravityUtility.PredictionResult pred2Result = GravityUtility.selectGravityPrediction(profile, md, actionData, normalPred2, true);
         double pred2 = pred2Result.prediction;
         double off2 = Math.abs(deltaY - pred2);
         if (off2 < EPS) { lastOffset = off2; return; }
@@ -254,10 +135,7 @@ public class GravityC extends Check {
         lastOffset = Math.min(off1, off2);
         if (lastOffset == 0.2268933260512424D && deltaY == -0.07840000152587834D && !clientGround) return;
 
-        double expected = 0.33319999363422426D;
-        if (profile.getVersion().isOlderThanOrEquals(ClientVersion.V_1_8)
-                && !clientGround && Math.abs(deltaY - expected) < 1E-6
-                && profile.getActionData().hasRecentUnderPlaceSupport(20 + (profile.getConnectionData().getClientTickTrans() * 2))) return;
+        if (GravityUtility.isLegacyTower(profile, md, deltaY)) return;
 
         String predictionType = off1 <= off2 ? pred1Result.type : pred2Result.type;
 
@@ -290,110 +168,7 @@ public class GravityC extends Check {
         }
     }
 
-    private static Set<EntityDamageEvent.DamageCause> buildIgnoredCauses() {
-        EnumSet<EntityDamageEvent.DamageCause> set = EnumSet.noneOf(EntityDamageEvent.DamageCause.class);
-        for (String name : new String[]{"VOID", "POISON", "WITHER", "FALL", "MAGIC", "FIRE", "FIRE_TICK", "CAMPFIRE", "SUFFOCATION", "LIGHTNING", "CONTACT", "THORNS", "FLY_INTO_WALL", "CRAMMING", "WORLD_BORDER"}) {
-            try {
-                set.add(EntityDamageEvent.DamageCause.valueOf(name));
-            } catch (IllegalArgumentException ignored) { }
-        }
-        return set;
-    }
-
     private void resetGravityBuffer() {
         bufferC = 0.0D;
-    }
-
-    private PredictionResult selectGravityPrediction(MovementData data, double normalPrediction, boolean allowJump, ActionData actionData) {
-        double actual = data.getDeltaY();
-        PredictionResult best = new PredictionResult(normalPrediction, "normal", Math.abs(actual - normalPrediction));
-        double placedLanding = getPlacedBlockLandingPrediction(data, actionData, normalPrediction);
-        if (Double.isFinite(placedLanding)) {
-            double offset = Math.abs(actual - placedLanding);
-            if (offset + 1.0E-7D < best.offset && offset <= getPlacedBlockCollisionTolerance() + 0.015D)
-                best = new PredictionResult(placedLanding, "placedBlockLanding", offset);
-        }
-        if (allowJump) {
-            double placedJump = getPlacedBlockJumpPrediction(data, actionData);
-            if (Double.isFinite(placedJump)) {
-                double offset = Math.abs(actual - placedJump);
-                double launchTolerance = profile.isBedrockPlayer() ? 0.090D : 0.060D;
-                if (offset + 1.0E-7D < best.offset && offset <= launchTolerance)
-                    best = new PredictionResult(placedJump, "placedBlockJump", offset);
-            }
-        }
-        return best;
-    }
-
-    private double getPlacedBlockLandingPrediction(MovementData data, ActionData actionData, double normalPrediction) {
-        if (actionData == null || data == null || data.getLocation() == null) return Double.NaN;
-        int ticks = actionData.getBlockPlacePredictionTicks();
-        if (!actionData.hasRecentConfirmedUnderPlace(ticks)) return Double.NaN;
-        double topY = Double.isFinite(actionData.getLastConfirmedUnderPlaceTopY()) ? actionData.getLastConfirmedUnderPlaceTopY()
-                : actionData.getLastConfirmedUnderPlaceY() == Integer.MIN_VALUE ? Double.NaN : actionData.getLastConfirmedUnderPlaceY() + 1.0D;
-        double currentY = data.getLocation().getY();
-        double lastY = data.getLastLocation() != null && Double.isFinite(data.getLastLocation().getY())
-                ? data.getLastLocation().getY() : currentY - data.getDeltaY();
-        if (!Double.isFinite(topY) || !Double.isFinite(lastY) || !Double.isFinite(currentY)
-                || !isHorizontallyOverPlacedBlock(data, actionData)) return Double.NaN;
-        double predictedY = lastY + normalPrediction, tolerance = getPlacedBlockCollisionTolerance();
-        return normalPrediction <= 0.08D && currentY <= lastY + 0.08D
-                && lastY >= topY - tolerance && predictedY <= topY + tolerance
-                && Math.abs(currentY - topY) <= tolerance ? topY - lastY : Double.NaN;
-    }
-
-    private double getPlacedBlockJumpPrediction(MovementData data, ActionData actionData) {
-        if (actionData == null || data == null || data.getLocation() == null) return Double.NaN;
-        int ticks = Math.min(5 + profile.getConnectionData().getClientTickTrans(), actionData.getBlockPlacePredictionTicks());
-        if (!actionData.hasRecentConfirmedUnderPlace(ticks) || !isHorizontallyOverPlacedBlock(data, actionData)) return Double.NaN;
-        double topY = Double.isFinite(actionData.getLastConfirmedUnderPlaceTopY()) ? actionData.getLastConfirmedUnderPlaceTopY()
-                : actionData.getLastConfirmedUnderPlaceY() == Integer.MIN_VALUE ? Double.NaN : actionData.getLastConfirmedUnderPlaceY() + 1.0D;
-        double lastY = data.getLastLocation() != null && Double.isFinite(data.getLastLocation().getY())
-                ? data.getLastLocation().getY() : data.getLocation().getY() - data.getDeltaY();
-        if (!Double.isFinite(topY) || !Double.isFinite(lastY)) return Double.NaN;
-        double tolerance = getPlacedBlockCollisionTolerance();
-        boolean supported = Math.abs(lastY - topY) <= tolerance
-                && (data.isLastOnGround() || data.isLastServerGround() || data.isLastPositionYGround() || data.getCustomAirTicks() <= 1);
-        return supported && data.getDeltaY() > 0.0D
-                && data.getCustomAirTicks() <= 2 + profile.getConnectionData().getClientTickTrans()
-                ? getExpectedJumpMotion() : Double.NaN;
-    }
-
-    private boolean isHorizontallyOverPlacedBlock(MovementData data, ActionData actionData) {
-        if (data == null || actionData == null || data.getLocation() == null) return false;
-        int blockX = actionData.getLastConfirmedUnderPlaceX(), blockZ = actionData.getLastConfirmedUnderPlaceZ();
-        if (blockX == Integer.MIN_VALUE || blockZ == Integer.MIN_VALUE) return false;
-        double tolerance = 0.800001D + Math.min(0.050D, getPlacedBlockCollisionTolerance());
-        if (profile.isBedrockPlayer()) tolerance += 0.015D;
-        return Math.abs(data.getLocation().getX() - (blockX + 0.5D)) <= tolerance
-                && Math.abs(data.getLocation().getZ() - (blockZ + 0.5D)) <= tolerance;
-    }
-
-    private double getPlacedBlockCollisionTolerance() {
-        double tolerance = 0.03125D;
-        try { tolerance += Math.min(0.0625D, profile.getConnectionData().getClientTickTrans() * 0.004D); } catch (Throwable ignored) { }
-        try { tolerance += Math.min(0.0625D, (profile.getConnectionData().getTransPing() / 50.0D) * 0.003D); } catch (Throwable ignored) { }
-        return Math.min(0.125D, tolerance);
-    }
-
-    private double getExpectedJumpMotion() {
-        double motion = MoveUtils.getJumpMotion(profile);
-        if (!Double.isFinite(motion) || motion < 0.30D || motion > 1.60D) {
-            motion = 0.42D;
-            if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) motion += Math.max(0, SpeedUtilities.getJumpBoostPotionLevel(profile)) * 0.10D;
-        }
-        return motion;
-    }
-
-    static class PredictionResult {
-        double prediction;
-        String type;
-        double offset;
-
-        private PredictionResult(double prediction, String type, double offset) {
-            this.prediction = prediction;
-            this.type = type;
-            this.offset = offset;
-        }
     }
 }
