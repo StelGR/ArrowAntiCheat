@@ -1,9 +1,7 @@
 package me.arrow.checks.impl.combat.reach;
 
-import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
-import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAttack;
@@ -501,14 +499,9 @@ public class ReachA extends Check {
             return;
         }
 
-        try {
-            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_21_11)) {
-                org.bukkit.inventory.ItemStack main = Arrow.getInstance().getNmsManager().getNmsInstance().getItemInMainHand(profile.getPlayer());
-                if (main != null && main.getItemMeta().getItemName().endsWith("_SPEAR")) {
-                    BASE_REACH_LIMIT = 4.5;
-                }
-            }
-        } catch (Throwable ignored) {
+
+        if (profile.getCombatData().getSinceUsedSpear() <= 7) {
+            BASE_REACH_LIMIT = 4.5;
         }
 
         // Determine minimum allowed reach based on player's interaction range attribute.
