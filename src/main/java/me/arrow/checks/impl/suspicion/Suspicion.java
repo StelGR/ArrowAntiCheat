@@ -49,7 +49,7 @@ public class Suspicion extends Check {
     public void handle(PacketReceiveEvent event) {
         if (!OtherUtility.isRotation(event.getPacketType())) return;
 
-        if (profile.shouldCancel() || profile.isExempt().isTeleports() || profile.isExempt().isVehicle() || profile.getMovementData().getMovingTicks() < 10) return;
+        if (profile.shouldCancel() || profile.isExempt().isTeleports() || profile.isExempt().isVehicle()) return;
 
         // Record current tick's features
         RotationData rotationData = profile.getRotationData();
@@ -58,7 +58,7 @@ public class Suspicion extends Check {
 
         boolean validSensitivity = sensitivityProcessor.getSensitivityPercent() > 0 && sensitivityProcessor.getSensitivityPercent() < 200;
 
-        if (validSensitivity && profile.getCombatData().getSinceUsedSpear() <= 2) {
+        if (validSensitivity && profile.getCombatData().getSinceUsedSpear() >= 8) {
             float mcpSensitivity = (float) sensitivityProcessor.getMcpSensitivity();
 
             float f = mcpSensitivity * 0.6f + 0.2f;
@@ -72,7 +72,6 @@ public class Suspicion extends Check {
             if (me.arrow.neural.TrainingManager.hasActiveSession(profile.getPlayer().getName())) {
                 me.arrow.neural.TrainingManager.recordTick(profile);
             }
-
 
             float deltaYaw = rotationData.getDeltaYaw();
             float deltaPitch = rotationData.getDeltaPitch();

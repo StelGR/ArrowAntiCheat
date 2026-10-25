@@ -373,7 +373,7 @@ public class ClientBrandListener implements Data {
             return "Cave Client";
         }
 
-        return "Vanilla";
+        return brand;
     }
 
     @Override
