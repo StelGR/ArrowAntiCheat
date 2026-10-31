@@ -25,6 +25,7 @@ import lombok.Getter;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.playerdata.data.Data;
+import me.arrow.playerdata.processors.impl.SetbackProcessor;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.util.Vector;
@@ -209,13 +210,22 @@ public class TeleportData implements Data {
                 System.currentTimeMillis()
         );
 
+        if (profile.getMovementData() != null && profile.getMovementData().getSetbackProcessor() != null) {
+            SetbackProcessor sp = profile.getMovementData().getSetbackProcessor();
+            if (sp.isSetbackAwaitingMatch() && sp.getLastSetbackTarget() != null) {
+                if (targetPos.distance(sp.getLastSetbackTarget().toVector()) < 0.5) {
+                    record.setSetback(true);
+                }
+            }
+        }
+
         pendingTeleports.add(record);
         teleportsPending = pendingTeleports.size();
         teleportAmount++;
 
-        // Immediately exempt on send – lag-compensated to cover the round-trip
+        // Keep teleport ticks updated, but do not grant blanket exemption on send.
+        // In-flight packets before the client arrives at this target must be validated normally.
         teleportTicks = 0;
-        exemptTicksRemaining = Math.max(exemptTicksRemaining, getLagCompensatedExemptTicks());
         updateExemptState();
 
         // Send transaction immediately after PLAYER_POSITION_AND_LOOK is written to the channel
@@ -377,16 +387,27 @@ public class TeleportData implements Data {
 
             teleportsPending = pendingTeleports.size();
             teleportAppliedThisTick = true;
-            exemptTicksRemaining = 3;
+            exemptTicksRemaining = 1;
             teleportTicks = 0;
             ticksSinceTeleportMatch = 0;
             lastTeleportTarget = matched.getTargetPosition();
             zeroAmount++;
             trackedTps++;
 
+            if (matched.isSetback()) {
+                if (profile.getMovementData() != null && profile.getMovementData().getSetbackProcessor() != null) {
+                    profile.getMovementData().getSetbackProcessor().onSetbackLanded();
+                }
+            } else {
+                if (profile.getMovementData() != null && profile.getMovementData().getSetbackProcessor() != null) {
+                    profile.getMovementData().getSetbackProcessor().onExternalTeleportLanded();
+                }
+            }
+
             if (Config.Setting.DEBUG.getBoolean()) {
                 OtherUtility.log(profile.getPlayer().getName()
-                        + " [Teleport] MATCHED confirmed teleport. Target=" + matched.getTargetPosition()
+                        + " [Teleport] MATCHED " + (matched.isSetback() ? "setback" : "confirmed")
+                        + " teleport. Target=" + matched.getTargetPosition()
                         + " Pos=" + currentPos
                         + " Pending remaining=" + teleportsPending);
             }
@@ -398,6 +419,11 @@ public class TeleportData implements Data {
         while (iterator.hasNext()) {
             TeleportRecord record = iterator.next();
             if (++record.ageFlyingTicks > timeoutTicks) {
+                if (record.isSetback()) {
+                    if (profile.getMovementData() != null && profile.getMovementData().getSetbackProcessor() != null) {
+                        profile.getMovementData().getSetbackProcessor().onSetbackTimeout();
+                    }
+                }
                 pendingTeleports.remove(record);
                 teleportsPending = pendingTeleports.size();
             }
@@ -447,7 +473,6 @@ public class TeleportData implements Data {
         teleportsPending = pendingTeleports.size();
         teleportAmount++;
         teleportTicks = 0;
-        exemptTicksRemaining = Math.max(exemptTicksRemaining, getLagCompensatedExemptTicks());
         updateExemptState();
     }
 
@@ -459,6 +484,19 @@ public class TeleportData implements Data {
 
     public boolean isTeleporting() {
         return teleportAppliedThisTick || exemptTicksRemaining > 0;
+    }
+
+    public boolean hasPendingTeleports() {
+        return !pendingTeleports.isEmpty();
+    }
+
+    public boolean hasPendingExternalTeleports() {
+        for (TeleportRecord record : pendingTeleports) {
+            if (!record.isSetback()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean hasConfirmedTeleport() {
@@ -529,6 +567,12 @@ public class TeleportData implements Data {
         @lombok.Setter
         private long confirmTimestamp;
         private int ageFlyingTicks;
+        @lombok.Setter
+        private boolean setback;
+
+        public boolean isSetback() {
+            return setback;
+        }
 
         public TeleportRecord(int teleportId, int modernPingId, short legacyActionId,
                               Vector targetPosition, float targetYaw, float targetPitch,

@@ -55,42 +55,44 @@ public class GuiListener implements Listener {
         ItemStack clickedItem = event.getCurrentItem();
         int rawSlot = event.getRawSlot();
 
-        if (inventoryTitle.contains(translate("&7Info for "))) {
+        String plainTitle = ChatColor.stripColor(inventoryTitle);
+
+        if (inventoryTitle.contains(translate("&7Info for ")) || (plainTitle != null && plainTitle.contains("Info for "))) {
             event.setCancelled(true);
             return;
         }
 
-        if (inventoryTitle.contains(translate("&7Main Menu"))) {
+        if (inventoryTitle.contains(translate("&7Main Menu")) || (plainTitle != null && plainTitle.contains("Main Menu"))) {
             handleMainMenu(event, player, rawSlot);
             return;
         }
 
-        if (inventoryTitle.contains(translate("&7Ban Animations"))) {
+        if (inventoryTitle.contains(translate("&7Ban Animations")) || (plainTitle != null && plainTitle.contains("Ban Animations"))) {
             handleBanAnimationsMenu(event, player, rawSlot);
             return;
         }
 
-        if (inventoryTitle.contains(translate("&7Settings"))) {
+        if (inventoryTitle.contains(translate("&7Settings")) || (plainTitle != null && plainTitle.contains("Settings"))) {
             handleSettingsMenu(event, player, rawSlot);
             return;
         }
 
-        if (inventoryTitle.contains(translate("&7Select Category"))) {
+        if (inventoryTitle.contains(translate("&7Select Category")) || (plainTitle != null && plainTitle.contains("Select Category"))) {
             handleSelectCategoryMenu(event, player, rawSlot);
             return;
         }
 
-        if (inventoryTitle.contains(translate("&7Misc Checks"))) {
+        if (inventoryTitle.contains(translate("&7Misc Checks")) || (plainTitle != null && plainTitle.contains("Misc Checks"))) {
             handleMiscChecksMenu(event, player, rawSlot);
             return;
         }
 
-        if (inventoryTitle.contains(translate("&7Movement Checks"))) {
+        if (inventoryTitle.contains(translate("&7Movement Checks")) || (plainTitle != null && plainTitle.contains("Movement Checks"))) {
             handleMovementChecksMenu(event, player, rawSlot);
             return;
         }
 
-        if (inventoryTitle.contains(translate("&7Combat Checks"))) {
+        if (inventoryTitle.contains(translate("&7Combat Checks")) || (plainTitle != null && plainTitle.contains("Combat Checks"))) {
             handleCombatChecksMenu(event, player, rawSlot);
             return;
         }
@@ -454,22 +456,44 @@ public class GuiListener implements Listener {
 
         if (rightClick) {
             boolean newPunish = !target.isCanPunish();
+            target.setCanPunish(newPunish);
             setLiveField(target, "canPunish", newPunish);
             saveCheckValue(baseKey + ".punish.enabled", newPunish);
         } else {
             boolean newEnabled = !target.isEnabled();
+            target.setEnabled(newEnabled);
             setLiveField(target, "enabled", newEnabled);
             saveCheckValue(baseKey + ".enabled", newEnabled);
         }
 
         updateAllLoadedProfiles(baseKey, rightClick ? null : target.isEnabled(), rightClick ? target.isCanPunish() : null);
 
-        String checkType = target.getClass().getSimpleName().replaceFirst("[A-Z]$", "");
         String uiName = extractUiName(plainTitle);
-        String groupedCheckType = "Fly".equalsIgnoreCase(uiName) ? "Fly"
-                : ("Interact".equalsIgnoreCase(uiName) ? "Interact" : checkType);
+        if ("Speed".equalsIgnoreCase(uiName)) {
+            openFor(player, () -> Arrow.getGuiManager().openArrowCheckSpeedGUI(player, "Speed", "OmniSprint", uiName));
+            return;
+        }
 
-        openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, groupedCheckType, uiName));
+        String checkType;
+        if ("Fly".equalsIgnoreCase(uiName)) {
+            checkType = "Fly";
+        } else if ("Interact".equalsIgnoreCase(uiName)) {
+            checkType = "Interact";
+        } else if ("No Slowdown".equalsIgnoreCase(uiName)) {
+            checkType = "NoSlow";
+        } else if ("Aim Assist".equalsIgnoreCase(uiName)) {
+            checkType = "Aim";
+        } else if ("Badpackets".equalsIgnoreCase(uiName)) {
+            checkType = "BadPackets";
+        } else {
+            checkType = target.getCheckName();
+            if (checkType == null || checkType.isEmpty()) {
+                checkType = target.getClass().getSimpleName().replaceAll("[A-Z0-9]+$", "");
+            }
+        }
+
+        final String finalCheckType = checkType;
+        openFor(player, () -> Arrow.getGuiManager().openArrowCheckGUI(player, finalCheckType, uiName));
     }
 
     private void handleBackButtons(InventoryClickEvent event, Player player, String inventoryTitle, ItemStack clickedItem, int rawSlot, int topSize) {
@@ -536,32 +560,94 @@ public class GuiListener implements Listener {
     }
 
     private String getInventoryTitle(InventoryClickEvent event) {
-        Object view = getInventoryView(event);
+        if (event == null) return null;
 
-        if (view != null) {
-            String title = invokeString(view, "getTitle");
-            if (title != null) return title;
+        // 1. Direct API call on event.getView()
+        try {
+            org.bukkit.inventory.InventoryView view = event.getView();
+            if (view != null) {
+                String title = view.getTitle();
+                if (title != null && !title.isEmpty()) {
+                    return title;
+                }
+            }
+        } catch (Throwable ignored) {
         }
 
+        // 2. Reflection fallback on InventoryView
+        Object view = getInventoryView(event);
+        if (view != null) {
+            String title = invokeString(view, "getTitle");
+            if (title != null && !title.isEmpty()) return title;
+
+            // 3. Adventure Paper title() method returning Component
+            try {
+                Method titleMethod = findAccessibleMethod(view.getClass(), "title");
+                if (titleMethod != null) {
+                    Object component = titleMethod.invoke(view);
+                    if (component != null) {
+                        String compStr = serializeComponent(component);
+                        if (compStr != null && !compStr.isEmpty()) {
+                            return compStr;
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        // 4. Fallback on topInventory
         Inventory topInventory = getTopInventory(event);
+        if (topInventory != null) {
+            String title = invokeString(topInventory, "getTitle");
+            if (title != null && !title.isEmpty()) return title;
 
-        String title = invokeString(topInventory, "getTitle");
-        if (title != null) return title;
+            title = invokeString(topInventory, "getName");
+            if (title != null && !title.isEmpty()) return title;
+        }
 
-        return invokeString(topInventory, "getName");
+        return null;
+    }
 
+    private String serializeComponent(Object component) {
+        if (component == null) return null;
+        try {
+            Class<?> legacyClass = Class.forName("net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer");
+            Method legacySectionMethod = legacyClass.getMethod("legacySection");
+            Object serializer = legacySectionMethod.invoke(null);
+            Method serializeMethod = serializer.getClass().getMethod("serialize", Class.forName("net.kyori.adventure.text.Component"));
+            return (String) serializeMethod.invoke(serializer, component);
+        } catch (Throwable ignored) {
+        }
+        try {
+            Class<?> plainClass = Class.forName("net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer");
+            Method plainTextMethod = plainClass.getMethod("plainText");
+            Object serializer = plainTextMethod.invoke(null);
+            Method serializeMethod = serializer.getClass().getMethod("serialize", Class.forName("net.kyori.adventure.text.Component"));
+            return (String) serializeMethod.invoke(serializer, component);
+        } catch (Throwable ignored) {
+        }
+        return null;
     }
 
     private Inventory getTopInventory(InventoryClickEvent event) {
-        Object view = getInventoryView(event);
+        try {
+            org.bukkit.inventory.InventoryView view = event.getView();
+            if (view != null) {
+                return view.getTopInventory();
+            }
+        } catch (Throwable ignored) {
+        }
 
+        Object view = getInventoryView(event);
         if (view != null) {
             try {
-                Method method = view.getClass().getMethod("getTopInventory");
-                Object result = method.invoke(view);
-
-                if (result instanceof Inventory) {
-                    return (Inventory) result;
+                Method method = findAccessibleMethod(view.getClass(), "getTopInventory");
+                if (method != null) {
+                    Object result = method.invoke(view);
+                    if (result instanceof Inventory) {
+                        return (Inventory) result;
+                    }
                 }
             } catch (Throwable ignored) {
             }
@@ -590,13 +676,52 @@ public class GuiListener implements Listener {
         return null;
     }
 
-    private String invokeString(Object object, String methodName) {
-        try {
-            Method method = object.getClass().getMethod(methodName);
-            Object result = method.invoke(object);
+    private Method findAccessibleMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes) {
+        if (clazz == null) return null;
 
-            if (result instanceof String) {
-                return (String) result;
+        for (Class<?> iface : clazz.getInterfaces()) {
+            try {
+                return iface.getMethod(methodName, parameterTypes);
+            } catch (NoSuchMethodException ignored) {
+            }
+        }
+
+        Class<?> current = clazz;
+        while (current != null) {
+            if (java.lang.reflect.Modifier.isPublic(current.getModifiers())) {
+                try {
+                    return current.getMethod(methodName, parameterTypes);
+                } catch (NoSuchMethodException ignored) {
+                }
+            }
+            for (Class<?> iface : current.getInterfaces()) {
+                try {
+                    return iface.getMethod(methodName, parameterTypes);
+                } catch (NoSuchMethodException ignored) {
+                }
+            }
+            current = current.getSuperclass();
+        }
+
+        try {
+            Method m = clazz.getMethod(methodName, parameterTypes);
+            m.setAccessible(true);
+            return m;
+        } catch (Throwable ignored) {
+        }
+
+        return null;
+    }
+
+    private String invokeString(Object object, String methodName) {
+        if (object == null) return null;
+        try {
+            Method method = findAccessibleMethod(object.getClass(), methodName);
+            if (method != null) {
+                Object result = method.invoke(object);
+                if (result instanceof String) {
+                    return (String) result;
+                }
             }
         } catch (Throwable ignored) {
         }
@@ -677,10 +802,12 @@ public class GuiListener implements Listener {
                         }
 
                         if (enabled != null) {
+                            check.setEnabled(enabled);
                             setLiveField(check, "enabled", enabled);
                         }
 
                         if (punishable != null) {
+                            check.setCanPunish(punishable);
                             setLiveField(check, "canPunish", punishable);
                         }
                     }

@@ -9,7 +9,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * A simple thread manager class that'll help us make sure a player profile is provided with the best
  * Available thread at any time, While also shutting down threads that are not used.
  */
-public final class ThreadManager {
+public class ThreadManager {
 
     //Get a proper thread limit
     private static final int MAX_THREADS = Runtime.getRuntime().availableProcessors() * 2;

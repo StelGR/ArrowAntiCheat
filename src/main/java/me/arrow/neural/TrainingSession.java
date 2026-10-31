@@ -43,7 +43,7 @@ public class TrainingSession {
         RotationData rotationData = profile.getRotationData();
         SensitivityProcessor sensitivityProcessor = rotationData.getSensitivityProcessor();
 
-        boolean validSensitivity = sensitivityProcessor.getSensitivityPercent() > 0 && sensitivityProcessor.getSensitivityPercent() < 200;
+        boolean validSensitivity = sensitivityProcessor.getSensitivityPercent() > 0 && sensitivityProcessor.getSensitivityPercent() <= 200;
 
         if (validSensitivity) {
             float mcpSensitivity = (float) sensitivityProcessor.getMcpSensitivity();

@@ -54,6 +54,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import static io.github.retrooper.packetevents.adventure.serializer.legacy.LegacyComponentSerializer.*;
+
 /**
  * A profile class containing every single information we need
  */
@@ -62,7 +64,7 @@ import java.util.UUID;
 public class Profile implements CoreProfile {
 
     LegacyComponentSerializer LEGACY_COMPONENT_SERIALIZER =
-            LegacyComponentSerializer.legacySection();
+            legacySection();
 
     //-------------------------------------------
     private final ActionData actionData;
@@ -113,6 +115,7 @@ public class Profile implements CoreProfile {
     @Getter
     @Setter
     boolean isSwimming, isSneaking, isCrawling, isSleeping, isBouncingOnSlime, hasTeleportedOnce;
+    private boolean flaggedThisPacket;
 
     @Getter
     @Setter
@@ -257,6 +260,8 @@ public class Profile implements CoreProfile {
 
         if (this.player == null) return;
 
+        this.flaggedThisPacket = false;
+
         // Duplicate movement packet cancellation for 1.17+ clients (e.g. item use, attack, bow spam)
         if (isDuplicateMovementPacket(event)) {
             event.setCancelled(true);
@@ -265,6 +270,8 @@ public class Profile implements CoreProfile {
         }
 
         this.clientPacketTracker.addPacket();
+
+        this.clientBrandListener.processReceive(event);
 
         this.connectionData.processReceive(event);
         this.velocityData.processReceive(event);
@@ -279,7 +286,7 @@ public class Profile implements CoreProfile {
         this.vehicleData.processReceive(event);
         this.clientWorldTracker.processReceive(event);
         this.blockProcessor.processReceive(event);
-        this.clientBrandListener.processReceive(event);
+
         this.nmsProcessor.processReceive(event);
 
         this.exempt.handleExempts(event.getTimestamp());
@@ -291,6 +298,12 @@ public class Profile implements CoreProfile {
 
         this.checkHolder.runChecks(event);
         this.reachEntityTracker.processReceive(event);
+
+        if (OtherUtility.isFlying(event.getPacketType())) {
+            if (this.movementData != null && this.movementData.getSetbackProcessor() != null) {
+                this.movementData.getSetbackProcessor().recordSafeGroundPostCheck();
+            }
+        }
     }
 
     public void handleSend(PacketSendEvent event) {
@@ -298,6 +311,8 @@ public class Profile implements CoreProfile {
         if (this.player == null) return;
 
         this.serverPacketTracker.addPacket();
+
+        this.clientBrandListener.processSend(event);
 
         this.connectionData.processSend(event);
         this.reachEntityTracker.processSend(event);
@@ -313,7 +328,7 @@ public class Profile implements CoreProfile {
         this.vehicleData.processSend(event);
         this.clientWorldTracker.processSend(event);
         this.blockProcessor.processSend(event);
-        this.clientBrandListener.processSend(event);
+
         this.nmsProcessor.processSend(event);
 
        // if (OtherUtility.isFlying(event.getPacketType())) simulation.simulateMovement(0, 0, true);

@@ -50,7 +50,7 @@ public class HitboxA extends Check {
     public void handle(PacketReceiveEvent event) {
         if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
             WrapperPlayClientAttack attack = new WrapperPlayClientAttack(event);
-            handleAttack(attack.getEntityId());
+            handleAttack(attack.getEntityId(), event);
         } else if (event.getPacketType().equals(PacketType.Play.Client.INTERACT_ENTITY)) {
             WrapperPlayClientInteractEntity packet;
             try {
@@ -59,7 +59,7 @@ public class HitboxA extends Check {
                 return;
             }
             if (packet.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
-                handleAttack(packet.getEntityId());
+                handleAttack(packet.getEntityId(), event);
             }
         } else if (OtherUtility.isFlying(event.getPacketType())) {
             missBuffer = Math.max(0.0D, missBuffer - 0.035D);
@@ -67,7 +67,7 @@ public class HitboxA extends Check {
         }
     }
 
-    private void handleAttack(int entityId) {
+    private void handleAttack(int entityId, PacketReceiveEvent event) {
         Profile target = resolveTarget(entityId);
 
         if (target == null || isExempt(profile, target)) {
@@ -188,18 +188,15 @@ public class HitboxA extends Check {
 
         missBuffer = Math.min(8.0D, missBuffer + evidence);
 
-        if (increaseBufferBy(evidence) >= 2.5D && missBuffer >= 2.5D) {
-            fail("Invalid Hitbox Interaction",
-                    "centerLine " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestCenterLine)
-                            + "\ncenterAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(bestCenterAngle) + "°"
-                            + "\nmargin " + MsgType.MAIN_THEME_COLOR.getMessage() + format(margin)
-                            + "\nforgivingMargin " + MsgType.MAIN_THEME_COLOR.getMessage() + format(forgivingMargin)
-                            + "\nrecentFlick " + MsgType.MAIN_THEME_COLOR.getMessage() + recentFlick
-                            + "\npingTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + pingTicks
-                            + "\npositions " + MsgType.MAIN_THEME_COLOR.getMessage() + positions.size());
+        if (increaseBufferBy(evidence) >= 2.0D && missBuffer >= 2.0D) {
+            // Cancel invalid hit without flagging or sending alerts
+            event.setCancelled(true);
 
             missBuffer = Math.max(1.0D, missBuffer - 1.0D);
             decreaseBufferBy(1.0D);
+        } else if (bestCenterAngle >= 35.0D) {
+            // Blatant attack completely off-target, cancel immediately
+            event.setCancelled(true);
         }
     }
 

@@ -82,19 +82,52 @@ public class GuiUtility {
     }
 
 
-    public static ItemStack generateItem(ItemStack itemStack, String itemName, List<String> meta, Boolean hideFlag, boolean glowing) {
-        ItemMeta itemMeta = itemStack.getItemMeta();
-        itemMeta.setLore(meta);
-        itemMeta.setDisplayName(itemName);
-        if (hideFlag) itemMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        if (glowing) {
-            Enchantment glowEnchantment = firstEnchantment("SHARPNESS", "DAMAGE_ALL");
-            if (glowEnchantment != null) {
-                itemMeta.addEnchant(glowEnchantment, 1, true);
-            }
-            itemMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+    public static void applyGlint(ItemMeta itemMeta, boolean glowing) {
+        if (itemMeta == null) return;
+
+        // Modern 1.20.5+ / 1.21 Paper / Spigot
+        try {
+            Method glintMethod = itemMeta.getClass().getMethod("setEnchantmentGlintOverride", Boolean.class);
+            glintMethod.invoke(itemMeta, glowing);
+            return;
+        } catch (Throwable ignored) {
         }
-        itemStack.setItemMeta(itemMeta);
+
+        if (glowing) {
+            Enchantment glowEnchantment = firstEnchantment("UNBREAKING", "DURABILITY", "SHARPNESS", "DAMAGE_ALL", "LUCK");
+            if (glowEnchantment != null) {
+                try {
+                    Class<?> storageMetaClass = Class.forName("org.bukkit.inventory.meta.EnchantmentStorageMeta");
+                    if (storageMetaClass.isInstance(itemMeta)) {
+                        Method addStored = storageMetaClass.getMethod("addStoredEnchant", Enchantment.class, int.class, boolean.class);
+                        addStored.invoke(itemMeta, glowEnchantment, 1, true);
+                    } else {
+                        itemMeta.addEnchant(glowEnchantment, 1, true);
+                    }
+                } catch (Throwable t) {
+                    try {
+                        itemMeta.addEnchant(glowEnchantment, 1, true);
+                    } catch (Throwable ignored) {}
+                }
+            }
+            try {
+                itemMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    public static ItemStack generateItem(ItemStack itemStack, String itemName, List<String> meta, Boolean hideFlag, boolean glowing) {
+        if (itemStack == null) return null;
+        ItemMeta itemMeta = itemStack.getItemMeta();
+        if (itemMeta != null) {
+            itemMeta.setLore(meta);
+            itemMeta.setDisplayName(itemName);
+            if (hideFlag != null && hideFlag) {
+                itemMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            }
+            applyGlint(itemMeta, glowing);
+            itemStack.setItemMeta(itemMeta);
+        }
         return itemStack;
     }
 
@@ -507,9 +540,27 @@ public class GuiUtility {
         if (names == null) return null;
 
         for (String name : names) {
-            Enchantment enchantment = Enchantment.getByName(name);
-            if (enchantment != null) return enchantment;
+            try {
+                Enchantment enchantment = Enchantment.getByName(name);
+                if (enchantment != null) return enchantment;
+            } catch (Throwable ignored) {}
+
+            try {
+                Class<?> nskClass = Class.forName("org.bukkit.NamespacedKey");
+                Method minecraftKeyMethod = nskClass.getMethod("minecraft", String.class);
+                Object key = minecraftKeyMethod.invoke(null, name.toLowerCase());
+                Method getByKey = Enchantment.class.getMethod("getByKey", nskClass);
+                Object res = getByKey.invoke(null, key);
+                if (res instanceof Enchantment) return (Enchantment) res;
+            } catch (Throwable ignored) {}
         }
+
+        try {
+            Enchantment[] values = Enchantment.values();
+            if (values != null && values.length > 0) {
+                return values[0];
+            }
+        } catch (Throwable ignored) {}
 
         return null;
     }

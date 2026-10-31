@@ -31,7 +31,8 @@ public class AutoClickerA extends Check {
             cps = profile.getCombatData().getCurrentCps();
         }
 
-        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION)
+                || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
             if (cps >= maxCPS) {
                 fail("CPS Limit",
                         "CPS " + MsgType.MAIN_THEME_COLOR.getMessage() + cps +

@@ -47,30 +47,33 @@ public class Suspicion extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
+       // profile.getPlayer().sendMessage(event.getPacketType().getName());
+
         if (!OtherUtility.isRotation(event.getPacketType())) return;
 
-        if (profile.shouldCancel() || profile.isExempt().isTeleports() || profile.isExempt().isVehicle()) return;
+        if (me.arrow.neural.TrainingManager.hasActiveSession(profile.getPlayer().getName())) {
+            me.arrow.neural.TrainingManager.recordTick(profile);
+        }
+
+        if (profile.shouldCancel()
+                || profile.getMovementData().getSinceTeleportTicks() <= 3
+                || profile.isExempt().isVehicle()) return;
+
+        NeuralNetClient client = NeuralNetManager.getClient();
+        if (client == null || !client.isAvailable()) return;
 
         // Record current tick's features
         RotationData rotationData = profile.getRotationData();
         SensitivityProcessor sensitivityProcessor = rotationData.getSensitivityProcessor();
 
-        boolean validSensitivity = sensitivityProcessor.getSensitivityPercent() > 0 && sensitivityProcessor.getSensitivityPercent() < 200;
+        boolean validSensitivity = sensitivityProcessor.getSensitivityPercent() > 0 && sensitivityProcessor.getSensitivityPercent() <= 200;
 
-        if (validSensitivity && profile.getCombatData().getSinceUsedSpear() >= 3) {
+        if (validSensitivity) {
             float mcpSensitivity = (float) sensitivityProcessor.getMcpSensitivity();
 
             float f = mcpSensitivity * 0.6f + 0.2f;
 
             float gcd = f * f * f * 1.2f;
-
-            NeuralNetClient client = NeuralNetManager.getClient();
-            if (client == null || !client.isAvailable()) return;
-
-            // Don't flag while training — we're collecting data, not detecting
-            if (me.arrow.neural.TrainingManager.hasActiveSession(profile.getPlayer().getName())) {
-                me.arrow.neural.TrainingManager.recordTick(profile);
-            }
 
             float deltaYaw = rotationData.getDeltaYaw();
             float deltaPitch = rotationData.getDeltaPitch();
@@ -123,7 +126,7 @@ public class Suspicion extends Check {
             client.predict(ordered).thenAccept(confidence -> {
                 if (confidence < 0) return; // Error
 
-                if (confidence >= CONFIDENCE_THRESHOLD) {
+                if (confidence >= CONFIDENCE_THRESHOLD && profile.getCombatData().getSinceUsedSpear() >= 7) {
                     // The higher the confidence above 95%, the higher the trust factor is decreased
                     double excessRatio = Math.min(1.0, Math.max(0.0, (confidence - CONFIDENCE_THRESHOLD) / (1.0 - CONFIDENCE_THRESHOLD)));
                     double trustDecrease = 1.0 + (excessRatio * 3.0);

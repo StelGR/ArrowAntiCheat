@@ -32,7 +32,15 @@ public abstract class AbstractCheck {
     protected final Profile profile;
 
     @Getter
-    private final boolean enabled, canPunish;
+    private boolean enabled, canPunish;
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public void setCanPunish(boolean canPunish) {
+        this.canPunish = canPunish;
+    }
 
     @Getter
     @Setter
@@ -137,6 +145,8 @@ public abstract class AbstractCheck {
         if (profile.isBanned()) return;
         //if (profile.isBypassing()) return;
         if (profile.isBedrockPlayer() && Config.Setting.IGNORE_BEDROCK.getBoolean()) return;
+
+        profile.setFlaggedThisPacket(true);
 
       //  if (profile.getPlayer().hasPermission(Permissions.BYPASS.getPermission())) return;
 

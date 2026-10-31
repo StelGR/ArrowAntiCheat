@@ -188,10 +188,10 @@ public class SpeedA extends Check {
                 }
             }
 
-            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 20 + (profile.getConnectionData().getClientTickTrans() * 2);
+            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 30;
 
             if (currentlyRiptiding) {
-                double riptideCap = 0.25 + (0.75 * profile.getPredictionData().riptideLevel());
+                double riptideCap = 0.65 + (0.75 * profile.getPredictionData().riptideLevel());
 
                 if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
                 if (movementData.isInsideWater()) riptideCap += 1;
@@ -208,6 +208,12 @@ public class SpeedA extends Check {
 
             if (velocityData.isTakingVelocity()) {
                 allowedLimit += velocityData.getTotalHorizontalVelocity() * 1.5;
+            }
+
+            int soulSpeedLevel = SpeedUtilities.getSoulSpeedLevel(profile);
+
+            if (soulSpeedLevel > 0 && movementData.getMovingOnSoulBlocksTicks() > 0) {
+                allowedLimit += 0.08D;
             }
 
             allowedLimit += movementData.elytraMomentum();
@@ -568,6 +574,7 @@ public class SpeedA extends Check {
                                     + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedSpeed
                                     + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                                     + "\ndifference " + MsgType.MAIN_THEME_COLOR.getMessage() + difference
+                                    + "\npredictedWater " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getExpectedWaterDeltaXZ() + " | " + movementData.getWaterMomentumBonus()
                                     + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
                                     + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
                                     + "\nupwardsTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()

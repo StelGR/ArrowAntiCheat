@@ -9,7 +9,7 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPl
 import me.arrow.core.movement.MovementFrame;
 import me.arrow.core.movement.MovementState;
 import me.arrow.core.movement.MovementStateStore;
-import me.arrow.core.network.PacketSanityValidator;
+import me.arrow.core.network.CrashChecker;
 
 import java.util.UUID;
 
@@ -24,7 +24,7 @@ final class FabricPacketListener extends PacketListenerAbstract implements Packe
 
     @Override
     public void onPacketReceive(PacketReceiveEvent event) {
-        String invalid = PacketSanityValidator.check(event);
+        String invalid = CrashChecker.check(event);
         if (invalid != null) {
             event.setCancelled(true);
             return;

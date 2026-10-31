@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /** Shared ownership and cleanup point for player movement state. */
-public final class MovementStateStore {
+public class MovementStateStore {
 
     private final ConcurrentMap<UUID, MovementState> states = new ConcurrentHashMap<>();
 

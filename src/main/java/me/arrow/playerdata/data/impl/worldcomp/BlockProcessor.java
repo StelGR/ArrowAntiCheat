@@ -10,6 +10,13 @@ import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.util.Vector3i;
+import org.bukkit.block.BlockState;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
@@ -94,7 +101,7 @@ public class BlockProcessor implements Data {
     int MAX_CLICK_INTERACTION_GHOST_TICKS = 10;
 
     int GHOST_SYNC_COOLDOWN_TICKS = 8;
-    int GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS = 4;
+    int GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS = 10;
     int AREA_SYNC_COOLDOWN_TICKS = 1;
     int MAX_AREA_SYNC_BLOCKS = 256;
     int MAX_SYNC_BLOCKS_PER_FLUSH = 64;
@@ -321,7 +328,7 @@ public class BlockProcessor implements Data {
         if (autoCorrectGhostBlocks
                 && Config.Setting.GHOST_BLOCK_FIX.getBoolean()
                 && this.lastGhostInteractionAreaSyncTick > GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS) {
-            syncRealBlocksAroundPlayer(2, 2, 2);
+            syncRealBlocksAroundPlayer(1, 1, 2);
             this.lastGhostInteractionAreaSyncTick = 0;
         }
 
@@ -2167,8 +2174,10 @@ public class BlockProcessor implements Data {
         });
     }
 
+    private Method cachedPlayerSendBlockChangesMethod;
+    private boolean playerSendBlockChangesLookupDone;
+
     void flushQueuedSyncBlocks() {
-        // Sends only a small number of queued block changes per flush to avoid transaction timeouts.
         Player player = data.getPlayer();
 
         if (player == null || !player.isOnline()) {
@@ -2177,26 +2186,141 @@ public class BlockProcessor implements Data {
         }
 
         World world = player.getWorld();
+        if (world == null) {
+            clearSyncQueue();
+            return;
+        }
 
-        int sent = 0;
-
-        while (sent < MAX_SYNC_BLOCKS_PER_FLUSH) {
+        List<SyncBlock> batch = new ArrayList<>();
+        while (batch.size() < MAX_SYNC_BLOCKS_PER_FLUSH) {
             SyncBlock syncBlock = pollQueuedSyncBlock();
-
             if (syncBlock == null) {
-                return;
+                break;
             }
+            batch.add(syncBlock);
+        }
 
-           // if (!CollisionUtils.isChunkLoaded(new Location(world, syncBlock.x, syncBlock.y, syncBlock.z))) return;
+        if (batch.isEmpty()) {
+            return;
+        }
 
+        if (batch.size() == 1) {
+            SyncBlock syncBlock = batch.get(0);
             Block block = world.getBlockAt(syncBlock.x, syncBlock.y, syncBlock.z);
             sendBlockChangeCompat(player, block);
-
             if (syncBlock.removeStoredGhost) {
                 removeGhostBlock(new Vector(syncBlock.x, syncBlock.y, syncBlock.z));
             }
+            return;
+        }
 
-            sent++;
+        if (!trySendMultiBlockChanges(player, world, batch)) {
+            for (SyncBlock syncBlock : batch) {
+                Block block = world.getBlockAt(syncBlock.x, syncBlock.y, syncBlock.z);
+                sendBlockChangeCompat(player, block);
+                if (syncBlock.removeStoredGhost) {
+                    removeGhostBlock(new Vector(syncBlock.x, syncBlock.y, syncBlock.z));
+                }
+            }
+        }
+    }
+
+    boolean trySendMultiBlockChanges(Player player, World world, List<SyncBlock> batch) {
+        if (player == null || world == null || batch == null || batch.isEmpty()) {
+            return false;
+        }
+
+        if (trySendBukkitMultiBlockChanges(player, world, batch)) {
+            return true;
+        }
+
+        return trySendPacketEventsMultiBlockChanges(player, world, batch);
+    }
+
+    boolean trySendBukkitMultiBlockChanges(Player player, World world, List<SyncBlock> batch) {
+        try {
+            if (!playerSendBlockChangesLookupDone) {
+                try {
+                    cachedPlayerSendBlockChangesMethod = player.getClass().getMethod("sendBlockChanges", Collection.class);
+                } catch (Throwable ignored) {
+                }
+                playerSendBlockChangesLookupDone = true;
+            }
+
+            if (cachedPlayerSendBlockChangesMethod == null) {
+                return false;
+            }
+
+            List<BlockState> states = new ArrayList<>(batch.size());
+            for (SyncBlock sb : batch) {
+                states.add(world.getBlockAt(sb.x, sb.y, sb.z).getState());
+                markSelfSyncedBlock(sb.x, sb.y, sb.z);
+                data.getClientWorldTracker().acknowledgeClientSync(sb.x, sb.y, sb.z);
+                if (sb.removeStoredGhost) {
+                    removeGhostBlock(new Vector(sb.x, sb.y, sb.z));
+                }
+            }
+
+            cachedPlayerSendBlockChangesMethod.invoke(player, states);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    boolean trySendPacketEventsMultiBlockChanges(Player player, World world, List<SyncBlock> batch) {
+        try {
+            boolean is1_16 = PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_16);
+
+            Map<Long, List<SyncBlock>> sectionMap = new HashMap<>();
+            for (SyncBlock sb : batch) {
+                int secX = sb.x >> 4;
+                int secY = is1_16 ? (sb.y >> 4) : 0;
+                int secZ = sb.z >> 4;
+                long key = (((long) secX) << 42) | (((long) secZ & 0x3FFFFFL) << 20) | ((long) secY & 0xFFFFF);
+                sectionMap.computeIfAbsent(key, k -> new ArrayList<>()).add(sb);
+            }
+
+            for (Map.Entry<Long, List<SyncBlock>> entry : sectionMap.entrySet()) {
+                List<SyncBlock> sectionBlocks = entry.getValue();
+                if (sectionBlocks.isEmpty()) continue;
+
+                SyncBlock first = sectionBlocks.get(0);
+                int secX = first.x >> 4;
+                int secY = is1_16 ? (first.y >> 4) : 0;
+                int secZ = first.z >> 4;
+
+                Vector3i chunkPos = new Vector3i(secX, secY, secZ);
+                List<WrapperPlayServerMultiBlockChange.EncodedBlock> encodedList = new ArrayList<>(sectionBlocks.size());
+
+                for (SyncBlock sb : sectionBlocks) {
+                    Block b = world.getBlockAt(sb.x, sb.y, sb.z);
+                    WrappedBlockState state = PEMaterials.fromBukkitBlock(b);
+                    if (state == null && isAirLike(b.getType())) {
+                        state = WrappedBlockState.getByString("minecraft:air");
+                    }
+                    if (state != null) {
+                        encodedList.add(new WrapperPlayServerMultiBlockChange.EncodedBlock(state, sb.x, sb.y, sb.z));
+                    }
+                    markSelfSyncedBlock(sb.x, sb.y, sb.z);
+                    data.getClientWorldTracker().acknowledgeClientSync(sb.x, sb.y, sb.z);
+                    if (sb.removeStoredGhost) {
+                        removeGhostBlock(new Vector(sb.x, sb.y, sb.z));
+                    }
+                }
+
+                if (!encodedList.isEmpty()) {
+                    WrapperPlayServerMultiBlockChange.EncodedBlock[] array =
+                            encodedList.toArray(new WrapperPlayServerMultiBlockChange.EncodedBlock[0]);
+                    WrapperPlayServerMultiBlockChange packet =
+                            new WrapperPlayServerMultiBlockChange(chunkPos, false, array);
+                    data.sendPacket(packet);
+                }
+            }
+
+            return true;
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 
@@ -2480,13 +2604,17 @@ public class BlockProcessor implements Data {
         return (dx * dx) + (dy * dy) + (dz * dz) <= range * range;
     }
 
+    private int lastSyncedBaseX = Integer.MIN_VALUE;
+    private int lastSyncedBaseY = Integer.MIN_VALUE;
+    private int lastSyncedBaseZ = Integer.MIN_VALUE;
+
     void syncRealBlocksAroundPlayer(int radiusXZ, int down, int up) {
         // Queues a tiny repair area around the player.
         if (!autoCorrectGhostBlocks || data.getPlayer() == null || !data.getPlayer().isOnline()) {
             return;
         }
 
-        CustomLocation loc = data.getMovementData().getLocation();
+        CustomLocation loc = data.getMovementData() != null ? data.getMovementData().getLocation() : null;
 
         if (loc == null) {
             return;
@@ -2495,6 +2623,14 @@ public class BlockProcessor implements Data {
         int baseX = (int) Math.floor(loc.getX());
         int baseY = (int) Math.floor(loc.getY());
         int baseZ = (int) Math.floor(loc.getZ());
+
+        if (baseX == lastSyncedBaseX && baseY == lastSyncedBaseY && baseZ == lastSyncedBaseZ && !isPlayerNearAnyGhost()) {
+            return;
+        }
+
+        lastSyncedBaseX = baseX;
+        lastSyncedBaseY = baseY;
+        lastSyncedBaseZ = baseZ;
 
         syncRealBlocksInBoxAsync(
                 baseX - radiusXZ,

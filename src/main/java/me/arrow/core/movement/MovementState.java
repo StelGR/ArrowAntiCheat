@@ -1,12 +1,12 @@
 package me.arrow.core.movement;
 
-import me.arrow.core.network.PacketTimestamp;
+import me.arrow.utils.MiscUtils;
 
 /**
  * Owns packet-derived movement state only. World collision and platform player
  * queries deliberately stay in a backend adapter.
  */
-public final class MovementState {
+public class MovementState {
 
     private MovementSnapshot current;
     private MovementSnapshot previous;
@@ -37,7 +37,7 @@ public final class MovementState {
                 before == null ? 0.0D : before.deltaXZ(),
                 before == null ? 0.0D : Math.abs(deltaY - before.deltaY()),
                 before == null ? 0.0D : Math.abs(deltaXZ - before.deltaXZ()),
-                PacketTimestamp.toMillis(frame.timestamp()), ++tick
+                MiscUtils.toMillis(frame.timestamp()), ++tick
         );
         return current;
     }

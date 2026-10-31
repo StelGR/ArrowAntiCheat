@@ -3,7 +3,7 @@ package me.arrow.core.event;
 import java.util.UUID;
 
 /** Shared event behavior; Bukkit and Fabric adapters only extract platform event data. */
-public final class CoreEventProcessor {
+public class CoreEventProcessor {
 
     public void trackEachOther(CoreProfile first, CoreProfile second) {
         if (first == null || second == null || first.playerId().equals(second.playerId())) {
