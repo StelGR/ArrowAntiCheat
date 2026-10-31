@@ -221,7 +221,7 @@ public class FlyB extends Check {
             return true;
         }
 
-        if (movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports()) {
+        if (movementData.getSinceTeleportTicks() <= 3 || profile.isExempt().isTeleports()) {
             debugExempt("sinceTeleports", "Fly B");
             return true;
         }

@@ -3,7 +3,7 @@ package me.arrow.core.movement;
 import java.util.Objects;
 
 /** Platform-neutral representation of one client movement packet. */
-public final class MovementFrame {
+public class MovementFrame {
     private final String worldName;
     private final double x;
     private final double y;

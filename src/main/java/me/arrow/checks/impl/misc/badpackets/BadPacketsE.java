@@ -37,6 +37,7 @@ public class BadPacketsE extends Check {
             if (profile.shouldCancel()
                     || profile.isExempt().isTeleports()
                     || profile.isExempt().isDead()
+                    || profile.getCombatData().isDropping()
                     || (profile.getVehicleData() != null && profile.getVehicleData().getSinceVehicleTicks() < 20)) {
                 streak = 0;
                 return;

@@ -3,7 +3,7 @@ package me.arrow.backend.bukkit.listener;
 
 import com.github.retrooper.packetevents.event.*;
 import me.arrow.Arrow;
-import me.arrow.core.network.PacketSanityValidator;
+import me.arrow.core.network.CrashChecker;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.ChatUtils;
 import me.arrow.utils.TaskUtils;
@@ -27,7 +27,7 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
         final Profile profile = this.plugin.getProfileManager().getProfile(player);
         if (profile == null) return;
 
-        final String crashAttempt = PacketSanityValidator.check(event);
+        final String crashAttempt = CrashChecker.check(event);
 
         if (crashAttempt != null) {
             event.setCancelled(true);

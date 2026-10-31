@@ -113,7 +113,7 @@ public class CombatData implements Data {
                     sinceUsedSpear = 0;
                 }
             }
-            if (isAttackPacket(event.getPacketType())) {
+            if (isAttackPacket(event.getPacketType()) && !dropping) {
                 if (isHoldingSpear()) {
                     usedSpear = true;
                     sinceUsedSpear = 0;
@@ -127,8 +127,6 @@ public class CombatData implements Data {
                     clickTimestamps.clear();
                     return;
                 }
-
-
 
                 collectArmAnimationSample();
 

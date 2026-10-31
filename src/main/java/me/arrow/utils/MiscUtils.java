@@ -16,6 +16,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 public class MiscUtils {
 
@@ -36,6 +37,18 @@ public class MiscUtils {
         }
 
         return config;
+    }
+
+
+    public static long toMillis(long timestamp) {
+        long now = System.currentTimeMillis();
+        if (timestamp <= 0L || Math.abs(now - timestamp) > 60_000L) {
+            long age = System.nanoTime() - timestamp;
+            return age >= 0L && age <= TimeUnit.SECONDS.toNanos(60L)
+                    ? now - TimeUnit.NANOSECONDS.toMillis(age)
+                    : now;
+        }
+        return timestamp;
     }
 
     /**

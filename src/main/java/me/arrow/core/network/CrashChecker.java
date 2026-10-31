@@ -8,12 +8,9 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPl
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerRotation;
 
 /** Shared packet-boundary validation for every platform backend. */
-public final class PacketSanityValidator {
+public class CrashChecker {
 
     private static final float MAXIMUM_PITCH = 90.0F;
-
-    private PacketSanityValidator() {
-    }
 
     /** @return the invalid-value details, or {@code null} when the packet is safe. */
     public static String check(PacketReceiveEvent event) {

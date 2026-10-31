@@ -21,7 +21,6 @@ import me.arrow.checks.impl.movement.speed.SpeedMath.MovementMath;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.core.movement.MovementFrame;
 import me.arrow.core.movement.MovementState;
-import me.arrow.core.network.PacketTimestamp;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
@@ -109,7 +108,7 @@ public class MovementData implements Data {
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
             customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks = 100000, glidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
-            sinceOnGhostBlock, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceOnBoatTicks = 1000, sinceNearBoatTicks = 1000, sinceUnderBoatTicks = 1000, sinceNearBoatSideTicks = 1000, sinceUnderblockTicks = 1000, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, sinceSlowFallingEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks, sinceMovingUnderBlockTicks;
+            sinceOnGhostBlock = 1000, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceOnBoatTicks = 1000, sinceNearBoatTicks = 1000, sinceUnderBoatTicks = 1000, sinceNearBoatSideTicks = 1000, sinceUnderblockTicks = 1000, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, sinceSlowFallingEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks, sinceMovingUnderBlockTicks;
 
     @Getter
     @Setter
@@ -165,7 +164,7 @@ public class MovementData implements Data {
 
     @Override
     public void processReceive(PacketReceiveEvent event) {
-        final long currentTime = PacketTimestamp.toMillis(event.getTimestamp());
+        final long currentTime = MiscUtils.toMillis(event.getTimestamp());
 
         if (event.getPacketType().equals(ENTITY_ACTION)) {
             handleElytraStartAction(event);
@@ -499,9 +498,6 @@ public class MovementData implements Data {
         nearBoatSide = EntityUtil.isNearBoatSide(profile);
 
         processPlayerData();
-        if (setbackProcessor != null) {
-            setbackProcessor.process();
-        }
     }
 
     private void updateNearWallState() {

@@ -3,7 +3,7 @@ package me.arrow.core.movement;
 import java.util.Objects;
 
 /** Immutable state consumed by universal movement checks. */
-public final class MovementSnapshot {
+public class MovementSnapshot {
     private final String worldName;
     private final double x;
     private final double y;

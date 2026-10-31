@@ -20,6 +20,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Locale;
 
 // Cleaned up version of NikV2's clientbrand listener, with packetevents 2.12.2 support
@@ -29,13 +30,10 @@ public class ClientBrandListener implements Data {
     private final Arrow plugin;
     private final Profile profile;
 
-    private boolean sentRegisterChannel;
-    private boolean sentBrand;
-    private boolean kicked;
+    boolean sentRegisterChannel;
+    boolean sentBrand;
+    boolean kicked;
 
-    public ClientBrandListener(Arrow plugin) {
-        this(plugin, null);
-    }
 
     public ClientBrandListener(Arrow plugin, Profile profile) {
         this.plugin = plugin;
@@ -45,15 +43,6 @@ public class ClientBrandListener implements Data {
     @Override
     public void processReceive(PacketReceiveEvent event) {
         if (event.getPlayer() == null) return;
-
-        if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) {
-            return;
-        }
-
-        if (this.kicked) {
-            event.setCancelled(true);
-            return;
-        }
 
         // Play plugin message. The toString fallback makes this more tolerant if PacketEvents changes phase naming.
         if (!event.getPacketType().equals(PacketType.Play.Client.PLUGIN_MESSAGE)) {
@@ -65,8 +54,6 @@ public class ClientBrandListener implements Data {
 
         WrapperPlayClientPluginMessage payload = new WrapperPlayClientPluginMessage(event);
         String channel = payload.getChannelName();
-        if (channel == null) return;
-
         String channelLower = channel.toLowerCase(Locale.ROOT);
 
         boolean isNamespacedRegister = channel.equals("minecraft:register");
@@ -81,7 +68,7 @@ public class ClientBrandListener implements Data {
         // These send custom payloads on "vv:mod_details" or "vv:app_details" announcing their real platform/version.
         boolean isViaDetailsChannel = channel.equals("vv:mod_details") || channel.equals("vv:app_details") || channelLower.startsWith("vv:");
         if (isViaDetailsChannel) {
-            String dataStr = payload.getData() != null ? new String(payload.getData(), StandardCharsets.UTF_8).toLowerCase(Locale.ROOT) : "";
+            String dataStr = new String(payload.getData(), StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
             int realProtocol = parseRealProtocolFromDetails(dataStr);
             int claimedProtocol = VersionUtils.getProtocolVersion(player);
             boolean modernClaim = isVersion26_3(prof, player);
@@ -110,7 +97,7 @@ public class ClientBrandListener implements Data {
         // 3. Inspect registered channels for client-side Via or version spoofing tools
         if (isRegister) {
             this.sentRegisterChannel = true;
-            String registeredChannels = payload.getData() != null ? new String(payload.getData(), StandardCharsets.UTF_8) : "";
+            String registeredChannels = new String(payload.getData(), StandardCharsets.UTF_8);
             String regLower = registeredChannels.toLowerCase(Locale.ROOT);
 
             // Only kick if the player is claiming modern (26.3) while running 1.8 Forge / ViaForge!
@@ -130,7 +117,7 @@ public class ClientBrandListener implements Data {
                 }
             }
 
-            return; // Channel registration packet is not a brand payload; don't decode it as brand!
+            //return; // Channel registration packet is not a brand payload; don't decode it as brand!
         }
 
         // 4. Handle client brand
@@ -148,20 +135,22 @@ public class ClientBrandListener implements Data {
                 return;
             }
 
-            TaskUtils.playerLater(player, 5L, () -> {
-                if (!player.isOnline()) return;
 
-                Profile p = prof != null ? prof : this.plugin.getProfileManager().getProfile(player);
-                if (p == null) {
-                    this.plugin.getProfileManager().createProfile(player);
-                    p = this.plugin.getProfileManager().getProfile(player);
-                }
-
-                if (p == null) return;
-
-                p.setClient(normalizeBrand(brand));
-            });
         }
+
+        TaskUtils.playerLater(player, 5L, () -> {
+            if (!player.isOnline()) return;
+
+            Profile p = prof != null ? prof : this.plugin.getProfileManager().getProfile(player);
+            if (p == null) {
+                this.plugin.getProfileManager().createProfile(player);
+                p = this.plugin.getProfileManager().getProfile(player);
+            }
+
+            if (p == null) return;
+
+            p.setClient(normalizeBrand(decodeBrand(payload.getData())));
+        });
     }
 
     private boolean isVersion26_3(Profile prof, Player player) {
@@ -371,6 +360,10 @@ public class ClientBrandListener implements Data {
 
         if (lower.equalsIgnoreCase("cave client")) {
             return "Cave Client";
+        }
+
+        if (lower.contains("baritone")) {
+            return "Baritone";
         }
 
         return brand;

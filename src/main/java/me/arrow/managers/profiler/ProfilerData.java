@@ -3,7 +3,7 @@ package me.arrow.managers.profiler;
 import lombok.Getter;
 
 public class ProfilerData {
-
+    @Getter
     private long totalTime;
     @Getter
     private long maxTime;

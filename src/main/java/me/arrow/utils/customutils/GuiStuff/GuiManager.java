@@ -18,7 +18,6 @@ import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.tasks.TickTask;
 import me.arrow.utils.ReflectionUtils;
 import me.arrow.utils.TaskUtils;
-import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.customutils.animationSystem.Animation;
 import me.arrow.utils.customutils.animationSystem.BanAnimationGuiLayout;
 import org.bukkit.Bukkit;
@@ -832,7 +831,7 @@ public class GuiManager {
                         translate(""),
                         translate("&fDescription:"),
                         translate("&7" + check.getDescription()),
-                        translate(guiLine()))));
+                        translate(guiLine())), false, check.isEnabled()));
 
                 slot++;
 
@@ -874,7 +873,7 @@ public class GuiManager {
                         translate(""),
                         translate("&fDescription:"),
                         translate("&7" + check.getDescription()),
-                        translate(guiLine()))));
+                        translate(guiLine())), false, check.isEnabled()));
 
                 slot++;
 
