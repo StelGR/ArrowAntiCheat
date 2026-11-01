@@ -12,7 +12,6 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBl
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkData;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
 import me.arrow.backend.bukkit.PlatformBackend;
-import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -115,10 +114,6 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             if (state == null) return;
 
             cache.setBlockState(worldName, x, y, z, state);
-
-            boolean waterlogged = PEMaterials.isWaterlogged(state)
-                    || state.getType().getName().contains("WATER");
-            cache.setWaterLogged(worldName, x, y, z, waterlogged);
         } catch (Throwable ignored) {
         }
     }
@@ -140,10 +135,6 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                     if (state == null) continue;
 
                     cache.setBlockState(worldName, x, y, z, state);
-
-                    boolean waterlogged = PEMaterials.isWaterlogged(state)
-                            || state.getType().getName().contains("WATER");
-                    cache.setWaterLogged(worldName, x, y, z, waterlogged);
                 } catch (Throwable ignored) {
                 }
             }
