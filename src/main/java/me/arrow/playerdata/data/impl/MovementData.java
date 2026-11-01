@@ -344,8 +344,6 @@ public class MovementData implements Data {
 
     private void processLocationData() {
 
-        ChunkCache.get().ensurePlayerChunkLoaded(location);
-
         if (profile.getTeleportData().isTeleporting()) {
             this.lastLocation = this.location;
             this.lastLastLocation = this.location;
@@ -368,8 +366,6 @@ public class MovementData implements Data {
             this.sinceTeleportTicks = 0;
 
             lastServerYGround = serverYGround;
-
-            ChunkCache.get().ensurePlayerChunkLoaded(location);
 
             serverYGround = getLocation().getY() % 0.015625 == 0.0
                     || getLocation().getY() % 0.015625 <= 0.009;

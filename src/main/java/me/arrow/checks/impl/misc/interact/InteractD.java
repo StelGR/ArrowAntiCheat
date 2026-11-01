@@ -218,10 +218,6 @@ public class InteractD extends Check {
             return;
         }
 
-        // Ensure both chunks are cached.
-        ChunkCache.get().ensurePlayerChunkLoaded(attackerLocation);
-        ChunkCache.get().ensurePlayerChunkLoaded(targetProfile.getMovementData().getLocation());
-
         Player attacker = profile.getPlayer();
         if (attacker == null) return;
 

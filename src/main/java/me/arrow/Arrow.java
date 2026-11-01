@@ -294,18 +294,12 @@ public class Arrow {
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L,
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L
             );
-            // Start cache thread to load chunks with delay
-            Thread cacheThread = new Thread(() -> this.chunkCache.cacheAllLoadedChunksWithDelay(20L));
-            cacheThread.start();
-            // Separate thread to wait for cache completion without blocking main thread
-            new Thread(() -> {
-                try {
-                    cacheThread.join();
-                    log(translate("[Arrow] " + "&6➪  Chunk cache loaded: " + this.chunkCache.getCachedChunkCount() + " chunks"));
-                } catch (InterruptedException ignored) {
-                    // If interrupted, skip logging
-                }
-            }).start();
+            Thread loadedChunkCacheThread = new Thread(
+                    () -> this.chunkCache.cacheAllLoadedChunksWithDelay(20L),
+                    "Arrow-LoadedChunkCache"
+            );
+            loadedChunkCacheThread.setDaemon(true);
+            loadedChunkCacheThread.start();
             
             this.violationListener = new ViolationListener(this);
             PlatformBackend.get().registerListener(new ProfileListener(this));

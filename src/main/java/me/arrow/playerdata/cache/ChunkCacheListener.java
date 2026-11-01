@@ -6,6 +6,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.protocol.world.chunk.Column;
 import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
@@ -22,9 +23,8 @@ import org.bukkit.entity.Player;
  * All chunk cache population is driven exclusively by packets sent from the
  * server to clients — no Bukkit events are used. This makes the cache reliable
  * across Fabric, Folia, Paper and Spigot, and avoids the race conditions that
- * arise when Bukkit's ChunkLoadEvent fires before the CHUNK_DATA packet arrives
- * (which would populate the cache with material-only snapshot data and block
- * the stateful PacketEvents path from running).
+ * Packet block data is authoritative for chunks currently being sent to a client;
+ * the cache also bootstraps already-loaded server chunks on startup.
  *
  * Chunks are NEVER evicted from the cache. Once a chunk is loaded by any
  * player it stays cached for the lifetime of the server process. This ensures
@@ -53,18 +53,21 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
     public void onPacketSend(PacketSendEvent event) {
         PacketTypeCommon packetType = event.getPacketType();
 
+        String worldName = resolveWorldName(event);
+        if (worldName == null) return;
+
         if (packetType.equals(PacketType.Play.Server.BLOCK_CHANGE)) {
-            handleBlockChange(event, resolveWorldName(event));
+            handleBlockChange(event, worldName);
             return;
         }
 
         if (packetType.equals(PacketType.Play.Server.MULTI_BLOCK_CHANGE)) {
-            handleMultiBlockChange(event, resolveWorldName(event));
+            handleMultiBlockChange(event, worldName);
             return;
         }
 
         if (packetType.equals(PacketType.Play.Server.CHUNK_DATA)) {
-            handleChunkData(event, resolveWorldName(event));
+            handleChunkData(event, worldName);
         }
     }
 
@@ -72,25 +75,39 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
     // World name resolution
     // =========================================================================
 
-    /**
-     * Resolves the world name for the packet's recipient.
-     * Falls back to "world" when it cannot be determined (e.g. on Fabric).
-     */
+    /** Resolve packet dimension first so a world transition cannot contaminate another world's cache. */
     private String resolveWorldName(PacketSendEvent event) {
         try {
             Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
+            World.Environment expectedEnvironment = null;
+            User user = event.getUser();
+            if (user != null && user.getDimensionType() != null) {
+                String dimension = String.valueOf(user.getDimensionType().getName());
+                if (dimension.endsWith(":the_nether")) {
+                    expectedEnvironment = World.Environment.NETHER;
+                } else if (dimension.endsWith(":the_end")) {
+                    expectedEnvironment = World.Environment.THE_END;
+                } else if (dimension.endsWith(":overworld")) {
+                    expectedEnvironment = World.Environment.NORMAL;
+                }
+            }
+
             if (player != null) {
                 World w = player.getWorld();
-                if (w != null) return w.getName();
+                if (w != null && (expectedEnvironment == null || w.getEnvironment() == expectedEnvironment)) {
+                    return w.getName();
+                }
             }
             if (!PlatformBackend.get().isFabric()) {
-                if (!Bukkit.getWorlds().isEmpty()) {
-                    World w = Bukkit.getWorlds().get(0);
-                    if (w != null) return w.getName();
+                for (World world : Bukkit.getWorlds()) {
+                    if (world != null && (expectedEnvironment == null
+                            || world.getEnvironment() == expectedEnvironment)) {
+                        return world.getName();
+                    }
                 }
             }
         } catch (Throwable ignored) {}
-        return "world";
+        return null;
     }
 
     // =========================================================================
@@ -124,6 +141,12 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
     private void handleMultiBlockChange(PacketSendEvent event, String worldName) {
         try {
             WrapperPlayServerMultiBlockChange wrapper = new WrapperPlayServerMultiBlockChange(event);
+            ClientVersion packetVersion = event.getServerVersion() == null
+                    ? event.getClientVersion()
+                    : event.getServerVersion().toClientVersion();
+            if (packetVersion == null || packetVersion == ClientVersion.UNKNOWN) {
+                packetVersion = event.getClientVersion();
+            }
 
             for (WrapperPlayServerMultiBlockChange.EncodedBlock block : wrapper.getBlocks()) {
                 try {
@@ -131,7 +154,7 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                     int y = block.getY();
                     int z = block.getZ();
 
-                    WrappedBlockState state = block.getBlockState(ClientVersion.UNKNOWN);
+                    WrappedBlockState state = block.getBlockState(packetVersion);
                     if (state == null) continue;
 
                     cache.setBlockState(worldName, x, y, z, state);
@@ -144,10 +167,8 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
 
     /**
      * Populates the global cache when any player receives a full chunk packet.
-     * Deduplication is handled inside ChunkCache#queuePacketChunk: if the chunk
-     * is already cached with complete stateful collision data, or is already
-     * being processed, the call returns immediately. Only the first player to
-     * load a given chunk triggers actual work.
+     * A full chunk packet refreshes cached data so changes made while no client
+     * was watching the chunk cannot leave old blocks in the persistent cache.
      */
     private void handleChunkData(PacketSendEvent event, String worldName) {
         try {
@@ -155,10 +176,6 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             Column column = wrapper.getColumn();
             int chunkX = column.getX();
             int chunkZ = column.getZ();
-
-            // Already fully cached with stateful data — skip.
-            ChunkCache.CachedChunk existing = cache.getChunk(worldName, chunkX, chunkZ);
-            if (existing != null && existing.hasCompleteStatefulCollisionData()) return;
 
             Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
             World world = player != null ? player.getWorld() : null;
@@ -168,7 +185,10 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                 } catch (Throwable ignored) {}
             }
 
-            final int minY = ChunkCache.getWorldMinY(world);
+            User user = event.getUser();
+            final int minY = user != null && user.getDimensionType() != null
+                    ? user.getMinWorldHeight()
+                    : ChunkCache.getWorldMinY(world);
             cache.queuePacketChunk(worldName, chunkX, chunkZ, minY, column);
         } catch (Throwable ignored) {
         }
