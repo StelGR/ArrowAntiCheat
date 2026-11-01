@@ -804,6 +804,21 @@ public class PEMaterials {
             return stairBounds(state, x, y, z);
         }
 
+        /*
+         * requiresStatefulCollision(material) is true here because Bukkit's
+         * Material.isOccluding() returns false for some full-cube blocks (e.g.
+         * SAND, GRAVEL) on Paper 1.21+. If the WrappedBlockState confirms the
+         * block is a normal full cube (solid, blocking, not exceeding the cube,
+         * no partial-shape name), we can safely return a full 1x1x1 box rather
+         * than null. Returning null would cause resolveExactCollision() to fall
+         * back to a live NMS lookup every tick, and on the first tick (before
+         * the shape is cached) it would leave boxes==null, set
+         * unresolvedCollisionShape=true, and suppress the ground-support result.
+         */
+        if (requiresStatefulCollision(material) && isNormalFullCube(state)) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0, y + 1.0, z + 1.0));
+        }
+
         return requiresStatefulCollision(material)
                 ? null
                 : getCollisionBounds(material, x, y, z);

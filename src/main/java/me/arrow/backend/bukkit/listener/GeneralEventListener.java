@@ -9,7 +9,6 @@ import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.backend.bukkit.PlatformBackend;
-import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.materials.MaterialType;
@@ -34,9 +33,6 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.server.ServerListPingEvent;
-import org.bukkit.event.world.ChunkLoadEvent;
-import org.bukkit.event.world.ChunkUnloadEvent;
-import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
@@ -51,41 +47,6 @@ import static me.arrow.utils.customutils.OtherUtility.*;
 public class GeneralEventListener implements Listener {
 
     private final CoreEventProcessor coreEvents = new CoreEventProcessor();
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onChunkLoad(ChunkLoadEvent event) {
-        Chunk chunk = event.getChunk();
-        try {
-            ChunkSnapshot snapshot = chunk.getChunkSnapshot();
-            ChunkCache.get().queueChunkSnapshot(chunk.getWorld(), chunk.getX(), chunk.getZ(), snapshot);
-        } catch (Throwable ignored) {
-            ChunkCache.get().queueBukkitChunk(chunk);
-        }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onChunkUnload(ChunkUnloadEvent event) {
-        Chunk chunk = event.getChunk();
-        ChunkCache.get().removeChunk(chunk.getWorld().getName(), chunk.getX(), chunk.getZ());
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onWorldLoad(WorldLoadEvent event) {
-        World world = event.getWorld();
-        try {
-            for (Chunk chunk : world.getLoadedChunks()) {
-                if (chunk != null) {
-                    try {
-                        ChunkSnapshot snapshot = chunk.getChunkSnapshot();
-                        ChunkCache.get().queueChunkSnapshot(world, chunk.getX(), chunk.getZ(), snapshot);
-                    } catch (Throwable ignored) {
-                        ChunkCache.get().queueBukkitChunk(chunk);
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-    }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInteract(PlayerInteractEvent event) {
@@ -105,36 +66,11 @@ public class GeneralEventListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onBlockPlace(BlockPlaceEvent event) {
         this.processEvent(event);
-        if (!event.isCancelled() && event.getBlockPlaced() != null) {
-            Block b = event.getBlockPlaced();
-            ChunkCache.get().setBlock(b.getWorld(), b.getX(), b.getY(), b.getZ(), b.getType());
-        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onBlockBreak(BlockBreakEvent event) {
         this.processEvent(event);
-        if (!event.isCancelled() && event.getBlock() != null) {
-            Block b = event.getBlock();
-            ChunkCache.get().setBlock(b.getWorld(), b.getX(), b.getY(), b.getZ(), Material.AIR);
-        }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onEntityChangeBlock(EntityChangeBlockEvent event) {
-        try {
-            Block block = event.getBlock();
-            if (block == null || block.getWorld() == null) return;
-            Material to = event.getTo();
-            if (to == null) {
-                try {
-                    to = event.getBlockData().getMaterial();
-                } catch (Throwable ignored) {}
-            }
-            if (to != null) {
-                ChunkCache.get().setBlock(block.getWorld(), block.getX(), block.getY(), block.getZ(), to);
-            }
-        } catch (Throwable ignored) {}
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

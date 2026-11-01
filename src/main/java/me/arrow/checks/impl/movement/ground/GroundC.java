@@ -87,6 +87,25 @@ public class GroundC extends Check {
                 if (exempt("towerBlockPlace", profile.getActionData().hasRecentTowerBlockPlace(10, 4))) return;
                 if (exempt("pistonUpdate", profile.getActionData().hasRecentPistonUpdate(10))) return;
 
+                if (Config.Setting.DEBUG.getBoolean() && movementData.isCustomInAir()) {
+                    me.arrow.playerdata.cache.ChunkCache cc = me.arrow.playerdata.cache.ChunkCache.get();
+                    me.arrow.utils.custom.CustomLocation loc = movementData.getLocation();
+                    int bx = loc.getBlockX(), bz = loc.getBlockZ();
+                    double fy = loc.getY();
+                    int supportY = (int) Math.floor(fy) - 1;
+                    org.bukkit.Material matBelow = cc.getBlock(loc.getWorld().getName(), bx, supportY, bz);
+                    com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState stateBelow = cc.getBlockState(loc.getWorld().getName(), bx, supportY, bz);
+                    CollisionUtils.NearbyBlocksResult nbr = movementData.getNearbyBlocksResult();
+                    OtherUtility.log("[GC-DEBUG] inAir=" + movementData.isCustomInAir()
+                            + " exactGround=" + (nbr != null ? nbr.hasExactGroundSupport() : "null")
+                            + " unresolved=" + (nbr != null ? nbr.hasUnresolvedCollisionShape() : "null")
+                            + " feetY=" + String.format("%.4f", fy)
+                            + " supportY=" + supportY
+                            + " matBelow=" + matBelow
+                            + " stateBelow=" + (stateBelow != null ? stateBelow.getType().getName() : "null")
+                            + " airTicks=" + movementData.getCustomAirTicks());
+                }
+
                 if (serverPositionGround && serverYGround && movementData.isCustomInAir() && ground && movementData.getCustomAirTicks() >= 4) {
 
                     fail("On Ghostblock? (1)", verboseInfo);

@@ -1109,6 +1109,9 @@ public class ChunkCache {
                             relZ,
                             -1
                     );
+
+                    // Clear stale waterlogged bit — AIR is never waterlogged
+                    sec.setWaterlogged(relX, y & 15, relZ, false);
                 }
 
                 return;
@@ -1117,6 +1120,10 @@ public class ChunkCache {
             if (sections[idx] == null) sections[idx] = new CachedSection();
             sections[idx].set(relX, y & 15, relZ, material);
             sections[idx].setStateId(relX, y & 15, relZ, -1);
+            // Clear stale waterlogged bit for non-water materials (e.g. sand/door replacing water)
+            if (!ChunkCache.isWaterMaterial(material)) {
+                sections[idx].setWaterlogged(relX, y & 15, relZ, false);
+            }
         }
 
         public int getLegacyBlockData(

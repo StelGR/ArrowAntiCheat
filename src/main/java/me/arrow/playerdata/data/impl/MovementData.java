@@ -762,6 +762,22 @@ public class MovementData implements Data {
                     || CollisionUtils.isWaterLogged(loc3)
                     || CollisionUtils.isWaterLogged(loc1);
 
+            // [LIQUID-DIAG] log when insideLiquid or nearLava is detected
+            if (me.arrow.files.Config.Setting.DEBUG.getBoolean()) {
+                boolean _nearLava = containsMaterial(nearbyBlocksResult.getBlockTypes(), LAVA);
+                if (_nearLava || insideLiquid) {
+                    me.arrow.utils.customutils.OtherUtility.log(
+                            "[LIQUID-DIAG] nearLava=" + _nearLava
+                            + " insideLiquid=" + insideLiquid
+                            + " mLoc1=" + (mLoc1 != null ? mLoc1.name() : "null")
+                            + " mLoc3=" + (mLoc3 != null ? mLoc3.name() : "null")
+                            + " loc1Y=" + loc1.getBlockY()
+                            + " loc3Y=" + loc3.getBlockY()
+                            + " blockTypes=" + nearbyBlocksResult.getBlockTypes()
+                    );
+                }
+            }
+
             climb = (mLoc2 != null && isMaterialEqual(mLoc2.name(), CLIMBABLE))
                     || (mLoc1 != null && isMaterialEqual(mLoc1.name(), CLIMBABLE));
 

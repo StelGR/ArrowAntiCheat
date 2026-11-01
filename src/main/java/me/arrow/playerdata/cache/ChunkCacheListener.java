@@ -14,20 +14,33 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMu
 import me.arrow.backend.bukkit.PlatformBackend;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 /**
- * Cross-platform packet-driven chunk and block update listener for PacketEvents.
- * Handles three packet types:
- * <ul>
- *   <li>{@code BLOCK_CHANGE} — single block updates</li>
- *   <li>{@code MULTI_BLOCK_CHANGE} — batch block updates</li>
- *   <li>{@code CHUNK_DATA} — full chunk load from server (populates cache from packet data)</li>
- *   <li>Server chunk-unload events evict entries only after the chunk leaves the global world cache.</li>
- * </ul>
- * Works uniformly on Fabric, Folia, Paper, and Spigot without relying on Bukkit event classes.
+ * Pure PacketEvents chunk and block update listener for ArrowAntiCheat.
+ *
+ * All chunk cache population is driven exclusively by packets sent from the
+ * server to clients — no Bukkit events are used. This makes the cache reliable
+ * across Fabric, Folia, Paper and Spigot, and avoids the race conditions that
+ * arise when Bukkit's ChunkLoadEvent fires before the CHUNK_DATA packet arrives
+ * (which would populate the cache with material-only snapshot data and block
+ * the stateful PacketEvents path from running).
+ *
+ * Chunks are NEVER evicted from the cache. Once a chunk is loaded by any
+ * player it stays cached for the lifetime of the server process. This ensures
+ * the anticheat always has block data available regardless of which players
+ * currently have a chunk in their view distance. Block-change packets keep the
+ * cached data up-to-date for the entire duration.
+ *
+ * Handled packet types:
+ *   CHUNK_DATA         — full chunk load; populates global cache once per chunk.
+ *   BLOCK_CHANGE       — single-block server update; updates global cache.
+ *   MULTI_BLOCK_CHANGE — batch server block update; updates global cache.
+ *
+ * Block-change packets are applied globally: the first player whose packet
+ * stream carries the update writes it to the shared cache; subsequent players
+ * receiving the same update are idempotent (same state = same result).
  */
 public class ChunkCacheListener extends PacketListenerAbstract implements PacketListener {
 
@@ -39,39 +52,58 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
 
     @Override
     public void onPacketSend(PacketSendEvent event) {
-        Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
-        World world = player != null ? player.getWorld() : null;
-        if (world == null && !PlatformBackend.get().isFabric()) {
-            try {
-                if (!Bukkit.getWorlds().isEmpty()) {
-                    world = Bukkit.getWorlds().get(0);
-                }
-            } catch (Throwable ignored) {}
-        }
-        String worldName = world != null ? world.getName() : "world";
-
         PacketTypeCommon packetType = event.getPacketType();
 
-        // --- Single block update ---
         if (packetType.equals(PacketType.Play.Server.BLOCK_CHANGE)) {
-            handleBlockChange(event, worldName);
+            handleBlockChange(event, resolveWorldName(event));
             return;
         }
 
-        // --- Batch block update ---
         if (packetType.equals(PacketType.Play.Server.MULTI_BLOCK_CHANGE)) {
-            handleMultiBlockChange(event, worldName);
+            handleMultiBlockChange(event, resolveWorldName(event));
             return;
         }
 
-        // --- Full chunk load: populate cache from packet data ---
-        if (packetType.equals(PacketType.Play.Server.CHUNK_DATA)) handleChunkData(event, worldName);
+        if (packetType.equals(PacketType.Play.Server.CHUNK_DATA)) {
+            handleChunkData(event, resolveWorldName(event));
+        }
+    }
+
+    // =========================================================================
+    // World name resolution
+    // =========================================================================
+
+    /**
+     * Resolves the world name for the packet's recipient.
+     * Falls back to "world" when it cannot be determined (e.g. on Fabric).
+     */
+    private String resolveWorldName(PacketSendEvent event) {
+        try {
+            Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
+            if (player != null) {
+                World w = player.getWorld();
+                if (w != null) return w.getName();
+            }
+            if (!PlatformBackend.get().isFabric()) {
+                if (!Bukkit.getWorlds().isEmpty()) {
+                    World w = Bukkit.getWorlds().get(0);
+                    if (w != null) return w.getName();
+                }
+            }
+        } catch (Throwable ignored) {}
+        return "world";
     }
 
     // =========================================================================
     // Packet Handlers
     // =========================================================================
 
+    /**
+     * Applies a single-block update to the global cache.
+     * Idempotent: re-applying the same state writes identical bytes.
+     * Clears stale waterlogged bits for non-water materials (e.g. sand or
+     * a door placed where water previously was).
+     */
     private void handleBlockChange(PacketSendEvent event, String worldName) {
         try {
             WrapperPlayServerBlockChange wrapper = new WrapperPlayServerBlockChange(event);
@@ -80,17 +112,20 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             int z = wrapper.getBlockPosition().getZ();
 
             WrappedBlockState state = wrapper.getBlockState();
-            Material material = PEMaterials.materialFromState(state.getType());
-            if (material != null) {
-                cache.setBlockState(worldName, x, y, z, state);
-                boolean waterlogged = PEMaterials.isWaterlogged(state)
-                        || material.name().contains("WATER");
-                cache.setWaterLogged(worldName, x, y, z, waterlogged);
-            }
+            if (state == null) return;
+
+            cache.setBlockState(worldName, x, y, z, state);
+
+            boolean waterlogged = PEMaterials.isWaterlogged(state)
+                    || state.getType().getName().contains("WATER");
+            cache.setWaterLogged(worldName, x, y, z, waterlogged);
         } catch (Throwable ignored) {
         }
     }
 
+    /**
+     * Applies a batch of block updates to the global cache.
+     */
     private void handleMultiBlockChange(PacketSendEvent event, String worldName) {
         try {
             WrapperPlayServerMultiBlockChange wrapper = new WrapperPlayServerMultiBlockChange(event);
@@ -102,13 +137,13 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                     int z = block.getZ();
 
                     WrappedBlockState state = block.getBlockState(ClientVersion.UNKNOWN);
-                    Material material = PEMaterials.materialFromState(state.getType());
-                    if (material != null) {
-                        cache.setBlockState(worldName, x, y, z, state);
-                        boolean waterlogged = PEMaterials.isWaterlogged(state)
-                                || material.name().contains("WATER");
-                        cache.setWaterLogged(worldName, x, y, z, waterlogged);
-                    }
+                    if (state == null) continue;
+
+                    cache.setBlockState(worldName, x, y, z, state);
+
+                    boolean waterlogged = PEMaterials.isWaterlogged(state)
+                            || state.getType().getName().contains("WATER");
+                    cache.setWaterLogged(worldName, x, y, z, waterlogged);
                 } catch (Throwable ignored) {
                 }
             }
@@ -117,9 +152,11 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
     }
 
     /**
-     * Populates the cache when a full chunk is sent to the client.
-     * Uses PacketEvents' built-in {@link WrapperPlayServerChunkData} to parse
-     * chunk sections directly from the packet — no reflection needed.
+     * Populates the global cache when any player receives a full chunk packet.
+     * Deduplication is handled inside ChunkCache#queuePacketChunk: if the chunk
+     * is already cached with complete stateful collision data, or is already
+     * being processed, the call returns immediately. Only the first player to
+     * load a given chunk triggers actual work.
      */
     private void handleChunkData(PacketSendEvent event, String worldName) {
         try {
@@ -128,12 +165,9 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             int chunkX = column.getX();
             int chunkZ = column.getZ();
 
-            // A startup snapshot contains materials only; let the first packet
-            // enrich it with state-sensitive collision data.
-            ChunkCache.CachedChunk cached = cache.getChunk(worldName, chunkX, chunkZ);
-            if (cached != null && cached.hasCompleteStatefulCollisionData()) {
-                return;
-            }
+            // Already fully cached with stateful data — skip.
+            ChunkCache.CachedChunk existing = cache.getChunk(worldName, chunkX, chunkZ);
+            if (existing != null && existing.hasCompleteStatefulCollisionData()) return;
 
             Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
             World world = player != null ? player.getWorld() : null;
@@ -142,11 +176,10 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                     world = Bukkit.getWorld(worldName);
                 } catch (Throwable ignored) {}
             }
-            // Proceed to cache the chunk regardless of world.isChunkLoaded; fallback minY handles null world
+
             final int minY = ChunkCache.getWorldMinY(world);
-
             cache.queuePacketChunk(worldName, chunkX, chunkZ, minY, column);
-        } catch (Throwable ignored) { }
+        } catch (Throwable ignored) {
+        }
     }
-
 }

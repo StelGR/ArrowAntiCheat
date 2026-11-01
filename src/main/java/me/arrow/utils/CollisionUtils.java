@@ -1240,6 +1240,21 @@ public class CollisionUtils {
 
             if (type == null || type == Material.AIR) return;
 
+            // [LAVA-DIAG] log when lava is detected in handle()
+            if (me.arrow.files.Config.Setting.DEBUG.getBoolean()
+                    && (type == Material.LAVA || type.name().contains("LAVA"))) {
+                String _src = (location != null
+                        && me.arrow.playerdata.cache.ChunkCache.get().getBlock(location) != null
+                        && me.arrow.playerdata.cache.ChunkCache.get().getBlock(location) != Material.AIR)
+                        ? "cache" : "bukkit";
+                me.arrow.utils.customutils.OtherUtility.log(
+                        "[LAVA-DIAG/handle] LAVA found! loc=" + (location != null
+                                ? location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ()
+                                : "null")
+                        + " src=" + _src
+                        + " type=" + type.name());
+            }
+
             if (!this.nearWaterLogged) {
                 if (type.name().contains("WATER")
                         || (location != null && ChunkCache.get().isWaterLogged(location))
@@ -1308,6 +1323,36 @@ public class CollisionUtils {
                         probe.setZ(z + 0.5D);
 
                         Material material = ChunkCache.get().getBlock(probe);
+
+                        // [GROUND-DIAG] log sand blocks and [LAVA-DIAG] log lava blocks near feet
+                        if (me.arrow.files.Config.Setting.DEBUG.getBoolean()) {
+                            if (material == Material.SAND) {
+                                String _wn = location.getWorld().getName();
+                                int _cx = x >> 4, _cz = z >> 4;
+                                me.arrow.playerdata.cache.ChunkCache.CachedChunk _ck =
+                                        ChunkCache.get().getChunk(_wn, _cx, _cz);
+                                boolean _chunkPresent = _ck != null;
+                                boolean _complete = _chunkPresent && _ck.hasCompleteStatefulCollisionData();
+                                me.arrow.utils.customutils.OtherUtility.log(
+                                        "[GROUND-DIAG] sand at (" + x + "," + y + "," + z + ")"
+                                        + " feetY=" + String.format("%.4f", feetY)
+                                        + " deltaY=" + String.format("%.6f", Math.abs((y + 1.0) - feetY))
+                                        + " complete=" + _complete
+                                        + " support=" + (Math.abs((y + 1.0) - feetY) <= 1.0E-3D)
+                                );
+                            } else if (material != null && (material == Material.LAVA || material.name().contains("LAVA"))) {
+                                String _wn = location.getWorld().getName();
+                                int _cx = x >> 4, _cz = z >> 4;
+                                me.arrow.playerdata.cache.ChunkCache.CachedChunk _ck =
+                                        ChunkCache.get().getChunk(_wn, _cx, _cz);
+                                boolean _complete = _ck != null && _ck.hasCompleteStatefulCollisionData();
+                                me.arrow.utils.customutils.OtherUtility.log(
+                                        "[LAVA-DIAG/resolve] LAVA at (" + x + "," + y + "," + z + ")"
+                                        + " feetY=" + String.format("%.4f", feetY)
+                                        + " complete=" + _complete
+                                );
+                            }
+                        }
                         int legacyData =
                                 ChunkCache.get().getLegacyBlockData(
                                         location.getWorld().getName(),
