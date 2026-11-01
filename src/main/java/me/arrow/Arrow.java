@@ -272,9 +272,9 @@ public class Arrow {
             }
 
             TickTask tickTask = new TickTask(this);
-            TaskUtils.taskTimerAsync(
+            TaskUtils.taskTimer(
                     tickTask,
-                    50L,
+                    1L,
                     1L
             );
             log(translate("&6" + "➪  TickTask Initialized"));
