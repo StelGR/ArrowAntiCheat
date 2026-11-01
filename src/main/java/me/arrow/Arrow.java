@@ -102,7 +102,7 @@ public class Arrow {
     private static final GuiManager guiManager = new GuiManager();
 
     @Getter
-    private final String version = "108";
+    private final String version = "b108";
 
     @Getter
     private final JavaPlugin host;     // the Bukkit plugin entrypoint
@@ -212,6 +212,7 @@ public class Arrow {
             if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_8)) {
                 OtherUtility.log(translate("&cUNSUPPORTED MINECRAFT VERSION, DISABLING"));
                 getInstance().onDisable();
+                return;
             }
 
             log("");

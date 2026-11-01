@@ -34,6 +34,11 @@ public class ClientBrandListener implements Data {
     boolean sentBrand;
     boolean kicked;
 
+    // ViaVersion client version verification
+    int proxyClientProtocol = -1;
+    int modClientProtocol = -1;
+    int appClientProtocol = -1;
+
 
     public ClientBrandListener(Arrow plugin, Profile profile) {
         this.plugin = plugin;
@@ -64,26 +69,80 @@ public class ClientBrandListener implements Data {
         boolean isModernBrand = channel.equals("minecraft:brand");
         boolean isBrandChannel = isLegacyBrand || isModernBrand || (channelLower.endsWith("brand") && !isRegister) || channelLower.contains(":brand");
 
-        // 1. Detect ViaVersion client-side translation / version spoofing protocols (ViaForge, ViaFabric, ViaFabricPlus, ViaProxy)
-        // These send custom payloads on "vv:mod_details" or "vv:app_details" announcing their real platform/version.
-        boolean isViaDetailsChannel = channel.equals("vv:mod_details") || channel.equals("vv:app_details") || channelLower.startsWith("vv:");
-        if (isViaDetailsChannel) {
-            String dataStr = new String(payload.getData(), StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
-            int realProtocol = parseRealProtocolFromDetails(dataStr);
-            int claimedProtocol = VersionUtils.getProtocolVersion(player);
-            boolean modernClaim = isVersion26_3(prof, player);
 
-            // Only kick if there is a version mismatch / spoof:
-            // e.g. claiming 26.3 / modern while the real protocol is 1.8 (47), or real != claimed!
-            if (modernClaim && (realProtocol <= 340 || realProtocol == 47 || (realProtocol > 0 && claimedProtocol > 0 && realProtocol != claimedProtocol))) {
-                kick(player, event, "Version spoof detected via " + channel + " (claimed=" + claimedProtocol + ", real=" + realProtocol + ")");
-                return;
+        // 1. Detect ViaVersion client-side version spoofing.
+        //
+        // IMPORTANT:
+        // PacketEvents on a Velocity backend may report the translated backend
+        // protocol rather than the client's original protocol.
+        //
+        // vv:proxy_details = Original client protocol observed by Velocity.
+        // vv:mod_details   = Protocol reported by ViaFabric / ViaForge / ViaFabricPlus.
+        // vv:app_details   = Protocol reported by standalone Via applications.
+        //
+        // These payloads can arrive in any order, so store them and compare
+        // whenever both the proxy and client details are available.
+
+        if (channel.equals("vv:proxy_details")) {
+
+            int protocol = parseRealProtocolFromDetails(
+                    new String(payload.getData(), StandardCharsets.UTF_8)
+            );
+
+            if (protocol > 0) {
+                this.proxyClientProtocol = protocol;
+
+                // Check any client details that arrived before the proxy details.
+                if (this.modClientProtocol > 0 &&
+                        checkReportedProtocol(player, event, "vv:mod_details", this.modClientProtocol)) {
+                    return;
+                }
+
+                if (this.appClientProtocol > 0 &&
+                        checkReportedProtocol(player, event, "vv:app_details", this.appClientProtocol)) {
+                    return;
+                }
             }
-            if (realProtocol > 0 && claimedProtocol > 0 && realProtocol != claimedProtocol) {
-                kick(player, event, "Protocol mismatch via " + channel + " (claimed=" + claimedProtocol + ", real=" + realProtocol + ")");
-                return;
-            }
+
+            return;
         }
+
+        // Client-side ViaFabric / ViaForge / ViaFabricPlus details.
+        if (channel.equals("vv:mod_details")) {
+
+            int protocol = parseRealProtocolFromDetails(
+                    new String(payload.getData(), StandardCharsets.UTF_8)
+            );
+
+            if (protocol > 0) {
+                this.modClientProtocol = protocol;
+
+                if (checkReportedProtocol(player, event, channel, protocol)) {
+                    return;
+                }
+            }
+
+            return;
+        }
+
+        // Standalone ViaProxy application details.
+        if (channel.equals("vv:app_details")) {
+
+            int protocol = parseRealProtocolFromDetails(
+                    new String(payload.getData(), StandardCharsets.UTF_8)
+            );
+
+            if (protocol > 0) {
+                this.appClientProtocol = protocol;
+
+                if (checkReportedProtocol(player, event, channel, protocol)) {
+                    return;
+                }
+            }
+
+            return;
+        }
+
 
         // 2. Direct channel check for legacy 1.8 FML channels sent by a player claiming modern 26.3
         // If a player claims to be modern 26.3 / 1.20+, but sends legacy 1.8 Forge channels, they are running ViaForge on 1.8!
@@ -135,22 +194,19 @@ public class ClientBrandListener implements Data {
                 return;
             }
 
-
         }
 
-        TaskUtils.playerLater(player, 5L, () -> {
-            if (!player.isOnline()) return;
+        if (!player.isOnline()) return;
 
-            Profile p = prof != null ? prof : this.plugin.getProfileManager().getProfile(player);
-            if (p == null) {
-                this.plugin.getProfileManager().createProfile(player);
-                p = this.plugin.getProfileManager().getProfile(player);
-            }
+        Profile p = prof != null ? prof : this.plugin.getProfileManager().getProfile(player);
+        if (p == null) {
+            this.plugin.getProfileManager().createProfile(player);
+            p = this.plugin.getProfileManager().getProfile(player);
+        }
 
-            if (p == null) return;
+        if (p == null) return;
 
-            p.setClient(normalizeBrand(decodeBrand(payload.getData())));
-        });
+        p.setClient(normalizeBrand(decodeBrand(payload.getData())));
     }
 
     private boolean isVersion26_3(Profile prof, Player player) {
@@ -173,7 +229,7 @@ public class ClientBrandListener implements Data {
             }
         }
         int protocol = VersionUtils.getProtocolVersion(player);
-        // Protocols: 1.20.2 is 764, 1.20.3 is 765, 1.21 is 767, 26.3 is higher
+        // Protocols: 1.20.2 is 764, 1.20.3 is 765, 1.21 is 767, 26.3 is 777
         return protocol >= 764;
     }
 
@@ -279,7 +335,7 @@ public class ClientBrandListener implements Data {
             int length = result[0];
             int index = result[1];
 
-            if (length < 0 || index < 0 || index + length > data.length) {
+            if (length < 0 || index < 0) {
                 return null;
             }
 
@@ -368,6 +424,37 @@ public class ClientBrandListener implements Data {
 
         return brand;
     }
+
+
+    private boolean checkReportedProtocol(
+            Player player,
+            PacketReceiveEvent event,
+            String source,
+            int reportedProtocol
+    ) {
+
+        // We cannot verify the client report until Velocity has supplied
+        // its authoritative observation of the original client protocol.
+        if (this.proxyClientProtocol <= 0 || reportedProtocol <= 0) {
+            return false;
+        }
+
+        // The client-reported protocol matches what Velocity observed.
+        if (reportedProtocol == this.proxyClientProtocol) {
+            return false;
+        }
+
+        kick(
+                player,
+                event,
+                "Version spoof detected via " + source
+                        + " (claimed=" + reportedProtocol
+                        + ", actual=" + this.proxyClientProtocol + ")"
+        );
+
+        return true;
+    }
+
 
     @Override
     public void processSend(PacketSendEvent event) {

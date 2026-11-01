@@ -105,11 +105,36 @@ public class GeneralEventListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onBlockPlace(BlockPlaceEvent event) {
         this.processEvent(event);
+        if (!event.isCancelled() && event.getBlockPlaced() != null) {
+            Block b = event.getBlockPlaced();
+            ChunkCache.get().setBlock(b.getWorld(), b.getX(), b.getY(), b.getZ(), b.getType());
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onBlockBreak(BlockBreakEvent event) {
         this.processEvent(event);
+        if (!event.isCancelled() && event.getBlock() != null) {
+            Block b = event.getBlock();
+            ChunkCache.get().setBlock(b.getWorld(), b.getX(), b.getY(), b.getZ(), Material.AIR);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityChangeBlock(EntityChangeBlockEvent event) {
+        try {
+            Block block = event.getBlock();
+            if (block == null || block.getWorld() == null) return;
+            Material to = event.getTo();
+            if (to == null) {
+                try {
+                    to = event.getBlockData().getMaterial();
+                } catch (Throwable ignored) {}
+            }
+            if (to != null) {
+                ChunkCache.get().setBlock(block.getWorld(), block.getX(), block.getY(), block.getZ(), to);
+            }
+        } catch (Throwable ignored) {}
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

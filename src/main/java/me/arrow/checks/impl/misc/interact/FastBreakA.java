@@ -154,11 +154,25 @@ public class FastBreakA extends Check {
 
             int minTicks = BlockBreakHelper.getMinimumBreakTicks(player, block);
 
-            // Instant break: finished in <= 1 tick or < 75ms on a block that requires >= 2 ticks
-            if (!matchingPos || this.startDigTime <= 0 || elapsedTicks <= 1 || elapsedMillis < 75L) {
+            // Instant break detection:
+            // For blocks requiring 2 damage ticks (minTicks == 2), legitimate break packet arrives
+            // after 1 elapsed tick (~50ms). Instant break is < 1 elapsed tick (< 35ms or no start digging).
+            // For blocks requiring >= 3 ticks, instant break is <= 1 elapsed tick (< 75ms or no start digging).
+            boolean instantBreak;
+            if (!matchingPos || this.startDigTime <= 0) {
+                instantBreak = true;
+            } else if (minTicks <= 2) {
+                instantBreak = (elapsedTicks < 1 || elapsedMillis < 35L);
+            } else {
+                instantBreak = (elapsedTicks <= 1 || elapsedMillis < 75L);
+            }
+
+            if (instantBreak) {
                 if (increaseBufferBy(1.0D) >= 1.0D) {
                     fail("Instant Break",
                             "block " + MsgType.MAIN_THEME_COLOR.getMessage() + block.getType().name()
+                                    + "\nitem " + MsgType.MAIN_THEME_COLOR.getMessage() + BlockBreakHelper.formatHeldItemWithEnchants(player)
+                                    + "\nhaste " + MsgType.MAIN_THEME_COLOR.getMessage() + BlockBreakHelper.formatHaste(player)
                                     + "\nelapsed " + MsgType.MAIN_THEME_COLOR.getMessage() + elapsedTicks + "t (" + elapsedMillis + "ms)"
                                     + "\nmin " + MsgType.MAIN_THEME_COLOR.getMessage() + minTicks + "t"
                                     + "\nprogress " + MsgType.MAIN_THEME_COLOR.getMessage() + format(3, progress)

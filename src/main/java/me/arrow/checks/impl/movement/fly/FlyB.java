@@ -107,7 +107,7 @@ public class FlyB extends Check {
                 boolean invalidLevitation2 =
                         profile.getPotionData().isHasLevitation()
                                 && deltaY == 0
-                                && movementData.getServerGroundTicks() >= 10
+                                && movementData.getServerGroundTicks() >= 15
                                 && movementData.getCustomAirTicks() == 0
                                 && !movementData.isUnderblock();
 

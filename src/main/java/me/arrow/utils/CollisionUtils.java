@@ -1343,10 +1343,16 @@ public class CollisionUtils {
                         }
                         Block block = null;
 
-                        if (material == null) {
+                        if (material == null || (material == Material.AIR && y <= feetY && (y + MAX_SUPPORT_HEIGHT) >= feetY)) {
                             block = getBlock(probe, async);
                             if (block != null) {
-                                material = nms.getType(block);
+                                Material live = nms.getType(block);
+                                if (live != null && live != Material.AIR) {
+                                    material = live;
+                                    ChunkCache.get().setBlock(probe, live);
+                                } else if (material == null && live != null) {
+                                    material = live;
+                                }
                             }
                         }
 
