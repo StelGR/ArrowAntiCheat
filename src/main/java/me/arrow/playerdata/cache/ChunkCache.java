@@ -399,11 +399,10 @@ public class ChunkCache {
                                     true
                             );
                         }
-                    }
-                    cached.setCompleteStatefulCollisionData();
                 }
             }
         }
+        cached.setCompleteStatefulCollisionData();
     }
 
 
