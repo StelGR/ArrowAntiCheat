@@ -997,7 +997,6 @@ public class CollisionUtils {
         if (block != null) {
             Material type = Arrow.getInstance().getNmsManager().getNmsInstance().getType(block);
             if (type != null && type != Material.AIR) {
-                ChunkCache.get().setBlock(location, type);
                 return type;
             }
         }
@@ -1006,13 +1005,11 @@ public class CollisionUtils {
 
     public static boolean isChunkLoaded(final CustomLocation location) {
         if (location == null || location.getWorld() == null) return false;
-        String worldName = location.getWorld().getName();
         double x = location.getX();
         double z = location.getZ();
         int cx = (int) Math.floor(x) >> 4;
         int cz = (int) Math.floor(z) >> 4;
         if (!ChunkCache.get().isChunkLoaded(location.getWorld(), cx, cz)) {
-            ChunkCache.get().queueMissingChunk(worldName, cx, cz);
             return false;
         }
         int minCx = (int) Math.floor(x - 0.3) >> 4;
@@ -1020,19 +1017,15 @@ public class CollisionUtils {
         int minCz = (int) Math.floor(z - 0.3) >> 4;
         int maxCz = (int) Math.floor(z + 0.3) >> 4;
         if (minCx != cx && !ChunkCache.get().isChunkLoaded(location.getWorld(), minCx, cz)) {
-            ChunkCache.get().queueMissingChunk(worldName, minCx, cz);
             return false;
         }
         if (maxCx != cx && !ChunkCache.get().isChunkLoaded(location.getWorld(), maxCx, cz)) {
-            ChunkCache.get().queueMissingChunk(worldName, maxCx, cz);
             return false;
         }
         if (minCz != cz && !ChunkCache.get().isChunkLoaded(location.getWorld(), cx, minCz)) {
-            ChunkCache.get().queueMissingChunk(worldName, cx, minCz);
             return false;
         }
         if (maxCz != cz && !ChunkCache.get().isChunkLoaded(location.getWorld(), cx, maxCz)) {
-            ChunkCache.get().queueMissingChunk(worldName, cx, maxCz);
             return false;
         }
         return true;
@@ -1040,13 +1033,11 @@ public class CollisionUtils {
 
     public static boolean isChunkLoaded(final Location location) {
         if (location == null || location.getWorld() == null) return false;
-        String worldName = location.getWorld().getName();
         double x = location.getX();
         double z = location.getZ();
         int cx = (int) Math.floor(x) >> 4;
         int cz = (int) Math.floor(z) >> 4;
         if (!ChunkCache.get().isChunkLoaded(location.getWorld(), cx, cz)) {
-            ChunkCache.get().queueMissingChunk(worldName, cx, cz);
             return false;
         }
         int minCx = (int) Math.floor(x - 0.3) >> 4;
@@ -1054,19 +1045,15 @@ public class CollisionUtils {
         int minCz = (int) Math.floor(z - 0.3) >> 4;
         int maxCz = (int) Math.floor(z + 0.3) >> 4;
         if (minCx != cx && !ChunkCache.get().isChunkLoaded(location.getWorld(), minCx, cz)) {
-            ChunkCache.get().queueMissingChunk(worldName, minCx, cz);
             return false;
         }
         if (maxCx != cx && !ChunkCache.get().isChunkLoaded(location.getWorld(), maxCx, cz)) {
-            ChunkCache.get().queueMissingChunk(worldName, maxCx, cz);
             return false;
         }
         if (minCz != cz && !ChunkCache.get().isChunkLoaded(location.getWorld(), cx, minCz)) {
-            ChunkCache.get().queueMissingChunk(worldName, cx, minCz);
             return false;
         }
         if (maxCz != cz && !ChunkCache.get().isChunkLoaded(location.getWorld(), cx, maxCz)) {
-            ChunkCache.get().queueMissingChunk(worldName, cx, maxCz);
             return false;
         }
         return true;
@@ -1078,9 +1065,6 @@ public class CollisionUtils {
         Block block = getBlock(new CustomLocation(world, x, y, z), true);
         if (block != null) {
             boolean wl = Arrow.getInstance().getNmsManager().getNmsInstance().isWaterLogged(block);
-            if (wl) {
-                me.arrow.playerdata.cache.ChunkCache.get().setWaterLogged(world, x, y, z, true);
-            }
             return wl;
         }
         return false;
@@ -1394,7 +1378,6 @@ public class CollisionUtils {
                                 Material live = nms.getType(block);
                                 if (live != null && live != Material.AIR) {
                                     material = live;
-                                    ChunkCache.get().setBlock(probe, live);
                                 } else if (material == null && live != null) {
                                     material = live;
                                 }
