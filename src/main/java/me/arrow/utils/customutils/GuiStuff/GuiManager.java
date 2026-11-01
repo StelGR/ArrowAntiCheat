@@ -63,7 +63,7 @@ public class GuiManager {
         gui.setItem(13, generateItem(new ItemStack(Material.REDSTONE, 1),
                 translate(MsgType.MAIN_THEME_COLOR.getMessage()+ "Info"), Arrays.asList(
                         translate(guiLine()),
-                        translate("&7Version: "+MsgType.MAIN_THEME_COLOR.getMessage()+ "b" + Arrow.getInstance().getVersion()),
+                        translate("&7Version: " + MsgType.MAIN_THEME_COLOR.getMessage() + Arrow.getInstance().getVersion()),
                         translate(ChatColor.GRAY + "TPS: " + MsgType.MAIN_THEME_COLOR.getMessage() + TickTask.getTPS()),
                         "",
                         translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7has "+MsgType.MAIN_THEME_COLOR.getMessage()+ Arrow.getInstance().getProfileManager().getProfile(player).getCheckHolder().getChecksSize() + " &7different checks"),

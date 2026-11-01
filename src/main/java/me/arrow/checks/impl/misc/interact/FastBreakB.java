@@ -181,6 +181,8 @@ public class FastBreakB extends Check {
                 if (increaseBufferBy(bufferAdd) >= 2.0D) {
                     fail("Increased mining speed",
                             "block " + MsgType.MAIN_THEME_COLOR.getMessage() + block.getType().name()
+                                    + "\nitem " + MsgType.MAIN_THEME_COLOR.getMessage() + BlockBreakHelper.formatHeldItemWithEnchants(player)
+                                    + "\nhaste " + MsgType.MAIN_THEME_COLOR.getMessage() + BlockBreakHelper.formatHaste(player)
                                     + "\nelapsed " + MsgType.MAIN_THEME_COLOR.getMessage() + elapsedTicks + "t (" + elapsedMillis + "ms)"
                                     + "\nmin " + MsgType.MAIN_THEME_COLOR.getMessage() + minTicks + "t"
                                     + "\nspeedup " + MsgType.MAIN_THEME_COLOR.getMessage() + format(1, speedup) + "%"

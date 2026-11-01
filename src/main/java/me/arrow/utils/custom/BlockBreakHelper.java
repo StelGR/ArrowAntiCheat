@@ -7,7 +7,6 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -19,7 +18,7 @@ import java.util.Locale;
  * Uses Paper's native Block#getBreakSpeed(Player) if available, and falls back to the exact
  * vanilla NMS formula with tool tier, efficiency, haste, fatigue, water, and airborne penalties.
  */
-public final class BlockBreakHelper {
+public class BlockBreakHelper {
 
     private static final MethodHandle BLOCK_GET_BREAK_SPEED;
 
@@ -98,7 +97,7 @@ public final class BlockBreakHelper {
         }
 
         ItemStack held = getHeldItem(player);
-        String heldName = held != null && held.getType() != null ? held.getType().name().toUpperCase(Locale.ROOT) : "";
+        String heldName = held != null ? held.getType().name().toUpperCase(Locale.ROOT) : "";
         String blockName = mat.name().toUpperCase(Locale.ROOT);
 
         boolean isAppropriateTool = isAppropriateTool(heldName, blockName);
@@ -144,7 +143,7 @@ public final class BlockBreakHelper {
         return speed / hardness / divisor;
     }
 
-    private static ItemStack getHeldItem(Player player) {
+    public static ItemStack getHeldItem(Player player) {
         try {
             return player.getInventory().getItemInMainHand();
         } catch (Throwable ignored) {
@@ -154,6 +153,41 @@ public final class BlockBreakHelper {
                 return null;
             }
         }
+    }
+
+    public static String formatHaste(Player player) {
+        int amp = getHasteAmplifier(player);
+        return amp >= 0 ? "Haste " + (amp + 1) : "None";
+    }
+
+    public static String formatHeldItemWithEnchants(Player player) {
+        if (player == null) return "None";
+        ItemStack item = getHeldItem(player);
+        if (item == null || item.getType().name().equals("AIR")) {
+            return "AIR";
+        }
+        StringBuilder sb = new StringBuilder(item.getType().name());
+        try {
+            java.util.Map<Enchantment, Integer> enchants = item.getEnchantments();
+            if (!enchants.isEmpty()) {
+                sb.append(" (");
+                boolean first = true;
+                for (java.util.Map.Entry<Enchantment, Integer> entry : enchants.entrySet()) {
+                    if (!first) sb.append(", ");
+                    first = false;
+                    String enchName = null;
+                    try {
+                        enchName = entry.getKey().getKey().getKey().toUpperCase(Locale.ROOT);
+                    } catch (Throwable ignored) {}
+                    if (enchName == null || enchName.isEmpty()) {
+                        enchName = entry.getKey().getName();
+                    }
+                    sb.append(enchName).append(" ").append(entry.getValue());
+                }
+                sb.append(")");
+            }
+        } catch (Throwable ignored) {}
+        return sb.toString();
     }
 
     private static float getBaseToolSpeed(String heldName) {
@@ -308,11 +342,11 @@ public final class BlockBreakHelper {
     private static boolean isPlayerSubmergedInWater(Player player) {
         try {
             Block block = player.getLocation().getBlock();
-            if (block != null && (block.getType().name().contains("WATER") || block.isLiquid())) {
+            if (block.getType().name().contains("WATER") || block.isLiquid()) {
                 return true;
             }
             Block eyeBlock = player.getEyeLocation().getBlock();
-            return eyeBlock != null && (eyeBlock.getType().name().contains("WATER") || eyeBlock.isLiquid());
+            return eyeBlock.getType().name().contains("WATER") || eyeBlock.isLiquid();
         } catch (Throwable ignored) {
             return false;
         }

@@ -41,6 +41,13 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
     public void onPacketSend(PacketSendEvent event) {
         Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
         World world = player != null ? player.getWorld() : null;
+        if (world == null && !PlatformBackend.get().isFabric()) {
+            try {
+                if (!Bukkit.getWorlds().isEmpty()) {
+                    world = Bukkit.getWorlds().get(0);
+                }
+            } catch (Throwable ignored) {}
+        }
         String worldName = world != null ? world.getName() : "world";
 
         PacketTypeCommon packetType = event.getPacketType();
