@@ -248,8 +248,9 @@ public class ChunkCache {
 
             String worldName = world.getName();
 
-            // Already cached.
-            if (getChunk(worldName, chunkX, chunkZ) != null) {
+            // Already cached with complete snapshot/packet data.
+            CachedChunk existing = getChunk(worldName, chunkX, chunkZ);
+            if (existing != null && existing.hasCompleteStatefulCollisionData()) {
                 return;
             }
 
@@ -262,7 +263,8 @@ public class ChunkCache {
             TaskUtils.task(() -> {
                 try {
                     // Re-check after scheduling.
-                    if (getChunk(worldName, chunkX, chunkZ) != null) {
+                    CachedChunk latest = getChunk(worldName, chunkX, chunkZ);
+                    if (latest != null && latest.hasCompleteStatefulCollisionData()) {
                         return;
                     }
 
@@ -398,6 +400,7 @@ public class ChunkCache {
                             );
                         }
                     }
+                    cached.setCompleteStatefulCollisionData();
                 }
             }
         }
@@ -569,6 +572,12 @@ public class ChunkCache {
         CachedChunk chunk = map.computeIfAbsent(chunkKey(cx, cz), k -> new CachedChunk(cx, cz));
         chunk.setState(x & 15, y, z & 15, material, state.getGlobalId(),
                 shouldStoreCollisionState(state));
+        chunk.setWaterlogged(
+                x & 15,
+                y,
+                z & 15,
+                isWaterMaterial(material) || PEMaterials.isWaterlogged(state)
+        );
 
         if (LEGACY_BLOCK_DATA_SUPPORTED) {
             int legacyData = PEMaterials.extractLegacyData(state, material);
@@ -672,7 +681,8 @@ public class ChunkCache {
     /** Returns true if globally cached. Entries are retained until the server unloads the chunk. */
     public boolean isChunkLoaded(World world, int chunkX, int chunkZ) {
         if (world == null) return false;
-        return getChunk(world.getName(), chunkX, chunkZ) != null;
+        CachedChunk chunk = getChunk(world.getName(), chunkX, chunkZ);
+        return chunk != null && chunk.hasCompleteStatefulCollisionData();
     }
 
 
@@ -900,7 +910,8 @@ public class ChunkCache {
     public void queueChunkSnapshot(World world, int cx, int cz, ChunkSnapshot snapshot) {
         if (world == null || snapshot == null) return;
         String worldName = world.getName();
-        if (getChunk(worldName, cx, cz) != null) return;
+        CachedChunk existing = getChunk(worldName, cx, cz);
+        if (existing != null && existing.hasCompleteStatefulCollisionData()) return;
         if (!markQueued(worldName, cx, cz)) return;
 
         int minY = getWorldMinY(world);
@@ -908,7 +919,8 @@ public class ChunkCache {
 
         chunkExecutor.execute(() -> {
             try {
-                if (getChunk(worldName, cx, cz) != null) return;
+                CachedChunk current = getChunk(worldName, cx, cz);
+                if (current != null && current.hasCompleteStatefulCollisionData()) return;
                 CachedChunk cached = new CachedChunk(cx, cz);
                 cacheFromSnapshot(snapshot, cached, minY, maxY);
                 putChunk(worldName, cx, cz, cached);
@@ -930,7 +942,8 @@ public class ChunkCache {
         int cx = chunk.getX();
         int cz = chunk.getZ();
 
-        if (getChunk(worldName, cx, cz) != null) return;
+        CachedChunk existing = getChunk(worldName, cx, cz);
+        if (existing != null && existing.hasCompleteStatefulCollisionData()) return;
         if (!markQueued(worldName, cx, cz)) return;
 
         ChunkSnapshot directSnapshot = null;
@@ -943,7 +956,8 @@ public class ChunkCache {
 
         chunkExecutor.execute(() -> {
             try {
-                if (getChunk(worldName, cx, cz) != null) return;
+                CachedChunk current = getChunk(worldName, cx, cz);
+                if (current != null && current.hasCompleteStatefulCollisionData()) return;
                 cacheBukkitChunk(chunk, snapshot);
             } catch (Throwable ignored) {
             } finally {
