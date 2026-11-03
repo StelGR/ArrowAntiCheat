@@ -84,6 +84,11 @@ public class ElytraA extends Check {
             try {
                 MovementData movementData = profile.getMovementData();
 
+                if (!profile.isWearingFunctionalElytra() || !movementData.isGlidingNow()) {
+                    tickElytraState(false);
+                    return;
+                }
+
                 if (exempt("cancelled", profile.shouldCancel())) return;
                 if (exempt("teleports", profile.isExempt().isTeleports())) return;
                 if (exempt("dead", profile.isExempt().isDead())) return;
@@ -549,10 +554,8 @@ public class ElytraA extends Check {
 
     private void handlePossibleFireworkUse() {
         try {
-            boolean isGliding = profile.getMovementData().isGlidingNow()
-                    || profile.isWearingFunctionalElytra();
-
-            if (!isGliding) {
+            if (!profile.isWearingFunctionalElytra()
+                    || !profile.getMovementData().isGlidingNow()) {
                 return;
             }
 

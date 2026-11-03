@@ -24,6 +24,7 @@ import me.arrow.utils.custom.BoundingBox;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.SampleList;
 import me.arrow.utils.customutils.OtherUtility;
+import me.arrow.utils.ReflectionUtils;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -1221,7 +1222,7 @@ public class ReachA extends Check {
         }
 
         try {
-            if (player.isGliding()) {
+            if (ReflectionUtils.isGliding(player)) {
                 return true;
             }
         } catch (Throwable ignored) {

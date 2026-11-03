@@ -17,6 +17,7 @@ import me.arrow.utils.versionutils.impl.VelocityClientVersionBridge;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -34,10 +35,12 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.server.ServerListPingEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Method;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static me.arrow.utils.customutils.OtherUtility.*;
 
@@ -657,44 +660,91 @@ public class GeneralEventListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onDamage(EntityDamageByEntityEvent event) {
-        if (event.getEntity() instanceof Player){
-            try {
-//                User user = Sonix.getInstance().getUserManager().getUser((Player) event.getEntity());
-//                if (user.getSetbackHandler().getReduce().get(((Player) event.getEntity()).getPlayer()) != null && user.getSetbackHandler().reduce.get(((Player) event.getEntity()).getPlayer()))
-//                    event.setDamage(event.getDamage() * 0.25);
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onLowTrustDiamondMine(BlockBreakEvent event) {
+        Player player = event.getPlayer();
+        Profile profile = Arrow.getInstance().getProfileManager().getProfile(player);
+        if (profile == null || profile.getTrustFactor().getTrust() >= -50.0) return;
 
-                if (event.getDamager() instanceof Player) {
-                    Player damager = (Player) event.getDamager();
-                    if (Config.Setting.NEURAL_DAMAGE_REDUCTION.getBoolean()) {
-                        Profile damagerProfile = Arrow.getInstance().getProfileManager().getProfile(damager);
-                        if (damagerProfile != null) {
-                            double trust = damagerProfile.getTrustFactor().getTrust();
-                            if (trust < 50.0) {
-                                // For every 10 trust lost under 50, reduce damage by 10% (down to 0% at -50 trust)
-                                double multiplier = 1.0 - ((50.0 - trust) / 100.0);
-                                multiplier = Math.max(0.0, Math.min(1.0, multiplier));
-                                event.setDamage(event.getDamage() * multiplier);
-                            }
+        String blockType = event.getBlock().getType().name();
+        if (!blockType.equals("DIAMOND_ORE") && !blockType.equals("DEEPSLATE_DIAMOND_ORE")) return;
+        if (ThreadLocalRandom.current().nextDouble() >= 0.30D) return;
+
+        event.setDropItems(false);
+        Location spawnLocation = event.getBlock().getLocation().add(0.5D, 0.5D, 0.5D);
+        TaskUtils.regionLater(spawnLocation, 1L, () -> {
+            if (spawnLocation.getWorld() == null) return;
+            String remainingBlock = spawnLocation.getBlock().getType().name();
+            if (remainingBlock.equals("DIAMOND_ORE") || remainingBlock.equals("DEEPSLATE_DIAMOND_ORE")) return;
+            spawnLocation.getWorld().spawnEntity(spawnLocation, EntityType.CREEPER);
+        });
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onDamage(EntityDamageByEntityEvent event) {
+        try {
+            if (Config.Setting.NEURAL_DAMAGE_REDUCTION.getBoolean()) {
+                Player attacker = findPlayerAttacker(event.getDamager(), 0);
+                if (attacker != null) {
+                    Profile attackerProfile = Arrow.getInstance().getProfileManager().getProfile(attacker);
+                    if (attackerProfile != null) {
+                        double trust = attackerProfile.getTrustFactor().getTrust();
+                        if (trust < 50.0) {
+                            // Full damage at 50 trust, declining linearly to zero at -50.
+                            double multiplier = Math.max(0.0, Math.min(1.0, (50.0 + trust) / 100.0));
+                            event.setDamage(event.getDamage() * multiplier);
                         }
                     }
-
-                    if (Config.Setting.TEST_SERVER_MODE_PREVENT_DAMAGE.getBoolean() && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
-                        if (event.getDamager().getWorld().getName().equals(Config.Setting.TEST_SERVER_MODE_WORLD.getString()))
-                            event.setDamage(0.0);
-                    }
                 }
-                if (event.getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK) {
-                    if (Config.Setting.TEST_SERVER_MODE_PREVENT_DAMAGE.getBoolean() && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()) {
-                        if (event.getDamager().getWorld().getName().equals(Config.Setting.TEST_SERVER_MODE_WORLD.getString()))
-                            event.setDamage(0.0);
-                    }
-                }
-            } catch (Exception ignored) {
+            }
 
+            if (event.getEntity() instanceof Player && event.getDamager() instanceof Player
+                    && Config.Setting.TEST_SERVER_MODE_PREVENT_DAMAGE.getBoolean()
+                    && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()
+                    && event.getDamager().getWorld().getName().equals(Config.Setting.TEST_SERVER_MODE_WORLD.getString())) {
+                event.setDamage(0.0);
+            }
+
+            if (event.getEntity() instanceof Player
+                    && event.getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK
+                    && Config.Setting.TEST_SERVER_MODE_PREVENT_DAMAGE.getBoolean()
+                    && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean()
+                    && event.getDamager().getWorld().getName().equals(Config.Setting.TEST_SERVER_MODE_WORLD.getString())) {
+                event.setDamage(0.0);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private Player findPlayerAttacker(Entity entity, int depth) {
+        if (entity == null || depth > 5) return null;
+        if (entity instanceof Player) return (Player) entity;
+
+        if (entity instanceof org.bukkit.entity.Projectile) {
+            try {
+                ProjectileSource shooter = ((org.bukkit.entity.Projectile) entity).getShooter();
+                if (shooter instanceof Player) return (Player) shooter;
+                if (shooter instanceof Entity) {
+                    Player player = findPlayerAttacker((Entity) shooter, depth + 1);
+                    if (player != null) return player;
+                }
+            } catch (Throwable ignored) {
             }
         }
+
+        for (String methodName : new String[]{"getSource", "getOwner", "getShooter"}) {
+            try {
+                Object source = entity.getClass().getMethod(methodName).invoke(entity);
+                if (source instanceof Player) return (Player) source;
+                if (source instanceof Entity) {
+                    Player player = findPlayerAttacker((Entity) source, depth + 1);
+                    if (player != null) return player;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        return null;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

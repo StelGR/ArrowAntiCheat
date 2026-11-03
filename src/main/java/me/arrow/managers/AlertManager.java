@@ -2,7 +2,6 @@ package me.arrow.managers;
 
 import lombok.Getter;
 import me.arrow.Arrow;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.webhook.DiscordWebhookQueue;
 import me.arrow.backend.bukkit.PlatformBackend;
@@ -38,13 +37,16 @@ public class AlertManager implements Listener, Initializer {
         this.verboseExecutor = createExecutor("Arrow-Verbose-Alerts");
         PlatformBackend.get().registerListener(this);
 
-        if (Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean() && PlatformBackend.get().getServer() != null) {
+        if (PlatformBackend.get().getServer() != null) {
             for (Player player : PlatformBackend.get().getServer().getOnlinePlayers()) {
                 Profile profile = Arrow.getInstance().getProfileManager().getProfile(player);
                 if (profile != null) {
-                    profile.setAlerts(true);
+                    if (profile.isAlerts()) {
+                        addPlayerToAlerts(player.getUniqueId());
+                    } else {
+                        removePlayerFromAlerts(player.getUniqueId());
+                    }
                 }
-                addPlayerToAlerts(player.getUniqueId());
             }
         }
 

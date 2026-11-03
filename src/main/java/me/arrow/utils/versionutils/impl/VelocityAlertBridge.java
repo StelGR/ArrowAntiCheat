@@ -1,6 +1,10 @@
 package me.arrow.utils.versionutils.impl;
 
 import com.google.common.collect.Iterables;
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import me.arrow.Arrow;
+import me.arrow.managers.profile.Profile;
 import me.arrow.utils.ChatUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -13,6 +17,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class VelocityAlertBridge implements PluginMessageListener {
 
@@ -21,6 +29,7 @@ public class VelocityAlertBridge implements PluginMessageListener {
 
     private static Plugin pluginInstance;
     private static VelocityAlertBridge listenerInstance;
+    private static final Map<String, Long> RECENT_FORWARDED_ALERTS = new ConcurrentHashMap<>();
 
     public static void register(Plugin plugin) {
         pluginInstance = plugin;
@@ -54,6 +63,7 @@ public class VelocityAlertBridge implements PluginMessageListener {
 
         pluginInstance = null;
         listenerInstance = null;
+        RECENT_FORWARDED_ALERTS.clear();
     }
 
     /**
@@ -102,16 +112,47 @@ public class VelocityAlertBridge implements PluginMessageListener {
             out.flush();
 
             byte[] data = bytes.toByteArray();
-            try {
-                messenger.sendPluginMessage(pluginInstance, MODERN_CHANNEL, data);
-            } catch (Throwable ignored) {
+            sendPayload(messenger, data);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    public static void sendPreference(Player player, boolean enabled) {
+        if (pluginInstance == null || player == null || !player.isOnline()) return;
+
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(bytes);
+            out.writeUTF("ALERT_PREFERENCE");
+            out.writeUTF(player.getUniqueId().toString());
+            out.writeBoolean(enabled);
+            out.flush();
+            sendPayload(player, bytes.toByteArray());
+        } catch (Throwable ignored) {
+        }
+    }
+
+    public static void syncOnlinePreferences() {
+        if (pluginInstance == null) return;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            Profile profile = Arrow.getInstance() == null || Arrow.getInstance().getProfileManager() == null
+                    ? null
+                    : Arrow.getInstance().getProfileManager().getProfile(player);
+            if (profile != null) {
+                sendPreference(player, profile.isVelocityAlerts());
             }
-            try {
-                messenger.sendPluginMessage(pluginInstance, LEGACY_CHANNEL, data);
-            } catch (Throwable ignored) {
+        }
+    }
+
+    private static void sendPayload(Player player, byte[] data) {
+        String channel = MODERN_CHANNEL;
+        try {
+            if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_13)) {
+                channel = LEGACY_CHANNEL;
             }
         } catch (Throwable ignored) {
         }
+        player.sendPluginMessage(pluginInstance, channel, data);
     }
 
     @Override
@@ -145,6 +186,22 @@ public class VelocityAlertBridge implements PluginMessageListener {
             String formattedMessage = in.readUTF();
             boolean deliveredToProxyPlayers = in.readBoolean();
 
+            Set<UUID> deliveredPlayerIds = new HashSet<>();
+            boolean hasRecipientList = in.available() >= Integer.BYTES;
+            if (hasRecipientList) {
+                int recipientCount = in.readInt();
+                if (recipientCount < 0 || recipientCount > 10000) {
+                    throw new IllegalArgumentException("Invalid proxy alert recipient count: " + recipientCount);
+                }
+                for (int i = 0; i < recipientCount; i++) {
+                    deliveredPlayerIds.add(UUID.fromString(in.readUTF()));
+                }
+            }
+
+            if (isDuplicateForward(serverDisplay, playerUuidStr, checkName, checkType, vl)) {
+                return;
+            }
+
             String colored = ChatUtils.format(formattedMessage);
 
             // 1. Print alert to this server's console
@@ -152,8 +209,22 @@ public class VelocityAlertBridge implements PluginMessageListener {
 
             // 2. Broadcast to operators or players with arrow.alerts on this server
             for (Player online : Bukkit.getOnlinePlayers()) {
+                Profile profile = Arrow.getInstance() == null || Arrow.getInstance().getProfileManager() == null
+                        ? null
+                        : Arrow.getInstance().getProfileManager().getProfile(online);
+                if (profile != null && !profile.isVelocityAlerts()) {
+                    continue;
+                }
+
                 boolean isOp = online.isOp();
                 boolean hasPerm = online.hasPermission("arrow.alerts");
+
+                if (hasRecipientList) {
+                    if (!deliveredPlayerIds.contains(online.getUniqueId()) && (isOp || hasPerm)) {
+                        online.sendMessage(colored);
+                    }
+                    continue;
+                }
 
                 // If Velocity already delivered to players with arrow.alerts via proxy chat,
                 // only deliver here to local OPs who do NOT have proxy arrow.alerts permission
@@ -172,5 +243,15 @@ public class VelocityAlertBridge implements PluginMessageListener {
         } catch (Throwable throwable) {
             Bukkit.getLogger().warning("[ArrowAlertBridge] Failed to read forwarded alert: " + throwable.getMessage());
         }
+    }
+
+    private static boolean isDuplicateForward(String server, String playerUuid, String check,
+                                              String checkType, int vl) {
+        long now = System.currentTimeMillis();
+        RECENT_FORWARDED_ALERTS.entrySet().removeIf(entry -> now - entry.getValue() > 1000L);
+
+        String key = server + '|' + playerUuid + '|' + check + '|' + checkType + '|' + vl;
+        Long previous = RECENT_FORWARDED_ALERTS.put(key, now);
+        return previous != null && now - previous <= 1000L;
     }
 }

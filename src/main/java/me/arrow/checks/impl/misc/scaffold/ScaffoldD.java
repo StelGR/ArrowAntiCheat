@@ -21,6 +21,8 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
+import java.util.ArrayDeque;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -30,9 +32,13 @@ import java.util.List;
 @Experimental
 public class ScaffoldD extends Check {
 
+    private static final int MAX_LOOK_HISTORY = 16;
+
     private static final int[] NORMAL_X = {0, 0, 0, 0, -1, 1};
     private static final int[] NORMAL_Y = {-1, 1, 0, 0, 0, 0};
     private static final int[] NORMAL_Z = {0, 0, -1, 1, 0, 0};
+
+    private final ArrayDeque<PlacementSnapshot> recentViews = new ArrayDeque<>();
 
     public ScaffoldD(Profile profile) {
         super(profile, CheckType.SCAFFOLD, "D", "Checks for an invalid block face");
@@ -40,6 +46,11 @@ public class ScaffoldD extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
+        if (isMovementPacket(event)) {
+            rememberView();
+            return;
+        }
+
         if (!event.getPacketType().equals(PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT)) {
             return;
         }
@@ -76,7 +87,7 @@ public class ScaffoldD extends Check {
 
         PlacementSnapshot placement = snapshotAtPlacement(movement, profile.getRotationData());
         FaceTraceResult trace = placement == null ? FaceTraceResult.UNKNOWN
-                : traceEyeSight(placement, clickedX, clickedY, clickedZ, face);
+                : traceWithLagCompensation(placement, clickedX, clickedY, clickedZ, face);
         if (trace == FaceTraceResult.CLEAR || trace == FaceTraceResult.UNKNOWN) {
             decay();
             return;
@@ -99,6 +110,78 @@ public class ScaffoldD extends Check {
                             + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + round(placement.pitch)
                             + "\nreachAllowance " + MsgType.MAIN_THEME_COLOR.getMessage() + round(placement.reachAllowance));
             decreaseBufferBy(1.0D);
+        }
+    }
+
+    private boolean isMovementPacket(PacketReceiveEvent event) {
+        return event.getPacketType().equals(PacketType.Play.Client.PLAYER_FLYING)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
+                || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION);
+    }
+
+    private void rememberView() {
+        PlacementSnapshot snapshot = snapshotAtPlacement(profile.getMovementData(), profile.getRotationData());
+        if (snapshot == null) return;
+
+        long now = System.nanoTime();
+        snapshot.timestampNanos = now;
+        recentViews.addLast(snapshot);
+        pruneViews(now, lookHistoryWindowNanos());
+        while (recentViews.size() > MAX_LOOK_HISTORY) {
+            recentViews.removeFirst();
+        }
+    }
+
+    /**
+     * A placement can arrive just after a rapid rotation packet while the
+     * server is processing a burst of delayed packets. Use only a very recent
+     * client view as a grace case; never substitute a later server/Bukkit view.
+     */
+    private FaceTraceResult traceWithLagCompensation(PlacementSnapshot current,
+                                                     int x, int y, int z, int face) {
+        FaceTraceResult currentResult = traceEyeSight(current, x, y, z, face);
+        if (currentResult == FaceTraceResult.CLEAR || currentResult == FaceTraceResult.UNKNOWN) {
+            return currentResult;
+        }
+
+        long now = System.nanoTime();
+        long window = lookHistoryWindowNanos();
+        pruneViews(now, window);
+        Iterator<PlacementSnapshot> iterator = recentViews.descendingIterator();
+        while (iterator.hasNext()) {
+            PlacementSnapshot recent = iterator.next();
+            long age = now - recent.timestampNanos;
+            if (age <= 0L || age > window || recent.world != current.world) continue;
+
+            // Require the prior view to be spatially close so movement cannot
+            // make an unrelated, earlier sight line excuse this placement.
+            double dx = recent.eyeX - current.eyeX;
+            double dy = recent.eyeY - current.eyeY;
+            double dz = recent.eyeZ - current.eyeZ;
+            if (dx * dx + dy * dy + dz * dz > 0.75D * 0.75D) continue;
+
+            FaceTraceResult recentResult = traceEyeSight(recent, x, y, z, face);
+            if (recentResult == FaceTraceResult.CLEAR) {
+                return FaceTraceResult.CLEAR;
+            }
+            if (recentResult == FaceTraceResult.UNKNOWN) {
+                return FaceTraceResult.UNKNOWN;
+            }
+        }
+        return currentResult;
+    }
+
+    private long lookHistoryWindowNanos() {
+        ConnectionData connection = profile.getConnectionData();
+        int ping = connection == null ? 0 : Math.max(connection.getPing(), connection.getTransPing());
+        long windowMillis = Math.max(50L, Math.min(150L, 35L + Math.max(0, ping) / 2L));
+        return windowMillis * 1_000_000L;
+    }
+
+    private void pruneViews(long now, long maxAge) {
+        while (!recentViews.isEmpty() && now - recentViews.peekFirst().timestampNanos > maxAge) {
+            recentViews.removeFirst();
         }
     }
 
@@ -432,6 +515,7 @@ public class ScaffoldD extends Check {
         private final World world;
         private final double eyeX, eyeY, eyeZ, reachAllowance, edgeAllowance;
         private final float yaw, pitch;
+        private long timestampNanos;
 
         private PlacementSnapshot(World world, double eyeX, double eyeY, double eyeZ, float yaw, float pitch,
                                   double reachAllowance, double edgeAllowance) {

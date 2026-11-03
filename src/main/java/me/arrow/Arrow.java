@@ -268,6 +268,7 @@ public class Arrow {
             if (getInstance().getHost() != null) {
                 VelocityClientVersionBridge.register(getInstance().getHost());
                 VelocityAlertBridge.register(getInstance().getHost());
+                VelocityAlertBridge.syncOnlinePreferences();
                 log(translate("&6" + "➪  Velocity Bridge Channels Initialized"));
             }
 
