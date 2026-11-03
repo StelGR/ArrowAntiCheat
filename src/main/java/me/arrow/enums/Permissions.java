@@ -15,6 +15,7 @@ public enum Permissions {
     HOVER("arrow.hover"), // ability to see debug information on hover over the alert
     BASIC_ALERTS("arrow.alerts.basic"), // made for servers that want basic information, such as only the type of cheat the player used, nothing else on anticheat alerts (must have arrow.alerts)
     COMMAND_ALERTS("arrow.commands.alerts"),
+    COMMAND_VELOCITY_ALERTS("arrow.commands.velocityalerts"),
     COMMAND_PROFILER("arrow.commands.profiler"), // command to toggle alerts on or off
     COMMAND_GUI("arrow.commands.gui"), // anticheat checks or settings
     COMMAND_RELOAD("arrow.commands.reload"), // not used

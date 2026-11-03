@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.wrapper.configuration.client.WrapperConfigClientPluginMessage;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPluginMessage;
 import me.arrow.Arrow;
 import me.arrow.managers.profile.Profile;
@@ -20,19 +21,24 @@ import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 // Cleaned up version of NikV2's clientbrand listener, with packetevents 2.12.2 support
 
 public class ClientBrandListener implements Data {
 
+    private static final long PENDING_BRAND_TTL_NANOS = 10_000_000_000L;
+    private static final Map<UUID, PendingBrand> PENDING_BRANDS = new ConcurrentHashMap<>();
+
     private final Arrow plugin;
     private final Profile profile;
 
     boolean sentRegisterChannel;
-    boolean sentBrand;
     boolean kicked;
+    private boolean brandLocked;
 
     // ViaVersion client version verification
     int proxyClientProtocol = -1;
@@ -45,29 +51,103 @@ public class ClientBrandListener implements Data {
         this.profile = profile;
     }
 
+    /** Retain a brand that arrives during Configuration before Bukkit creates the profile. */
+    public static void capturePendingBrand(PacketReceiveEvent event) {
+        if (event == null || event.getPlayer() == null) return;
+        Player player = event.getPlayer();
+        String brand = readBrand(event);
+        if (brand == null) return;
+
+        long now = System.nanoTime();
+        PENDING_BRANDS.entrySet().removeIf(entry -> now - entry.getValue().timestampNanos > PENDING_BRAND_TTL_NANOS);
+        PENDING_BRANDS.put(player.getUniqueId(), new PendingBrand(normalizeBrand(brand), now));
+    }
+
+    public static String consumePendingBrand(UUID uuid) {
+        if (uuid == null) return null;
+        PendingBrand pending = PENDING_BRANDS.remove(uuid);
+        if (pending == null || System.nanoTime() - pending.timestampNanos > PENDING_BRAND_TTL_NANOS) return null;
+        return pending.brand;
+    }
+
+    /** Uses Paper's parsed client brand when available; reflection keeps Spigot builds compatible. */
+    public static boolean applyServerBrandFallback(Player player, Profile profile) {
+        if (player == null || profile == null) return false;
+        if (!"Unknown".equalsIgnoreCase(profile.getClient())) return true;
+
+        try {
+            Object value = player.getClass().getMethod("getClientBrandName").invoke(player);
+            if (!(value instanceof String)) return false;
+
+            String brand = ((String) value).trim();
+            if (!isPlausibleBrand(brand)) return false;
+            profile.setClient(normalizeBrand(brand));
+            return true;
+        } catch (ReflectiveOperationException ignored) {
+            // Not available on Spigot; PacketEvents remains the primary source.
+            return false;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static String readBrand(PacketReceiveEvent event) {
+        try {
+            String channel;
+            byte[] data;
+            if (event.getPacketType().equals(PacketType.Play.Client.PLUGIN_MESSAGE)) {
+                WrapperPlayClientPluginMessage payload = new WrapperPlayClientPluginMessage(event);
+                channel = payload.getChannelName();
+                data = payload.getData();
+            } else if (event.getPacketType().equals(PacketType.Configuration.Client.PLUGIN_MESSAGE)) {
+                WrapperConfigClientPluginMessage payload = new WrapperConfigClientPluginMessage(event);
+                channel = payload.getChannelName();
+                data = payload.getData();
+            } else {
+                return null;
+            }
+
+            if (channel == null || !(channel.equals("minecraft:brand") || channel.equalsIgnoreCase("MC|Brand"))) {
+                return null;
+            }
+
+            String brand = decodeBrand(data);
+            return isPlausibleBrand(brand) ? brand : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
     @Override
     public void processReceive(PacketReceiveEvent event) {
         if (event.getPlayer() == null) return;
 
-        // Play plugin message. The toString fallback makes this more tolerant if PacketEvents changes phase naming.
-        if (!event.getPacketType().equals(PacketType.Play.Client.PLUGIN_MESSAGE)) {
+        Player player = event.getPlayer();
+        Profile prof = this.profile != null ? this.profile : this.plugin.getProfileManager().getProfile(player);
+        String channel;
+        byte[] data;
+        if (event.getPacketType().equals(PacketType.Play.Client.PLUGIN_MESSAGE)) {
+            WrapperPlayClientPluginMessage payload = new WrapperPlayClientPluginMessage(event);
+            channel = payload.getChannelName();
+            data = payload.getData();
+        } else if (event.getPacketType().equals(PacketType.Configuration.Client.PLUGIN_MESSAGE)) {
+            WrapperConfigClientPluginMessage payload = new WrapperConfigClientPluginMessage(event);
+            channel = payload.getChannelName();
+            data = payload.getData();
+        } else {
             return;
         }
 
-        Player player = event.getPlayer();
-        Profile prof = this.profile != null ? this.profile : this.plugin.getProfileManager().getProfile(player);
-
-        WrapperPlayClientPluginMessage payload = new WrapperPlayClientPluginMessage(event);
-        String channel = payload.getChannelName();
+        if (channel == null) return;
         String channelLower = channel.toLowerCase(Locale.ROOT);
 
         boolean isNamespacedRegister = channel.equals("minecraft:register");
         boolean isLegacyRegister = channel.equalsIgnoreCase("REGISTER");
         boolean isRegister = isNamespacedRegister || isLegacyRegister;
 
-        boolean isLegacyBrand = channel.equals("MC|Brand") || channel.equals("MC|BOpen");
+        boolean isLegacyBrand = channel.equalsIgnoreCase("MC|Brand");
         boolean isModernBrand = channel.equals("minecraft:brand");
-        boolean isBrandChannel = isLegacyBrand || isModernBrand || (channelLower.endsWith("brand") && !isRegister) || channelLower.contains(":brand");
+        boolean isBrandChannel = isLegacyBrand || isModernBrand;
 
 
         // 1. Detect ViaVersion client-side version spoofing.
@@ -86,7 +166,7 @@ public class ClientBrandListener implements Data {
         if (channel.equals("vv:proxy_details")) {
 
             int protocol = parseRealProtocolFromDetails(
-                    new String(payload.getData(), StandardCharsets.UTF_8)
+                    new String(data, StandardCharsets.UTF_8)
             );
 
             if (protocol > 0) {
@@ -111,7 +191,7 @@ public class ClientBrandListener implements Data {
         if (channel.equals("vv:mod_details")) {
 
             int protocol = parseRealProtocolFromDetails(
-                    new String(payload.getData(), StandardCharsets.UTF_8)
+                    new String(data, StandardCharsets.UTF_8)
             );
 
             if (protocol > 0) {
@@ -129,7 +209,7 @@ public class ClientBrandListener implements Data {
         if (channel.equals("vv:app_details")) {
 
             int protocol = parseRealProtocolFromDetails(
-                    new String(payload.getData(), StandardCharsets.UTF_8)
+                    new String(data, StandardCharsets.UTF_8)
             );
 
             if (protocol > 0) {
@@ -156,7 +236,7 @@ public class ClientBrandListener implements Data {
         // 3. Inspect registered channels for client-side Via or version spoofing tools
         if (isRegister) {
             this.sentRegisterChannel = true;
-            String registeredChannels = new String(payload.getData(), StandardCharsets.UTF_8);
+            String registeredChannels = new String(data, StandardCharsets.UTF_8);
             String regLower = registeredChannels.toLowerCase(Locale.ROOT);
 
             // Only kick if the player is claiming modern (26.3) while running 1.8 Forge / ViaForge!
@@ -181,10 +261,9 @@ public class ClientBrandListener implements Data {
 
         // 4. Handle client brand
         if (isBrandChannel) {
-            this.sentBrand = true;
-            String brand = decodeBrand(payload.getData());
+            String brand = decodeBrand(data);
 
-            if (brand == null || brand.isEmpty()) {
+            if (!isPlausibleBrand(brand)) {
                 return;
             }
 
@@ -194,19 +273,35 @@ public class ClientBrandListener implements Data {
                 return;
             }
 
+            if (brandLocked || !player.isOnline()) return;
+
+            Profile p = prof != null ? prof : this.plugin.getProfileManager().getProfile(player);
+            if (p == null) {
+                this.plugin.getProfileManager().createProfile(player);
+                p = this.plugin.getProfileManager().getProfile(player);
+            }
+
+            if (p != null) {
+                if (!"Unknown".equalsIgnoreCase(p.getClient())) {
+                    brandLocked = true;
+                    return;
+                }
+                p.setClient(normalizeBrand(brand));
+                brandLocked = true;
+            }
+        }
+    }
+
+    private static boolean isPlausibleBrand(String brand) {
+        if (brand == null || brand.isEmpty() || brand.length() > 128) return false;
+        if (brand.matches("(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) {
+            return false;
         }
 
-        if (!player.isOnline()) return;
-
-        Profile p = prof != null ? prof : this.plugin.getProfileManager().getProfile(player);
-        if (p == null) {
-            this.plugin.getProfileManager().createProfile(player);
-            p = this.plugin.getProfileManager().getProfile(player);
-        }
-
-        if (p == null) return;
-
-        p.setClient(normalizeBrand(decodeBrand(payload.getData())));
+        String lower = brand.toLowerCase(Locale.ROOT);
+        return !lower.equals("bungeecord:main")
+                && !lower.equals("velocity:main")
+                && !lower.equals("minecraft:brand");
     }
 
     private boolean isVersion26_3(Profile prof, Player player) {
@@ -308,7 +403,7 @@ public class ClientBrandListener implements Data {
         }
     }
 
-    private String decodeBrand(byte[] data) {
+    private static String decodeBrand(byte[] data) {
         if (data == null || data.length == 0) {
             return null;
         }
@@ -329,7 +424,7 @@ public class ClientBrandListener implements Data {
         return decoded;
     }
 
-    private String tryReadMinecraftString(byte[] data) {
+    private static String tryReadMinecraftString(byte[] data) {
         try {
             int[] result = readVarInt(data, 0);
             int length = result[0];
@@ -345,7 +440,7 @@ public class ClientBrandListener implements Data {
         }
     }
 
-    private int[] readVarInt(byte[] data, int start) {
+    private static int[] readVarInt(byte[] data, int start) {
         int value = 0;
         int position = 0;
         int index = start;
@@ -373,10 +468,14 @@ public class ClientBrandListener implements Data {
         return new int[] { value, index };
     }
 
-    private String normalizeBrand(String brand) {
+    private static String normalizeBrand(String brand) {
         if (brand == null) return "Unknown";
 
         String lower = brand.toLowerCase(Locale.ROOT);
+
+        if (lower.equals("vanilla")) {
+            return "Vanilla";
+        }
 
         if (lower.contains("lunar") || lower.contains("lunarclient") || lower.contains("lunar client")) {
             return "Lunar Client";
@@ -404,6 +503,10 @@ public class ClientBrandListener implements Data {
 
         if (lower.contains("quilt")) {
             return "Quilt";
+        }
+
+        if (lower.contains("optifine")) {
+            return "OptiFine";
         }
 
         if (lower.contains("salwyrr")) {
@@ -453,6 +556,16 @@ public class ClientBrandListener implements Data {
         );
 
         return true;
+    }
+
+    private static final class PendingBrand {
+        private final String brand;
+        private final long timestampNanos;
+
+        private PendingBrand(String brand, long timestampNanos) {
+            this.brand = brand;
+            this.timestampNanos = timestampNanos;
+        }
     }
 
 

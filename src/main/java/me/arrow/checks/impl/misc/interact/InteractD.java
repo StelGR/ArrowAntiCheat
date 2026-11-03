@@ -26,6 +26,7 @@ import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.PEMaterials;
 import me.arrow.utils.customutils.Math.MathUtil;
 import me.arrow.utils.customutils.OtherUtility;
+import me.arrow.utils.ReflectionUtils;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -633,7 +634,7 @@ public class InteractD extends Check {
 
     private double getTargetHeight(Player target) {
         try {
-            if (target.isGliding()) return 0.6D;
+            if (ReflectionUtils.isGliding(target)) return 0.6D;
         } catch (Throwable ignored) {}
         try {
             Object swimming = target.getClass().getMethod("isSwimming").invoke(target);

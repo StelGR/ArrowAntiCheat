@@ -24,8 +24,12 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
         final Player player = event.getPlayer();
         if (player == null) return;
 
-        final Profile profile = this.plugin.getProfileManager().getProfile(player);
-        if (profile == null) return;
+        Profile profile = this.plugin.getProfileManager().getProfile(player);
+        if (profile == null) {
+            ClientBrandListener.capturePendingBrand(event);
+            profile = this.plugin.getProfileManager().getProfile(player);
+            if (profile == null) return;
+        }
 
         final String crashAttempt = CrashChecker.check(event);
 

@@ -47,6 +47,7 @@ public class ElytraB extends Check {
         boolean invalidState = profile.shouldCancel()
                 || profile.getPlayer() == null
                 || profile.getPlayer().isDead()
+                || !profile.isWearingFunctionalElytra()
                 || profile.isExempt().isTeleports()
                 || profile.isExempt().vehicle()
                 || !data.isGlidingNow()

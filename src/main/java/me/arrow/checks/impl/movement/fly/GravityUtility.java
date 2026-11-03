@@ -513,7 +513,8 @@ public class GravityUtility {
             return true;
         }
         if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(5)
-                || profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (transTicks * 2))) {
+                || profile.getBlockProcessor().isCancelledBlockPlaceAbove(12 + (transTicks * 2))
+                || profile.getActionData().getLastConfirmedUnderBreakTicks() < 5 + (transTicks * 2)) {
             ChatUtils.debugExempt("cancelledBlockPlace", checkName);
             return true;
         }

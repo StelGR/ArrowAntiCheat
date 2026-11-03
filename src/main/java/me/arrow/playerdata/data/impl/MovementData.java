@@ -11,7 +11,6 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPl
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPosition;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPositionAndRotation;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerRotation;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import lombok.Getter;
 import lombok.Setter;
@@ -126,7 +125,7 @@ public class MovementData implements Data {
     /** Authoritative fall-flying flag from the player's own metadata packet. */
     boolean metadataGliding;
     float elytraMomentumBonus;
-    int glideStartTransitionTicks;
+    float lastElytraHorizontalSpeed;
     boolean lastElytraPose;
 
     @Getter
@@ -165,10 +164,6 @@ public class MovementData implements Data {
     @Override
     public void processReceive(PacketReceiveEvent event) {
         final long currentTime = MiscUtils.toMillis(event.getTimestamp());
-
-        if (event.getPacketType().equals(ENTITY_ACTION)) {
-            handleElytraStartAction(event);
-        }
 
         if (event.getPacketType().equals(PLAYER_FLYING)) {
             WrapperPlayClientPlayerFlying move = (event.getLastUsedWrapper() instanceof WrapperPlayClientPlayerFlying)
@@ -302,12 +297,9 @@ public class MovementData implements Data {
 
                 metadataGliding = (flags & 0x80) == 0x80;
 
-                if (metadataGliding) {
-                    // Preserve the transition even if Bukkit's pose changes
-                    // back before the next movement packet is processed.
+                if (metadataGliding && profile.isWearingFunctionalElytra()) {
                     sinceGlidingTicks = 0;
                     glidingTicks = Math.max(glidingTicks, 1);
-                    glideStartTransitionTicks = Math.max(glideStartTransitionTicks, getGlideTransitionTicks());
                 }
 
                 break;
@@ -1229,10 +1221,6 @@ public class MovementData implements Data {
 
             updateElytraMomentum();
 
-            if (glideStartTransitionTicks > 0) {
-                glideStartTransitionTicks--;
-            }
-
             sinceElytraEquipTicks = profile.isWearingFunctionalElytra() ?  0 : sinceElytraEquipTicks + 1;
             serverAirTicks = isServerGround() ? 0 : serverAirTicks + 1;
             serverGroundTicksPlus = isServerGround() ? serverGroundTicksPlus + 1 : 0;
@@ -1304,53 +1292,10 @@ public class MovementData implements Data {
         return Math.max(0.0F, elytraMomentumBonus);
     }
 
-    private void handleElytraStartAction(PacketReceiveEvent event) {
-        WrapperPlayClientEntityAction action;
-
-        try {
-            action = new WrapperPlayClientEntityAction(event);
-        } catch (Throwable ignored) {
-            return;
-        }
-
-        if (action.getAction() != WrapperPlayClientEntityAction.Action.START_FLYING_WITH_ELYTRA) {
-            return;
-        }
-
-        if (profile.getPlayer().isInsideVehicle()) {
-            return;
-        }
-
-        /*
-         * This packet is the earliest reliable indication of a real client
-         * glide. A jump-glide can land and clear Bukkit pose before the next
-         * movement packet, especially with transaction delay.
-         * Works with vanilla Elytra and custom plugin glide abilities (e.g. Origins).
-         */
-        glideStartTransitionTicks = Math.max(glideStartTransitionTicks, getGlideTransitionTicks());
-        glidingTicks = Math.max(glidingTicks, 1);
-        sinceGlidingTicks = 0;
-    }
-
-    public int getGlideTransitionTicks() {
-        int transactionTicks = 0;
-        int pingTicks = 0;
-
-        try {
-            transactionTicks = Math.max(0, profile.getConnectionData().getClientTickTrans());
-            pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
-        } catch (Throwable ignored) {
-        }
-
-        int maxLag = Math.max(transactionTicks, pingTicks);
-        // Allow up to 250 ticks (~12.5 seconds / 10,000+ ms ping) of transition compensation
-        return Math.max(10, Math.min(250, 10 + (maxLag * 2)));
-    }
-
     public boolean isGlidingNow() {
-        return metadataGliding
-                || glideStartTransitionTicks > 0
-                || ReflectionUtils.isGliding(profile.getPlayer());
+        return profile != null
+                && profile.isWearingFunctionalElytra()
+                && (metadataGliding || ReflectionUtils.isGliding(profile.getPlayer()));
     }
 
     public boolean isGlidingOrRecentlyGlided() {
@@ -1358,6 +1303,10 @@ public class MovementData implements Data {
     }
 
     public boolean isGlidingOrRecentlyGlided(int baseGraceTicks) {
+        if (profile == null || !profile.isWearingFunctionalElytra()) {
+            return false;
+        }
+
         if (isGlidingNow() || glidingTicks > 0) {
             return true;
         }
@@ -1379,34 +1328,42 @@ public class MovementData implements Data {
     }
 
     private void updateElytraMomentum() {
-        // Do not use glideStartTransitionTicks here. It is only a packet-delay
-        // grace window; this bonus must snapshot precisely when the fall-flying
-        // pose actually ends.
-        boolean elytraPose = metadataGliding || ReflectionUtils.isGliding(profile.getPlayer());
+        boolean elytraPose = isGlidingNow();
         if (elytraPose) {
-//            elytraMomentumBonus = 0.0F;
+            // Keep the last real horizontal movement sample separately while
+            // gliding. Positionless packets zero deltaXZ, and momentumBonus is
+            // reserved for the post-glide grace so checks aren't exempted mid-flight.
+            if (packetMoving) {
+                lastElytraHorizontalSpeed = (float) Math.max(0.0D, deltaXZ);
+            }
+            if (!lastElytraPose) {
+                elytraMomentumBonus = 0.0F;
+            }
             lastElytraPose = true;
             return;
         }
 
         if (lastElytraPose) {
-            boolean air = isCustomInAir() && !isOnGround() && !isServerGround();
-            double ordinaryLimit = air ? 0.35301212D : 0.28063D;
-            elytraMomentumBonus = (float) Math.max(0.0D, Math.min(deltaXZ, 3.4) + 0.5D);
+            // If the pose ended on a position packet, use that final speed.
+            // Otherwise retain the last non-zero glide movement sample above.
+            if (packetMoving) {
+                lastElytraHorizontalSpeed = (float) Math.max(0.0D, deltaXZ);
+            }
+            elytraMomentumBonus = lastElytraHorizontalSpeed;
+            lastElytraHorizontalSpeed = 0.0F;
             lastElytraPose = false;
             return;
         }
 
         if (elytraMomentumBonus <= 0.0F) return;
 
-        // Carry the captured excess exactly as ordinary horizontal movement
-        // would: air is 0.91, ground is block slipperiness × 0.91.
-        float friction = isCustomInAir()
-                ? 0.91f
-                : getFrictionFactor() * 0.91f;
+        // Air drag is 0.91. Ground drag is block slipperiness × 0.91.
+        float friction = (isOnGround() || isServerGround())
+                ? getFrictionFactor() * 0.91F
+                : 0.91F;
         elytraMomentumBonus *= friction;
 
-        if (elytraMomentumBonus < 0.00025F) {
+        if (elytraMomentumBonus <= 0.0001F) {
             elytraMomentumBonus = 0.0F;
         }
     }

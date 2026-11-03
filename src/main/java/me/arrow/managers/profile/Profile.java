@@ -102,7 +102,7 @@ public class Profile implements CoreProfile {
     @Getter
     private ClientVersion version;
     @Setter
-    private String client = "Vanilla";
+    private String client = "Unknown";
 
     @Getter
     @Setter
@@ -124,6 +124,12 @@ public class Profile implements CoreProfile {
 
     @Getter @Setter
     private double trustScore = 70;
+
+    @Getter @Setter
+    private int totalLogs;
+
+    @Getter @Setter
+    private boolean velocityAlerts = true;
 
     //------------------------------------------
     private final ProfileThread profileThread;

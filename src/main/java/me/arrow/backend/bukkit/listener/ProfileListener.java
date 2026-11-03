@@ -1,10 +1,9 @@
 package me.arrow.backend.bukkit.listener;
 
 import me.arrow.Arrow;
-import me.arrow.enums.Permissions;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.utils.TaskUtils;
+import me.arrow.utils.versionutils.impl.VelocityAlertBridge;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -30,6 +29,7 @@ public class ProfileListener implements Listener {
         }
 
         this.plugin.getProfileManager().createProfile(player);
+        resolveClientBrand(player, 5);
 
         Profile profile = this.plugin.getProfileManager().getProfile(player);
 
@@ -40,16 +40,40 @@ public class ProfileListener implements Listener {
                 if (this.plugin.getProfileManager().getProfile(player) == null) {
                     this.plugin.getProfileManager().createProfile(player);
                 }
+                syncPreferences(player);
             });
+            return;
         }
 
-        if (Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean()
-                && player.hasPermission(Permissions.ALERTS.getPermission())) {
-            if (profile != null) {
-                profile.setAlerts(true);
+        syncPreferences(player);
+    }
+
+    private void resolveClientBrand(Player player, int attemptsRemaining) {
+        TaskUtils.playerLater(player, 1L, () -> {
+            if (!player.isOnline()) return;
+
+            Profile profile = this.plugin.getProfileManager().getProfile(player);
+            if (profile != null && ClientBrandListener.applyServerBrandFallback(player, profile)) {
+                return;
             }
+
+            if (attemptsRemaining > 1) {
+                resolveClientBrand(player, attemptsRemaining - 1);
+            }
+        });
+    }
+
+    private void syncPreferences(Player player) {
+        Profile profile = this.plugin.getProfileManager().getProfile(player);
+        if (profile == null) return;
+
+        if (profile.isAlerts()) {
             this.plugin.getAlertManager().addPlayerToAlerts(player.getUniqueId());
+        } else {
+            this.plugin.getAlertManager().removePlayerFromAlerts(player.getUniqueId());
         }
+
+        VelocityAlertBridge.sendPreference(player, profile.isVelocityAlerts());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

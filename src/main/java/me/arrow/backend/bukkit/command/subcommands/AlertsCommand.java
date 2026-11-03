@@ -3,11 +3,10 @@ package me.arrow.backend.bukkit.command.subcommands;
 import me.arrow.Arrow;
 import me.arrow.backend.bukkit.command.SubCommand;
 import me.arrow.enums.MsgType;
+import me.arrow.managers.profile.Profile;
 import me.arrow.enums.Permissions;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-
-import java.util.UUID;
 
 import static me.arrow.utils.customutils.OtherUtility.*;
 
@@ -52,21 +51,22 @@ public class AlertsCommand extends SubCommand {
     @Override
     protected void perform(CommandSender sender, String[] args) {
 
-        final UUID uuid = ((Player) sender).getUniqueId();
-
-        if (this.plugin.getAlertManager().hasAlerts(uuid)) {
-
-            this.plugin.getProfileManager().getProfile(((Player) sender).getUniqueId()).setAlerts(false);
-            this.plugin.getAlertManager().removePlayerFromAlerts(uuid);
-
-            sender.sendMessage(translate(MsgType.PREFIX.getMessage() + "&cYou have disabled the Alerts"));
-
-        } else {
-
-            this.plugin.getProfileManager().getProfile(((Player) sender).getUniqueId()).setAlerts(true);
-            this.plugin.getAlertManager().addPlayerToAlerts(uuid);
-
-            sender.sendMessage(translate(MsgType.PREFIX.getMessage() + "&aYou have enabled the Alerts"));
+        Player player = (Player) sender;
+        Profile profile = this.plugin.getProfileManager().getProfile(player);
+        if (profile == null) {
+            sender.sendMessage(translate("&cYour Arrow profile is not ready yet."));
+            return;
         }
+
+        boolean enabled = !profile.isAlerts();
+        profile.setAlerts(enabled);
+        if (enabled) {
+            this.plugin.getAlertManager().addPlayerToAlerts(player.getUniqueId());
+        } else {
+            this.plugin.getAlertManager().removePlayerFromAlerts(player.getUniqueId());
+        }
+        this.plugin.getProfileManager().saveProfile(profile);
+        sender.sendMessage(translate(MsgType.PREFIX.getMessage()
+                + (enabled ? "&aYou have enabled the Alerts" : "&cYou have disabled the Alerts")));
     }
 }

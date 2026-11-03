@@ -11,6 +11,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -61,6 +62,24 @@ public class LogManager implements Initializer {
         if (playerLog == null) return;
 
         this.logsQueue.add(playerLog);
+    }
+
+    public int getTotalLogsForPlayer(UUID uuid, String playerName) {
+        int total = 0;
+        if (playerName != null && !playerName.isEmpty()) {
+            total = this.logExporter.getLogsForPlayer(playerName, 1, 1).getTotalLogs();
+        }
+
+        String uuidString = uuid == null ? "" : uuid.toString();
+        String expectedName = playerName == null ? "" : playerName;
+        for (PlayerLog log : this.logsQueue) {
+            if (log == null) continue;
+            if ((!uuidString.isEmpty() && uuidString.equalsIgnoreCase(log.getUuid()))
+                    || (!expectedName.isEmpty() && expectedName.equalsIgnoreCase(log.getPlayer()))) {
+                total++;
+            }
+        }
+        return total;
     }
 
     public void clearQueuedLogs() {

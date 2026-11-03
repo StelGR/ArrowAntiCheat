@@ -26,6 +26,7 @@ public class CommandManager implements TabExecutor {
 
     public CommandManager(Arrow plugin) {
         this.subCommands.add(new AlertsCommand(plugin));
+        this.subCommands.add(new VelocityAlertsCommand(plugin));
         this.subCommands.add(new VerboseCommand(plugin));
         this.subCommands.add(new SetbacksCommand(plugin));
         this.subCommands.add(new GuiCommand(plugin));

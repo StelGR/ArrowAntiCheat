@@ -361,7 +361,7 @@ public class ReflectionUtils {
     }
 
     public static boolean isGliding(Player player) {
-        if (player == null) return false;
+        if (player == null || !isWearingElytra(player)) return false;
 
         try {
             if (Arrow.getInstance().getNmsManager().getNmsInstance().isGliding(player)) {
@@ -388,6 +388,17 @@ public class ReflectionUtils {
         }
 
         return false;
+    }
+
+    public static boolean isWearingElytra(Player player) {
+        if (player == null) return false;
+
+        try {
+            org.bukkit.inventory.ItemStack chestplate = player.getInventory().getChestplate();
+            return chestplate != null && "ELYTRA".equalsIgnoreCase(chestplate.getType().name());
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
 
