@@ -107,6 +107,36 @@ public class VelocityData implements Data {
 
                 MovementData movementData = profile.getMovementData();
 
+                if (profile.getVelocityData().getVelocityH() > 0.0D) {
+                    double totalH = profile.getVelocityData().getVelocityH();
+
+                    totalH *= movementData.isOnGround()
+                            ? movementData.getFrictionFactor()
+                            : 0.91F;
+
+                    profile.getVelocityData().setVelocityH(Math.max(totalH - 0.001D, 0.0D));
+                }
+
+                if (profile.getVelocityData().getVelocityV() > 0.0D) {
+                    double totalV = profile.getVelocityData().getVelocityV();
+
+                    totalV = (totalV * (movementData.isOnGround()
+                            ? movementData.getFrictionFactor()
+                            : 0.91F)) - 0.04D;
+
+                    profile.getVelocityData().setVelocityV(Math.max(totalV, 0.0D));
+                }
+
+                if (profile.getVelocityData().getVelocityV() < 0.0001) {
+                    profile.getVelocityData().setVelocityV(0.0D);
+                    profile.getVelocityData().setVelocityVSustain(0.0D);
+                }
+
+                if (profile.getVelocityData().getVelocityH() < 0.0001) {
+                    profile.getVelocityData().setVelocityH(0.0D);
+                    profile.getVelocityData().setVelocityHSustain(0.0D);
+                }
+
                 explosionKnockback.multiply(0.95D);
 
                 if (Math.abs(explosionKnockback.getX()) < 0.0001D) {

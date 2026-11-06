@@ -12,28 +12,35 @@ import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkData;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUnloadChunk;
 import me.arrow.backend.bukkit.PlatformBackend;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
+import org.bukkit.Location;
+import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
  * Pure PacketEvents chunk and block update listener for ArrowAntiCheat.
  *
- * All chunk cache population is driven exclusively by packets sent from the
- * server to clients — no Bukkit events are used. This makes the cache reliable
- * across Fabric, Folia, Paper and Spigot, and avoids the race conditions that
- * Packet block data is authoritative for chunks currently being sent to a client;
- * the cache also bootstraps already-loaded server chunks on startup.
+ * Chunk and block cache data is populated from packets sent by the server.
+ * Bukkit lifecycle events remove a player's tracked chunks on quit or world
+ * change, and startup state is seeded for players already online. Packet block
+ * data is authoritative for chunks currently being sent to a client; the cache
+ * also bootstraps already-loaded server chunks on startup.
  *
- * Chunks are NEVER evicted from the cache. Once a chunk is loaded by any
- * player it stays cached for the lifetime of the server process. This ensures
- * the anticheat always has block data available regardless of which players
- * currently have a chunk in their view distance. Block-change packets keep the
- * cached data up-to-date for the entire duration.
+ * Chunks are shared globally and remain cached while any tracked player has
+ * them loaded. After the final player unloads a chunk, the cache retains it for
+ * five minutes before evicting it. Block-change packets keep cached data current.
  *
  * Handled packet types:
  *   CHUNK_DATA         — full chunk load; populates global cache once per chunk.
+ *   UNLOAD_CHUNK       — removes one player's interest and starts the shared cache TTL if last.
  *   BLOCK_CHANGE       — single-block server update; updates global cache.
  *   MULTI_BLOCK_CHANGE — batch server block update; updates global cache.
  *
@@ -41,7 +48,7 @@ import org.bukkit.entity.Player;
  * stream carries the update writes it to the shared cache; subsequent players
  * receiving the same update are idempotent (same state = same result).
  */
-public class ChunkCacheListener extends PacketListenerAbstract implements PacketListener {
+public class ChunkCacheListener extends PacketListenerAbstract implements PacketListener, Listener {
 
     private final ChunkCache cache;
 
@@ -49,26 +56,91 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
         this.cache = cache;
     }
 
+    /** Seeds viewer state for players already online during a plugin reload. */
+    public void seedOnlinePlayers() {
+        Server server = PlatformBackend.get().getServer();
+        if (server == null) return;
+
+        int serverViewDistance = readDistance(server, "getViewDistance", 10);
+        for (Player player : server.getOnlinePlayers()) {
+            try {
+                World world = player.getWorld();
+                Location location = player.getLocation();
+                if (world == null || location == null) continue;
+
+                int clientViewDistance = readDistance(player, "getClientViewDistance", serverViewDistance);
+                int viewDistance = Math.max(2, Math.min(serverViewDistance, clientViewDistance));
+                int centerX = location.getBlockX() >> 4;
+                int centerZ = location.getBlockZ() >> 4;
+                Chunk[] loadedChunks = world.getLoadedChunks();
+
+                for (Chunk chunk : loadedChunks) {
+                    if (chunk == null
+                            || Math.abs(chunk.getX() - centerX) > viewDistance
+                            || Math.abs(chunk.getZ() - centerZ) > viewDistance) {
+                        continue;
+                    }
+                    cache.markChunkLoaded(player.getUniqueId(), world.getName(), chunk.getX(), chunk.getZ());
+                }
+            } catch (Throwable ignored) {
+                // Packet events will populate this player's viewer state as chunks are sent.
+            }
+        }
+    }
+
+    private int readDistance(Object target, String methodName, int fallback) {
+        try {
+            Object value = target.getClass().getMethod(methodName).invoke(target);
+            if (value instanceof Number) {
+                int distance = ((Number) value).intValue();
+                if (distance > 0) return Math.max(2, Math.min(32, distance));
+            }
+        } catch (Throwable ignored) {
+        }
+        return fallback;
+    }
+
     @Override
     public void onPacketSend(PacketSendEvent event) {
         PacketTypeCommon packetType = event.getPacketType();
 
+        boolean blockChange = packetType.equals(PacketType.Play.Server.BLOCK_CHANGE);
+        boolean multiBlockChange = packetType.equals(PacketType.Play.Server.MULTI_BLOCK_CHANGE);
+        boolean chunkData = packetType.equals(PacketType.Play.Server.CHUNK_DATA);
+        boolean chunkUnload = packetType.equals(PacketType.Play.Server.UNLOAD_CHUNK);
+        if (!blockChange && !multiBlockChange && !chunkData && !chunkUnload) return;
+
         String worldName = resolveWorldName(event);
         if (worldName == null) return;
 
-        if (packetType.equals(PacketType.Play.Server.BLOCK_CHANGE)) {
+        if (blockChange) {
             handleBlockChange(event, worldName);
             return;
         }
 
-        if (packetType.equals(PacketType.Play.Server.MULTI_BLOCK_CHANGE)) {
+        if (multiBlockChange) {
             handleMultiBlockChange(event, worldName);
             return;
         }
 
-        if (packetType.equals(PacketType.Play.Server.CHUNK_DATA)) {
+        if (chunkData) {
             handleChunkData(event, worldName);
+            return;
         }
+
+        if (chunkUnload) {
+            handleChunkUnload(event, worldName);
+        }
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        cache.removePlayerFromChunks(event.getPlayer().getUniqueId());
+    }
+
+    @EventHandler
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        cache.removePlayerFromChunks(event.getPlayer().getUniqueId());
     }
 
     // =========================================================================
@@ -127,6 +199,9 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             int y = wrapper.getBlockPosition().getY();
             int z = wrapper.getBlockPosition().getZ();
 
+            Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
+            if (player != null) cache.markChunkLoaded(player.getUniqueId(), worldName, x >> 4, z >> 4);
+
             WrappedBlockState state = wrapper.getBlockState();
             if (state == null) return;
 
@@ -148,11 +223,18 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                 packetVersion = event.getClientVersion();
             }
 
+            boolean markedLoaded = false;
             for (WrapperPlayServerMultiBlockChange.EncodedBlock block : wrapper.getBlocks()) {
                 try {
                     int x = block.getX();
                     int y = block.getY();
                     int z = block.getZ();
+
+                    if (!markedLoaded && event.getPlayer() instanceof Player) {
+                        Player player = (Player) event.getPlayer();
+                        cache.markChunkLoaded(player.getUniqueId(), worldName, x >> 4, z >> 4);
+                        markedLoaded = true;
+                    }
 
                     WrappedBlockState state = block.getBlockState(packetVersion);
                     if (state == null) continue;
@@ -179,6 +261,10 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
 
             Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
             World world = player != null ? player.getWorld() : null;
+
+            if (player != null) {
+                cache.markChunkLoaded(player.getUniqueId(), worldName, chunkX, chunkZ);
+            }
             if (world == null && worldName != null && !PlatformBackend.get().isFabric()) {
                 try {
                     world = Bukkit.getWorld(worldName);
@@ -190,6 +276,22 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                     ? user.getMinWorldHeight()
                     : ChunkCache.getWorldMinY(world);
             cache.queuePacketChunk(worldName, chunkX, chunkZ, minY, column);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void handleChunkUnload(PacketSendEvent event, String worldName) {
+        try {
+            Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
+            if (player == null) return;
+
+            WrapperPlayServerUnloadChunk wrapper = new WrapperPlayServerUnloadChunk(event);
+            cache.markChunkUnloaded(
+                    player.getUniqueId(),
+                    worldName,
+                    wrapper.getChunkX(),
+                    wrapper.getChunkZ()
+            );
         } catch (Throwable ignored) {
         }
     }

@@ -307,7 +307,11 @@ public class Arrow {
             PlatformBackend.get().registerListener(this.violationListener);
             PlatformBackend.get().registerListener(new GeneralEventListener());
             PlatformBackend.get().registerListener(new GuiListener());
-            PacketEvents.getAPI().getEventManager().registerListener(new me.arrow.playerdata.cache.ChunkCacheListener(this.chunkCache));
+            me.arrow.playerdata.cache.ChunkCacheListener chunkCacheListener =
+                    new me.arrow.playerdata.cache.ChunkCacheListener(this.chunkCache);
+            chunkCacheListener.seedOnlinePlayers();
+            PlatformBackend.get().registerListener(chunkCacheListener);
+            PacketEvents.getAPI().getEventManager().registerListener(chunkCacheListener);
 
             log(translate("&6" + "➪  Listeners Initialized"));
 

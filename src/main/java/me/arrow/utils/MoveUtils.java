@@ -40,6 +40,14 @@ public class MoveUtils {
     //---------------------------------------------------------------------------------------
 
 
+    // custom values for air and ground speed
+    //---------------------------------------------------------------------------------------
+    public static final double AIR_BASE_SPEED = 0.35301212D;
+
+    public static final double GROUND_BASE_SPEED = 0.28063D;
+    public static final double GROUND_DIAGONAL_TOLERANCE = 0.006;
+
+    //---------------------------------------------------------------------------------------
     /**
      * Conservative, realistic base air speed derived from ground base speed,
      * sprint state, and expected air-control. This is intended to approximate
