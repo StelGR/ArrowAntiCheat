@@ -14,8 +14,12 @@ import org.bukkit.block.Block;
 import org.jspecify.annotations.NonNull;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -63,6 +67,14 @@ public class ChunkCache {
     private final Set<Integer> pendingCollisionShapes = ConcurrentHashMap.newKeySet();
     // Dedicated worker thread pool for asynchronous chunk caching
     private final ThreadPoolExecutor chunkExecutor;
+    // Shared cache residency: a chunk stays active while any player has it loaded.
+    private final Object chunkViewLock = new Object();
+    private final Map<WorldChunkKey, Set<UUID>> chunkViewers = new HashMap<>();
+    private final Map<UUID, Set<WorldChunkKey>> playerChunks = new HashMap<>();
+    private final Map<WorldChunkKey, PendingChunkEviction> pendingEvictions = new HashMap<>();
+    private final DelayQueue<PendingChunkEviction> evictionQueue = new DelayQueue<>();
+    private final Thread evictionThread;
+    private volatile boolean running = true;
 
     @Getter
     private volatile boolean initialized = false;
@@ -86,6 +98,125 @@ public class ChunkCache {
                 },
                 new ThreadPoolExecutor.AbortPolicy()
         );
+
+        this.evictionThread = new Thread(this::runEvictionWorker, "Arrow-ChunkCache-Eviction");
+        this.evictionThread.setDaemon(true);
+        this.evictionThread.start();
+    }
+
+    public void markChunkLoaded(UUID playerId, String worldName, int chunkX, int chunkZ) {
+        if (playerId == null || worldName == null) return;
+
+        WorldChunkKey key = new WorldChunkKey(worldName, chunkX, chunkZ);
+        synchronized (chunkViewLock) {
+            PendingChunkEviction pending = pendingEvictions.remove(key);
+            if (pending != null) evictionQueue.remove(pending);
+
+            chunkViewers.computeIfAbsent(key, ignored -> new HashSet<>()).add(playerId);
+            playerChunks.computeIfAbsent(playerId, ignored -> new HashSet<>()).add(key);
+        }
+    }
+
+    public void markChunkUnloaded(UUID playerId, String worldName, int chunkX, int chunkZ) {
+        if (playerId == null || worldName == null) return;
+
+        WorldChunkKey key = new WorldChunkKey(worldName, chunkX, chunkZ);
+        synchronized (chunkViewLock) {
+            Set<WorldChunkKey> loadedChunks = playerChunks.get(playerId);
+            if (loadedChunks != null) {
+                loadedChunks.remove(key);
+                if (loadedChunks.isEmpty()) playerChunks.remove(playerId);
+            }
+
+            Set<UUID> viewers = chunkViewers.get(key);
+            if (viewers != null) {
+                viewers.remove(playerId);
+                if (viewers.isEmpty()) {
+                    chunkViewers.remove(key);
+                    scheduleEvictionLocked(key);
+                }
+            } else {
+                // Also expire chunks first observed before player tracking began.
+                if (!pendingEvictions.containsKey(key)) scheduleEvictionLocked(key);
+            }
+        }
+    }
+
+    public void removePlayerFromChunks(UUID playerId) {
+        if (playerId == null) return;
+
+        synchronized (chunkViewLock) {
+            Set<WorldChunkKey> loadedChunks = playerChunks.remove(playerId);
+            if (loadedChunks == null) return;
+
+            for (WorldChunkKey key : loadedChunks) {
+                Set<UUID> viewers = chunkViewers.get(key);
+                if (viewers == null) continue;
+
+                viewers.remove(playerId);
+                if (viewers.isEmpty()) {
+                    chunkViewers.remove(key);
+                    scheduleEvictionLocked(key);
+                }
+            }
+        }
+    }
+
+    private void scheduleEvictionIfUnviewed(String worldName, int chunkX, int chunkZ) {
+        if (worldName == null) return;
+        WorldChunkKey key = new WorldChunkKey(worldName, chunkX, chunkZ);
+        synchronized (chunkViewLock) {
+            if (!chunkViewers.containsKey(key) && !pendingEvictions.containsKey(key)) {
+                scheduleEvictionLocked(key);
+            }
+        }
+    }
+
+    private void scheduleEvictionLocked(WorldChunkKey key) {
+        PendingChunkEviction previous = pendingEvictions.remove(key);
+        if (previous != null) evictionQueue.remove(previous);
+
+        PendingChunkEviction eviction = new PendingChunkEviction(
+                key,
+                System.nanoTime() + TimeUnit.MINUTES.toNanos(5L)
+        );
+        pendingEvictions.put(key, eviction);
+        evictionQueue.offer(eviction);
+    }
+
+    private void runEvictionWorker() {
+        while (running) {
+            try {
+                PendingChunkEviction eviction = evictionQueue.take();
+                synchronized (chunkViewLock) {
+                    if (pendingEvictions.get(eviction.key) != eviction) continue;
+                    pendingEvictions.remove(eviction.key);
+                    if (chunkViewers.containsKey(eviction.key)) continue;
+
+                    synchronized (cacheUpdateLock) {
+                        Map<Long, CachedChunk> chunks = worldChunks.get(eviction.key.worldName);
+                        if (chunks != null) {
+                            chunks.remove(eviction.key.chunkKey);
+                            if (chunks.isEmpty()) worldChunks.remove(eviction.key.worldName, chunks);
+                        }
+
+                        Map<Long, Map<Long, WrappedBlockState>> updates =
+                                pendingBlockUpdates.get(eviction.key.worldName);
+                        if (updates != null) {
+                            updates.remove(eviction.key.chunkKey);
+                            if (updates.isEmpty()) pendingBlockUpdates.remove(eviction.key.worldName);
+                        }
+                    }
+                }
+            } catch (InterruptedException ignored) {
+                if (!running) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            } catch (Throwable ignored) {
+                // A failed eviction must not stop future cache cleanup.
+            }
+        }
     }
 
     public static long chunkKey(int chunkX, int chunkZ) {
@@ -335,6 +466,11 @@ public class ChunkCache {
 
     public void putChunk(String worldName, int chunkX, int chunkZ, CachedChunk chunk) {
         if (worldName == null || chunk == null) return;
+        putChunkInternal(worldName, chunkX, chunkZ, chunk);
+        scheduleEvictionIfUnviewed(worldName, chunkX, chunkZ);
+    }
+
+    private void putChunkInternal(String worldName, int chunkX, int chunkZ, CachedChunk chunk) {
         worldChunks.computeIfAbsent(worldName, k -> new ConcurrentHashMap<>())
                 .put(chunkKey(chunkX, chunkZ), chunk);
     }
@@ -342,6 +478,12 @@ public class ChunkCache {
     public void clear() {
         pendingQueue.clear();
         pendingSnapshotQueue.clear();
+        synchronized (chunkViewLock) {
+            chunkViewers.clear();
+            playerChunks.clear();
+            pendingEvictions.clear();
+            evictionQueue.clear();
+        }
         synchronized (cacheUpdateLock) {
             pendingBlockUpdates.clear();
         }
@@ -370,6 +512,7 @@ public class ChunkCache {
                     .computeIfAbsent(key, ignored -> new CachedChunk(cx, cz));
             writePacketBlockState(chunk, x & 15, y, z & 15, state);
         }
+        scheduleEvictionIfUnviewed(worldName, cx, cz);
     }
 
     private static void writePacketBlockState(CachedChunk chunk, int x, int y, int z, WrappedBlockState state) {
@@ -671,9 +814,10 @@ public class ChunkCache {
                     if (cached != null) {
                         synchronized (cacheUpdateLock) {
                             applyPendingBlockUpdates(worldName, chunkX, chunkZ, cached);
-                            putChunk(worldName, chunkX, chunkZ, cached);
+                            putChunkInternal(worldName, chunkX, chunkZ, cached);
                             unmarkQueued(worldName, chunkX, chunkZ);
                         }
+                        scheduleEvictionIfUnviewed(worldName, chunkX, chunkZ);
                         return;
                     }
                 } catch (Throwable ignored) {
@@ -708,14 +852,17 @@ public class ChunkCache {
                 try {
                     CachedChunk cached = new CachedChunk(cx, cz);
                     cacheFromSnapshot(snapshot, cached, minY, maxY);
+                    boolean stored = false;
                     synchronized (cacheUpdateLock) {
                         CachedChunk current = getChunk(worldName, cx, cz);
                         if (!isChunkQueued(worldName, cx, cz)
                                 && (current == null || !current.hasCompleteStatefulCollisionData())) {
                             applyPendingBlockUpdates(worldName, cx, cz, cached);
-                            putChunk(worldName, cx, cz, cached);
+                            putChunkInternal(worldName, cx, cz, cached);
+                            stored = true;
                         }
                     }
+                    if (stored) scheduleEvictionIfUnviewed(worldName, cx, cz);
                 } catch (Throwable ignored) {
                 } finally {
                     Set<Long> queued = pendingSnapshotQueue.get(worldName);
@@ -800,11 +947,58 @@ public class ChunkCache {
     }
 
     public void shutdown() {
+        running = false;
+        evictionThread.interrupt();
         try {
             chunkExecutor.shutdownNow();
         } catch (Throwable ignored) {}
         clear();
         pendingCollisionShapes.clear();
+    }
+
+    private static final class WorldChunkKey {
+        private final String worldName;
+        private final long chunkKey;
+
+        private WorldChunkKey(String worldName, int chunkX, int chunkZ) {
+            this.worldName = worldName;
+            this.chunkKey = ChunkCache.chunkKey(chunkX, chunkZ);
+        }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) return true;
+            if (!(object instanceof WorldChunkKey)) return false;
+            WorldChunkKey that = (WorldChunkKey) object;
+            return chunkKey == that.chunkKey && worldName.equals(that.worldName);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(worldName, chunkKey);
+        }
+    }
+
+    private static final class PendingChunkEviction implements Delayed {
+        private final WorldChunkKey key;
+        private final long expiresAtNanos;
+
+        private PendingChunkEviction(WorldChunkKey key, long expiresAtNanos) {
+            this.key = key;
+            this.expiresAtNanos = expiresAtNanos;
+        }
+
+        @Override
+        public long getDelay(TimeUnit unit) {
+            return unit.convert(expiresAtNanos - System.nanoTime(), TimeUnit.NANOSECONDS);
+        }
+
+        @Override
+        public int compareTo(Delayed other) {
+            if (other == this) return 0;
+            long difference = expiresAtNanos - ((PendingChunkEviction) other).expiresAtNanos;
+            return difference < 0L ? -1 : difference > 0L ? 1 : 0;
+        }
     }
 
     public static class CachedChunk {

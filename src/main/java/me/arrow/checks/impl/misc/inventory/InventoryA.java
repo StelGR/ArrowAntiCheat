@@ -35,24 +35,17 @@ public class InventoryA extends Check {
         if (event.getPacketType().equals(PacketType.Play.Client.CLICK_WINDOW)) {
             final long time = event.getTimestamp();
 
-            final long lastTime= this.lastTime;
-
+            final long lastTime = this.lastTime;
             this.lastTime = time;
-
             final long delta = time - lastTime;
-
             final long lastDelta = this.lastDelta;
-
             this.lastDelta = delta;
 
             if (delta > 5L && lastDelta > 5L) this.samples.add(delta);
-
             if (!this.samples.isCollected()) return;
 
             final double deviation = getDevation(this.samples);
-
             final double average = getAverageLong(this.samples);
-
             final double std = MathUtil.getStandardDeviation(this.samples);
 
             String verboseInfo = "deviation " + MsgType.MAIN_THEME_COLOR.getMessage() + deviation

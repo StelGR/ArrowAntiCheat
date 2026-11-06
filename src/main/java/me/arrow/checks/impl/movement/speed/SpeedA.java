@@ -54,15 +54,14 @@ public class SpeedA extends Check {
         // Elytra physics is handled by the dedicated checks. Never feed an
         // active glide (or its packet transition window) into ground/air speed.
         if (movementData.isGlidingNow()) {
-            groundBuffer = 0.0D;
-            airBuffer = 0.0D;
+            resetBuffer();
             return;
         }
 
         double deltaXZ = movementData.getDeltaXZ();
         double deltaY = movementData.getDeltaY();
-        double velocityH = velocityData.getTotalHorizontalVelocity();
         double blockFriction = movementData.getFrictionFactor();
+        predictedDifference = 0.0D;
 
         boolean serverGround = movementData.isServerGround();
         boolean clientGround = movementData.isOnGround();
@@ -73,523 +72,439 @@ public class SpeedA extends Check {
         float movingIceTicks = movementData.getMovingOnIceTicks();
         float underBlockMoveTime = movementData.getMovingUnderblockTicks();
 
-        calculateAir(movementData, movingIceTicks, movingSlimeTicks, movingHoneyTicks, underBlockMoveTime, velocityH, deltaY, deltaXZ, clientAirTicks, clientGround, serverGround);
-
-        calculateGround(movementData, velocityData, deltaXZ, deltaY, movingIceTicks, serverGround, serverGroundTicks, clientAirTicks, blockFriction, rotationData);
+        expectedSpeed = 0.0D;
+        calculateSpeed(movementData, velocityData, rotationData, deltaXZ, deltaY, blockFriction,
+                clientGround, serverGround, clientAirTicks, serverGroundTicks, movingSlimeTicks,
+                movingHoneyTicks, movingIceTicks, underBlockMoveTime);
     }
 
+    private double expectedSpeed;
+    private double predictedDifference;
+    private String airLimitDebug;
 
-    double groundBuffer;
-
-    double DEFAULT_BASE_PER_TICK = 0.28063D;
-
-//    private static final double SPRINT_BASE = 0.1477285125D;
-//    private static final double NO_SPRINT_BASE = 0.1777285125D;
-    double DIAGONAL_TOLERANCE = 0.006;
-
-    public void calculateGround(MovementData movementData, VelocityData velocityData, double deltaXZ, double deltaY, float movingIceTicks, boolean serverGround, int serverGroundTicks, int airTicks, double blockFriction, RotationData rotationData) {
+    private void calculateSpeed(MovementData movementData, VelocityData velocityData, RotationData rotationData,
+                                double deltaXZ, double deltaY, double blockFriction, boolean clientGround,
+                                boolean serverGround, int clientAirTicks, int serverGroundTicks,
+                                double movingSlimeTicks, int movingHoneyTicks, float movingIceTicks,
+                                float underBlockMoveTime) {
         long profiler = Profiler.start();
+        boolean exempt;
+        double difference = 0.0D;
+        String failDetails = "";
+        expectedSpeed = 0.0D;
+        predictedDifference = 0.0D;
+        airLimitDebug = "default";
 
         try {
-            double allowedLimit = SpeedUtilities.computeGroundLimit(profile, DEFAULT_BASE_PER_TICK);
+            if (serverGround) {
+                exempt = isExemptGround(movementData);
+                if (!exempt) {
+                    double allowedLimit = SpeedUtilities.computeGroundLimit(profile, MoveUtils.GROUND_BASE_SPEED);
 
-            double deltaX = movementData.getDeltaX();
-            double deltaZ = movementData.getDeltaZ();
-            double lastDeltaX = movementData.getLastDeltaX();
-            double lastDeltaZ = movementData.getLastDeltaZ();
-            float yaw = rotationData.getYaw();
+                    double deltaX = movementData.getDeltaX();
+                    double deltaZ = movementData.getDeltaZ();
+                    double lastDeltaX = movementData.getLastDeltaX();
+                    double lastDeltaZ = movementData.getLastDeltaZ();
+                    float yaw = rotationData.getYaw();
 
-            double inputX = deltaX - (lastDeltaX * movementData.getFrictionFactor());
-            double inputZ = deltaZ - (lastDeltaZ * movementData.getFrictionFactor());
+                    double inputX = deltaX - (lastDeltaX * movementData.getFrictionFactor());
+                    double inputZ = deltaZ - (lastDeltaZ * movementData.getFrictionFactor());
 
-            MovementPredictionUtil.DirectionalMovement inputDirection =
-                    MovementPredictionUtil.predictDirectionalMovement(inputX, inputZ, yaw);
+                    MovementPredictionUtil.DirectionalMovement inputDirection =
+                            MovementPredictionUtil.predictDirectionalMovement(inputX, inputZ, yaw);
 
-            if (inputDirection.isForwardStrafe()) allowedLimit += DIAGONAL_TOLERANCE;
+                    if (inputDirection.isForwardStrafe()) allowedLimit += MoveUtils.GROUND_DIAGONAL_TOLERANCE;
 
-            if (profile.isBedrockPlayer()) {
-                allowedLimit += 0.0016;
-            }
+                    if (profile.isBedrockPlayer()) {
+                        allowedLimit += 0.0016;
+                    }
 
-            if (movementData.getSinceCollideTicks() < 12 + profile.getConnectionData().getClientTickTrans()) {
-                allowedLimit += 0.0275;
-            }
+                    if (movementData.getSinceCollideTicks() < 12 + profile.getConnectionData().getClientTickTrans()) {
+                        allowedLimit += 0.0275;
+                    }
 
-            //allowedLimit += movementData.getDolphinGraceBoost();
-            allowedLimit += movementData.isColliding() ? 0.05 : 0;
+                    if (profile.getActionData().hasRecentPistonUpdate(8 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                        if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed C: is extending (Piston Update)");
+                        allowedLimit += 0.354;
+                    }
 
-//            int ghostLiquidWebTicks = Math.min(
-//                    profile.getBlockProcessor().getLastGhostLiquidWebTick(),
-//                    profile.getBlockProcessor().getLastPendingPhysicsPlaceTick()
-//            );
-//
-//            if (ghostLiquidWebTicks < 10 + profile.getConnectionData().getClientTickTrans()) {
-//                allowedLimit += 0.2;
-//            }
+                    if (serverGroundTicks <= 6) allowedLimit += 0.095;
 
-            //if (profile.isSwimming() && movementData.isNearWater()) allowedLimit += 0.137;
+                    if (serverGroundTicks <= 20) allowedLimit += 0.03;
 
-            if (profile.getActionData().hasRecentPistonUpdate(8 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                if (Config.Setting.DEBUG.getBoolean()) OtherUtility.log("Speed C: is extending (Piston Update)");
-                allowedLimit += 0.354;
-            }
+                    if (movementData.getMovingOnSlimeTicks() > 0) {
+                        allowedLimit += 0.05;
+                    }
 
-            if (serverGroundTicks <= 6) allowedLimit += 0.095;
+                    if (movementData.getSincePredictUpwardsTicks() < 10) {
+                        allowedLimit *= 2;
+                    }
 
-            if (serverGroundTicks <= 20) allowedLimit += 0.03;
+                    if (movingIceTicks > 0) {
+                        allowedLimit += 0.05;
 
-            if (movementData.getMovingOnSlimeTicks() > 0) {
-                allowedLimit += 0.05;
-            }
+                        if ((movementData.getMovingUnderblockTicks() > 0
+                                || movementData.isUnderBoat()
+                                || movementData.isLastUnderBoat())
+                                && serverGroundTicks < 23) {
+                            allowedLimit += 0.3;
+                        }
+                    }
 
-            if (movementData.getSincePredictUpwardsTicks() < 10) {
-                allowedLimit *= 2;
-            }
+                    if (movementData.isWaterPredictionActive()) {
 
-            if (movingIceTicks > 0) {
-                allowedLimit += 0.05;
+                        if (movementData.isInsideWater()) {
 
-                if ((movementData.getMovingUnderblockTicks() > 0
-                        || movementData.isUnderBoat()
-                        || movementData.isLastUnderBoat())
-                        && serverGroundTicks < 23) {
-                    allowedLimit += 0.3;
+                            /*
+                             * Actually in water.
+                             */
+                            double expectedWaterXZ =
+                                    movementData.getExpectedWaterDeltaXZ();
+
+                            predictedDifference = expectedWaterXZ;
+                            allowedLimit = expectedWaterXZ + 0.005D;
+
+                        } else {
+
+                            /*
+                             * Left water.
+                             *
+                             * Keep the normal ground limit and ADD the retained
+                             * water momentum on top.
+                             */
+                            double waterMomentum =
+                                    movementData.getWaterMomentumBonus();
+
+                            predictedDifference = waterMomentum;
+                            allowedLimit += waterMomentum;
+                        }
+                    }
+
+                    boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 30;
+
+                    if (currentlyRiptiding) {
+                        double riptideCap = 0.65 + (0.75 * profile.getPredictionData().riptideLevel());
+
+                        if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
+                        if (movementData.isInsideWater()) riptideCap += 1;
+
+                        if (movementData.getSinceRiptidingTicks() > 10) riptideCap /= 2;
+
+                        allowedLimit += riptideCap;
+                    }
+
+                    if (profile.getExempt().isReelingIn()) {
+                        allowedLimit += 0.3;
+                        if (!profile.getRodData().isSelf()) allowedLimit += 1.7;
+                    }
+
+                    if (velocityData.isTakingVelocity()) {
+                        allowedLimit += velocityData.getTotalHorizontalVelocity() * 1.5;
+                    }
+
+                    int soulSpeedLevel = SpeedUtilities.getSoulSpeedLevel(profile);
+
+                    if (soulSpeedLevel > 0 && movementData.getMovingOnSoulBlocksTicks() > 0) {
+                        allowedLimit += 0.08D;
+                    }
+
+                    allowedLimit += movementData.isColliding() ? 0.05 : 0;
+
+                    allowedLimit += movementData.elytraMomentum();
+
+                    expectedSpeed = allowedLimit;
+
+                    difference = deltaXZ - expectedSpeed;
+                    failDetails = "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                            + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedSpeed
+                            + "\nblock friction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
+                            + "\npredictedWater " + MsgType.MAIN_THEME_COLOR.getMessage() + predictedDifference
+                            + "\nstrafe sector " + MsgType.MAIN_THEME_COLOR.getMessage() + inputDirection.getSector()
+                            + "\nisSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
+                            + "\nserverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGroundTicks;
+                }
+            } else {
+                exempt = isExemptAir(movementData);
+                if (!exempt) {
+                    airLimitDebug = "default";
+                    int speedLevel = SpeedUtilities.getSpeedPotionLevel(profile);
+                    double airLimit = MoveUtils.AIR_BASE_SPEED;
+                    double attr = SpeedUtilities.getMovementSpeedAttribute(profile);
+                    boolean hasAttr = attr > 0.13005D;
+                    if (hasAttr) {
+                        airLimit += attr - 0.13D;
+                    }
+
+                    int soulSpeedLevel = SpeedUtilities.getSoulSpeedLevel(profile);
+
+                    if (soulSpeedLevel > 0 && movementData.getMovingOnSoulBlocksTicks() > 0) {
+                        airLimit += soulSpeedLevel * 0.075D;
+                        airLimitDebug += ", soulSpeed";
+                    }
+
+                    if (movingHoneyTicks > 0) {
+                        airLimit += 0.125;
+                        airLimitDebug += ", movingOnHoneyTicks";
+                    }
+
+                    double maxJumpHeight = MoveUtils.getJumpMotion(profile);
+
+                    if (isVanillaJumpStart(deltaY, maxJumpHeight, clientAirTicks)) {
+                        airLimit += speedLevel > 0 ? 0.259525D + (0.0425D * speedLevel) : 0.259525D;
+                        airLimit += hasAttr ? 1.005 * (attr - 0.13D) : 0;
+                        airLimitDebug += ", firstTickJump";
+                    }
+
+                    double expected = -0.0784000015258789D;
+                    if (Math.abs(deltaY - expected) < 1E-6 && clientAirTicks == 1) {
+                        airLimit += speedLevel > 0 ? (0.05775 + (0.0425D * speedLevel)) : 0.05775;
+                        airLimitDebug += ", 1st/2ndTickJump 1.8";
+                    }
+
+                    double expected2 = 0.33319999363422426D;
+
+                    if (clientAirTicks == 2 && Math.abs(deltaY - expected2) < 1E-6) {
+                        airLimit += speedLevel > 0 ? (0.0082 + (0.0425D * speedLevel)) : 0.0082;
+                        airLimit += movementData.getSincePredictUpwardsTicksWithoutMaterial() <= 7 ? 0.013 : 0;
+                        airLimitDebug += ", 2ndTickJump Modern";
+                    }
+
+                    double expected3 = 0.24813599859094637D;
+
+                    if (clientAirTicks == 3 && Math.abs(deltaY - expected3) < 1E-6) {
+                        airLimit += speedLevel > 0 ? (0.0015 + (0.0425D * speedLevel)) : 0.0015;
+                        airLimit += movementData.getSincePredictUpwardsTicksWithoutMaterial() <= 7 ? 0.00925 : 0;
+                        airLimitDebug += ", 3rdTickJump";
+                    }
+
+                    if ((movementData.getSinceMovingOnIceTicks() < 20 && movementData.getSinceMovingOnIceTicks() > 5)
+                            || (movementData.getSinceMovingOnSlimeTicks() < 20 && movementData.getSinceMovingOnSlimeTicks() > 5)) {
+                        airLimit += 0.01D;
+                        airLimitDebug += ", 20TicksSinceIce/Slime";
+                    }
+
+                    if (movementData.getSinceMovingOnIceTicks() > 0 && movementData.getSinceMovingOnIceTicks() < 120) {
+                        airLimit += 0.003;
+                        airLimitDebug += ", movingOnIce";
+                    }
+
+                    if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
+                        airLimit += 0.005;
+                        airLimitDebug += ", blockCancel";
+                    }
+
+                    if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
+                        airLimit += 0.004;
+                        airLimitDebug += ", jumpBoost";
+                    }
+
+                    PotionData potions = profile.getPotionData();
+
+                    if (movingSlimeTicks > 0 && movementData.getLastFallDistance() > 1) {
+                        airLimit += 0.3;
+                        airLimitDebug += ", movingSlimeBig";
+                    } else if (movingSlimeTicks > 0 && movementData.getLastFallDistance() < 1) {
+                        airLimit += 0.08;
+                        airLimitDebug += ", movingSlimeSmall";
+                    }
+
+                    if (underBlockMoveTime > 0
+                            || movementData.isUnderBoat()
+                            || movementData.isLastUnderBoat()) {
+                        airLimit += potions.isHasSpeed() ? 0.3825 : 0.33125;
+                        airLimitDebug += ", underBlock";
+                    }
+
+                    if ((movingIceTicks > 0
+                            || movementData.isUnderBoat()
+                            || movementData.isLastUnderBoat()) && !potions.isHasSpeed()) {
+                        airLimit += 0.35;
+                        airLimit += underBlockMoveTime > 0 ? 0.23745 : 0;
+                        airLimitDebug += ", movingIce";
+                    }
+
+                    if (movementData.isWaterPredictionActive()) {
+                        if (movementData.isInsideWater()) {
+
+                            double expectedWaterXZ =
+                                    movementData.getExpectedWaterDeltaXZ();
+
+                            airLimit =
+                                    expectedWaterXZ + 0.015D;
+
+                            if (movementData.isNearBoat()) airLimit += 0.1D;
+
+                            airLimitDebug +=
+                                    ", waterPrediction(" + expectedWaterXZ + ")";
+
+                        } else {
+
+                            double waterMomentum =
+                                    movementData.getWaterMomentumBonus();
+
+                            airLimit += waterMomentum;
+
+                            airLimitDebug +=
+                                    ", waterMomentum(" + waterMomentum + ")";
+                        }
+                    }
+
+                    boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2);
+
+                    if (currentlyRiptiding) {
+                        double riptideCap = 0.3 + (0.75 * profile.getPredictionData().riptideLevel());
+
+                        if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
+                        if (movementData.isInsideWater()) riptideCap += 1;
+
+                        if (movementData.getSinceRiptidingTicks() > 10) riptideCap /= 2;
+
+                        airLimit += riptideCap;
+                        airLimitDebug += ", riptide";
+                    }
+
+                    if (movementData.getSinceSpeedPotionEffectTicks() < 15 && movementData.getSinceSpeedPotionEffectTicks() > 0) {
+                        airLimit += 0.0575;
+                        airLimitDebug += ", sincePotionEffectTicks < 15";
+                    }
+                    VelocityData vd = profile.getVelocityData();
+
+                    double explosionH = 0.0;
+
+                    Vector expFvc = vd.getExplosionKnockback();
+                    if (expFvc != null) {
+                        explosionH = Math.hypot(expFvc.getX(), expFvc.getZ());
+                    }
+
+                    double kbComponent = Math.max(Math.abs(vd.getVelocityH()), 0.0);
+
+                    if (vd.getVelocityTicks() == 1) {
+                        airLimit += 0.03;
+                        airLimitDebug += ", velocityTick 1";
+                    }
+
+                    double explosionComponent = 0.0;
+                    if (explosionH > 0.0) {
+                        explosionComponent = (explosionH * 6) + 0.2D;
+                    }
+
+                    airLimit += kbComponent + explosionComponent;
+
+                    if (kbComponent > 0) {
+                        airLimitDebug += ", velocity";
+                    }
+
+                    if (explosionComponent > 0) {
+                        airLimitDebug += ", explosionVelocity";
+                    }
+
+                    if (movementData.getSincePredictUpwardsTicks() < 10) {
+                        airLimit += 0.03;
+                        airLimitDebug += ", predictUpwards";
+                    }
+
+                    if (profile.getExempt().isReelingIn()) {
+                        airLimit += 0.3;
+                        if (!profile.getRodData().isSelf()) airLimit += 2.15;
+                    }
+
+                    if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+                        airLimit += 0.125;
+                        airLimitDebug += ", sinceEntityPush";
+                    }
+
+                    if (movementData.isNearBoat()) {
+                        airLimit += 0.1;
+                    }
+
+                    airLimit += movementData.elytraMomentum();
+
+                    expectedSpeed = airLimit;
+                    difference = deltaXZ - expectedSpeed;
+                    failDetails = "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
+                            + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedSpeed
+                            + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
+                            + "\ndifference " + MsgType.MAIN_THEME_COLOR.getMessage() + difference
+                            + "\npredictedWater " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getExpectedWaterDeltaXZ() + " | " + movementData.getWaterMomentumBonus()
+                            + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
+                            + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
+                            + "\nupwardsTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()
+                            + "\ndownwardsTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks()
+                            + "\nPUT " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicksWithoutMaterial()
+                            + "\nPDT " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicksWithoutMaterial()
+                            + "\nisSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting();
                 }
             }
 
-            double predictedDifference = 0;
+            if (!exempt && deltaXZ != 0.0D) {
+                verbose(this.getClass().getSimpleName(), deltaXZ, expectedSpeed,
+                        speedDebug(movementData, velocityData, deltaXZ, deltaY, blockFriction,
+                                clientGround, serverGround, clientAirTicks, serverGroundTicks,
+                                movingSlimeTicks, movingHoneyTicks, movingIceTicks, underBlockMoveTime));
+            }
 
-            if (movementData.isWaterPredictionActive()) {
-
-                if (movementData.isInsideWater()) {
-
-                    /*
-                     * Actually in water.
-                     */
-                    double expectedWaterXZ =
-                            movementData.getExpectedWaterDeltaXZ();
-
-                    predictedDifference = expectedWaterXZ;
-                    allowedLimit = expectedWaterXZ + 0.005D;
-
+            if (!exempt) {
+                double expectedBuffer = difference > 0.7D ? 0.0D : 6.0D;
+                if (deltaXZ > expectedSpeed) {
+                    if (increaseBuffer() > expectedBuffer) {
+                        fail("Speed limit exceeded (" + (clientGround ? "Ground" : "Air") + ")", failDetails);
+                        setBuffer(Math.max(8.0D, getBuffer()));
+                    }
                 } else {
-
-                    /*
-                     * Left water.
-                     *
-                     * Keep the normal ground limit and ADD the retained
-                     * water momentum on top.
-                     */
-                    double waterMomentum =
-                            movementData.getWaterMomentumBonus();
-
-                    predictedDifference = waterMomentum;
-                    allowedLimit += waterMomentum;
+                    decreaseBufferBy(0.05D);
                 }
             }
-
-            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 30;
-
-            if (currentlyRiptiding) {
-                double riptideCap = 0.65 + (0.75 * profile.getPredictionData().riptideLevel());
-
-                if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
-                if (movementData.isInsideWater()) riptideCap += 1;
-
-                if (movementData.getSinceRiptidingTicks() > 10) riptideCap /= 2;
-
-                allowedLimit += riptideCap;
-            }
-
-            if (profile.getExempt().isReelingIn()) {
-                allowedLimit += 0.3;
-                if (!profile.getRodData().isSelf()) allowedLimit += 1.7;
-            }
-
-            if (velocityData.isTakingVelocity()) {
-                allowedLimit += velocityData.getTotalHorizontalVelocity() * 1.5;
-            }
-
-            int soulSpeedLevel = SpeedUtilities.getSoulSpeedLevel(profile);
-
-            if (soulSpeedLevel > 0 && movementData.getMovingOnSoulBlocksTicks() > 0) {
-                allowedLimit += 0.08D;
-            }
-
-            allowedLimit += movementData.elytraMomentum();
-
-            if (serverGround && deltaXZ != 0) {
-                verbose(this.getClass().getSimpleName(), deltaXZ, allowedLimit,
-                        MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Ground)\n * deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                + "\n * expected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + allowedLimit
-                                + "\n * blockFriction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                                + "\n * movementSpeedBase " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getMovementSpeedAttribute(profile)
-                                + "\n * movementSpeedMin " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getMinMovementSpeedGround(profile)
-                                + "\n * movementSpeedScale " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getMovementScaleGround(profile)
-                                + "\n * deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                + "\n * airTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + airTicks
-                                + "\n * reeling " +  MsgType.MAIN_THEME_COLOR.getMessage() + profile.isExempt().isReelingIn()
-                                + "\n * predictedWater " + MsgType.MAIN_THEME_COLOR.getMessage() + predictedDifference
-                                + "\n * isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
-                                + "\n * upTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()
-                                + "\n * upTicksWM " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicksWithoutMaterial()
-                                + "\n * downTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks()
-                                + "\n * downTicksWM " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicksWithoutMaterial()
-                                + "\n * nearStepMaterial " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isNearStepMaterial()
-                                + "\n * attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributeBonus(profile)
-                                + "\n * potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundPotionBonus(profile)
-                                + "\n * comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getGroundAttributePotionBonus(profile)
-                                + "\n * serverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGroundTicks);
-            }
-
-            if (isExemptGround(movementData)) return;
-
-            double difference = deltaXZ - allowedLimit;
-            double bufferAmount = difference > 0.7 ? 0 : 10;
-            double serverGroundMaxTicks = 4;
-
-            if (difference > 0.6) serverGroundMaxTicks = 2;
-
-            if (serverGroundTicks > serverGroundMaxTicks && deltaXZ > allowedLimit) {
-                if (++groundBuffer > bufferAmount) {
-                    fail("Speed limit exceeded (Ground)",
-                            "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                    + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + allowedLimit
-                                    + "\nblock friction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                                    + "\npredictedWater " + MsgType.MAIN_THEME_COLOR.getMessage() + predictedDifference
-                                    + "\nstrafe sector " + MsgType.MAIN_THEME_COLOR.getMessage() + inputDirection.getSector()
-                                    + "\nisSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
-                                    + "\nserverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGroundTicks);
-                    groundBuffer = Math.max(bufferAmount + 2, groundBuffer);
-                }
-            } else groundBuffer = Math.max(0, groundBuffer - 0.05);
         } finally {
-            Profiler.stop("Speed A (Ground)", profiler);
+            Profiler.stop("Speed A", profiler);
         }
     }
 
-    double airBuffer;
-    final double AIR_BASE_SPEED = 0.35301212D;
-
-    final double SPRINT_BASE_SPEED = 0.22301212D;
-    final double NO_SPRINT_BASE_SPEED = 0.25301212D;
-
-    private long lastDecayTick = -1L;
-
-    String airLimitDebug;
-
-    public void calculateAir(MovementData movementData, float movingIceTicks, double movingSlimeTicks, int movingHoneyTicks, float underBlockMoveTime, double velocityH, double deltaY, double deltaXZ, int clientAirTicks, boolean clientGround, boolean serverGround) {
-        long profiler = Profiler.start();
-
-        try {
-            airLimitDebug = "default";
-            int speedLevel = SpeedUtilities.getSpeedPotionLevel(profile);
-            double expectedSpeed = AIR_BASE_SPEED;
-            double attr = SpeedUtilities.getMovementSpeedAttribute(profile);
-            boolean hasAttr = attr > 0.13005D;
-            if (hasAttr) {
-                expectedSpeed += attr - 0.13D;
-            }
-
-            int soulSpeedLevel = SpeedUtilities.getSoulSpeedLevel(profile);
-
-            if (soulSpeedLevel > 0 && movementData.getMovingOnSoulBlocksTicks() > 0) {
-                expectedSpeed += soulSpeedLevel * 0.075D;
-                airLimitDebug += ", soulSpeed";
-            }
-
-            if (movingHoneyTicks > 0) {
-                expectedSpeed += 0.125;
-                airLimitDebug += ", movingOnHoneyTicks";
-            }
-
-            double maxJumpHeight = MoveUtils.getJumpMotion(profile);
-
-            if (isVanillaJumpStart(deltaY, maxJumpHeight, clientAirTicks)) {
-                expectedSpeed += speedLevel > 0 ? 0.259525D + (0.0425D * speedLevel) : 0.259525D;
-                expectedSpeed += hasAttr ? 1.005 * (attr - 0.13D) : 0;
-                airLimitDebug += ", firstTickJump";
-            }
-
-            double expected = -0.0784000015258789D;
-            if (Math.abs(deltaY - expected) < 1E-6 && clientAirTicks == 1) {
-                expectedSpeed += speedLevel > 0 ? (0.05775 + (0.0425D * speedLevel)) : 0.05775;
-                airLimitDebug += ", 1st/2ndTickJump 1.8";
-            }
-
-            double expected2 = 0.33319999363422426D;
-
-            if (clientAirTicks == 2 && Math.abs(deltaY - expected2) < 1E-6) {
-                expectedSpeed += speedLevel > 0 ? (0.0082 + (0.0425D * speedLevel)) : 0.0082;
-                expectedSpeed += movementData.getSincePredictUpwardsTicksWithoutMaterial() <= 7 ? 0.013 : 0;
-                airLimitDebug += ", 2ndTickJump Modern";
-            }
-
-            double expected3 = 0.24813599859094637D;
-
-            if (clientAirTicks == 3 && Math.abs(deltaY - expected3) < 1E-6) {
-                expectedSpeed += speedLevel > 0 ? (0.0015 + (0.0425D * speedLevel)) : 0.0015;
-                expectedSpeed += movementData.getSincePredictUpwardsTicksWithoutMaterial() <= 7 ? 0.00925 : 0;
-                airLimitDebug += ", 3rdTickJump";
-            }
-
-            if ((movementData.getSinceMovingOnIceTicks() < 20 && movementData.getSinceMovingOnIceTicks() > 5)
-                    || (movementData.getSinceMovingOnSlimeTicks() < 20 && movementData.getSinceMovingOnSlimeTicks() > 5)) {
-                expectedSpeed += 0.01D;
-                airLimitDebug += ", 20TicksSinceIce/Slime";
-            }
-
-
-
-            if (movementData.getSinceMovingOnIceTicks() > 0 && movementData.getSinceMovingOnIceTicks() < 120) {
-                expectedSpeed += 0.003;
-                airLimitDebug += ", movingOnIce";
-            }
-
-            if (profile.getBlockProcessor().isCancelledBlockPlacementExempt(10 + (profile.getConnectionData().getClientTickTrans() * 2))) {
-                expectedSpeed += 0.005;
-                airLimitDebug += ", blockCancel";
-            }
-
-            if (SpeedUtilities.getJumpBoostPotionLevel(profile) > 0) {
-                expectedSpeed += 0.004;
-                airLimitDebug += ", jumpBoost";
-            }
-
-            PotionData potions = profile.getPotionData();
-
-            if (movingSlimeTicks > 0 && movementData.getLastFallDistance() > 1) {
-                expectedSpeed += 0.3;
-                airLimitDebug += ", movingSlimeBig";
-            } else if (movingSlimeTicks > 0 && movementData.getLastFallDistance() < 1) {
-                expectedSpeed += 0.08;
-                airLimitDebug += ", movingSlimeSmall";
-            }
-
-            if (underBlockMoveTime > 0
-                    || movementData.isUnderBoat()
-                    || movementData.isLastUnderBoat()) {
-                expectedSpeed += potions.isHasSpeed() ? 0.3825 : 0.33125;
-                airLimitDebug += ", underBlock";
-            }
-
-            if ((movingIceTicks > 0
-                    || movementData.isUnderBoat()
-                    || movementData.isLastUnderBoat()) && !potions.isHasSpeed()) {
-                expectedSpeed += 0.35;
-                expectedSpeed += underBlockMoveTime > 0 ? 0.23745 : 0;
-                airLimitDebug += ", movingIce";
-            }
-
-//            if (movingIceTicks > 0 && underBlockMoveTime > 0) {
-//                expectedSpeed += 0.23745;
-//                airLimitDebug += ", movingIce + underBlock";
-//            }
-
-
-            //expectedSpeed += movementData.getDolphinGraceBoost();
-
-            if (movementData.isWaterPredictionActive()) {
-                if (movementData.isInsideWater()) {
-
-                    double expectedWaterXZ =
-                            movementData.getExpectedWaterDeltaXZ();
-
-                    expectedSpeed =
-                            expectedWaterXZ + 0.015D;
-
-                    if (movementData.isNearBoat()) expectedSpeed += 0.1D;
-
-                    airLimitDebug +=
-                            ", waterPrediction(" + expectedWaterXZ + ")";
-
-                } else {
-
-                    double waterMomentum =
-                            movementData.getWaterMomentumBonus();
-
-                    expectedSpeed += waterMomentum;
-
-                    airLimitDebug +=
-                            ", waterMomentum(" + waterMomentum + ")";
-                }
-            }
-
-            boolean currentlyRiptiding = movementData.getSinceRiptidingTicks() < 30 + (profile.getConnectionData().getClientTickTrans() * 2);
-
-            if (currentlyRiptiding) {
-                double riptideCap = 0.3 + (0.75 * profile.getPredictionData().riptideLevel());
-
-                if (movementData.getDolphinGraceBoost() > 0) riptideCap += 2;
-                if (movementData.isInsideWater()) riptideCap += 1;
-
-                if (movementData.getSinceRiptidingTicks() > 10) riptideCap /= 2;
-
-                expectedSpeed += riptideCap;
-                airLimitDebug += ", riptide";
-            }
-
-            if (movementData.getSinceSpeedPotionEffectTicks() < 15 && movementData.getSinceSpeedPotionEffectTicks() > 0) {
-                expectedSpeed += 0.0575;
-                airLimitDebug += ", sincePotionEffectTicks < 15";
-            }
-            VelocityData vd = profile.getVelocityData();
-
-            double explosionH = 0.0;
-
-            Vector expFvc = vd.getExplosionKnockback();
-            if (expFvc != null) {
-                explosionH = Math.hypot(expFvc.getX(), expFvc.getZ());
-            }
-
-            double kbComponent = Math.max(Math.abs(vd.getVelocityH()), 0.0);
-
-            if (vd.getVelocityTicks() == 1) {
-                expectedSpeed += 0.03;
-                airLimitDebug += ", velocityTick 1";
-            }
-
-            double explosionComponent = 0.0;
-            if (explosionH > 0.0) {
-                explosionComponent = (explosionH * 6) + 0.2D;
-            }
-
-            expectedSpeed += kbComponent + explosionComponent;
-
-            if (kbComponent > 0) {
-                airLimitDebug += ", velocity";
-            }
-
-            if (explosionComponent > 0) {
-                airLimitDebug += ", explosionVelocity";
-            }
-
-            if (movementData.getSincePredictUpwardsTicks() < 10) {
-                expectedSpeed += 0.03;
-                airLimitDebug += ", predictUpwards";
-            }
-
-            if (profile.getExempt().isReelingIn()) {
-                expectedSpeed += 0.3;
-                if (!profile.getRodData().isSelf()) expectedSpeed += 2.15;
-            }
-
-            if (movementData.getSinceCollideTicks() < 15 + (profile.getConnectionData().getClientTickTrans() * 2)) {
-                expectedSpeed += 0.125;
-                airLimitDebug += ", sinceEntityPush";
-            }
-
-            if (movementData.isNearBoat()) {
-                expectedSpeed += 0.1;
-            }
-
-            expectedSpeed += movementData.elytraMomentum();
-
-            String format = MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (Air)\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* clientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* speedLevel " + MsgType.MAIN_THEME_COLOR.getMessage() + speedLevel + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* slimeMoveTime " + MsgType.MAIN_THEME_COLOR.getMessage() + movingSlimeTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* iceMoveTime " + MsgType.MAIN_THEME_COLOR.getMessage() + movingIceTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* underBlockMoveTime " + MsgType.MAIN_THEME_COLOR.getMessage() + underBlockMoveTime + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* bSpeed (s/ns) " + MsgType.MAIN_THEME_COLOR.getMessage() + SPRINT_BASE_SPEED + "/" + NO_SPRINT_BASE_SPEED + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* moving Up Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* moving Down Ticks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* nearStepMaterial " + movementData.isNearStepMaterial() + "\n"
-                    + "* reeling " +  MsgType.MAIN_THEME_COLOR.getMessage() + profile.isExempt().isReelingIn() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* iceTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movingIceTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* slimeTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movingSlimeTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* honeyTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movingHoneyTicks + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* underblockTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + underBlockMoveTime + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* attributeBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributeBonus(profile) + "\n"
-                    + "* potionBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirPotionBonus(profile) + "\n"
-                    + "* comboBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + SpeedUtilities.getAirAttributePotionBonus(profile) + "\n"
-                    + "* velocityH " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityH + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* velocityV " + MsgType.MAIN_THEME_COLOR.getMessage() + vd.getVelocityV() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* airticks c|s " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks + "|" + movementData.getCustomAirTicks() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* deltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* maxJumpHeight " + MsgType.MAIN_THEME_COLOR.getMessage() + maxJumpHeight + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* isTeleporting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.isExempt().isTeleports() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* isSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* expectedSpeed " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedSpeed + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* elytraMomentumBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.elytraMomentum() + "\n" + MsgType.SECOND_THEME_COLOR.getMessage()
-                    + "* dolhinGraceMomentumBonus " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDolphinGraceBoost()
-                    + "\n" + MsgType.SECOND_THEME_COLOR.getMessage() + "* airTickAdditions " + MsgType.MAIN_THEME_COLOR.getMessage() + airLimitDebug
-                    + "\n" + MsgType.SECOND_THEME_COLOR.getMessage() + "* difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (expectedSpeed - deltaXZ);
-
-            if (deltaXZ != 0 && !serverGround) {
-                verbose(this.getClass().getSimpleName(), deltaXZ, expectedSpeed, format);
-            }
-
-            long currentTick = System.currentTimeMillis() / 50L;
-
-            if (currentTick - lastDecayTick >= 2) {
-                lastDecayTick = currentTick;
-
-
-                if (profile.getVelocityData().getVelocityH() > 0.0D) {
-                    double totalH = profile.getVelocityData().getVelocityH();
-
-                    totalH *= movementData.isOnGround()
-                            ? movementData.getFrictionFactor()
-                            : 0.91F;
-
-                    profile.getVelocityData().setVelocityH(Math.max(totalH - 0.001D, 0.0D));
-                }
-
-                if (profile.getVelocityData().getVelocityV() > 0.0D) {
-                    double totalV = profile.getVelocityData().getVelocityV();
-
-                    totalV = (totalV * (movementData.isOnGround()
-                            ? movementData.getFrictionFactor()
-                            : 0.91F)) - 0.04D;
-
-                    profile.getVelocityData().setVelocityV(Math.max(totalV, 0.0D));
-                }
-
-                if (profile.getVelocityData().getVelocityV() < 0.0001) {
-                    profile.getVelocityData().setVelocityV(0.0D);
-                    profile.getVelocityData().setVelocityVSustain(0.0D);
-                }
-
-                if (profile.getVelocityData().getVelocityH() < 0.0001) {
-                    profile.getVelocityData().setVelocityH(0.0D);
-                    profile.getVelocityData().setVelocityHSustain(0.0D);
-                }
-            }
-
-            if (isExemptAir(movementData)) return;
-
-            if (deltaXZ > expectedSpeed
-                    && !serverGround) {
-
-                double difference = deltaXZ - expectedSpeed;
-                double bufferAmount = 3;
-
-                if (difference > 0.7) bufferAmount = 0;
-                if (++airBuffer > bufferAmount) {
-                    fail("Speed limit exceeded (Air)",
-                            "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                                    + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedSpeed
-                                    + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
-                                    + "\ndifference " + MsgType.MAIN_THEME_COLOR.getMessage() + difference
-                                    + "\npredictedWater " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getExpectedWaterDeltaXZ() + " | " + movementData.getWaterMomentumBonus()
-                                    + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + clientAirTicks
-                                    + "\nserverAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getCustomAirTicks()
-                                    + "\nupwardsTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicks()
-                                    + "\ndownwardsTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicks()
-                                    + "\nPUT " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictUpwardsTicksWithoutMaterial()
-                                    + "\nPDT " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getSincePredictDownwardsTicksWithoutMaterial()
-                                    + "\nisSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting());
-
-                    airBuffer = Math.max(8, airBuffer);
-                }
-
-            } else airBuffer = Math.max(0, airBuffer - 0.05D);
-        } finally {
-            Profiler.stop("Speed A (Air)", profiler);
-        }
+    private String speedDebug(MovementData movementData, VelocityData velocityData, double deltaXZ, double deltaY,
+                              double blockFriction, boolean clientGround, boolean serverGround,
+                              int clientAirTicks, int serverGroundTicks, double movingSlimeTicks,
+                              int movingHoneyTicks, float movingIceTicks, float underBlockMoveTime) {
+        String main = MsgType.MAIN_THEME_COLOR.getMessage();
+        String second = MsgType.SECOND_THEME_COLOR.getMessage();
+        return main + "* Verbose (" +
+                (clientGround ? "Ground" : "Air") + ')' +
+                "\n * " + second + "deltaXZ " + main + deltaXZ +
+                "\n * " + second + "expectedSpeed " + main + expectedSpeed +
+                "\n * " + second + "blockFriction " + main + blockFriction +
+                "\n * " + second + "movementSpeedBase " + main + SpeedUtilities.getMovementSpeedAttribute(profile) +
+                "\n * " + second + "movementSpeedMin " + main + SpeedUtilities.getMinMovementSpeedGround(profile) +
+                "\n * " + second + "movementSpeedScale " + main + SpeedUtilities.getMovementScaleGround(profile) +
+                "\n * " + second + "deltaY " + main + deltaY +
+                "\n * " + second + "reeling " + main + profile.isExempt().isReelingIn() +
+                "\n * " + second + "predictedWater " + main + predictedDifference +
+                "\n * " + second + "isSprinting " + main + profile.getActionData().isSprinting() +
+                "\n * " + second + "upTicks " + main + movementData.getSincePredictUpwardsTicks() +
+                "\n * " + second + "upTicksWM " + main + movementData.getSincePredictUpwardsTicksWithoutMaterial() +
+                "\n * " + second + "downTicks " + main + movementData.getSincePredictDownwardsTicks() +
+                "\n * " + second + "downTicksWM " + main + movementData.getSincePredictDownwardsTicksWithoutMaterial() +
+                "\n * " + second + "nearStepMaterial " + main + movementData.isNearStepMaterial() +
+                "\n * " + second + "groundAttributeBonus " + main + SpeedUtilities.getGroundAttributeBonus(profile) +
+                "\n * " + second + "groundPotionBonus " + main + SpeedUtilities.getGroundPotionBonus(profile) +
+                "\n * " + second + "groundComboBonus " + main + SpeedUtilities.getGroundAttributePotionBonus(profile) +
+                "\n * " + second + "serverGroundTicks " + main + serverGroundTicks +
+                "\n * " + second + "clientGround " + main + clientGround +
+                "\n * " + second + "serverGround " + main + serverGround +
+                "\n * " + second + "speedLevel " + main + SpeedUtilities.getSpeedPotionLevel(profile) +
+                "\n * " + second + "slimeTicks " + main + movingSlimeTicks +
+                "\n * " + second + "iceTicks " + main + movingIceTicks +
+                "\n * " + second + "underBlockMoveTime " + main + underBlockMoveTime +
+                "\n * " + second + "honeyTicks " + main + movingHoneyTicks +
+                "\n * " + second + "airAttributeBonus " + main + SpeedUtilities.getAirAttributeBonus(profile) +
+                "\n * " + second + "airPotionBonus " + main + SpeedUtilities.getAirPotionBonus(profile) +
+                "\n * " + second + "airComboBonus " + main + SpeedUtilities.getAirAttributePotionBonus(profile) +
+                "\n * " + second + "velocityH " + main + velocityData.getTotalHorizontalVelocity() +
+                "\n * " + second + "velocityV " + main + velocityData.getVelocityV() +
+                "\n * " + second + "airTicks c|s " + main + clientAirTicks + '|' + movementData.getCustomAirTicks() +
+                "\n * " + second + "maxJumpHeight " + main + MoveUtils.getJumpMotion(profile) +
+                "\n * " + second + "isTeleporting " + main + profile.isExempt().isTeleports() +
+                "\n * " + second + "elytraMomentumBonus " + main + movementData.elytraMomentum() +
+                "\n * " + second + "dolphinGraceMomentumBonus " + main + movementData.getDolphinGraceBoost() +
+                "\n * " + second + "airTickAdditions " + main + airLimitDebug +
+                "\n * " + second + "difference " + main + (deltaXZ - expectedSpeed);
     }
 
     private boolean isVanillaJumpStart(double deltaY, double maxJumpHeight, int clientAirTicks) {
