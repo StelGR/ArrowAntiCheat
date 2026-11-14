@@ -74,6 +74,8 @@ public class AutoClickerC extends Check {
                     delays.clear();
                 }
             }
+
+            movements = 0;
         }
     }
 }

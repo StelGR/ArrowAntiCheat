@@ -65,8 +65,10 @@ public class AutoClickerG extends Check {
                     clickData.clear();
                 }
             }
+
+            movements = 0;
         }
-        movements = 0;
+
     }
 }
 
