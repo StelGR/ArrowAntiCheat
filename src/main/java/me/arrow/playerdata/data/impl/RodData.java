@@ -42,7 +42,8 @@ public class RodData implements Data {
     private final Profile profile;
     private volatile Vector rodVelocity = new Vector(0, 0, 0);
     private volatile long rodExemptUntil = 0L;
-    private static boolean isSelf = false;
+    @Getter
+    private boolean isSelf = false;
 
     private static final long EXEMPT_MS = 1000L; // how long to exempt after rod velocity arrives
     private static final long PENDING_WINDOW_MS = 1000L; // valid ms for a REEL_IN pending entry
@@ -56,20 +57,16 @@ public class RodData implements Data {
     // Toggle if your wrapper returns fixed-point ints (divide by 8000)
     private static final boolean SCALE_VELOCITY_BY_8000 = false;
 
-    public RodData(Profile profile) {
+    public RodData(Profile profile, Plugin plugin) {
         this.profile = profile;
-    }
-
-    public static void init(Plugin plugin) {
         if (INITED.compareAndSet(false, true)) {
             PLUGIN = plugin;
             PlatformBackend.get().registerListener(new FishListener());
             //OtherUtility.log("[RodData] initialized (listener registered).");
         }
     }
-
     // ---------------- Bukkit listener ----------------
-    private static final class FishListener implements Listener {
+    private final class FishListener implements Listener {
         @EventHandler(ignoreCancelled = true)
         public void onPlayerFish(PlayerFishEvent event) {
             try {
@@ -116,30 +113,30 @@ public class RodData implements Data {
      * Call this from VelocityData when you see an outgoing ENTITY_VELOCITY packet.
      * Returns true if the packet was identified as a rod-pull and applied to a profile.
      */
-    public boolean handleEntityVelocityPacket(WrapperPlayServerEntityVelocity wrapper) {
-        if (wrapper == null) return false;
+    public void handleEntityVelocityPacket(WrapperPlayServerEntityVelocity wrapper) {
+        if (wrapper == null) return;
         int packetEntityId = wrapper.getEntityId();
 
         Pending pending = PENDING.remove(packetEntityId);
         if (pending == null) {
             if (PLUGIN != null) PLUGIN.getLogger().finest("[RodData] no pending REEL for id=" + packetEntityId);
-            return false;
+            return;
         }
         if (System.currentTimeMillis() - pending.timestamp > PENDING_WINDOW_MS) {
             if (Config.Setting.DEBUG.getBoolean()) if (PLUGIN != null) OtherUtility.log("[RodData] pending REEL expired for id=" + packetEntityId);
-            return false;
+            return;
         }
 
         Player target = PlatformBackend.get().getServer().getPlayer(pending.uuid);
         if (target == null) {
             if (Config.Setting.DEBUG.getBoolean()) if (PLUGIN != null) OtherUtility.log("[RodData] pending player offline for uuid=" + pending.uuid);
-            return false;
+            return;
         }
 
         Profile profile = Arrow.getInstance().getProfileManager().getProfile(target);
         if (profile == null) {
             if (Config.Setting.DEBUG.getBoolean()) if (PLUGIN != null) OtherUtility.log("[RodData] no profile for player=" + target.getName());
-            return false;
+            return;
         }
 
         // Build vector
@@ -153,13 +150,12 @@ public class RodData implements Data {
         RodData rd = profile.getRodData();
         if (rd == null) {
             if (Config.Setting.DEBUG.getBoolean()) if (PLUGIN != null) OtherUtility.log("[RodData] profile has no RodData for player=" + target.getName());
-            return false;
+            return;
         }
 
         rd.applyRodVelocity(rodVel);
 
         if (Config.Setting.DEBUG.getBoolean()) if (PLUGIN != null) OtherUtility.log("[RodData] applied rod velocity to " + target.getName() + " id=" + packetEntityId + " vel=" + prettyVec(rodVel));
-        return true;
     }
 
     // ---------------- per-profile apply & api ----------------
@@ -178,7 +174,6 @@ public class RodData implements Data {
 
     public Vector getRodVelocity() { return rodVelocity.clone(); }
     public boolean isRodExempt() { return System.currentTimeMillis() < rodExemptUntil; }
-    public boolean isSelf() { return isSelf; }
 
     // no-op PacketEvents hooks (we use static consumer instead)
     @Override
