@@ -684,6 +684,9 @@ public class PEMaterials {
         }
 
         String name = material.name();
+        if (isChestName(name)) {
+            return chestBounds(x, y, z);
+        }
         if (isDoubleSlabName(name)) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
         }
@@ -777,6 +780,11 @@ public class PEMaterials {
      * voxel shape remains preferred when a Block is safely available.
      */
     public static List<CollisionBounds> getCollisionBounds(WrappedBlockState state, int x, int y, int z) {
+        return getCollisionBounds(state, null, x, y, z);
+    }
+
+    /** State-only collision fallback with cached neighbouring materials available for legacy walls. */
+    public static List<CollisionBounds> getCollisionBounds(WrappedBlockState state, World world, int x, int y, int z) {
         if (state == null) return null;
 
         List<LocalCollisionBounds> exact =
@@ -789,6 +797,10 @@ public class PEMaterials {
         Material material = materialFromState(state.getType());
         if (material == null || material == Material.AIR) {
             return MaterialType.isMaterial(state.getType().getName(), MaterialType.AIR) ? Collections.emptyList() : null;
+        }
+
+        if (isChestName(material.name()) || isChestName(stateName(state))) {
+            return chestBounds(x, y, z);
         }
 
         /*
@@ -845,7 +857,7 @@ public class PEMaterials {
             return fenceBounds(state, x, y, z);
         }
         if (name.endsWith("_WALL") || name.equals("COBBLE_WALL")) {
-            return wallBounds(state, x, y, z);
+            return wallBounds(state, world, x, y, z);
         }
         if (name.endsWith("_PANE") || name.equals("IRON_BARS") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE") || name.equals("IRON_FENCE")) {
             return paneBounds(state, x, y, z);
@@ -1194,11 +1206,27 @@ public class PEMaterials {
         return boxes;
     }
 
-    private static List<CollisionBounds> wallBounds(WrappedBlockState state, int x, int y, int z) {
+    private static List<CollisionBounds> wallBounds(WrappedBlockState state, World world, int x, int y, int z) {
         boolean north = isConnected(state.getNorth());
         boolean south = isConnected(state.getSouth());
         boolean west = isConnected(state.getWest());
         boolean east = isConnected(state.getEast());
+        boolean hasConnectionData = hasConnectionValue(state.getNorth())
+                || hasConnectionValue(state.getSouth())
+                || hasConnectionValue(state.getWest())
+                || hasConnectionValue(state.getEast());
+        if (LEGACY_SERVER || !hasConnectionData) {
+            if (world != null) {
+                ChunkCache cache = ChunkCache.get();
+                north = isWallConnectable(cache.getBlock(world, x, y, z - 1));
+                south = isWallConnectable(cache.getBlock(world, x, y, z + 1));
+                west = isWallConnectable(cache.getBlock(world, x - 1, y, z));
+                east = isWallConnectable(cache.getBlock(world, x + 1, y, z));
+            } else {
+                // Without neighbour data, include all possible legacy arms to avoid missing support.
+                north = south = west = east = true;
+            }
+        }
         boolean hasSide = north || south || west || east;
         List<CollisionBounds> boxes = new ArrayList<>(5);
 
@@ -1212,6 +1240,27 @@ public class PEMaterials {
         if (west) boxes.add(new CollisionBounds(x, y, z + .3125D, x + .5D, y + 1.5D, z + .6875D));
         if (east) boxes.add(new CollisionBounds(x + .5D, y, z + .3125D, x + 1.0D, y + 1.5D, z + .6875D));
         return boxes;
+    }
+
+    private static boolean hasConnectionValue(Object value) {
+        String name = String.valueOf(value);
+        return !"null".equalsIgnoreCase(name) && !"UNSUPPORTED".equalsIgnoreCase(name);
+    }
+
+    private static boolean isWallConnectable(Material material) {
+        return isPaneConnectable(material);
+    }
+
+    private static boolean isChestName(String name) {
+        return "CHEST".equals(name) || "TRAPPED_CHEST".equals(name) || "ENDER_CHEST".equals(name);
+    }
+
+    private static List<CollisionBounds> chestBounds(int x, int y, int z) {
+        // Vanilla chest collision shape: 14/16 wide/deep and 14/16 high.
+        return Collections.singletonList(new CollisionBounds(
+                x + 0.0625D, y, z + 0.0625D,
+                x + 0.9375D, y + 0.875D, z + 0.9375D
+        ));
     }
 
     public static List<CollisionBounds> paneBounds(WrappedBlockState state, World world, int x, int y, int z) {

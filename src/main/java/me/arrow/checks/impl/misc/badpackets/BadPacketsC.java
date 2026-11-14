@@ -13,7 +13,7 @@ import me.arrow.managers.profile.Profile;
 @Experimental
 public class BadPacketsC extends Check {
     public BadPacketsC(Profile profile) {
-        super(profile, CheckType.BADPACKETS, "F", "Checks for invalid slot");
+        super(profile, CheckType.BADPACKETS, "C", "Checks for invalid slot");
     }
 
     private int lastSlot;

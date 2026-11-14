@@ -45,6 +45,19 @@ public class SpeedUtilities {
         }
     }
 
+    public static double getMovementSpeedAttributeWithoutSprint(Profile profile) {
+        try {
+            if (profile == null || profile.getPlayer() == null) return DEFAULT_WALK_SPEED_ATTRIBUTE;
+            double val = ReflectionUtils.getPlayerMovementSpeedWithoutSprint(profile.getPlayer());
+            if (Double.isNaN(val) || Double.isInfinite(val) || val <= DEFAULT_WALK_SPEED_ATTRIBUTE) {
+                return DEFAULT_WALK_SPEED_ATTRIBUTE;
+            }
+            return Math.min(MAX_REASONABLE_MOVEMENT_ATTRIBUTE, val);
+        } catch (Throwable e) {
+            return DEFAULT_WALK_SPEED_ATTRIBUTE;
+        }
+    }
+
     public static double getSprintingMultiplier(Profile profile) {
         if (profile.getActionData().isSprinting()) {
             return VANILLA_SPRINT_MULTIPLIER;

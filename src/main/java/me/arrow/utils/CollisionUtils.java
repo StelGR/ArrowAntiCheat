@@ -1368,7 +1368,7 @@ public class CollisionUtils {
                             );
                         } else {
                             boxes = cachedState != null
-                                    ? PEMaterials.getCollisionBounds(cachedState, x, y, z)
+                                    ? PEMaterials.getCollisionBounds(cachedState, location.getWorld(), x, y, z)
                                     : null;
                         }
                         Block block = null;
@@ -1408,7 +1408,7 @@ public class CollisionUtils {
                         }
                         if (boxes == null && block != null) {
                             if (cachedState != null && PEMaterials.cacheCollisionShape(cachedState, block)) {
-                                boxes = PEMaterials.getCollisionBounds(cachedState, x, y, z);
+                                boxes = PEMaterials.getCollisionBounds(cachedState, location.getWorld(), x, y, z);
                             } else {
                                 boxes = PEMaterials.getCollisionBounds(block);
                             }
