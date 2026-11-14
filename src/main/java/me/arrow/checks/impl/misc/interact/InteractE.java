@@ -94,7 +94,10 @@ public class InteractE extends Check {
 
     private boolean isAir(int x, int y, int z) {
         Material mat = ChunkCache.get().getBlock(profile.getMovementData().getLocation().getWorld(), x, y, z);
-        return isAir(mat);
+        // A null lookup means this chunk has not finished caching. Treating
+        // that as air made legitimate placements look like air-place cheats,
+        // especially on legacy 1.8 chunk packets and at chunk borders.
+        return mat != null && isAir(mat);
     }
 
     @Override

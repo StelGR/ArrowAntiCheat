@@ -442,7 +442,7 @@ public class SpeedA extends Check {
                                 clientGround, serverGround, clientAirTicks, serverGroundTicks,
                                 movingSlimeTicks, movingHoneyTicks, movingIceTicks, underBlockMoveTime));
             }
-
+            
             if (!exempt) {
                 double expectedBuffer = difference > 0.7D ? 0.0D : 6.0D;
                 if (deltaXZ > expectedSpeed) {

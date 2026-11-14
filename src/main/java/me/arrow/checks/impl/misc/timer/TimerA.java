@@ -60,8 +60,8 @@ public class TimerA extends Check {
             return;
         }
 
-        if (profile.getConnectionData().getTransPing() >= 1000 && !profile.isPingkicked()) {
-            if (increaseBuffer() > 75) {
+        if (profile.getConnectionData().getTransPing() >= 1000 && !profile.isPingkicked() && profile.getTick() > 120) {
+            if (increaseBuffer() > 50) {
                 profile.kick("Your ping is constantly very high (>= 1000), do something about it.");
                 profile.setPingkicked(true);
                 for (Player staff : PlatformBackend.get().getServer().getOnlinePlayers()) {
@@ -80,7 +80,7 @@ public class TimerA extends Check {
                 }
             }
         } else {
-            decreaseBufferBy(10);
+            decreaseBufferBy(2);
         }
 
         long now = System.nanoTime();

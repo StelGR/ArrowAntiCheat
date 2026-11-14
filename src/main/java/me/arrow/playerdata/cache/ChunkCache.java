@@ -5,15 +5,11 @@ import com.github.retrooper.packetevents.protocol.world.chunk.Column;
 import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import lombok.Getter;
-import me.arrow.backend.bukkit.PlatformBackend;
-import me.arrow.utils.TaskUtils;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.*;
-import org.bukkit.block.Block;
 import org.jspecify.annotations.NonNull;
 
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -37,8 +33,6 @@ public class ChunkCache {
         return INSTANCE;
     }
 
-    private static final int DEFAULT_MIN_Y = -64;
-    private static final int DEFAULT_MAX_Y = 320;
     private static final boolean LEGACY_BLOCK_DATA_SUPPORTED;
 
     static {
@@ -58,13 +52,11 @@ public class ChunkCache {
     private final Map<String, Map<Long, CachedChunk>> worldChunks = new ConcurrentHashMap<>();
     // World Name -> Set of queued ChunkKeys currently waiting or being processed
     private final Map<String, Set<Long>> pendingQueue = new ConcurrentHashMap<>();
-    // Snapshot bootstrap jobs are tracked separately so they never suppress packet refreshes.
-    private final Map<String, Set<Long>> pendingSnapshotQueue = new ConcurrentHashMap<>();
     private final Object cacheUpdateLock = new Object();
     // Packet block changes received while a full chunk is being parsed, keyed by local block position.
     private final Map<String, Map<Long, Map<Long, WrappedBlockState>>> pendingBlockUpdates = new java.util.HashMap<>();
-    // State IDs currently waiting for one safe live-server voxel-shape read.
-    private final Set<Integer> pendingCollisionShapes = ConcurrentHashMap.newKeySet();
+    // Legacy metadata (low nibble) plus a double-slab marker (bit 0x10), applied after queued parses.
+    private final Map<String, Map<Long, Map<Long, Integer>>> pendingLegacyBlockData = new java.util.HashMap<>();
     // Dedicated worker thread pool for asynchronous chunk caching
     private final ThreadPoolExecutor chunkExecutor;
     // Shared cache residency: a chunk stays active while any player has it loaded.
@@ -206,6 +198,12 @@ public class ChunkCache {
                             updates.remove(eviction.key.chunkKey);
                             if (updates.isEmpty()) pendingBlockUpdates.remove(eviction.key.worldName);
                         }
+                        Map<Long, Map<Long, Integer>> legacy =
+                                pendingLegacyBlockData.get(eviction.key.worldName);
+                        if (legacy != null) {
+                            legacy.remove(eviction.key.chunkKey);
+                            if (legacy.isEmpty()) pendingLegacyBlockData.remove(eviction.key.worldName);
+                        }
                     }
                 }
             } catch (InterruptedException ignored) {
@@ -229,205 +227,12 @@ public class ChunkCache {
         }
 
         return PEMaterials.isSlab(state)
+                || PEMaterials.isCarpet(state)
                 || PEMaterials.isPistonHead(state)
                 || PEMaterials.isPistonBase(state)
                 || PEMaterials.requiresStatefulCollision(state);
     }
 
-    /** Cache already-loaded server chunks; new chunks are populated from outgoing PacketEvents packets. */
-    public boolean isChunkCached(String worldName, int chunkX, int chunkZ) {
-        if (worldName == null) return false;
-        CachedChunk chunk = getChunk(worldName, chunkX, chunkZ);
-        return chunk != null && chunk.hasCompleteStatefulCollisionData();
-    }
-
-    /** Cache chunks already loaded by each world without loading any new chunks. */
-    public void cacheAllLoadedChunksWithDelay(long delayMs) {
-        try {
-            org.bukkit.Server server = PlatformBackend.get().getServer();
-            if (server == null || PlatformBackend.get().isFabric()) return;
-            World[] worlds = TaskUtils.callSync(() -> server.getWorlds().toArray(new World[0]));
-            if (worlds == null) return;
-            for (World world : worlds) {
-                if (world == null) continue;
-                Chunk[] loaded = TaskUtils.callSync(world::getLoadedChunks);
-                if (loaded == null) continue;
-                for (Chunk chunk : loaded) {
-                    if (chunk == null || isChunkCached(world.getName(), chunk.getX(), chunk.getZ())) continue;
-                    ChunkSnapshot snapshot = TaskUtils.callSync(
-                            () -> chunk.getChunkSnapshot(false, false, false));
-                    if (snapshot != null) queueChunkSnapshot(world, chunk.getX(), chunk.getZ(), snapshot);
-                    if (delayMs > 0L) Thread.sleep(delayMs);
-                }
-            }
-        } catch (InterruptedException ignored) {
-            Thread.currentThread().interrupt();
-        } catch (Throwable ignored) {
-        } finally {
-            this.initialized = true;
-        }
-    }
-
-    /**
-     * Fast path: iterate only non-empty sections of a ChunkSnapshot.
-     * Each section covers a 16-block vertical slice (sectionY = y >> 4).
-     * Fully compatible with 1.7 through 26.2 via SnapshotAdapter.
-     */
-    private void cacheFromSnapshot(
-            ChunkSnapshot snapshot,
-            CachedChunk cached,
-            int minY,
-            int maxY
-    ) {
-        if (snapshot == null || cached == null) return;
-
-        int minSection = minY >> 4;
-        int maxSection = maxY >> 4;
-
-        for (int sectionY = minSection; sectionY <= maxSection; sectionY++) {
-            if (SnapshotAdapter.isSectionEmpty(snapshot, sectionY)) {
-                continue;
-            }
-
-            int baseY = sectionY << 4;
-            int startY = Math.max(baseY, minY);
-            int endY = Math.min(baseY + 15, maxY);
-
-            for (int y = startY; y <= endY; y++) {
-                for (int x = 0; x < 16; x++) {
-                    for (int z = 0; z < 16; z++) {
-
-                        Material type =
-                                SnapshotAdapter.getMaterial(
-                                        snapshot,
-                                        x,
-                                        y,
-                                        z
-                                );
-
-                        if (type == null || type == Material.AIR) {
-                            continue;
-                        }
-
-
-                        /*
-                         * Modern state / legacy MaterialData state.
-                         */
-                        WrappedBlockState state =
-                                SnapshotAdapter.getState(
-                                        snapshot,
-                                        x,
-                                        y,
-                                        z
-                                );
-
-                        if (PEMaterials.requiresStatefulCollision(state)
-                                || PEMaterials.isPistonHead(state)
-                                || PEMaterials.isPistonBase(state)) {
-
-                            cached.setState(
-                                    x,
-                                    y,
-                                    z,
-                                    type,
-                                    state.getGlobalId(),
-                                    true
-                            );
-
-                        } else {
-                            cached.set(x, y, z, type);
-                        }
-
-                        /*
-                         * Store legacy metadata AFTER set()/setState(), because those methods
-                         * may clear state-related data.
-                         */
-                        if (LEGACY_BLOCK_DATA_SUPPORTED) {
-                            int legacyData =
-                                    SnapshotAdapter.getLegacyBlockData(
-                                            snapshot,
-                                            x,
-                                            y,
-                                            z
-                                    );
-
-                            cached.setLegacyBlockData(
-                                    x,
-                                    y,
-                                    z,
-                                    legacyData
-                            );
-                        }
-
-                        if (SnapshotAdapter.isWaterlogged(
-                                snapshot,
-                                x,
-                                y,
-                                z,
-                                type
-                        )) {
-                            cached.setWaterlogged(
-                                    x,
-                                    y,
-                                    z,
-                                    true
-                            );
-                        }
-                    }
-                }
-            }
-        }
-        cached.setCompleteStatefulCollisionData();
-    }
-
-
-    // Detect if the server version supports the Waterlogged interface (1.13+).
-    private static final boolean WATERLOGGED_SUPPORTED;
-    static {
-        boolean supported = false;
-        try {
-            Class.forName("org.bukkit.block.data.Waterlogged");
-            supported = true;
-        } catch (Throwable ignored) {
-        }
-        WATERLOGGED_SUPPORTED = supported;
-    }
-
-    /**
-     * Checks whether the given block is waterlogged using the Waterlogged interface when available.
-     * This method is safe on older versions (e.g., 1.7) where the interface does not exist.
-     */
-    private static boolean isBlockWaterlogged(Block block) {
-        // Preserve compatibility: custom water check will be performed even if Waterlogged interface is unavailable
-        // Only process tall seagrass to reduce console spam and avoid unnecessary checks
-
-        try {
-            // First, attempt the standard Waterlogged interface check when supported.
-            boolean result = false;
-            if (WATERLOGGED_SUPPORTED) {
-                Object bd = block.getBlockData();
-                Class<?> waterloggedClass = Class.forName("org.bukkit.block.data.Waterlogged");
-                if (waterloggedClass.isInstance(bd)) {
-                    result = (boolean) waterloggedClass.getMethod("isWaterlogged").invoke(bd);
-                }
-            }
-
-            // Custom handling for tall seagrass: consider it water‑logged if the block directly below is water.
-            if (block.getType() == Material.TALL_SEAGRASS) {
-                if (!result) {
-                    result = true;
-                }
-//                OtherUtility.log("[WaterlogCheck] " + block.getType()
-//                        + " @ " + block.getWorld().getName()
-//                        + "," + block.getX() + "," + block.getY() + "," + block.getZ()
-//                        + " -> " + result);
-            }
-
-            return result;
-        } catch (Throwable ignored) {
-        }
-        return false;
-    }
     /**
      * Fast O(1) check if a material is water, avoiding all string allocations.
      */
@@ -477,7 +282,6 @@ public class ChunkCache {
 
     public void clear() {
         pendingQueue.clear();
-        pendingSnapshotQueue.clear();
         synchronized (chunkViewLock) {
             chunkViewers.clear();
             playerChunks.clear();
@@ -486,6 +290,7 @@ public class ChunkCache {
         }
         synchronized (cacheUpdateLock) {
             pendingBlockUpdates.clear();
+            pendingLegacyBlockData.clear();
         }
         worldChunks.clear();
     }
@@ -500,7 +305,7 @@ public class ChunkCache {
         int cz = z >> 4;
         long key = chunkKey(cx, cz);
         synchronized (cacheUpdateLock) {
-            if (isChunkQueued(worldName, cx, cz) || isSnapshotQueued(worldName, cx, cz)) {
+            if (isChunkQueued(worldName, cx, cz)) {
                 long blockKey = (((long) y) << 8) | ((long) (z & 15) << 4) | (x & 15);
                 pendingBlockUpdates
                         .computeIfAbsent(worldName, ignored -> new java.util.HashMap<>())
@@ -526,56 +331,54 @@ public class ChunkCache {
         }
     }
 
-    private boolean isSnapshotQueued(String worldName, int cx, int cz) {
-        Set<Long> set = pendingSnapshotQueue.get(worldName);
-        return set != null && set.contains(chunkKey(cx, cz));
+    /** Stores legacy metadata; bit 0x10 marks double slabs when old materials collapse their state. */
+    public void setLegacyBlockData(String worldName, int x, int y, int z, int data) {
+        if (!LEGACY_BLOCK_DATA_SUPPORTED || worldName == null || data < 0) return;
+        int cx = x >> 4;
+        int cz = z >> 4;
+        long key = chunkKey(cx, cz);
+        long blockKey = (((long) y) << 8) | ((long) (z & 15) << 4) | (x & 15);
+        synchronized (cacheUpdateLock) {
+            if (isChunkQueued(worldName, cx, cz)) {
+                pendingLegacyBlockData
+                        .computeIfAbsent(worldName, ignored -> new HashMap<>())
+                        .computeIfAbsent(key, ignored -> new HashMap<>())
+                        .put(blockKey, data & 0x1F);
+            }
+            CachedChunk chunk = worldChunks
+                    .computeIfAbsent(worldName, ignored -> new ConcurrentHashMap<>())
+                    .computeIfAbsent(key, ignored -> new CachedChunk(cx, cz));
+            chunk.setLegacyBlockData(x & 15, y, z & 15, data & 0x1F);
+        }
     }
 
     private void applyPendingBlockUpdates(String worldName, int cx, int cz, CachedChunk chunk) {
         Map<Long, Map<Long, WrappedBlockState>> worldUpdates = pendingBlockUpdates.get(worldName);
-        if (worldUpdates == null) return;
-        Map<Long, WrappedBlockState> updates = worldUpdates.remove(chunkKey(cx, cz));
-        if (worldUpdates.isEmpty()) pendingBlockUpdates.remove(worldName);
-        if (updates == null) return;
-        for (Map.Entry<Long, WrappedBlockState> entry : updates.entrySet()) {
+        if (worldUpdates != null) {
+            Map<Long, WrappedBlockState> updates = worldUpdates.remove(chunkKey(cx, cz));
+            if (worldUpdates.isEmpty()) pendingBlockUpdates.remove(worldName);
+            if (updates != null) {
+                for (Map.Entry<Long, WrappedBlockState> entry : updates.entrySet()) {
+                    long blockKey = entry.getKey();
+                    int x = (int) (blockKey & 15L);
+                    int z = (int) ((blockKey >>> 4) & 15L);
+                    int y = (int) (blockKey >> 8);
+                    writePacketBlockState(chunk, x, y, z, entry.getValue());
+                }
+            }
+        }
+
+        Map<Long, Map<Long, Integer>> worldLegacy = pendingLegacyBlockData.get(worldName);
+        if (worldLegacy == null) return;
+        Map<Long, Integer> legacy = worldLegacy.remove(chunkKey(cx, cz));
+        if (worldLegacy.isEmpty()) pendingLegacyBlockData.remove(worldName);
+        if (legacy == null) return;
+        for (Map.Entry<Long, Integer> entry : legacy.entrySet()) {
             long blockKey = entry.getKey();
             int x = (int) (blockKey & 15L);
             int z = (int) ((blockKey >>> 4) & 15L);
             int y = (int) (blockKey >> 8);
-            writePacketBlockState(chunk, x, y, z, entry.getValue());
-        }
-    }
-
-    /**
-     * Learns one authoritative voxel shape on the owning server region, then
-     * shares it by state ID. Packet-thread collision checks never read Bukkit.
-     */
-    public void requestCollisionShape(World world, int x, int y, int z, WrappedBlockState state) {
-        if (world == null || PlatformBackend.get().isFabric()
-                || !shouldStoreCollisionState(state)
-                || PEMaterials.hasCachedCollisionShape(state)) {
-            return;
-        }
-
-        int stateId = state.getGlobalId();
-        if (!pendingCollisionShapes.add(stateId)) {
-            return;
-        }
-
-        Location location = new Location(world, x, y, z);
-        try {
-            TaskUtils.regionLater(location, 0L, () -> {
-                try {
-                    if (world.isChunkLoaded(x >> 4, z >> 4)) {
-                        PEMaterials.cacheCollisionShape(state, world.getBlockAt(x, y, z));
-                    }
-                } catch (Throwable ignored) {
-                } finally {
-                    pendingCollisionShapes.remove(stateId);
-                }
-            });
-        } catch (Throwable ignored) {
-            pendingCollisionShapes.remove(stateId);
+            chunk.setLegacyBlockData(x, y, z, entry.getValue());
         }
     }
 
@@ -691,60 +494,6 @@ public class ChunkCache {
     }
 
 
-    private static Method WORLD_GET_MIN_HEIGHT;
-    private static Method WORLD_GET_MAX_HEIGHT;
-
-    static {
-        try {
-            WORLD_GET_MIN_HEIGHT = World.class.getMethod("getMinHeight");
-        } catch (Throwable ignored) {
-        }
-        try {
-            WORLD_GET_MAX_HEIGHT = World.class.getMethod("getMaxHeight");
-        } catch (Throwable ignored) {
-        }
-    }
-
-    public static int getWorldMinY(World world) {
-        if (world != null && WORLD_GET_MIN_HEIGHT != null) {
-            try {
-                Object res = WORLD_GET_MIN_HEIGHT.invoke(world);
-                if (res instanceof Number) {
-                    return ((Number) res).intValue();
-                }
-            } catch (Throwable ignored) {
-            }
-        }
-        try {
-            if (com.github.retrooper.packetevents.PacketEvents.getAPI()
-                    .getServerManager()
-                    .getVersion()
-                    .isNewerThanOrEquals(com.github.retrooper.packetevents.manager.server.ServerVersion.V_1_18)) {
-                return -64;
-            }
-        } catch (Throwable ignored) {
-        }
-        return DEFAULT_MIN_Y;
-    }
-
-    public static int getWorldMaxY(World world) {
-        if (world == null) return DEFAULT_MAX_Y;
-        if (WORLD_GET_MAX_HEIGHT != null) {
-            try {
-                Object res = WORLD_GET_MAX_HEIGHT.invoke(world);
-                if (res instanceof Number) {
-                    return ((Number) res).intValue();
-                }
-            } catch (Throwable ignored) {
-            }
-        }
-        try {
-            return world.getMaxHeight();
-        } catch (Throwable ignored) {
-        }
-        return DEFAULT_MAX_Y;
-    }
-
     public boolean isWaterLogged(World world, int x, int y, int z) {
         if (world == null) return false;
         return isWaterLogged(world.getName(), x, y, z);
@@ -798,6 +547,11 @@ public class ChunkCache {
      */
     public void queuePacketChunk(String worldName, int chunkX, int chunkZ, int minY, Column column) {
         if (worldName == null || column == null) return;
+        queuePacketChunk(worldName, chunkX, chunkZ, minY, column.getChunks());
+    }
+
+    public void queuePacketChunk(String worldName, int chunkX, int chunkZ, int minY, BaseChunk[] sections) {
+        if (worldName == null || sections == null) return;
         if (!markQueued(worldName, chunkX, chunkZ)) return;
 
         try {
@@ -808,7 +562,7 @@ public class ChunkCache {
                                     chunkX,
                                     chunkZ,
                                     minY,
-                                    column
+                                    sections
                             );
 
                     if (cached != null) {
@@ -816,6 +570,7 @@ public class ChunkCache {
                             applyPendingBlockUpdates(worldName, chunkX, chunkZ, cached);
                             putChunkInternal(worldName, chunkX, chunkZ, cached);
                             unmarkQueued(worldName, chunkX, chunkZ);
+                            initialized = true;
                         }
                         scheduleEvictionIfUnviewed(worldName, chunkX, chunkZ);
                         return;
@@ -838,49 +593,15 @@ public class ChunkCache {
         }
     }
 
-    public void queueChunkSnapshot(World world, int cx, int cz, ChunkSnapshot snapshot) {
-        if (world == null || snapshot == null) return;
-        String worldName = world.getName();
-        long chunkKey = chunkKey(cx, cz);
-        if (!pendingSnapshotQueue.computeIfAbsent(worldName, ignored -> ConcurrentHashMap.newKeySet()).add(chunkKey)) {
-            return;
-        }
-        int minY = getWorldMinY(world);
-        int maxY = getWorldMaxY(world);
-        try {
-            chunkExecutor.execute(() -> {
-                try {
-                    CachedChunk cached = new CachedChunk(cx, cz);
-                    cacheFromSnapshot(snapshot, cached, minY, maxY);
-                    boolean stored = false;
-                    synchronized (cacheUpdateLock) {
-                        CachedChunk current = getChunk(worldName, cx, cz);
-                        if (!isChunkQueued(worldName, cx, cz)
-                                && (current == null || !current.hasCompleteStatefulCollisionData())) {
-                            applyPendingBlockUpdates(worldName, cx, cz, cached);
-                            putChunkInternal(worldName, cx, cz, cached);
-                            stored = true;
-                        }
-                    }
-                    if (stored) scheduleEvictionIfUnviewed(worldName, cx, cz);
-                } catch (Throwable ignored) {
-                } finally {
-                    Set<Long> queued = pendingSnapshotQueue.get(worldName);
-                    if (queued != null) queued.remove(chunkKey);
-                }
-            });
-        } catch (RejectedExecutionException ignored) {
-            Set<Long> queued = pendingSnapshotQueue.get(worldName);
-            if (queued != null) queued.remove(chunkKey);
-        }
-    }
-
     /**
      * Highly optimized, allocation-free parser for PacketEvents Column chunk packets.
      */
     public CachedChunk parsePacketColumn(int chunkX, int chunkZ, int minY, Column column) {
-        if (column == null) return null;
-        BaseChunk[] sections = column.getChunks();
+        return column == null ? null : parsePacketColumn(chunkX, chunkZ, minY, column.getChunks());
+    }
+
+    public CachedChunk parsePacketColumn(int chunkX, int chunkZ, int minY, BaseChunk[] sections) {
+        if (sections == null) return null;
 
         CachedChunk cached = new CachedChunk(chunkX, chunkZ);
         int minSection = minY >> 4;
@@ -913,14 +634,16 @@ public class ChunkCache {
                                         storeState
                                 );
 
-                                // On pre-1.13 (legacy) servers, extract the real legacy metadata
-                                // for stairs, slabs, etc. from state and packet chunk data.
                                 if (LEGACY_BLOCK_DATA_SUPPORTED) {
-                                    int legacyData = PEMaterials.extractLegacyData(state, material);
-                                    if (legacyData < 0) {
-                                        try {
-                                            legacyData = section.getBlockId(localX, localY, localZ) & 0xF;
-                                        } catch (Throwable ignored) {}
+                                    int legacyData;
+                                    try {
+                                        // Legacy packet section values contain block ID + metadata nibble.
+                                        legacyData = PEMaterials.encodeLegacyBlockData(
+                                                state,
+                                                section.getBlockId(localX, localY, localZ)
+                                        );
+                                    } catch (Throwable ignored) {
+                                        legacyData = PEMaterials.extractLegacyData(state, material);
                                     }
                                     if (legacyData >= 0) {
                                         cached.setLegacyBlockData(
@@ -953,7 +676,6 @@ public class ChunkCache {
             chunkExecutor.shutdownNow();
         } catch (Throwable ignored) {}
         clear();
-        pendingCollisionShapes.clear();
     }
 
     private static final class WorldChunkKey {

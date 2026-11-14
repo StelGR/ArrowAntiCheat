@@ -83,64 +83,68 @@ public class BlockBreakHelper {
     }
 
     private static float calculateVanillaBreakProgress(Player player, Block block) {
-        Material mat = block.getType();
-        float hardness = mat.getHardness();
+        try {
+            Material mat = block.getType();
+            float hardness = mat.getHardness();
 
-        // Bedrock, barriers, end portal frames, etc.
-        if (hardness < 0.0F) {
-            return 0.0F;
-        }
+            // Bedrock, barriers, end portal frames, etc.
+            if (hardness < 0.0F) {
+                return 0.0F;
+            }
 
-        // Grass, flowers, torches, redstone, tripwire, etc.
-        if (hardness == 0.0F) {
+            // Grass, flowers, torches, redstone, tripwire, etc.
+            if (hardness == 0.0F) {
+                return 1.0F;
+            }
+
+            ItemStack held = getHeldItem(player);
+            String heldName = held != null ? held.getType().name().toUpperCase(Locale.ROOT) : "";
+            String blockName = mat.name().toUpperCase(Locale.ROOT);
+
+            boolean isAppropriateTool = isAppropriateTool(heldName, blockName);
+            boolean canHarvest = canHarvestDrops(heldName, blockName);
+
+            float speed = 1.0F;
+            if (isAppropriateTool) {
+                speed = getBaseToolSpeed(heldName);
+
+                int effLevel = getEfficiencyLevel(held);
+                if (effLevel > 0) {
+                    speed += (effLevel * effLevel + 1);
+                }
+            } else if (isSwordOnWebOrBamboo(heldName, blockName)) {
+                speed = 15.0F;
+            } else if (isShearsOnSpecial(heldName, blockName)) {
+                speed = blockName.contains("COBWEB") || blockName.equals("WEB") ? 15.0F : 5.0F;
+            }
+
+            // Potion effects: Haste / Conduit Power
+            int hasteAmp = getHasteAmplifier(player);
+            if (hasteAmp >= 0) {
+                speed *= (1.0F + 0.2F * (hasteAmp + 1));
+            }
+
+            // Potion effects: Mining Fatigue
+            int fatigueAmp = getMiningFatigueAmplifier(player);
+            if (fatigueAmp >= 0) {
+                speed *= (float) Math.pow(0.3D, Math.min(fatigueAmp + 1, 4));
+            }
+
+            // Water penalty (divided by 5 if in water and no Aqua Affinity)
+            if (isPlayerSubmergedInWater(player) && !hasAquaAffinity(player)) {
+                speed /= 5.0F;
+            }
+
+            // In-air penalty (divided by 5 if not on ground)
+            if (!player.isOnGround()) {
+                speed /= 5.0F;
+            }
+
+            int divisor = canHarvest ? 30 : 100;
+            return speed / hardness / divisor;
+        } catch (NoSuchMethodError ignored) {
             return 1.0F;
         }
-
-        ItemStack held = getHeldItem(player);
-        String heldName = held != null ? held.getType().name().toUpperCase(Locale.ROOT) : "";
-        String blockName = mat.name().toUpperCase(Locale.ROOT);
-
-        boolean isAppropriateTool = isAppropriateTool(heldName, blockName);
-        boolean canHarvest = canHarvestDrops(heldName, blockName);
-
-        float speed = 1.0F;
-        if (isAppropriateTool) {
-            speed = getBaseToolSpeed(heldName);
-
-            int effLevel = getEfficiencyLevel(held);
-            if (effLevel > 0) {
-                speed += (effLevel * effLevel + 1);
-            }
-        } else if (isSwordOnWebOrBamboo(heldName, blockName)) {
-            speed = 15.0F;
-        } else if (isShearsOnSpecial(heldName, blockName)) {
-            speed = blockName.contains("COBWEB") || blockName.equals("WEB") ? 15.0F : 5.0F;
-        }
-
-        // Potion effects: Haste / Conduit Power
-        int hasteAmp = getHasteAmplifier(player);
-        if (hasteAmp >= 0) {
-            speed *= (1.0F + 0.2F * (hasteAmp + 1));
-        }
-
-        // Potion effects: Mining Fatigue
-        int fatigueAmp = getMiningFatigueAmplifier(player);
-        if (fatigueAmp >= 0) {
-            speed *= (float) Math.pow(0.3D, Math.min(fatigueAmp + 1, 4));
-        }
-
-        // Water penalty (divided by 5 if in water and no Aqua Affinity)
-        if (isPlayerSubmergedInWater(player) && !hasAquaAffinity(player)) {
-            speed /= 5.0F;
-        }
-
-        // In-air penalty (divided by 5 if not on ground)
-        if (!player.isOnGround()) {
-            speed /= 5.0F;
-        }
-
-        int divisor = canHarvest ? 30 : 100;
-        return speed / hardness / divisor;
     }
 
     public static ItemStack getHeldItem(Player player) {

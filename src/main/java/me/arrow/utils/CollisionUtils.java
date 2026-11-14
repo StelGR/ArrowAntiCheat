@@ -504,7 +504,11 @@ public class CollisionUtils {
                         if (slabType == null || "null".equalsIgnoreCase(slabType)) {
                             int legacyData = cache.getLegacyBlockData(worldName, bx, by, bz);
                             if (legacyData >= 0) {
-                                slabType = (legacyData & 0x8) != 0 ? "TOP" : "BOTTOM";
+                                if ((legacyData & 0x10) != 0 || PEMaterials.isDoubleSlab(state)) {
+                                    slabType = "DOUBLE";
+                                } else {
+                                    slabType = (legacyData & 0x8) != 0 ? "TOP" : "BOTTOM";
+                                }
                             }
                         }
                         if ("DOUBLE".equalsIgnoreCase(slabType)) {
@@ -1348,13 +1352,10 @@ public class CollisionUtils {
                         boolean needsExactStateShape = cachedState != null
                                 && PEMaterials.requiresStatefulCollision(cachedState)
                                 && !PEMaterials.hasCachedCollisionShape(cachedState);
-
-                        if (needsExactStateShape) {
-                            ChunkCache.get().requestCollisionShape(location.getWorld(), x, y, z, cachedState);
-                        }
-
                         boolean useLegacyMetadata = legacyData >= 0
+                                && !PEMaterials.isDoubleSlab(cachedState)
                                 && (PEMaterials.isLegacySlabMaterial(material)
+                                || PEMaterials.isCarpet(material)
                                 || PEMaterials.isStair(material)
                                 || PEMaterials.isPistonHead(material)
                                 || PEMaterials.isPistonBase(material));
