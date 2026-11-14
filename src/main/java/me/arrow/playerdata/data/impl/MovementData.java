@@ -32,6 +32,7 @@ import me.arrow.playerdata.processors.impl.SlimeProcessor;
 import me.arrow.utils.*;
 import me.arrow.utils.custom.*;
 import me.arrow.utils.custom.materials.MaterialType;
+import me.arrow.utils.custom.materials.PEMaterials;
 import me.arrow.utils.customutils.OtherUtility;
 import me.arrow.utils.minecraft.MathHelper;
 import org.bukkit.Location;
@@ -790,6 +791,7 @@ public class MovementData implements Data {
                 || isMaterial(name, BED)
                 || isSlab(m)
                 || isBed(m)
+                || PEMaterials.isPistonHead(m)
                 || isCarpet(m)
                 || isTrapdoor(m)
                 || isFence(m)
@@ -802,8 +804,6 @@ public class MovementData implements Data {
     private static boolean isPane(Material m) {
         return MaterialType.isPane(m);
     }
-
-
 
     private boolean isNearWallScanner(CustomLocation location) {
         if (location == null || location.getWorld() == null) {

@@ -561,12 +561,24 @@ public class PEMaterials {
         return name != null && (name.equals("SNOW") || name.equals("SNOW_LAYER"));
     }
 
+    public static boolean isSnowLayer(Material material) {
+        return material != null && isSnowLayerName(normalize(material.name()));
+    }
+
+    public static boolean isSnowLayer(WrappedBlockState state) {
+        return state != null && isSnowLayerName(stateName(state));
+    }
+
     private static boolean isEnchantingTableName(String name) {
         return name != null && (name.equals("ENCHANTMENT_TABLE") || name.equals("ENCHANTING_TABLE"));
     }
 
     public static boolean isTrapdoor(Material material) {
         return material != null && isTrapdoorName(normalize(material.name())) || MaterialType.isTrapdoor(material);
+    }
+
+    public static boolean isTrapdoor(WrappedBlockState state) {
+        return state != null && isTrapdoorName(stateName(state));
     }
 
     private static boolean isTrapdoorName(String name) {
@@ -664,10 +676,10 @@ public class PEMaterials {
             open = (legacyData & 0x4) != 0;
             top = (legacyData & 0x8) != 0;
             switch (legacyData & 0x3) {
-                case 0: facing = "SOUTH"; break;
-                case 1: facing = "NORTH"; break;
-                case 2: facing = "EAST"; break;
-                default: facing = "WEST"; break;
+                case 0: facing = "NORTH"; break;
+                case 1: facing = "SOUTH"; break;
+                case 2: facing = "WEST"; break;
+                default: facing = "EAST"; break;
             }
         } else {
             Boolean stateOpen = readBooleanState(state, "isOpen", "getOpen");
@@ -686,13 +698,13 @@ public class PEMaterials {
 
         if (facing == null) return null;
         switch (facing.toUpperCase(Locale.ROOT)) {
-            case "SOUTH":
-                return Collections.singletonList(new CollisionBounds(x, y, z + 0.8125D, x + 1.0D, y + 1.0D, z + 1.0D));
             case "NORTH":
+                return Collections.singletonList(new CollisionBounds(x, y, z + 0.8125D, x + 1.0D, y + 1.0D, z + 1.0D));
+            case "SOUTH":
                 return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 0.1875D));
-            case "EAST":
-                return Collections.singletonList(new CollisionBounds(x + 0.8125D, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
             case "WEST":
+                return Collections.singletonList(new CollisionBounds(x + 0.8125D, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+            case "EAST":
                 return Collections.singletonList(new CollisionBounds(x, y, z, x + 0.1875D, y + 1.0D, z + 1.0D));
             default:
                 return null;
@@ -872,6 +884,12 @@ public class PEMaterials {
             WrappedBlockState state, Material material, int x, int y, int z) {
         String stateBlockName = state == null ? "" : stateName(state);
         String materialName = material == null ? "" : normalize(material.name());
+        if (isTrapdoorName(stateBlockName) || isTrapdoorName(materialName)) {
+            return trapdoorBounds(state, -1, x, y, z);
+        }
+        if ((material == null || material == Material.AIR) && isFence(state)) {
+            return fenceBounds(state, x, y, z);
+        }
         if (isEndPortalFrameName(stateBlockName) || isEndPortalFrameName(materialName)) {
             int data = extractLegacyData(state, material);
             if (data < 0) {
@@ -909,6 +927,7 @@ public class PEMaterials {
         String name = normalize(material.name());
         return isEndPortalFrameName(name) || isCocoaName(name) || isCakeName(name)
                 || isAnvilName(name) || name.equals("CACTUS") || name.equals("SOUL_SAND")
+                || isSnowLayerName(name)
                 || name.equals("HOPPER") || name.equals("CAULDRON")
                 || isFlowerPotName(name) || isLilyPadName(name)
                 || name.equals("BREWING_STAND")
@@ -1037,8 +1056,7 @@ public class PEMaterials {
     public static boolean isPistonHead(WrappedBlockState state) {
         if (state == null) return false;
         String name = stateName(state);
-        return name.equals("PISTON_HEAD") || name.equals("PISTON_EXTENSION")
-                || name.contains("PISTON_HEAD") || name.contains("PISTON_EXTENSION");
+        return name.contains("PISTON_HEAD") || name.contains("PISTON_EXTENSION");
     }
 
     public static boolean isPistonBase(Material material) {
@@ -1326,7 +1344,11 @@ public class PEMaterials {
         if (isSnowLayerName(stateName(state)) || isSnowLayerName(name)) {
             int layers = snowLayerCount(state);
             if (layers >= 1) {
-                return lowFullBounds(x, y, z, layers / 8.0D);
+                // Legacy BlockSnow's collision AABB ends at metadata / 8.0.
+                // The visible/selection height is one eighth higher, so don't
+                // use the layer count directly for 1.8 server support checks.
+                double height = LEGACY_SERVER ? (layers - 1) / 8.0D : layers / 8.0D;
+                return lowFullBounds(x, y, z, height);
             }
             // Keep unknown legacy snow shapes unresolved so the live server
             // collision shape can be queried instead of treating snow as solid.
@@ -1952,6 +1974,10 @@ public class PEMaterials {
             return getCollisionBounds(block.getType(), block.getData() & 0xF,
                     block.getX(), block.getY(), block.getZ());
         }
+        if (LEGACY_SERVER && isTrapdoor(block.getType())) {
+            return getCollisionBounds(block.getType(), block.getData() & 0xF,
+                    block.getX(), block.getY(), block.getZ());
+        }
 
         if (isPistonHead(block.getType())) {
             return pistonHeadBounds(null, -1, block, block.getX(), block.getY(), block.getZ());
@@ -2284,9 +2310,9 @@ public class PEMaterials {
 
         String name = normalize(material.name());
         if (isSnowLayerName(name) && legacyData >= 0) {
-            // In 1.8 the low three metadata bits encode 1-8 snow layers.
-            int layers = (legacyData & 0x7) + 1;
-            return lowFullBounds(x, y, z, layers / 8.0D);
+            // 1.8's collision AABB is one eighth below the visible snow height:
+            // metadata 0-7 maps to a collision top of 0/8 through 7/8.
+            return lowFullBounds(x, y, z, (legacyData & 0x7) / 8.0D);
         }
         if (isEnchantingTableName(name)) {
             return lowFullBounds(x, y, z, 0.75D);
@@ -2414,6 +2440,23 @@ public class PEMaterials {
 
         String blockName = normalize(stateName(state));
         String materialName = normalize(material != null ? material.name() : null);
+        if (isTrapdoorName(blockName) || isTrapdoorName(materialName)) {
+            Boolean open = readBooleanState(state, "isOpen", "getOpen");
+            String half = readEnumState(state, "getHalf");
+            String facing = readEnumState(state, "getFacing");
+            if (open == null || half == null || facing == null) return -1;
+            int metadata;
+            switch (facing) {
+                case "NORTH": metadata = 0; break;
+                case "SOUTH": metadata = 1; break;
+                case "WEST": metadata = 2; break;
+                case "EAST": metadata = 3; break;
+                default: return -1;
+            }
+            if (open) metadata |= 0x4;
+            if (half.equals("TOP")) metadata |= 0x8;
+            return metadata;
+        }
         if (isEndPortalFrameName(blockName) || isEndPortalFrameName(materialName)) {
             if (LEGACY_SERVER) return state.getGlobalId() & 0xF;
             Boolean eye = readBooleanState(state, "hasEye", "isEye", "getEye");
@@ -3660,6 +3703,22 @@ public class PEMaterials {
             case "OAK_FENCE":
                 Material fence = Material.matchMaterial("FENCE");
                 if (fence != null) return fence;
+                break;
+            case "NETHER_BRICK_FENCE":
+                Material legacyNetherFence = Material.matchMaterial("NETHER_FENCE");
+                if (legacyNetherFence != null) return legacyNetherFence;
+                break;
+            case "NETHER_FENCE":
+                Material modernNetherFence = Material.matchMaterial("NETHER_BRICK_FENCE");
+                if (modernNetherFence != null) return modernNetherFence;
+                break;
+            case "OAK_TRAPDOOR":
+                Material legacyTrapdoor = Material.matchMaterial("TRAP_DOOR");
+                if (legacyTrapdoor != null) return legacyTrapdoor;
+                break;
+            case "TRAP_DOOR":
+                Material modernTrapdoor = Material.matchMaterial("OAK_TRAPDOOR");
+                if (modernTrapdoor != null) return modernTrapdoor;
                 break;
             case "OAK_FENCE_GATE":
                 Material fenceGate = Material.matchMaterial("FENCE_GATE");

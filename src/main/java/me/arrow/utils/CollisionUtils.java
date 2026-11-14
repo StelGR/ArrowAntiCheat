@@ -1404,16 +1404,50 @@ public class CollisionUtils {
                             }
                         }
 
-                        if (material == null || material == Material.AIR) {
+                        boolean trapdoorCandidate = PEMaterials.isTrapdoor(material)
+                                || PEMaterials.isTrapdoor(cachedState);
+                        boolean snowLayerCandidate = PEMaterials.isSnowLayer(material)
+                                || PEMaterials.isSnowLayer(cachedState);
+                        if (trapdoorCandidate && block == null) {
+                            block = getBlock(probe, async);
+                        }
+                        if (trapdoorCandidate && block != null) {
+                            Material live = nms.getType(block);
+                            if (live != null && live != Material.AIR) {
+                                material = live;
+                            }
+                            // The live 1.8 block data is authoritative for the bottom/top half bit.
+                            boxes = PEMaterials.getCollisionBounds(block);
+                        }
+                        if (snowLayerCandidate && block == null) {
+                            block = getBlock(probe, async);
+                        }
+                        if (snowLayerCandidate && block != null) {
+                            Material live = nms.getType(block);
+                            if (live != null && live != Material.AIR) {
+                                material = live;
+                            }
+                            // On 1.8, Block.getData() carries the actual snow height (0-7).
+                            boxes = PEMaterials.getCollisionBounds(block);
+                        }
+
+                        // If an old-version partial block is present in the packet state but
+                        // its live block data is not available yet, don't count it as air.
+                        if (boxes == null && (needsExactStateShape || trapdoorCandidate || snowLayerCandidate)) {
+                            this.unresolvedCollisionShape = true;
+                        }
+
+                        if ((material == null || material == Material.AIR)
+                                && (boxes == null || boxes.isEmpty())) {
                             continue;
                         }
 
-                        if (!this.blockTypes.contains(material)) {
+                        if (material != null && material != Material.AIR && !this.blockTypes.contains(material)) {
                             this.blockTypes.add(material);
                         }
 
                         if (!this.nearWaterLogged) {
-                            if (material.name().contains("WATER")
+                            if ((material != null && material.name().contains("WATER"))
                                     || me.arrow.playerdata.cache.ChunkCache.get().isWaterLogged(probe)
                                     || (block != null && nms.isWaterLogged(block))) {
                                 this.nearWaterLogged = true;
