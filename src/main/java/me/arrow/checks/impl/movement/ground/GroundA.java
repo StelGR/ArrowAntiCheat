@@ -40,10 +40,11 @@ public class GroundA extends Check {
                 boolean serverGround = movementData.isServerGround();
                 boolean clientGround = movementData.isOnGround();
                 boolean serverGround2 = movementData.isServerYGround();
+                boolean serverGround3 = movementData.isCustomInAir();
 
 
                 boolean invalid1 = !serverGround && !clientGround
-                        && movementData.isCustomInAir()
+                        && serverGround3
                         && movementData.getClientAirTicks() == 0
                         && movementData.getServerAirTicks() > 3
                         && (movementData.getCustomAirTicks() == 1 || movementData.getCustomAirTicks() > 5);
@@ -51,6 +52,7 @@ public class GroundA extends Check {
                 boolean invalid2 = !serverGround2 && clientGround && movementData.getCustomAirTicks() != 0;
 
                 boolean invalid3 = serverGround != clientGround
+                        && serverGround3
                         && !movementData.isNearWater()
                         && !movementData.isNearLava()
                         && movementData.getSincePredictUpwardsTicks() > 10
@@ -63,7 +65,7 @@ public class GroundA extends Check {
                         fail("Mismatched ground status (2)" ,
                                 "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                         + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround2
-                                        + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
+                                        + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround3
                                         + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                                         + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
                                         + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
@@ -77,7 +79,7 @@ public class GroundA extends Check {
                         fail("Mismatched ground status (3)" ,
                                 "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                         + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround2
-                                        + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
+                                        + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround3
                                         + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                                         + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
                                         + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()
@@ -96,7 +98,7 @@ public class GroundA extends Check {
                             fail("Mismatched ground status (4)" ,
                                     "serverGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround
                                             + "\nserverYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround2
-                                            + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isCustomInAir()
+                                            + "\ninAir " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGround3
                                             + "\nclientGround " + MsgType.MAIN_THEME_COLOR.getMessage() + clientGround
                                             + "\nclientAirTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getClientAirTicks()
                                             + "\nserverAirTicks (1) " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getServerAirTicks()

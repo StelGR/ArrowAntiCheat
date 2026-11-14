@@ -51,9 +51,9 @@ public class CollisionUtils {
 
     /* Use the 0.6-wide player body plus a small edge allowance for packet rounding. */
     private static final double GROUND_PLAYER_HALF_WIDTH = .3D;
-    private static final double GROUND_SUPPORT_EDGE_TOLERANCE = .05D;
-    private static final double GROUND_SUPPORT_VERTICAL_TOLERANCE = .03D;
-    private static final double GROUND_CONTACT_EPSILON = 1.0E-3D;
+    private static final double GROUND_SUPPORT_EDGE_TOLERANCE = .1D;
+    private static final double GROUND_SUPPORT_VERTICAL_TOLERANCE = .05D;
+    private static final double GROUND_DESCENT_EPSILON = 1.0E-5D;
     /* Fences, walls, and closed gates have a collision top 1.5 blocks above their base. */
     private static final double MAX_SUPPORT_HEIGHT = 1.5D;
 
@@ -1272,7 +1272,7 @@ public class CollisionUtils {
 
             boolean descending = previousLocation != null
                     && previousLocation.getWorld() == location.getWorld()
-                    && feetY < previousLocation.getY() - GROUND_CONTACT_EPSILON;
+                    && feetY < previousLocation.getY() - GROUND_DESCENT_EPSILON;
             double sweepMinX = descending
                     ? Math.min(location.getX(), previousLocation.getX()) - GROUND_PLAYER_HALF_WIDTH
                     : location.getX() - GROUND_PLAYER_HALF_WIDTH;
@@ -1358,14 +1358,30 @@ public class CollisionUtils {
                                 && !PEMaterials.isDoubleSlab(cachedState)
                                 && (PEMaterials.isLegacySlabMaterial(material)
                                 || PEMaterials.isCarpet(material)
-                                || (material != null && material.name().equals("SNOW"))
+                                || (material != null && (material.name().equals("SNOW")
+                                || material.name().equals("SNOW_LAYER")))
+                                || PEMaterials.isTrapdoor(material)
+                                || PEMaterials.isDoor(material)
+                                || PEMaterials.isSkull(material)
+                                || PEMaterials.isCake(material)
+                                || PEMaterials.isCocoa(material)
+                                || PEMaterials.isEndPortalFrame(material)
+                                || PEMaterials.isAnvil(material)
                                 || PEMaterials.isStair(material)
                                 || PEMaterials.isPistonHead(material)
                                 || PEMaterials.isPistonBase(material));
 
                         List<PEMaterials.CollisionBounds> boxes;
 
-                        if (useLegacyMetadata) {
+                        if (useLegacyMetadata && PEMaterials.isDoor(material)) {
+                            int lowerData = (legacyData & 0x8) != 0
+                                    ? ChunkCache.get().getLegacyBlockData(location.getWorld().getName(), x, y - 1, z)
+                                    : legacyData;
+                            int upperData = (legacyData & 0x8) != 0
+                                    ? legacyData
+                                    : ChunkCache.get().getLegacyBlockData(location.getWorld().getName(), x, y + 1, z);
+                            boxes = PEMaterials.doorBounds(lowerData, upperData, x, y, z);
+                        } else if (useLegacyMetadata) {
                             boxes = PEMaterials.getCollisionBounds(
                                     material, legacyData, x, y, z
                             );
