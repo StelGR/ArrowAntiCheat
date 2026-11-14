@@ -1,7 +1,9 @@
 package me.arrow.checks.impl.misc.vehicle;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import me.arrow.checks.types.Check;
 import me.arrow.core.check.CheckType;
 import me.arrow.core.check.annotation.Experimental;
@@ -28,6 +30,7 @@ public class VehicleB extends Check {
     @Override
     public void handle(PacketReceiveEvent event) {
         if (!OtherUtility.isFlying(event.getPacketType())) return;
+
         Entity vehicle = profile.getPlayer() == null ? null : profile.getPlayer().getVehicle();
         VehicleData vehicleData = profile.getVehicleData();
         MovementData movementData = profile.getMovementData();

@@ -556,6 +556,50 @@ public class PEMaterials {
         return name != null && (name.equals("CARPET") || name.endsWith("_CARPET"));
     }
 
+    private static boolean isSnowLayerName(String name) {
+        return name != null && (name.equals("SNOW") || name.equals("SNOW_LAYER"));
+    }
+
+    private static int snowLayerCount(WrappedBlockState state) {
+        if (state == null) return -1;
+
+        try {
+            Method layers = state.getClass().getMethod("getLayers");
+            Object value = layers.invoke(state);
+            if (value instanceof Number) {
+                int count = ((Number) value).intValue();
+                if (count >= 1 && count <= 8) return count;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            Object value = state.getTypeData();
+            if (value instanceof Number) {
+                int metadata = ((Number) value).intValue();
+                if (metadata >= 0 && metadata <= 7) return metadata + 1;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            String value = String.valueOf(state);
+            int marker = value.toLowerCase(Locale.ROOT).indexOf("layers=");
+            if (marker >= 0) {
+                int start = marker + "layers=".length();
+                int end = start;
+                while (end < value.length() && Character.isDigit(value.charAt(end))) end++;
+                if (end > start) {
+                    int count = Integer.parseInt(value.substring(start, end));
+                    if (count >= 1 && count <= 8) return count;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return -1;
+    }
+
     private static boolean isDoubleSlabName(String name) {
         return name != null && name.contains("DOUBLE")
                 && (name.contains("SLAB") || name.contains("STEP"));
@@ -574,6 +618,11 @@ public class PEMaterials {
 
     /** Preserve the legacy metadata nibble and tag double-slab block IDs. */
     public static int encodeLegacyBlockData(WrappedBlockState state, int combinedBlockId) {
+        if (combinedBlockId < 0) {
+            Material material = state != null ? materialFromState(state.getType()) : null;
+            return extractLegacyData(state, material);
+        }
+
         int encoded = combinedBlockId & 0xF;
         int legacyBlockId = combinedBlockId >>> 4;
         boolean legacyDoubleSlabId = combinedBlockId > 0xFF
@@ -686,6 +735,11 @@ public class PEMaterials {
         }
 
         String name = material.name();
+        if (isSnowLayerName(name)) {
+            // Without legacy metadata, use the tallest snow-layer shape. Callers
+            // with packet metadata use the exact layer count below.
+            return lowFullBounds(x, y, z, 0.875D);
+        }
         if (isChestName(name)) {
             return chestBounds(x, y, z);
         }
@@ -813,6 +867,7 @@ public class PEMaterials {
         if (LEGACY_SERVER && requiresStatefulCollision(state)) {
             if (!isStair(state) && !isStair(material) && !isSlab(state) && !isLegacySlabMaterial(material)
                     && !isCarpet(state) && !isCarpetName(material.name())
+                    && !isSnowLayerName(stateName(state)) && !isSnowLayerName(material.name())
                     && !isFence(state) && !isFenceGate(state) && !isWall(state)
                     && !isPistonHead(state) && !isPistonHead(material)
                     && !isPistonBase(state) && !isPistonBase(material)) {
@@ -823,6 +878,15 @@ public class PEMaterials {
         String name = material.name();
         if (isPistonHead(state) || isPistonHead(material)) {
             return pistonHeadBounds(state, -1, null, x, y, z);
+        }
+        if (isSnowLayerName(stateName(state)) || isSnowLayerName(name)) {
+            int layers = snowLayerCount(state);
+            if (layers >= 1) {
+                return lowFullBounds(x, y, z, layers / 8.0D);
+            }
+            // Keep unknown legacy snow shapes unresolved so the live server
+            // collision shape can be queried instead of treating snow as solid.
+            return null;
         }
         if (isPistonBase(state) || isPistonBase(material)) {
             return pistonBaseBounds(state, -1, null, x, y, z);
@@ -1738,6 +1802,11 @@ public class PEMaterials {
         }
 
         String name = normalize(material.name());
+        if (isSnowLayerName(name) && legacyData >= 0) {
+            // In 1.8 the low three metadata bits encode 1-8 snow layers.
+            int layers = (legacyData & 0x7) + 1;
+            return lowFullBounds(x, y, z, layers / 8.0D);
+        }
         if (isDoubleSlabName(name)) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
         }
@@ -1812,6 +1881,11 @@ public class PEMaterials {
     public static int extractLegacyData(WrappedBlockState state, Material material) {
         if (state == null) {
             return -1;
+        }
+
+        if (isSnowLayerName(stateName(state)) || isSnowLayerName(material != null ? normalize(material.name()) : null)) {
+            int layers = snowLayerCount(state);
+            return layers >= 1 ? layers - 1 : -1;
         }
 
         if (isPistonHead(state) || isPistonHead(material)) {

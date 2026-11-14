@@ -49,8 +49,10 @@ public class CollisionUtils {
     /* Slightly expanded footprint for ceiling collision. */
     private static final double PLAYER_HALF_WIDTH = .300001D;
 
-    /* Ground requires the unexpanded 0.6-wide player body to overlap a block. */
+    /* Use the 0.6-wide player body plus a small edge allowance for packet rounding. */
     private static final double GROUND_PLAYER_HALF_WIDTH = .3D;
+    private static final double GROUND_SUPPORT_EDGE_TOLERANCE = .05D;
+    private static final double GROUND_SUPPORT_VERTICAL_TOLERANCE = .03D;
     private static final double GROUND_CONTACT_EPSILON = 1.0E-3D;
     /* Fences, walls, and closed gates have a collision top 1.5 blocks above their base. */
     private static final double MAX_SUPPORT_HEIGHT = 1.5D;
@@ -1288,10 +1290,10 @@ public class CollisionUtils {
             double headMinY = feetY + 1.425D;
             double headMaxY = feetY + 1.950001D;
 
-            int minX = floor(Math.min(playerMinX, sweepMinX));
-            int maxX = floor(Math.max(playerMaxX, sweepMaxX));
-            int minZ = floor(Math.min(playerMinZ, sweepMinZ));
-            int maxZ = floor(Math.max(playerMaxZ, sweepMaxZ));
+            int minX = floor(Math.min(playerMinX, sweepMinX) - GROUND_SUPPORT_EDGE_TOLERANCE);
+            int maxX = floor(Math.max(playerMaxX, sweepMaxX) + GROUND_SUPPORT_EDGE_TOLERANCE);
+            int minZ = floor(Math.min(playerMinZ, sweepMinZ) - GROUND_SUPPORT_EDGE_TOLERANCE);
+            int maxZ = floor(Math.max(playerMaxZ, sweepMaxZ) + GROUND_SUPPORT_EDGE_TOLERANCE);
             /*
              * A fence's top can be below the feet block (for example, its base
              * is Y=64 while its collision top and the player's feet are 65.5).
@@ -1356,6 +1358,7 @@ public class CollisionUtils {
                                 && !PEMaterials.isDoubleSlab(cachedState)
                                 && (PEMaterials.isLegacySlabMaterial(material)
                                 || PEMaterials.isCarpet(material)
+                                || (material != null && material.name().equals("SNOW"))
                                 || PEMaterials.isStair(material)
                                 || PEMaterials.isPistonHead(material)
                                 || PEMaterials.isPistonBase(material));
@@ -1434,7 +1437,7 @@ public class CollisionUtils {
                                             location.getX() + GROUND_PLAYER_HALF_WIDTH,
                                             location.getZ() + GROUND_PLAYER_HALF_WIDTH
                                     )
-                                    && Math.abs(box.maxY - feetY) <= GROUND_CONTACT_EPSILON) {
+                                    && Math.abs(box.maxY - feetY) <= GROUND_SUPPORT_VERTICAL_TOLERANCE) {
                                 this.exactGroundSupport = true;
                             }
 
@@ -1445,7 +1448,7 @@ public class CollisionUtils {
                                             sweepMinX, sweepMinZ,
                                             sweepMaxX, sweepMaxZ
                                     )
-                                    && Math.abs(box.maxY - feetY) <= GROUND_CONTACT_EPSILON) {
+                                    && Math.abs(box.maxY - feetY) <= GROUND_SUPPORT_VERTICAL_TOLERANCE) {
                                 this.landingGroundSupport = true;
                             }
 
@@ -1463,10 +1466,10 @@ public class CollisionUtils {
         private boolean overlapsHorizontally(PEMaterials.CollisionBounds box,
                                              double minX, double minZ,
                                              double maxX, double maxZ) {
-            return box.maxX > minX + 1.0E-7D
-                    && box.minX < maxX - 1.0E-7D
-                    && box.maxZ > minZ + 1.0E-7D
-                    && box.minZ < maxZ - 1.0E-7D;
+            return box.maxX > minX - GROUND_SUPPORT_EDGE_TOLERANCE + 1.0E-7D
+                    && box.minX < maxX + GROUND_SUPPORT_EDGE_TOLERANCE - 1.0E-7D
+                    && box.maxZ > minZ - GROUND_SUPPORT_EDGE_TOLERANCE + 1.0E-7D
+                    && box.minZ < maxZ + GROUND_SUPPORT_EDGE_TOLERANCE - 1.0E-7D;
         }
 
         public boolean hasBlockAbove() {
