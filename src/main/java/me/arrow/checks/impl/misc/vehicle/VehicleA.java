@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import me.arrow.Arrow;
 import me.arrow.core.check.annotation.Experimental;
 import me.arrow.core.check.CheckType;
 import me.arrow.checks.types.Check;
@@ -50,6 +51,10 @@ public class VehicleA extends Check {
 
         if (profile.getPlayer() == null || !profile.getPlayer().isInsideVehicle()) {
             syncState();
+            return;
+        }
+
+        if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_8_8)) {
             return;
         }
 
