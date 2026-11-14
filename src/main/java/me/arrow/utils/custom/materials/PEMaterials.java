@@ -542,6 +542,7 @@ public class PEMaterials {
                 || name.equals("STONE_SLAB2")
                 || name.equals("WOOD_STEP")
                 || name.equals("WOODEN_SLAB");
+
     }
 
     public static boolean isCarpet(WrappedBlockState state) {
@@ -549,7 +550,7 @@ public class PEMaterials {
     }
 
     public static boolean isCarpet(Material material) {
-        return material != null && isCarpetName(normalize(material.name()));
+        return material != null && isCarpetName(normalize(material.name())) || MaterialType.isCarpet(material);
     }
 
     private static boolean isCarpetName(String name) {
@@ -560,8 +561,371 @@ public class PEMaterials {
         return name != null && (name.equals("SNOW") || name.equals("SNOW_LAYER"));
     }
 
+    private static boolean isEnchantingTableName(String name) {
+        return name != null && (name.equals("ENCHANTMENT_TABLE") || name.equals("ENCHANTING_TABLE"));
+    }
+
+    public static boolean isTrapdoor(Material material) {
+        return material != null && isTrapdoorName(normalize(material.name())) || MaterialType.isTrapdoor(material);
+    }
+
+    private static boolean isTrapdoorName(String name) {
+        return name != null && (name.equals("TRAP_DOOR") || name.equals("IRON_TRAPDOOR")
+                || name.endsWith("_TRAPDOOR")) ;
+    }
+
+    public static boolean isDoor(Material material) {
+        return material != null && isDoorName(normalize(material.name())) || MaterialType.isDoor(material);
+    }
+
+    private static boolean isDoorName(String name) {
+        return name != null && !isTrapdoorName(name)
+                && (name.equals("WOODEN_DOOR") || name.equals("IRON_DOOR_BLOCK")
+                || name.equals("DOOR") || name.endsWith("_DOOR"));
+    }
+
+    public static boolean isSkull(Material material) {
+        return material != null && isSkullName(normalize(material.name()));
+    }
+
+    private static boolean isSkullName(String name) {
+        return name != null && (name.equals("SKULL") || name.equals("SKULL_ITEM")
+                || name.endsWith("_SKULL") || name.endsWith("_HEAD"));
+    }
+
+    private static boolean isAnvilName(String name) {
+        return name != null && name.contains("ANVIL");
+    }
+
+    public static boolean isAnvil(Material material) {
+        return material != null && isAnvilName(normalize(material.name()));
+    }
+
+    private static List<CollisionBounds> anvilBounds(int legacyData, int x, int y, int z) {
+        if (legacyData < 0) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+        }
+        if ((legacyData & 0x1) != 0) {
+            return Collections.singletonList(new CollisionBounds(x, y, z + 0.125D,
+                    x + 1.0D, y + 1.0D, z + 0.875D));
+        }
+        return Collections.singletonList(new CollisionBounds(x + 0.125D, y, z,
+                x + 0.875D, y + 1.0D, z + 1.0D));
+    }
+
+    private static boolean isEndPortalFrameName(String name) {
+        return name != null && (name.equals("ENDER_PORTAL_FRAME") || name.equals("END_PORTAL_FRAME"));
+    }
+
+    private static boolean isCocoaName(String name) {
+        return name != null && (name.equals("COCOA") || name.equals("COCOA_BEANS"));
+    }
+
+    private static boolean isCakeName(String name) {
+        return name != null && (name.equals("CAKE") || name.equals("CAKE_BLOCK"));
+    }
+
+    private static boolean isRepeaterName(String name) {
+        return name != null && (name.contains("REPEATER") || name.equals("DIODE")
+                || name.equals("DIODE_BLOCK_OFF") || name.equals("DIODE_BLOCK_ON"));
+    }
+
+    private static boolean isComparatorName(String name) {
+        return name != null && name.contains("COMPARATOR");
+    }
+
+    private static boolean isFlowerPotName(String name) {
+        return name != null && name.equals("FLOWER_POT");
+    }
+
+    private static boolean isLilyPadName(String name) {
+        return name != null && (name.equals("LILY_PAD") || name.equals("WATER_LILY"));
+    }
+
+    public static boolean isEndPortalFrame(Material material) {
+        return material != null && isEndPortalFrameName(normalize(material.name()));
+    }
+
+    public static boolean isCocoa(Material material) {
+        return material != null && isCocoaName(normalize(material.name()));
+    }
+
+    public static boolean isCake(Material material) {
+        return material != null && isCakeName(normalize(material.name()));
+    }
+
+    private static List<CollisionBounds> trapdoorBounds(WrappedBlockState state, int legacyData,
+                                                        int x, int y, int z) {
+        boolean open;
+        boolean top;
+        String facing;
+
+        if (legacyData >= 0) {
+            open = (legacyData & 0x4) != 0;
+            top = (legacyData & 0x8) != 0;
+            switch (legacyData & 0x3) {
+                case 0: facing = "SOUTH"; break;
+                case 1: facing = "NORTH"; break;
+                case 2: facing = "EAST"; break;
+                default: facing = "WEST"; break;
+            }
+        } else {
+            Boolean stateOpen = readBooleanState(state, "isOpen", "getOpen");
+            String half = readEnumState(state, "getHalf");
+            facing = readEnumState(state, "getFacing");
+            if (stateOpen == null || half == null) return null;
+            open = stateOpen;
+            top = half.equalsIgnoreCase("TOP");
+        }
+
+        if (!open) {
+            double minY = top ? y + 0.8125D : y;
+            double maxY = top ? y + 1.0D : y + 0.1875D;
+            return Collections.singletonList(new CollisionBounds(x, minY, z, x + 1.0D, maxY, z + 1.0D));
+        }
+
+        if (facing == null) return null;
+        switch (facing.toUpperCase(Locale.ROOT)) {
+            case "SOUTH":
+                return Collections.singletonList(new CollisionBounds(x, y, z + 0.8125D, x + 1.0D, y + 1.0D, z + 1.0D));
+            case "NORTH":
+                return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 0.1875D));
+            case "EAST":
+                return Collections.singletonList(new CollisionBounds(x + 0.8125D, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+            case "WEST":
+                return Collections.singletonList(new CollisionBounds(x, y, z, x + 0.1875D, y + 1.0D, z + 1.0D));
+            default:
+                return null;
+        }
+    }
+
+    private static Boolean readBooleanState(WrappedBlockState state, String... methodNames) {
+        if (state == null) return null;
+        for (String methodName : methodNames) {
+            try {
+                Object value = state.getClass().getMethod(methodName).invoke(state);
+                if (value instanceof Boolean) return (Boolean) value;
+            } catch (Throwable ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static String readEnumState(WrappedBlockState state, String methodName) {
+        if (state == null) return null;
+        try {
+            Object value = state.getClass().getMethod(methodName).invoke(state);
+            String name = value != null ? String.valueOf(value).toUpperCase(Locale.ROOT) : null;
+            return name == null || name.isEmpty() || name.equals("NULL") ? null : name;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Integer readIntegerState(WrappedBlockState state, String... methodNames) {
+        if (state == null) return null;
+        for (String methodName : methodNames) {
+            try {
+                Object value = state.getClass().getMethod(methodName).invoke(state);
+                if (value instanceof Number) return ((Number) value).intValue();
+            } catch (Throwable ignored) {
+            }
+        }
+        try {
+            Object value = state.getTypeData();
+            if (value instanceof Number) return ((Number) value).intValue();
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    public static List<CollisionBounds> doorBounds(int lowerData, int upperData, int x, int y, int z) {
+        if (lowerData < 0 || (lowerData & 0x8) != 0) return null;
+
+        int facing = lowerData & 0x3;
+        boolean open = (lowerData & 0x4) != 0;
+        boolean hingeRight = upperData >= 0 && (upperData & 0x1) != 0;
+        boolean thinX = facing == 0 || facing == 2;
+        if (open) thinX = !thinX;
+        if (open && hingeRight) thinX = !thinX;
+
+        List<CollisionBounds> bounds = new ArrayList<>(2);
+        if (thinX) {
+            bounds.add(new CollisionBounds(x, y, z, x + 0.1875D, y + 1.0D, z + 1.0D));
+            bounds.add(new CollisionBounds(x + 0.8125D, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+        } else {
+            bounds.add(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 0.1875D));
+            bounds.add(new CollisionBounds(x, y, z + 0.8125D, x + 1.0D, y + 1.0D, z + 1.0D));
+        }
+        return bounds;
+    }
+
+    private static List<CollisionBounds> skullBounds(int legacyData, int x, int y, int z) {
+        if (legacyData < 0 || (legacyData & 0x7) == 0) {
+            return Collections.singletonList(new CollisionBounds(
+                    x + 0.25D, y, z + 0.25D,
+                    x + 0.75D, y + 0.5D, z + 0.75D));
+        }
+        switch (legacyData & 0x7) {
+            case 1:
+                return Collections.singletonList(new CollisionBounds(x + 0.25D, y + 0.25D, z + 0.5D,
+                        x + 0.75D, y + 0.75D, z + 1.0D));
+            case 2:
+                return Collections.singletonList(new CollisionBounds(x + 0.25D, y + 0.25D, z,
+                        x + 0.75D, y + 0.75D, z + 0.5D));
+            case 3:
+                return Collections.singletonList(new CollisionBounds(x + 0.5D, y + 0.25D, z + 0.25D,
+                        x + 1.0D, y + 0.75D, z + 0.75D));
+            default:
+                return Collections.singletonList(new CollisionBounds(x, y + 0.25D, z + 0.25D,
+                        x + 0.5D, y + 0.75D, z + 0.75D));
+        }
+    }
+
+    private static List<CollisionBounds> endPortalFrameBounds(int legacyData, int x, int y, int z) {
+        List<CollisionBounds> bounds = new ArrayList<>(2);
+        bounds.add(new CollisionBounds(x, y, z, x + 1.0D, y + 0.8125D, z + 1.0D));
+        if (legacyData >= 0 && (legacyData & 0x4) != 0) {
+            bounds.add(new CollisionBounds(x + 0.3125D, y + 0.8125D, z + 0.3125D,
+                    x + 0.6875D, y + 1.0D, z + 0.6875D));
+        }
+        return bounds;
+    }
+
+    private static List<CollisionBounds> cocoaBounds(int legacyData, int x, int y, int z) {
+        if (legacyData < 0) return null;
+
+        int age = Math.min(2, (legacyData >> 2) & 0x3);
+        int span = 4 + age * 2;
+        int verticalSpan = 5 + age * 2;
+        double center = span / 2.0D;
+        double minY = (12.0D - verticalSpan) / 16.0D;
+        double sideMin = (8.0D - center) / 16.0D;
+        double sideMax = (8.0D + center) / 16.0D;
+        int facing = legacyData & 0x3;
+
+        switch (facing) {
+            case 0: // SOUTH
+                return Collections.singletonList(new CollisionBounds(
+                        x + sideMin, y + minY, z + (15.0D - span) / 16.0D,
+                        x + sideMax, y + 0.75D, z + 0.9375D));
+            case 1: // WEST
+                return Collections.singletonList(new CollisionBounds(
+                        x + 0.0625D, y + minY, z + sideMin,
+                        x + (1.0D + span) / 16.0D, y + 0.75D, z + sideMax));
+            case 2: // NORTH
+                return Collections.singletonList(new CollisionBounds(
+                        x + sideMin, y + minY, z + 0.0625D,
+                        x + sideMax, y + 0.75D, z + (1.0D + span) / 16.0D));
+            default: // EAST
+                return Collections.singletonList(new CollisionBounds(
+                        x + (15.0D - span) / 16.0D, y + minY, z + sideMin,
+                        x + 0.9375D, y + 0.75D, z + sideMax));
+        }
+    }
+
+    private static List<CollisionBounds> cakeBounds(int legacyData, int x, int y, int z) {
+        int bites = legacyData < 0 ? 0 : Math.min(6, legacyData & 0x7);
+        return Collections.singletonList(new CollisionBounds(
+                x + (1.0D + bites * 2.0D) / 16.0D, y, z + 0.0625D,
+                x + 0.9375D, y + 0.5D, z + 0.9375D));
+    }
+
+    private static List<CollisionBounds> cactusBounds(int x, int y, int z) {
+        return Collections.singletonList(new CollisionBounds(
+                x + 0.0625D, y, z + 0.0625D,
+                x + 0.9375D, y + 0.9375D, z + 0.9375D));
+    }
+
+    private static List<CollisionBounds> hopperBounds(int x, int y, int z) {
+        List<CollisionBounds> bounds = new ArrayList<>(5);
+        bounds.add(new CollisionBounds(x, y, z, x + 1.0D, y + 0.625D, z + 1.0D));
+        bounds.add(new CollisionBounds(x, y + 0.625D, z, x + 0.125D, y + 1.0D, z + 1.0D));
+        bounds.add(new CollisionBounds(x + 0.875D, y + 0.625D, z, x + 1.0D, y + 1.0D, z + 1.0D));
+        bounds.add(new CollisionBounds(x + 0.125D, y + 0.625D, z, x + 0.875D, y + 1.0D, z + 0.125D));
+        bounds.add(new CollisionBounds(x + 0.125D, y + 0.625D, z + 0.875D, x + 0.875D, y + 1.0D, z + 1.0D));
+        return bounds;
+    }
+
+    private static List<CollisionBounds> cauldronBounds(int x, int y, int z) {
+        List<CollisionBounds> bounds = new ArrayList<>(5);
+        bounds.add(new CollisionBounds(x, y, z, x + 1.0D, y + 0.3125D, z + 1.0D));
+        bounds.add(new CollisionBounds(x, y + 0.3125D, z, x + 0.125D, y + 1.0D, z + 1.0D));
+        bounds.add(new CollisionBounds(x + 0.875D, y + 0.3125D, z, x + 1.0D, y + 1.0D, z + 1.0D));
+        bounds.add(new CollisionBounds(x + 0.125D, y + 0.3125D, z, x + 0.875D, y + 1.0D, z + 0.125D));
+        bounds.add(new CollisionBounds(x + 0.125D, y + 0.3125D, z + 0.875D, x + 0.875D, y + 1.0D, z + 1.0D));
+        return bounds;
+    }
+
+    private static List<CollisionBounds> flowerPotBounds(int x, int y, int z) {
+        return Collections.singletonList(new CollisionBounds(
+                x + 0.3125D, y, z + 0.3125D,
+                x + 0.6875D, y + 0.375D, z + 0.6875D));
+    }
+
+    private static List<CollisionBounds> lilyPadBounds(int x, int y, int z) {
+        return Collections.singletonList(new CollisionBounds(
+                x, y, z, x + 1.0D, y + 0.015625D, z + 1.0D));
+    }
+
+    private static List<CollisionBounds> knownLegacyBlockBounds(
+            WrappedBlockState state, Material material, int x, int y, int z) {
+        String stateBlockName = state == null ? "" : stateName(state);
+        String materialName = material == null ? "" : normalize(material.name());
+        if (isEndPortalFrameName(stateBlockName) || isEndPortalFrameName(materialName)) {
+            int data = extractLegacyData(state, material);
+            if (data < 0) {
+                Boolean eye = readBooleanState(state, "hasEye", "isEye", "getEye");
+                data = Boolean.TRUE.equals(eye) ? 0x4 : 0;
+            }
+            return endPortalFrameBounds(data, x, y, z);
+        }
+        if (isCocoaName(stateBlockName) || isCocoaName(materialName)) {
+            return cocoaBounds(extractLegacyData(state, material), x, y, z);
+        }
+        if (isCakeName(stateBlockName) || isCakeName(materialName)) {
+            return cakeBounds(extractLegacyData(state, material), x, y, z);
+        }
+        if (isAnvilName(stateBlockName) || isAnvilName(materialName)) {
+            return anvilBounds(extractLegacyData(state, material), x, y, z);
+        }
+        String name = material == null || material == Material.AIR || materialName.isEmpty()
+                ? stateBlockName : materialName;
+        if (name.equals("CACTUS")) return cactusBounds(x, y, z);
+        if (name.equals("SOUL_SAND")) return lowFullBounds(x, y, z, 0.875D);
+        if (name.equals("HOPPER")) return hopperBounds(x, y, z);
+        if (name.equals("CAULDRON")) return cauldronBounds(x, y, z);
+        if (name.equals("BREWING_STAND")) return lowFullBounds(x, y, z, 0.125D);
+        if (isFlowerPotName(name)) return flowerPotBounds(x, y, z);
+        if (isLilyPadName(name)) return lilyPadBounds(x, y, z);
+        if (isRepeaterName(name) || isComparatorName(name)) return lowFullBounds(x, y, z, 0.125D);
+        if (name.contains("DAYLIGHT_DETECTOR")) return lowFullBounds(x, y, z, 0.375D);
+        if (isEnchantingTableName(name)) return lowFullBounds(x, y, z, 0.75D);
+        return null;
+    }
+
+    private static boolean hasExplicitLegacyCollisionShape(Material material) {
+        if (material == null) return false;
+        String name = normalize(material.name());
+        return isEndPortalFrameName(name) || isCocoaName(name) || isCakeName(name)
+                || isAnvilName(name) || name.equals("CACTUS") || name.equals("SOUL_SAND")
+                || name.equals("HOPPER") || name.equals("CAULDRON")
+                || isFlowerPotName(name) || isLilyPadName(name)
+                || name.equals("BREWING_STAND")
+                || isRepeaterName(name) || isComparatorName(name)
+                || name.contains("DAYLIGHT_DETECTOR") || isEnchantingTableName(name);
+    }
+
     private static int snowLayerCount(WrappedBlockState state) {
         if (state == null) return -1;
+
+        if (LEGACY_SERVER) {
+            // In pre-flattening server states, getLayers() can return the
+            // mapped property default. The global ID retains the actual 1.8
+            // metadata nibble and is the authoritative layer count source.
+            int metadata = state.getGlobalId() & 0xF;
+            return metadata + 1;
+        }
 
         try {
             Method layers = state.getClass().getMethod("getLayers");
@@ -640,19 +1004,20 @@ public class PEMaterials {
         return name.endsWith("_FENCE")
                 || name.equals("FENCE")
                 || name.equals("NETHER_FENCE")
-                || name.equals("IRON_FENCE");
+                || name.equals("IRON_FENCE")
+                || MaterialType.isFence(name);
     }
 
     public static boolean isFenceGate(WrappedBlockState state) {
         if (state == null) return false;
         String name = stateName(state);
-        return name.endsWith("_FENCE_GATE") || name.equals("FENCE_GATE");
+        return name.endsWith("_FENCE_GATE") || name.equals("FENCE_GATE") || MaterialType.isFenceGate(name);
     }
 
     public static boolean isWall(WrappedBlockState state) {
         if (state == null) return false;
         String name = stateName(state);
-        return name.endsWith("_WALL") || name.equals("COBBLE_WALL");
+        return name.endsWith("_WALL") || name.equals("COBBLE_WALL") || MaterialType.isWall(name);
     }
 
     public static boolean isLantern(WrappedBlockState state) {
@@ -735,6 +1100,54 @@ public class PEMaterials {
         }
 
         String name = material.name();
+        if (isEnchantingTableName(name)) {
+            return lowFullBounds(x, y, z, 0.75D);
+        }
+        if (isEndPortalFrameName(normalize(name))) {
+            return endPortalFrameBounds(-1, x, y, z);
+        }
+        if (isCocoaName(normalize(name))) {
+            return null;
+        }
+        if (isCakeName(normalize(name))) {
+            return cakeBounds(-1, x, y, z);
+        }
+        if (normalize(name).equals("CACTUS")) {
+            return cactusBounds(x, y, z);
+        }
+        if (normalize(name).equals("SOUL_SAND")) {
+            return lowFullBounds(x, y, z, 0.875D);
+        }
+        if (normalize(name).equals("HOPPER")) {
+            return hopperBounds(x, y, z);
+        }
+        if (normalize(name).equals("CAULDRON")) {
+            return cauldronBounds(x, y, z);
+        }
+        if (normalize(name).equals("BREWING_STAND")) {
+            return lowFullBounds(x, y, z, 0.125D);
+        }
+        if (isFlowerPotName(normalize(name))) {
+            return flowerPotBounds(x, y, z);
+        }
+        if (isLilyPadName(normalize(name))) {
+            return lilyPadBounds(x, y, z);
+        }
+        if (isRepeaterName(normalize(name)) || isComparatorName(normalize(name))) {
+            return lowFullBounds(x, y, z, 0.125D);
+        }
+        if (isTrapdoorName(normalize(name))) {
+            return null;
+        }
+        if (isDoorName(normalize(name))) {
+            return null;
+        }
+        if (isAnvilName(name)) {
+            return anvilBounds(-1, x, y, z);
+        }
+        if (isSkullName(normalize(name))) {
+            return skullBounds(-1, x, y, z);
+        }
         if (isSnowLayerName(name)) {
             // Without legacy metadata, use the tallest snow-layer shape. Callers
             // with packet metadata use the exact layer count below.
@@ -814,6 +1227,24 @@ public class PEMaterials {
             return true;
         }
 
+        if (isTrapdoorName(stateName(state))) {
+            return true;
+        }
+        if (isDoorName(stateName(state)) || isSkullName(stateName(state))) {
+            return true;
+        }
+
+        String name = stateName(state);
+        if (isEndPortalFrameName(name) || isCocoaName(name) || isCakeName(name)
+                || isAnvilName(name) || name.equals("CACTUS") || name.equals("SOUL_SAND")
+                || name.equals("HOPPER") || name.equals("CAULDRON")
+                || isFlowerPotName(name) || isLilyPadName(name)
+                || name.equals("BREWING_STAND")
+                || isRepeaterName(name) || isComparatorName(name)
+                || name.contains("DAYLIGHT_DETECTOR") || isEnchantingTableName(name)) {
+            return true;
+        }
+
         if (isSlab(state) || isCarpet(state)) {
             return true;
         }
@@ -851,12 +1282,20 @@ public class PEMaterials {
         }
 
         Material material = materialFromState(state.getType());
+        List<CollisionBounds> knownBounds = knownLegacyBlockBounds(state, material, x, y, z);
+        if (knownBounds != null) {
+            return knownBounds;
+        }
         if (material == null || material == Material.AIR) {
             return MaterialType.isMaterial(state.getType().getName(), MaterialType.AIR) ? Collections.emptyList() : null;
         }
 
         if (isChestName(material.name()) || isChestName(stateName(state))) {
             return chestBounds(x, y, z);
+        }
+        String stateBlockName = stateName(state);
+        if (isSkullName(material.name()) || isSkullName(stateName(state))) {
+            return skullBounds(-1, x, y, z);
         }
 
         /*
@@ -868,6 +1307,11 @@ public class PEMaterials {
             if (!isStair(state) && !isStair(material) && !isSlab(state) && !isLegacySlabMaterial(material)
                     && !isCarpet(state) && !isCarpetName(material.name())
                     && !isSnowLayerName(stateName(state)) && !isSnowLayerName(material.name())
+                    && !isTrapdoorName(stateName(state)) && !isTrapdoorName(material.name())
+                    && !isEnchantingTableName(stateName(state)) && !isEnchantingTableName(material.name())
+                    && !isDoorName(stateName(state)) && !isDoorName(material.name())
+                    && !isSkullName(stateName(state)) && !isSkullName(material.name())
+                    && !isAnvilName(stateName(state)) && !isAnvilName(material.name())
                     && !isFence(state) && !isFenceGate(state) && !isWall(state)
                     && !isPistonHead(state) && !isPistonHead(material)
                     && !isPistonBase(state) && !isPistonBase(material)) {
@@ -891,7 +1335,18 @@ public class PEMaterials {
         if (isPistonBase(state) || isPistonBase(material)) {
             return pistonBaseBounds(state, -1, null, x, y, z);
         }
-        String stateBlockName = stateName(state);
+        if (isTrapdoorName(stateBlockName) || isTrapdoorName(name)) {
+            return trapdoorBounds(state, -1, x, y, z);
+        }
+        if (isDoorName(stateBlockName) || isDoorName(name)) {
+            return null;
+        }
+        if (isAnvilName(stateBlockName) || isAnvilName(name)) {
+            return anvilBounds(extractLegacyData(state, material), x, y, z);
+        }
+        if (isSkullName(stateBlockName) || isSkullName(name)) {
+            return skullBounds(-1, x, y, z);
+        }
         if (isDoubleSlab(state) || isDoubleSlabName(material.name())) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
         }
@@ -1493,6 +1948,11 @@ public class PEMaterials {
             return Collections.emptyList();
         }
 
+        if (LEGACY_SERVER && hasExplicitLegacyCollisionShape(block.getType())) {
+            return getCollisionBounds(block.getType(), block.getData() & 0xF,
+                    block.getX(), block.getY(), block.getZ());
+        }
+
         if (isPistonHead(block.getType())) {
             return pistonHeadBounds(null, -1, block, block.getX(), block.getY(), block.getZ());
         }
@@ -1532,6 +1992,27 @@ public class PEMaterials {
         if (LEGACY_SERVER
                 && isLegacyPartialMaterial(block.getType())) {
             Material mat = block.getType();
+            if (isEnchantingTableName(mat.name())) {
+                return lowFullBounds(block.getX(), block.getY(), block.getZ(), 0.75D);
+            }
+            if (isTrapdoor(mat)) {
+                return trapdoorBounds(null, block.getData() & 0xF, block.getX(), block.getY(), block.getZ());
+            }
+            if (isDoor(mat)) {
+                int data = block.getData() & 0xF;
+                if ((data & 0x8) != 0) {
+                    int lower = block.getRelative(0, -1, 0).getData() & 0xF;
+                    return doorBounds(lower, data, block.getX(), block.getY(), block.getZ());
+                }
+                int upper = block.getRelative(0, 1, 0).getData() & 0xF;
+                return doorBounds(data, upper, block.getX(), block.getY(), block.getZ());
+            }
+            if (isAnvilName(mat.name())) {
+                return anvilBounds(block.getData() & 0xF, block.getX(), block.getY(), block.getZ());
+            }
+            if (isSkull(mat)) {
+                return skullBounds(block.getData() & 0x7, block.getX(), block.getY(), block.getZ());
+            }
             if (isPistonHead(mat)) {
                 return pistonHeadBounds(null, block.getData(), block, block.getX(), block.getY(), block.getZ());
             }
@@ -1807,6 +2288,54 @@ public class PEMaterials {
             int layers = (legacyData & 0x7) + 1;
             return lowFullBounds(x, y, z, layers / 8.0D);
         }
+        if (isEnchantingTableName(name)) {
+            return lowFullBounds(x, y, z, 0.75D);
+        }
+        if (isEndPortalFrameName(name)) {
+            return endPortalFrameBounds(legacyData, x, y, z);
+        }
+        if (isCocoaName(name)) {
+            return cocoaBounds(legacyData, x, y, z);
+        }
+        if (isCakeName(name)) {
+            return cakeBounds(legacyData, x, y, z);
+        }
+        if (name.equals("CACTUS")) {
+            return cactusBounds(x, y, z);
+        }
+        if (name.equals("SOUL_SAND")) {
+            return lowFullBounds(x, y, z, 0.875D);
+        }
+        if (name.equals("HOPPER")) {
+            return hopperBounds(x, y, z);
+        }
+        if (name.equals("CAULDRON")) {
+            return cauldronBounds(x, y, z);
+        }
+        if (name.equals("BREWING_STAND")) {
+            return lowFullBounds(x, y, z, 0.125D);
+        }
+        if (isFlowerPotName(name)) {
+            return flowerPotBounds(x, y, z);
+        }
+        if (isLilyPadName(name)) {
+            return lilyPadBounds(x, y, z);
+        }
+        if (isRepeaterName(name) || isComparatorName(name)) {
+            return lowFullBounds(x, y, z, 0.125D);
+        }
+        if (isTrapdoorName(name)) {
+            return trapdoorBounds(null, legacyData, x, y, z);
+        }
+        if (isDoorName(name)) {
+            return doorBounds(legacyData, -1, x, y, z);
+        }
+        if (isSkullName(name)) {
+            return skullBounds(legacyData, x, y, z);
+        }
+        if (isAnvilName(name)) {
+            return anvilBounds(legacyData, x, y, z);
+        }
         if (isDoubleSlabName(name)) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
         }
@@ -1881,6 +2410,40 @@ public class PEMaterials {
     public static int extractLegacyData(WrappedBlockState state, Material material) {
         if (state == null) {
             return -1;
+        }
+
+        String blockName = normalize(stateName(state));
+        String materialName = normalize(material != null ? material.name() : null);
+        if (isEndPortalFrameName(blockName) || isEndPortalFrameName(materialName)) {
+            if (LEGACY_SERVER) return state.getGlobalId() & 0xF;
+            Boolean eye = readBooleanState(state, "hasEye", "isEye", "getEye");
+            return eye == null ? -1 : (eye ? 0x4 : 0);
+        }
+        if (isCakeName(blockName) || isCakeName(materialName)) {
+            if (LEGACY_SERVER) return state.getGlobalId() & 0xF;
+            Integer bites = readIntegerState(state, "getBites", "getBiteCount");
+            return bites == null ? -1 : Math.max(0, Math.min(6, bites));
+        }
+        if (isCocoaName(blockName) || isCocoaName(materialName)) {
+            if (LEGACY_SERVER) return state.getGlobalId() & 0xF;
+            Integer age = readIntegerState(state, "getAge");
+            String facing = readEnumState(state, "getFacing");
+            if (age == null || facing == null) return -1;
+            int direction;
+            switch (facing) {
+                case "SOUTH": direction = 0; break;
+                case "WEST": direction = 1; break;
+                case "NORTH": direction = 2; break;
+                case "EAST": direction = 3; break;
+                default: return -1;
+            }
+            return direction | (Math.max(0, Math.min(2, age)) << 2);
+        }
+        if (isAnvilName(blockName) || isAnvilName(materialName)) {
+            if (LEGACY_SERVER) return state.getGlobalId() & 0xF;
+            String facing = readEnumState(state, "getFacing");
+            if (facing == null) return -1;
+            return (facing.equals("EAST") || facing.equals("WEST")) ? 1 : 0;
         }
 
         if (isSnowLayerName(stateName(state)) || isSnowLayerName(material != null ? normalize(material.name()) : null)) {
@@ -2555,7 +3118,10 @@ public class PEMaterials {
     }
 
     private static boolean isObviousPartialCollisionName(String name) {
-        return name.equals("STEP")
+        return isDoorName(name)
+                || isTrapdoorName(name)
+                || isSkullName(name)
+                || name.equals("STEP")
                 || name.equals("WOOD_STEP")
                 || name.equals("STONE_SLAB2")
                 || name.equals("DOUBLE_STEP")
@@ -2598,18 +3164,23 @@ public class PEMaterials {
                 || name.equals("THIN_GLASS")
                 || name.equals("CAULDRON")
                 || name.endsWith("_CAULDRON")
+                || name.equals("BREWING_STAND")
                 || name.equals("COMPOSTER")
                 || name.equals("CHEST")
                 || name.equals("ENDER_CHEST")
                 || name.equals("TRAPPED_CHEST")
                 || name.equals("ENCHANTING_TABLE")
                 || name.equals("ENCHANTMENT_TABLE")
-                || name.equals("END_PORTAL_FRAME")
+                || isEndPortalFrameName(name)
                 || name.equals("LECTERN")
                 || name.equals("HOPPER")
                 || name.equals("GRINDSTONE")
                 || name.equals("STONECUTTER")
                 || name.equals("BELL")
+                || isCocoaName(name)
+                || name.equals("CACTUS")
+                || isRepeaterName(name)
+                || isComparatorName(name)
                 || name.contains("ANVIL")
                 || name.equals("FARMLAND")
                 || name.equals("SOUL_SAND")
@@ -2625,8 +3196,7 @@ public class PEMaterials {
                 || name.equals("SCAFFOLDING")
                 || name.equals("FLOWER_POT")
                 || name.startsWith("POTTED_")
-                || name.equals("CAKE")
-                || name.equals("CAKE_BLOCK");
+                || isCakeName(name);
     }
 
     private static boolean isPathName(String name) {
@@ -2792,6 +3362,13 @@ public class PEMaterials {
                 .replace(" ", "_")
                 .replace("-", "_");
 
+        // On Bukkit 1.8 CAKE resolves to the edible item, while its block is
+        // named CAKE_BLOCK. Prefer the block when the legacy API exposes it.
+        if (name.equals("CAKE")) {
+            Material cakeBlock = Material.matchMaterial("CAKE_BLOCK");
+            if (cakeBlock != null) return cakeBlock;
+        }
+
         // Bukkit 1.8 also has MELON as the edible item, so resolve the block
         // alias before the generic lookup can return a non-block Material.
         if (name.equals("MELON")) {
@@ -2807,6 +3384,15 @@ public class PEMaterials {
         direct = Material.matchMaterial("LEGACY_" + name);
         if (direct != null) {
             return direct;
+        }
+
+        if (name.equals("REPEATER") || name.equals("REDSTONE_REPEATER")) {
+            Material repeater = Material.matchMaterial("DIODE_BLOCK_OFF");
+            if (repeater != null) return repeater;
+        }
+        if (name.equals("COMPARATOR") || name.equals("REDSTONE_COMPARATOR")) {
+            Material comparator = Material.matchMaterial("REDSTONE_COMPARATOR_OFF");
+            if (comparator != null) return comparator;
         }
 
         // Accept Bukkit's old block name when processing state aliases on newer APIs.

@@ -345,7 +345,10 @@ public class ChunkCache {
         chunk.setState(x, y, z, material, state.getGlobalId(), shouldStoreCollisionState(state));
         chunk.setWaterlogged(x, y, z, isWaterMaterial(material) || PEMaterials.isWaterlogged(state));
         if (LEGACY_BLOCK_DATA_SUPPORTED) {
-            int legacyData = PEMaterials.extractLegacyData(state, material);
+            int legacyData = PEMaterials.encodeLegacyBlockData(state, combinedBlockId);
+            if (legacyData < 0) {
+                legacyData = PEMaterials.extractLegacyData(state, material);
+            }
             if (legacyData >= 0) chunk.setLegacyBlockData(x, y, z, legacyData);
         }
     }

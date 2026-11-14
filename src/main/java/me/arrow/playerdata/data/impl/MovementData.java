@@ -1222,12 +1222,8 @@ public class MovementData implements Data {
             updateElytraMomentum();
 
             sinceElytraEquipTicks = profile.isWearingFunctionalElytra() ?  0 : sinceElytraEquipTicks + 1;
-            boolean collisionGroundSupport = nearbyBlocksResult != null
-                    && (nearbyBlocksResult.hasExactGroundSupport()
-                    || nearbyBlocksResult.hasLandingGroundSupport());
-            boolean groundedForAirTime = isServerGround() || collisionGroundSupport;
-            serverAirTicks = groundedForAirTime ? 0 : serverAirTicks + 1;
-            serverGroundTicksPlus = groundedForAirTime ? serverGroundTicksPlus + 1 : 0;
+            serverAirTicks = isServerGround() ? 0 : serverAirTicks + 1;
+            serverGroundTicksPlus = isServerGround() ? serverGroundTicksPlus + 1 : 0;
 
             if (profile.getPlayer().isInsideVehicle()) {
                 if (profile.getVehicleData().getVehicleTicks() < 20) {
