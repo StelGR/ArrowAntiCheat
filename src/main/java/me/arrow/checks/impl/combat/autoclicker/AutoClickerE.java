@@ -23,7 +23,7 @@ public class AutoClickerE extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+        if (profile.getCombatData().isAttackPacket(event.getPacketType())) {
             CombatData combatData = profile.getCombatData();
 
             if (!combatData.isArmAnimationSamplesReady()) {

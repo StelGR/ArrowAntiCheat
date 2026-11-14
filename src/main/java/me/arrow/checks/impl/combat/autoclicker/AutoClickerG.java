@@ -45,7 +45,7 @@ public class AutoClickerG extends Check {
 
             this.movements++;
         }
-        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+        if (profile.getCombatData().isAttackPacket(event.getPacketType())) {
             if (movements < 10) {
                 clickData.add(movements);
 

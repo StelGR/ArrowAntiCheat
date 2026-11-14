@@ -36,7 +36,7 @@ public class AutoClickerI extends Check {
             movements++;
         }
 
-        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+        if (profile.getCombatData().isAttackPacket(event.getPacketType())) {
             
             if (profile.shouldCancel() || profile.getPredictionData().isDigging()) {
                 clickData.clear();

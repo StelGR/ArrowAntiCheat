@@ -192,7 +192,7 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             WrappedBlockState state = wrapper.getBlockState();
             if (state == null) return;
 
-            cache.setBlockState(worldName, x, y, z, state);
+            cache.setBlockState(worldName, x, y, z, state, wrapper.getBlockId());
             if (isLegacyServer()) {
                 cache.setLegacyBlockData(
                         worldName, x, y, z,
@@ -230,7 +230,7 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
 
                     WrappedBlockState state = block.getBlockState(packetVersion);
 
-                    cache.setBlockState(worldName, x, y, z, state);
+                    cache.setBlockState(worldName, x, y, z, state, block.getBlockId());
                     if (legacyServer) {
                         cache.setLegacyBlockData(
                                 worldName, x, y, z,

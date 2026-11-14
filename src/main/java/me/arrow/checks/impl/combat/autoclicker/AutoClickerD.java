@@ -37,60 +37,58 @@ public class AutoClickerD extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
-        if (!event.getPacketType().equals(PacketType.Play.Client.ANIMATION) && !event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
-            return;
-        }
-
-        if (shouldIgnore()) {
-            clearSamples();
-            return;
-        }
-
-        samples.add(profile.getCombatData().getCurrentCps());
-
-        if (samples.size() >= SAMPLE_SIZE) {
-            double entropy = getEntropy(samples);
-
-            if (entropy >= MIN_ENTROPY) {
+        if (profile.getCombatData().isAttackPacket(event.getPacketType())) {
+            if (shouldIgnore()) {
                 clearSamples();
                 return;
             }
 
-            double deviation = getStandardDeviation(samples);
+            samples.add(profile.getCombatData().getCurrentCps());
 
-            if (deviation >= MIN_DEVIATION) {
-                clearSamples();
-                return;
-            }
+            if (samples.size() >= SAMPLE_SIZE) {
+                double entropy = getEntropy(samples);
 
-            double average = getAverage(samples);
-
-            if (average <= 0.0D) {
-                clearSamples();
-                return;
-            }
-
-            double estimatedCps = 20.0D / average;
-
-            if (estimatedCps > MIN_CPS
-                    && estimatedCps != 20.0D
-                    && profile.getCombatData().getCurrentCps() > MIN_CPS
-                    && entropy < MIN_ENTROPY
-                    && deviation < MIN_DEVIATION) {
-
-                if (++threshold > 1.0D) {
-                    fail("Low randomization",
-                            "std " + MsgType.MAIN_THEME_COLOR.getMessage() + deviation
-                                    + "\nentropy " + MsgType.MAIN_THEME_COLOR.getMessage() + entropy
-                                    + "\ncps " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getCombatData().getCurrentCps()
-                                    + "\nestimated " + MsgType.MAIN_THEME_COLOR.getMessage() + estimatedCps
-                                    + "\nsamples " + MsgType.MAIN_THEME_COLOR.getMessage() + samples.size());
+                if (entropy >= MIN_ENTROPY) {
+                    clearSamples();
+                    return;
                 }
-            } else {
-                threshold -= Math.min(threshold, 1.0D);
-            }
 
-            clearSamples();
+                double deviation = getStandardDeviation(samples);
+
+                if (deviation >= MIN_DEVIATION) {
+                    clearSamples();
+                    return;
+                }
+
+                double average = getAverage(samples);
+
+                if (average <= 0.0D) {
+                    clearSamples();
+                    return;
+                }
+
+                double estimatedCps = 20.0D / average;
+
+                if (estimatedCps > MIN_CPS
+                        && estimatedCps != 20.0D
+                        && profile.getCombatData().getCurrentCps() > MIN_CPS
+                        && entropy < MIN_ENTROPY
+                        && deviation < MIN_DEVIATION) {
+
+                    if (++threshold > 1.0D) {
+                        fail("Low randomization",
+                                "std " + MsgType.MAIN_THEME_COLOR.getMessage() + deviation
+                                        + "\nentropy " + MsgType.MAIN_THEME_COLOR.getMessage() + entropy
+                                        + "\ncps " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getCombatData().getCurrentCps()
+                                        + "\nestimated " + MsgType.MAIN_THEME_COLOR.getMessage() + estimatedCps
+                                        + "\nsamples " + MsgType.MAIN_THEME_COLOR.getMessage() + samples.size());
+                    }
+                } else {
+                    threshold -= Math.min(threshold, 1.0D);
+                }
+
+                clearSamples();
+            }
         }
     }
 
