@@ -48,7 +48,7 @@ public class AutoClickerC extends Check {
 
             movements++;
         }
-        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+        if (profile.getCombatData().isAttackPacket(event.getPacketType())) {
             cps++;
 
             if (movements < 10) {

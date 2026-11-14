@@ -33,7 +33,7 @@ public class AutoClickerK extends Check{
         if (OtherUtility.isFlying(event.getPacketType())) {
             movements++;
         }
-        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+        if (profile.getCombatData().isAttackPacket(event.getPacketType())) {
             if (profile.shouldCancel()
                     || profile.getPredictionData().isDigging()
                     || profile.getCombatData().getAttackedTicks() > 20) {

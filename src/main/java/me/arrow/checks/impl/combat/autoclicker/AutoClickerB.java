@@ -37,7 +37,7 @@ public class AutoClickerB extends Check {
             cps = profile.getCombatData().getCurrentCps();
             movements++;
         }
-        if (event.getPacketType().equals(PacketType.Play.Client.ANIMATION) || event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
+        if (profile.getCombatData().isAttackPacket(event.getPacketType())) {
 
             if (profile.getPredictionData().isDigging() || profile.shouldCancel()) {
                 return;

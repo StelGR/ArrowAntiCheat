@@ -46,6 +46,8 @@ public class PEMaterials {
             findNoArgMethod("org.bukkit.util.VoxelShape", "getBoundingBoxes");
     private static final Method MATERIAL_IS_OCCLUDING =
             findNoArgMethod(Material.class, "isOccluding");
+    private static final Method MATERIAL_GET_BY_LEGACY_ID =
+            findMethod(Material.class, "getMaterial", int.class);
 
     private static volatile Method convertBukkitBlockData;
     private static volatile Method shapeBoundingBoxes;
@@ -1232,7 +1234,7 @@ public class PEMaterials {
 
         // Wall outlines may have LOW arms, but their collision arms are always 1.5 blocks high.
         // A state without side properties is an older standalone wall, so keep its center post.
-        if (state.isUp() || !hasSide) {
+        if (LEGACY_SERVER || state.isUp() || !hasSide) {
             boxes.add(new CollisionBounds(x + .25D, y, z + .25D, x + .75D, y + 1.5D, z + .75D));
         }
         if (north) boxes.add(new CollisionBounds(x + .3125D, y, z, x + .6875D, y + 1.5D, z + .5D));
@@ -1248,7 +1250,10 @@ public class PEMaterials {
     }
 
     private static boolean isWallConnectable(Material material) {
-        return isPaneConnectable(material);
+        // A missing neighbouring cache entry is not evidence of an open side.
+        // Keep that arm until the neighbor is known; this prevents false air gaps
+        // at chunk edges and while adjacent chunk packets are still being parsed.
+        return material == null || isPaneConnectable(material);
     }
 
     private static boolean isChestName(String name) {
@@ -2683,6 +2688,21 @@ public class PEMaterials {
         return material;
     }
 
+    /** Resolve a legacy combined block ID when the server API cannot name a modern state. */
+    public static Material materialFromLegacyCombinedId(int combinedBlockId) {
+        if (MATERIAL_GET_BY_LEGACY_ID == null || combinedBlockId < 0) {
+            return null;
+        }
+
+        int legacyId = combinedBlockId >>> 4;
+        try {
+            Object material = MATERIAL_GET_BY_LEGACY_ID.invoke(null, legacyId);
+            return material instanceof Material ? (Material) material : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
     public static Material matchMaterialCompat(String raw) {
         if (raw == null || raw.isEmpty()) {
             return null;
@@ -2698,6 +2718,13 @@ public class PEMaterials {
                 .replace(" ", "_")
                 .replace("-", "_");
 
+        // Bukkit 1.8 also has MELON as the edible item, so resolve the block
+        // alias before the generic lookup can return a non-block Material.
+        if (name.equals("MELON")) {
+            Material melonBlock = Material.matchMaterial("MELON_BLOCK");
+            if (melonBlock != null) return melonBlock;
+        }
+
         Material direct = Material.matchMaterial(name);
         if (direct != null) {
             return direct;
@@ -2706,6 +2733,19 @@ public class PEMaterials {
         direct = Material.matchMaterial("LEGACY_" + name);
         if (direct != null) {
             return direct;
+        }
+
+        // Accept Bukkit's old block name when processing state aliases on newer APIs.
+        if (name.equals("MELON_BLOCK")) {
+            Material melon = Material.matchMaterial("MELON");
+            if (melon != null) return melon;
+        }
+
+        // 1.8 has only the original cobblestone wall Material. Later protocol
+        // names still need to be retained in the cache when viewed by 1.8.
+        if (name.endsWith("_WALL") || name.equals("COBBLE_WALL")) {
+            Material wall = Material.matchMaterial("COBBLE_WALL");
+            if (wall != null) return wall;
         }
 
         // All carpet colors share the single CARPET material on 1.7-1.12.
@@ -3036,6 +3076,14 @@ public class PEMaterials {
     private static Method findNoArgMethod(String className, String name) {
         try {
             return findNoArgMethod(Class.forName(className), name);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Method findMethod(Class<?> type, String name, Class<?>... parameterTypes) {
+        try {
+            return type.getMethod(name, parameterTypes);
         } catch (Throwable ignored) {
             return null;
         }
