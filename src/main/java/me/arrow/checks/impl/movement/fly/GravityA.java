@@ -10,7 +10,6 @@ import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
-import me.arrow.utils.CollisionUtils;
 import me.arrow.utils.MoveUtils;
 import me.arrow.utils.customutils.OtherUtility;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -82,7 +81,15 @@ public class GravityA extends Check {
                             + "\n * sGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isServerGround()
                             + "\n * pYGround " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.isPositionYGround());
         }
-        
+
+
+        if (totalUp == 0.2268933260512424
+                && deltaY == -0.07840000152587834
+                && !onGround
+                && movementData.getSincePredictDownwardsTicksWithoutMaterial() < 8) {
+            bufferA = 0;
+            return;
+        }
 
         if (!onGround) {
             if (totalUp > max && Math.abs(prediction) > max) {

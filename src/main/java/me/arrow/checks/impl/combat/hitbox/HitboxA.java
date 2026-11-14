@@ -83,7 +83,9 @@ public class HitboxA extends Check {
 
         List<CustomLocation> history = snapshot(target.getMovementData().getPastLocations());
         int pingTicks = getPingTicks(profile);
-        List<CustomLocation> positions = getRenderedPositions(history, pingTicks);
+        // getRenderedPositions returns an immutable empty list when history is
+        // unavailable, but the fallback below appends the target's current spot.
+        List<CustomLocation> positions = new ArrayList<>(getRenderedPositions(history, pingTicks));
 
         if (positions.isEmpty()) {
             CustomLocation targetLoc = target.getMovementData().getLocation();

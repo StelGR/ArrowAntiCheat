@@ -295,13 +295,6 @@ public class Arrow {
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L,
                     Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L
             );
-            Thread loadedChunkCacheThread = new Thread(
-                    () -> this.chunkCache.cacheAllLoadedChunksWithDelay(20L),
-                    "Arrow-LoadedChunkCache"
-            );
-            loadedChunkCacheThread.setDaemon(true);
-            loadedChunkCacheThread.start();
-            
             this.violationListener = new ViolationListener(this);
             PlatformBackend.get().registerListener(new ProfileListener(this));
             PlatformBackend.get().registerListener(this.violationListener);
@@ -309,7 +302,6 @@ public class Arrow {
             PlatformBackend.get().registerListener(new GuiListener());
             me.arrow.playerdata.cache.ChunkCacheListener chunkCacheListener =
                     new me.arrow.playerdata.cache.ChunkCacheListener(this.chunkCache);
-            chunkCacheListener.seedOnlinePlayers();
             PlatformBackend.get().registerListener(chunkCacheListener);
             PacketEvents.getAPI().getEventManager().registerListener(chunkCacheListener);
 

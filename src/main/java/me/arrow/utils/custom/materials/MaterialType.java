@@ -449,7 +449,8 @@ public enum MaterialType {
 
         String name = material.name();
 
-        return name.endsWith("_CARPET")
+        return name.equals("CARPET")
+                || name.endsWith("_CARPET")
                 || name.endsWith("CARPETS");
     }
 

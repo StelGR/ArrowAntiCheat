@@ -534,11 +534,53 @@ public class PEMaterials {
         if (state == null) return false;
         String name = stateName(state);
         return name.endsWith("_SLAB")
+                || isDoubleSlabName(name)
                 || name.equals("STEP")
                 || name.equals("DOUBLE_STEP")
                 || name.equals("STONE_SLAB2")
                 || name.equals("WOOD_STEP")
                 || name.equals("WOODEN_SLAB");
+    }
+
+    public static boolean isCarpet(WrappedBlockState state) {
+        return state != null && isCarpetName(stateName(state));
+    }
+
+    public static boolean isCarpet(Material material) {
+        return material != null && isCarpetName(normalize(material.name()));
+    }
+
+    private static boolean isCarpetName(String name) {
+        return name != null && (name.equals("CARPET") || name.endsWith("_CARPET"));
+    }
+
+    private static boolean isDoubleSlabName(String name) {
+        return name != null && name.contains("DOUBLE")
+                && (name.contains("SLAB") || name.contains("STEP"));
+    }
+
+    public static boolean isDoubleSlab(WrappedBlockState state) {
+        if (state == null) return false;
+        if (isDoubleSlabName(stateName(state))) return true;
+        if (!isSlab(state)) return false;
+        try {
+            return "DOUBLE".equalsIgnoreCase(String.valueOf(state.getTypeData()));
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    /** Preserve the legacy metadata nibble and tag double-slab block IDs. */
+    public static int encodeLegacyBlockData(WrappedBlockState state, int combinedBlockId) {
+        int encoded = combinedBlockId & 0xF;
+        int legacyBlockId = combinedBlockId >>> 4;
+        boolean legacyDoubleSlabId = combinedBlockId > 0xFF
+                && (legacyBlockId == 43 || legacyBlockId == 125
+                || legacyBlockId == 181 || legacyBlockId == 204);
+        if (isDoubleSlab(state) || legacyDoubleSlabId) {
+            encoded |= 0x10;
+        }
+        return encoded;
     }
 
     public static boolean isFence(WrappedBlockState state) {
@@ -642,10 +684,13 @@ public class PEMaterials {
         }
 
         String name = material.name();
+        if (isDoubleSlabName(name)) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+        }
         if (name.contains("SLAB") || name.contains("STEP")) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.5D, z + 1.0D));
         }
-        if (name.contains("CARPET")) {
+        if (isCarpetName(name)) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.0625D, z + 1.0D));
         }
         if (name.equals("DIRT_PATH") || name.equals("GRASS_PATH")) {
@@ -710,6 +755,10 @@ public class PEMaterials {
             return true;
         }
 
+        if (isSlab(state) || isCarpet(state)) {
+            return true;
+        }
+
         Material material = materialFromState(state.getType());
         if (requiresStatefulCollision(material)) {
             return true;
@@ -749,6 +798,7 @@ public class PEMaterials {
          */
         if (LEGACY_SERVER && requiresStatefulCollision(state)) {
             if (!isStair(state) && !isStair(material) && !isSlab(state) && !isLegacySlabMaterial(material)
+                    && !isCarpet(state) && !isCarpetName(material.name())
                     && !isFence(state) && !isFenceGate(state) && !isWall(state)
                     && !isPistonHead(state) && !isPistonHead(material)
                     && !isPistonBase(state) && !isPistonBase(material)) {
@@ -762,6 +812,13 @@ public class PEMaterials {
         }
         if (isPistonBase(state) || isPistonBase(material)) {
             return pistonBaseBounds(state, -1, null, x, y, z);
+        }
+        String stateBlockName = stateName(state);
+        if (isDoubleSlab(state) || isDoubleSlabName(material.name())) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+        }
+        if (isCarpet(state) || isCarpetName(material.name())) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.0625D, z + 1.0D));
         }
         if (name.equals("BIG_DRIPLEAF")) {
             return bigDripleafBounds(state, x, y, z);
@@ -790,7 +847,7 @@ public class PEMaterials {
         if (name.endsWith("_PANE") || name.equals("IRON_BARS") || name.equals("THIN_GLASS") || name.equals("GLASS_PANE") || name.equals("IRON_FENCE")) {
             return paneBounds(state, x, y, z);
         }
-        if (isSlab(state) || name.endsWith("_SLAB") || name.endsWith("_STEP")) {
+        if (isSlab(state) || isLegacySlabMaterial(material) || name.endsWith("_SLAB") || name.endsWith("_STEP")) {
             String type = String.valueOf(state.getTypeData());
             if ("TOP".equalsIgnoreCase(type)) {
                 return Collections.singletonList(new CollisionBounds(x, y + .5D, z, x + 1.0D, y + 1.0D, z + 1.0D));
@@ -1401,6 +1458,7 @@ public class PEMaterials {
                 || name.equals("IRON_TRAPDOOR")
                 || name.equals("THIN_GLASS")
                 || name.equals("IRON_BARS")
+                || name.equals("CARPET")
                 || name.endsWith("_STAIRS")
                 || name.endsWith("_SLAB")
                 || name.endsWith("_FENCE")
@@ -1409,7 +1467,7 @@ public class PEMaterials {
                 || name.endsWith("_DOOR")
                 || name.endsWith("_TRAPDOOR")
                 || name.endsWith("_PRESSURE_PLATE")
-                || name.endsWith("_CARPET")
+                || isCarpetName(name)
                 || isObviousPartialCollisionName(name);
     }
 
@@ -1599,7 +1657,10 @@ public class PEMaterials {
 
         String name = normalize(material.name());
 
-        return name.equals("STEP")
+        return name.contains("DOUBLE_STEP")
+                || name.contains("DOUBLE_SLAB")
+                || isDoubleSlabName(name)
+                || name.equals("STEP")
                 || name.equals("WOOD_STEP")
                 || name.equals("STONE_SLAB2")
                 || name.equals("SLAB")
@@ -1617,6 +1678,21 @@ public class PEMaterials {
                 || material == Material.AIR
                 || !hasPotentialCollision(material)) {
             return Collections.emptyList();
+        }
+
+        String name = normalize(material.name());
+        if (isDoubleSlabName(name)) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
+        }
+
+        // 1.8 carpet color is metadata on the shared CARPET block ID; every color
+        // has the same collision height, but keep using this path when metadata exists.
+        if (isCarpetName(name) && legacyData >= 0) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.0625D, z + 1.0D));
+        }
+
+        if ((legacyData & 0x10) != 0 || isDoubleSlabName(name)) {
+            return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
         }
 
         if (isLegacySlabMaterial(material)
@@ -1660,14 +1736,8 @@ public class PEMaterials {
             return pistonBaseBounds(null, legacyData, null, x, y, z);
         }
 
-        String name = normalize(material.name());
         if (isStair(material)) {
             return stairBounds(legacyData, x, y, z);
-        }
-        if (name.contains("DOUBLE_STEP") || name.contains("DOUBLE_SLAB")) {
-            return Collections.singletonList(
-                    new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D)
-            );
         }
 
         return getCollisionBounds(
@@ -1742,6 +1812,10 @@ public class PEMaterials {
             }
 
             return (top ? 4 : 0) | dir;
+        }
+
+        if (isDoubleSlab(state) || isDoubleSlabName(material != null ? normalize(material.name()) : "")) {
+            return 0x10;
         }
 
         if (isSlab(state) || isLegacySlabMaterial(material)) {
@@ -2369,6 +2443,7 @@ public class PEMaterials {
                 || name.endsWith("_TRAPDOOR")
                 || name.endsWith("_PRESSURE_PLATE")
                 || name.endsWith("_CARPET")
+                || name.equals("CARPET")
                 || name.equals("LANTERN")
                 || name.endsWith("_LANTERN")
                 || name.equals("CHAIN")
@@ -2573,6 +2648,41 @@ public class PEMaterials {
         direct = Material.matchMaterial("LEGACY_" + name);
         if (direct != null) {
             return direct;
+        }
+
+        // All carpet colors share the single CARPET material on 1.7-1.12.
+        if (name.endsWith("_CARPET")) {
+            Material carpet = Material.matchMaterial("CARPET");
+            if (carpet != null) return carpet;
+        }
+
+        // Modern state names need legacy Bukkit material aliases on 1.8-1.12.
+        if (name.endsWith("_STAIRS")) {
+            if (name.startsWith("OAK_") || name.startsWith("SPRUCE_")
+                    || name.startsWith("BIRCH_") || name.startsWith("JUNGLE_")
+                    || name.startsWith("ACACIA_") || name.startsWith("DARK_OAK_")) {
+                Material woodStairs = Material.matchMaterial("WOOD_STAIRS");
+                if (woodStairs != null) return woodStairs;
+            }
+            if (name.equals("STONE_BRICK_STAIRS") || name.equals("MOSSY_STONE_BRICK_STAIRS")) {
+                Material smoothStairs = Material.matchMaterial("SMOOTH_STAIRS");
+                if (smoothStairs != null) return smoothStairs;
+            }
+        }
+
+        if (name.contains("DOUBLE") && name.contains("SLAB")) {
+            if (name.contains("WOOD") || name.contains("OAK") || name.contains("SPRUCE")
+                    || name.contains("BIRCH") || name.contains("JUNGLE")
+                    || name.contains("ACACIA") || name.contains("DARK_OAK")) {
+                Material doubleWood = Material.matchMaterial("WOOD_DOUBLE_STEP");
+                if (doubleWood != null) return doubleWood;
+            }
+            if (name.contains("RED_SANDSTONE")) {
+                Material doubleSlab2 = Material.matchMaterial("DOUBLE_STONE_SLAB2");
+                if (doubleSlab2 != null) return doubleSlab2;
+            }
+            Material doubleStep = Material.matchMaterial("DOUBLE_STEP");
+            if (doubleStep != null) return doubleStep;
         }
 
         // Modern <-> Legacy mappings for cross-version support (1.7 - 26.2)

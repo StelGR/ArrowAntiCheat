@@ -133,7 +133,7 @@ public class GravityC extends Check {
         }
 
         lastOffset = Math.min(off1, off2);
-        if (lastOffset == 0.2268933260512424D && deltaY == -0.07840000152587834D && !clientGround) return;
+        if (lastOffset == 0.2268933260512424 && deltaY == -0.07840000152587834 && !clientGround) return;
 
         if (GravityUtility.isLegacyTower(profile, md, deltaY)) return;
 

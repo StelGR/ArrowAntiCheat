@@ -1,38 +1,44 @@
 package me.arrow.playerdata.cache;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketListener;
 import com.github.retrooper.packetevents.event.PacketListenerAbstract;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.User;
+import com.github.retrooper.packetevents.protocol.world.chunk.BaseChunk;
 import com.github.retrooper.packetevents.protocol.world.chunk.Column;
 import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkDataBulk;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkData;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUnloadChunk;
 import me.arrow.backend.bukkit.PlatformBackend;
+import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
-import org.bukkit.Location;
-import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Pure PacketEvents chunk and block update listener for ArrowAntiCheat.
  *
  * Chunk and block cache data is populated from packets sent by the server.
  * Bukkit lifecycle events remove a player's tracked chunks on quit or world
- * change, and startup state is seeded for players already online. Packet block
- * data is authoritative for chunks currently being sent to a client; the cache
- * also bootstraps already-loaded server chunks on startup.
+ * change. Chunk contents and block changes are populated only from outgoing
+ * PacketEvents packets.
  *
  * Chunks are shared globally and remain cached while any tracked player has
  * them loaded. After the final player unloads a chunk, the cache retains it for
@@ -51,53 +57,10 @@ import org.bukkit.event.player.PlayerQuitEvent;
 public class ChunkCacheListener extends PacketListenerAbstract implements PacketListener, Listener {
 
     private final ChunkCache cache;
+    private final Map<UUID, String> playerWorlds = new ConcurrentHashMap<>();
 
     public ChunkCacheListener(ChunkCache cache) {
         this.cache = cache;
-    }
-
-    /** Seeds viewer state for players already online during a plugin reload. */
-    public void seedOnlinePlayers() {
-        Server server = PlatformBackend.get().getServer();
-        if (server == null) return;
-
-        int serverViewDistance = readDistance(server, "getViewDistance", 10);
-        for (Player player : server.getOnlinePlayers()) {
-            try {
-                World world = player.getWorld();
-                Location location = player.getLocation();
-                if (world == null || location == null) continue;
-
-                int clientViewDistance = readDistance(player, "getClientViewDistance", serverViewDistance);
-                int viewDistance = Math.max(2, Math.min(serverViewDistance, clientViewDistance));
-                int centerX = location.getBlockX() >> 4;
-                int centerZ = location.getBlockZ() >> 4;
-                Chunk[] loadedChunks = world.getLoadedChunks();
-
-                for (Chunk chunk : loadedChunks) {
-                    if (chunk == null
-                            || Math.abs(chunk.getX() - centerX) > viewDistance
-                            || Math.abs(chunk.getZ() - centerZ) > viewDistance) {
-                        continue;
-                    }
-                    cache.markChunkLoaded(player.getUniqueId(), world.getName(), chunk.getX(), chunk.getZ());
-                }
-            } catch (Throwable ignored) {
-                // Packet events will populate this player's viewer state as chunks are sent.
-            }
-        }
-    }
-
-    private int readDistance(Object target, String methodName, int fallback) {
-        try {
-            Object value = target.getClass().getMethod(methodName).invoke(target);
-            if (value instanceof Number) {
-                int distance = ((Number) value).intValue();
-                if (distance > 0) return Math.max(2, Math.min(32, distance));
-            }
-        } catch (Throwable ignored) {
-        }
-        return fallback;
     }
 
     @Override
@@ -107,8 +70,8 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
         boolean blockChange = packetType.equals(PacketType.Play.Server.BLOCK_CHANGE);
         boolean multiBlockChange = packetType.equals(PacketType.Play.Server.MULTI_BLOCK_CHANGE);
         boolean chunkData = packetType.equals(PacketType.Play.Server.CHUNK_DATA);
+        boolean chunkDataBulk = packetType.equals(PacketType.Play.Server.MAP_CHUNK_BULK);
         boolean chunkUnload = packetType.equals(PacketType.Play.Server.UNLOAD_CHUNK);
-        if (!blockChange && !multiBlockChange && !chunkData && !chunkUnload) return;
 
         String worldName = resolveWorldName(event);
         if (worldName == null) return;
@@ -128,18 +91,30 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             return;
         }
 
+        if (chunkDataBulk) {
+            handleChunkDataBulk(event, worldName);
+            return;
+        }
+
         if (chunkUnload) {
             handleChunkUnload(event, worldName);
         }
     }
 
     @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        playerWorlds.put(event.getPlayer().getUniqueId(), event.getPlayer().getWorld().getName());
+    }
+
+    @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
+        playerWorlds.remove(event.getPlayer().getUniqueId());
         cache.removePlayerFromChunks(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
     public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        playerWorlds.put(event.getPlayer().getUniqueId(), event.getPlayer().getWorld().getName());
         cache.removePlayerFromChunks(event.getPlayer().getUniqueId());
     }
 
@@ -153,7 +128,7 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
             World.Environment expectedEnvironment = null;
             User user = event.getUser();
-            if (user != null && user.getDimensionType() != null) {
+            if (user.getDimensionType() != null) {
                 String dimension = String.valueOf(user.getDimensionType().getName());
                 if (dimension.endsWith(":the_nether")) {
                     expectedEnvironment = World.Environment.NETHER;
@@ -166,9 +141,21 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
 
             if (player != null) {
                 World w = player.getWorld();
-                if (w != null && (expectedEnvironment == null || w.getEnvironment() == expectedEnvironment)) {
+                if (expectedEnvironment == null || w.getEnvironment() == expectedEnvironment) {
+                    playerWorlds.put(player.getUniqueId(), w.getName());
                     return w.getName();
                 }
+
+                // The player/world event and respawn packet can briefly be observed in
+                // different orders. Use the last Bukkit lifecycle world if it matches
+                // the packet dimension, and never guess another world with that dimension.
+                String trackedWorldName = playerWorlds.get(player.getUniqueId());
+                World trackedWorld = trackedWorldName != null ? Bukkit.getWorld(trackedWorldName) : null;
+                if (trackedWorld != null && (expectedEnvironment == null
+                        || trackedWorld.getEnvironment() == expectedEnvironment)) {
+                    return trackedWorld.getName();
+                }
+                return null;
             }
             if (!PlatformBackend.get().isFabric()) {
                 for (World world : Bukkit.getWorlds()) {
@@ -206,6 +193,12 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             if (state == null) return;
 
             cache.setBlockState(worldName, x, y, z, state);
+            if (isLegacyServer()) {
+                cache.setLegacyBlockData(
+                        worldName, x, y, z,
+                        PEMaterials.encodeLegacyBlockData(state, wrapper.getBlockId())
+                );
+            }
         } catch (Throwable ignored) {
         }
     }
@@ -216,14 +209,13 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
     private void handleMultiBlockChange(PacketSendEvent event, String worldName) {
         try {
             WrapperPlayServerMultiBlockChange wrapper = new WrapperPlayServerMultiBlockChange(event);
-            ClientVersion packetVersion = event.getServerVersion() == null
-                    ? event.getClientVersion()
-                    : event.getServerVersion().toClientVersion();
-            if (packetVersion == null || packetVersion == ClientVersion.UNKNOWN) {
+            ClientVersion packetVersion = event.getServerVersion().toClientVersion();
+            if (packetVersion == ClientVersion.UNKNOWN) {
                 packetVersion = event.getClientVersion();
             }
 
             boolean markedLoaded = false;
+            boolean legacyServer = isLegacyServer();
             for (WrapperPlayServerMultiBlockChange.EncodedBlock block : wrapper.getBlocks()) {
                 try {
                     int x = block.getX();
@@ -231,15 +223,20 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                     int z = block.getZ();
 
                     if (!markedLoaded && event.getPlayer() instanceof Player) {
-                        Player player = (Player) event.getPlayer();
+                        Player player = event.getPlayer();
                         cache.markChunkLoaded(player.getUniqueId(), worldName, x >> 4, z >> 4);
                         markedLoaded = true;
                     }
 
                     WrappedBlockState state = block.getBlockState(packetVersion);
-                    if (state == null) continue;
 
                     cache.setBlockState(worldName, x, y, z, state);
+                    if (legacyServer) {
+                        cache.setLegacyBlockData(
+                                worldName, x, y, z,
+                                PEMaterials.encodeLegacyBlockData(state, block.getBlockId())
+                        );
+                    }
                 } catch (Throwable ignored) {
                 }
             }
@@ -260,22 +257,59 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             int chunkZ = column.getZ();
 
             Player player = (event.getPlayer() instanceof Player) ? (Player) event.getPlayer() : null;
-            World world = player != null ? player.getWorld() : null;
 
             if (player != null) {
                 cache.markChunkLoaded(player.getUniqueId(), worldName, chunkX, chunkZ);
             }
-            if (world == null && worldName != null && !PlatformBackend.get().isFabric()) {
-                try {
-                    world = Bukkit.getWorld(worldName);
-                } catch (Throwable ignored) {}
-            }
-
-            User user = event.getUser();
-            final int minY = user != null && user.getDimensionType() != null
-                    ? user.getMinWorldHeight()
-                    : ChunkCache.getWorldMinY(world);
+            final int minY = getPacketMinY(event.getUser());
             cache.queuePacketChunk(worldName, chunkX, chunkZ, minY, column);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private boolean isLegacyServer() {
+        try {
+            return PacketEvents.getAPI().getServerManager().getVersion()
+                    .isOlderThan(ServerVersion.V_1_13);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private int getPacketMinY(User user) {
+        try {
+            if (PacketEvents.getAPI().getServerManager().getVersion()
+                    .isNewerThanOrEquals(ServerVersion.V_1_18)) {
+                return user != null && user.getDimensionType() != null
+                        ? user.getMinWorldHeight()
+                        : -64;
+            }
+        } catch (Throwable ignored) {
+        }
+        return 0;
+    }
+
+    /** Handles legacy Map Chunk Bulk packets, which carry several chunks at once. */
+    private void handleChunkDataBulk(PacketSendEvent event, String worldName) {
+        try {
+            WrapperPlayServerChunkDataBulk wrapper = new WrapperPlayServerChunkDataBulk(event);
+            int[] chunkXs = wrapper.getX();
+            int[] chunkZs = wrapper.getZ();
+            Player player = event.getPlayer() instanceof Player ? (Player) event.getPlayer() : null;
+            int minY = getPacketMinY(event.getUser());
+            if (chunkXs == null || chunkZs == null) return;
+            BaseChunk[][] chunks = wrapper.getChunks();
+            if (chunks == null) return;
+
+            int count = Math.min(Math.min(chunkXs.length, chunkZs.length), chunks.length);
+            for (int i = 0; i < count; i++) {
+                int chunkX = chunkXs[i];
+                int chunkZ = chunkZs[i];
+                if (player != null) {
+                    cache.markChunkLoaded(player.getUniqueId(), worldName, chunkX, chunkZ);
+                }
+                cache.queuePacketChunk(worldName, chunkX, chunkZ, minY, chunks[i]);
+            }
         } catch (Throwable ignored) {
         }
     }
