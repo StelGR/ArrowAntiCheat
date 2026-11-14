@@ -216,9 +216,7 @@ public class CombatData implements Data {
     }
 
     public boolean isAttackPacket(PacketTypeCommon packet) {
-        return packet == PacketType.Play.Client.ANIMATION
-                || packet == PacketType.Play.Client.ATTACK
-                || packet == PacketType.Play.Client.PUNCH;
+        return packet == PacketType.Play.Client.ANIMATION;
     }
 
     public boolean isHoldingSpear() {

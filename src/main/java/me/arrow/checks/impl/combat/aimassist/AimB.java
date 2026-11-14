@@ -61,7 +61,7 @@ public class AimB extends Check {
                 }
 
                 lastLastDeltaPitch = lastDeltaPitch;
-                lastLastDeltaYaw = lastDeltaPitch;
+                lastLastDeltaYaw = lastDeltaYaw;
                 lastDeltaPitch = deltaPitch;
                 lastDeltaYaw = deltaYawClamped;
             }
