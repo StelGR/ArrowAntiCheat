@@ -195,7 +195,7 @@ public class Profile implements CoreProfile {
         this.movementData = new MovementData(this);
         this.teleportData = new TeleportData(this);
         this.combatData = new CombatData(this);
-        this.rodData = new RodData(this);
+        this.rodData = new RodData(this, Arrow.getInstance().getHost());
         this.predictionData = new PredictionData(this);
         this.potionData = new PotionData(this);
         this.reachEntityTracker = new ReachEntityTracker(this);

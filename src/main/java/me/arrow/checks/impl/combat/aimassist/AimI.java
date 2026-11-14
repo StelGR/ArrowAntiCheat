@@ -41,7 +41,7 @@ public class AimI extends Check {
             if (!attacking || rotationData.getCinematicProcessor().isCinematic()) return;
 
             double deltaYaw = rotationData.getDeltaYaw();
-            double deltaPitch = rotationData.getPitch();
+            double deltaPitch = rotationData.getDeltaPitch();
 
             yawData.add(deltaYaw);
             pitchData.add(deltaPitch);

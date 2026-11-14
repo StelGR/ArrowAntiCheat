@@ -93,8 +93,22 @@ public class GroundC extends Check {
                     int bx = loc.getBlockX(), bz = loc.getBlockZ();
                     double fy = loc.getY();
                     int supportY = (int) Math.floor(fy) - 1;
+                    int feetBlockY = (int) Math.floor(fy);
                     org.bukkit.Material matBelow = cc.getBlock(loc.getWorld().getName(), bx, supportY, bz);
                     com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState stateBelow = cc.getBlockState(loc.getWorld().getName(), bx, supportY, bz);
+                    org.bukkit.Material feetMaterial = cc.getBlock(loc.getWorld().getName(), bx, feetBlockY, bz);
+                    com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState feetState = cc.getBlockState(loc.getWorld().getName(), bx, feetBlockY, bz);
+                    int feetLegacyData = cc.getLegacyBlockData(loc.getWorld().getName(), bx, feetBlockY, bz);
+                    java.util.List<me.arrow.utils.custom.materials.PEMaterials.CollisionBounds> feetBounds = feetState != null
+                            ? me.arrow.utils.custom.materials.PEMaterials.getCollisionBounds(feetState, bx, feetBlockY, bz)
+                            : me.arrow.utils.custom.materials.PEMaterials.getCollisionBounds(feetMaterial, bx, feetBlockY, bz);
+                    StringBuilder feetBoundsText = new StringBuilder();
+                    if (feetBounds != null) {
+                        for (me.arrow.utils.custom.materials.PEMaterials.CollisionBounds box : feetBounds) {
+                            if (feetBoundsText.length() > 0) feetBoundsText.append(';');
+                            feetBoundsText.append(String.format("[%.4f,%.4f]", box.minY, box.maxY));
+                        }
+                    }
                     CollisionUtils.NearbyBlocksResult nbr = movementData.getNearbyBlocksResult();
                     OtherUtility.log("[GC-DEBUG] inAir=" + movementData.isCustomInAir()
                             + " exactGround=" + (nbr != null ? nbr.hasExactGroundSupport() : "null")
@@ -103,6 +117,11 @@ public class GroundC extends Check {
                             + " supportY=" + supportY
                             + " matBelow=" + matBelow
                             + " stateBelow=" + (stateBelow != null ? stateBelow.getType().getName() : "null")
+                            + " feetBlockY=" + feetBlockY
+                            + " feetMaterial=" + feetMaterial
+                            + " feetState=" + (feetState != null ? feetState.getType().getName() : "null")
+                            + " feetLegacyData=" + feetLegacyData
+                            + " feetBounds=" + feetBoundsText
                             + " airTicks=" + movementData.getCustomAirTicks());
                 }
 

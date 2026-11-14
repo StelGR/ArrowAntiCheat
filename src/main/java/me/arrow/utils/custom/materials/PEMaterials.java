@@ -693,7 +693,7 @@ public class PEMaterials {
         if (isCarpetName(name)) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.0625D, z + 1.0D));
         }
-        if (name.equals("DIRT_PATH") || name.equals("GRASS_PATH")) {
+        if (isPathName(name)) {
             return lowFullBounds(x, y, z, .9375D);
         }
         if ((name.contains("FENCE") && !name.equals("IRON_FENCE")) || name.contains("WALL")) {
@@ -819,6 +819,9 @@ public class PEMaterials {
         }
         if (isCarpet(state) || isCarpetName(material.name())) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 0.0625D, z + 1.0D));
+        }
+        if (isPathName(name) || isPathName(stateBlockName)) {
+            return lowFullBounds(x, y, z, .9375D);
         }
         if (name.equals("BIG_DRIPLEAF")) {
             return bigDripleafBounds(state, x, y, z);
@@ -2444,6 +2447,7 @@ public class PEMaterials {
                 || name.endsWith("_PRESSURE_PLATE")
                 || name.endsWith("_CARPET")
                 || name.equals("CARPET")
+                || isPathName(name)
                 || name.equals("LANTERN")
                 || name.endsWith("_LANTERN")
                 || name.equals("CHAIN")
@@ -2495,6 +2499,11 @@ public class PEMaterials {
                 || name.startsWith("POTTED_")
                 || name.equals("CAKE")
                 || name.equals("CAKE_BLOCK");
+    }
+
+    private static boolean isPathName(String name) {
+        return name != null
+                && (name.equals("DIRT_PATH") || name.equals("GRASS_PATH"));
     }
 
     private static boolean isDefinitelyNoCollisionName(String name) {

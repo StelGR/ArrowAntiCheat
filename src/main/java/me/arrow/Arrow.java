@@ -341,7 +341,6 @@ public class Arrow {
             this.animationManager = new AnimationManager(getHost());
             log(translate("&6" + "➪  Animation Manager initialized"));
 
-            RodData.init(getHost());
             CollisionProcessor.start();
 
             me.arrow.neural.NeuralNetManager.initialize();
