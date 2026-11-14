@@ -55,14 +55,14 @@ public class VehicleA extends Check {
 
         final Entity vehicle = profile.getPlayer().getVehicle();
         if (!(vehicle instanceof Pig)
-                || !(vehicle instanceof Boat)
-                || !(vehicle instanceof Horse)
-                || !(vehicle instanceof Mule)
-                || !(vehicle instanceof Donkey)
-                || !(vehicle instanceof Llama)
-                || !(vehicle instanceof Camel)
-                || !(vehicle instanceof Ravager)
-                || !(vehicle instanceof HappyGhast)) {
+                && !(vehicle instanceof Boat)
+                && !(vehicle instanceof Horse)
+                && !(vehicle instanceof Mule)
+                && !(vehicle instanceof Donkey)
+                && !(vehicle instanceof Llama)
+                && !(vehicle instanceof Camel)
+                && !(vehicle instanceof Ravager)
+                && !(vehicle instanceof HappyGhast)) {
             syncState();
             return;
         }
