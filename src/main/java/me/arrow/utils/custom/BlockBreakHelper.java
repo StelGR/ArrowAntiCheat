@@ -60,7 +60,14 @@ public class BlockBreakHelper {
         }
 
         // 2. Comprehensive vanilla formula fallback (for 1.8-1.12 or forks without getBreakSpeed)
-        return calculateVanillaBreakProgress(player, block);
+        return calculateVanillaBreakProgress(player, block.getType());
+    }
+
+    /** Packet-safe variant that accepts a material from the packet-driven chunk cache. */
+    public static float getBreakProgress(Player player, Material material) {
+        if (player == null || material == null) return 1.0F;
+        if (player.getGameMode() == GameMode.CREATIVE) return 1.0F;
+        return calculateVanillaBreakProgress(player, material);
     }
 
     /**
@@ -69,6 +76,14 @@ public class BlockBreakHelper {
      */
     public static int getMinimumBreakTicks(Player player, Block block) {
         float progress = getBreakProgress(player, block);
+        return getMinimumBreakTicks(progress);
+    }
+
+    public static int getMinimumBreakTicks(Player player, Material material) {
+        return getMinimumBreakTicks(getBreakProgress(player, material));
+    }
+
+    public static int getMinimumBreakTicks(float progress) {
         if (progress >= 1.0F) {
             return 1;
         }
@@ -82,9 +97,8 @@ public class BlockBreakHelper {
         return getBreakProgress(player, block) >= 1.0F;
     }
 
-    private static float calculateVanillaBreakProgress(Player player, Block block) {
+    private static float calculateVanillaBreakProgress(Player player, Material mat) {
         try {
-            Material mat = block.getType();
             float hardness = mat.getHardness();
 
             // Bedrock, barriers, end portal frames, etc.

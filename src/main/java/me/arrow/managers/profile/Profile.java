@@ -302,6 +302,7 @@ public class Profile implements CoreProfile {
             movementData.updateWaterPrediction(this);
         }
 
+        this.checkHolder.handleFastBreak(event);
         this.checkHolder.runChecks(event);
         this.reachEntityTracker.processReceive(event);
 
