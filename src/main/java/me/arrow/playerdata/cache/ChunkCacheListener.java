@@ -192,11 +192,13 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             WrappedBlockState state = wrapper.getBlockState();
             if (state == null) return;
 
-            cache.setBlockState(worldName, x, y, z, state, wrapper.getBlockId());
-            if (isLegacyServer()) {
+            boolean legacyServer = isLegacyServer();
+            int combinedBlockId = legacyServer ? wrapper.getBlockId() : -1;
+            cache.setBlockState(worldName, x, y, z, state, combinedBlockId);
+            if (legacyServer) {
                 cache.setLegacyBlockData(
                         worldName, x, y, z,
-                        PEMaterials.encodeLegacyBlockData(state, wrapper.getBlockId())
+                        PEMaterials.encodeLegacyBlockData(state, combinedBlockId)
                 );
             }
         } catch (Throwable ignored) {
@@ -230,11 +232,12 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
 
                     WrappedBlockState state = block.getBlockState(packetVersion);
 
-                    cache.setBlockState(worldName, x, y, z, state, block.getBlockId());
+                    int combinedBlockId = legacyServer ? block.getBlockId() : -1;
+                    cache.setBlockState(worldName, x, y, z, state, combinedBlockId);
                     if (legacyServer) {
                         cache.setLegacyBlockData(
                                 worldName, x, y, z,
-                                PEMaterials.encodeLegacyBlockData(state, block.getBlockId())
+                                PEMaterials.encodeLegacyBlockData(state, combinedBlockId)
                         );
                     }
                 } catch (Throwable ignored) {
