@@ -26,6 +26,7 @@ import me.arrow.checks.impl.misc.interact.InteractD;
 import me.arrow.checks.impl.misc.interact.InteractE;
 import me.arrow.checks.impl.misc.interact.FastBreakA;
 import me.arrow.checks.impl.misc.interact.FastBreakB;
+import me.arrow.checks.impl.misc.interact.FastBreakTracker;
 import me.arrow.checks.impl.misc.inventory.InventoryA;
 import me.arrow.checks.impl.misc.scaffold.*;
 import me.arrow.checks.impl.misc.timer.TimerA;
@@ -55,6 +56,9 @@ import java.util.Arrays;
 public class CheckHolder {
 
     private final Profile profile;
+    private final FastBreakTracker fastBreakTracker = new FastBreakTracker();
+    private FastBreakA fastBreakA;
+    private FastBreakB fastBreakB;
     @Getter
     private Check[] checks;
     @Getter
@@ -86,6 +90,13 @@ public class CheckHolder {
         }
     }
 
+    /** Parse and serialize mining packets once; checks consume the same validated attempt. */
+    public void handleFastBreak(PacketReceiveEvent event) {
+        if (fastBreakA != null && fastBreakB != null) {
+            fastBreakTracker.handle(event, profile, fastBreakA, fastBreakB);
+        }
+    }
+
     public void runChecks(PacketSendEvent event) {
         for (int i = 0; i < this.checksSize; i++) {
             Check check = this.checks[i];
@@ -112,6 +123,8 @@ public class CheckHolder {
         this.combatCheck = new Combat(this.profile);
         this.networkCheck = new Network(this.profile);
         this.worldCheck = new World(this.profile);
+        this.fastBreakA = new FastBreakA(this.profile);
+        this.fastBreakB = new FastBreakB(this.profile);
         /*
          * Check initialization
          */
@@ -164,8 +177,8 @@ public class CheckHolder {
                 new InteractC(this.profile),
                 new InteractD(this.profile),
                 new InteractE(this.profile),
-                new FastBreakA(this.profile),
-                new FastBreakB(this.profile),
+                this.fastBreakA,
+                this.fastBreakB,
 
                 new InventoryA(this.profile),
 
