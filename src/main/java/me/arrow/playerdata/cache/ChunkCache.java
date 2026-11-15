@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * allowing collision and ground checks to query blocks in O(1) time without touching
  * Bukkit worlds asynchronously or causing Folia thread check exceptions.
  */
+
+// Done by AI, i cannot bother doing chunk shit for every MC version, if you can, good for you.
 public class ChunkCache {
 
     private static final ChunkCache INSTANCE = new ChunkCache();

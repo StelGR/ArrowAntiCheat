@@ -10,7 +10,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -21,7 +23,7 @@ public class FileExporter extends LogExporter {
     private final Object writeLock = new Object();
 
     private static final String SEPARATOR = "\t";
-    private final SimpleDateFormat displayFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+    private static final DateTimeFormatter DISPLAY_FORMAT = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
 
     public FileExporter(JavaPlugin plugin) {
         super(plugin);
@@ -134,38 +136,48 @@ public class FileExporter extends LogExporter {
             return new PagedLogs(new ArrayList<>(), 0, 1, 1);
         }
 
-        List<String> lines = new ArrayList<>();
-
+        int total = 0;
         synchronized (writeLock) {
+            // Count first with constant memory so page requests don't retain the
+            // player's entire (potentially long-lived) log file in a String list.
             try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     if (!line.trim().isEmpty()) {
-                        lines.add(line);
+                        total++;
                     }
                 }
             } catch (IOException ex) {
                 ex.printStackTrace();
+                return new PagedLogs(new ArrayList<>(), 0, 1, 1);
             }
-        }
 
-        int total = lines.size();
-        int maxPages = Math.max(1, (total + perPage - 1) / perPage);
-        page = Math.max(1, Math.min(page, maxPages));
+            perPage = Math.max(1, perPage);
+            int maxPages = (int) Math.max(1L, ((long) total + perPage - 1L) / perPage);
+            page = Math.max(1, Math.min(page, maxPages));
 
-        int newestIndex = total - 1 - ((page - 1) * perPage);
-        int oldestIndex = Math.max(0, newestIndex - perPage + 1);
+            long endExclusive = (long) total - ((long) page - 1L) * perPage;
+            long startInclusive = Math.max(0L, endExclusive - perPage);
+            List<PlayerLog> result = new ArrayList<>(Math.min(perPage, total));
 
-        List<PlayerLog> result = new ArrayList<>();
-
-        for (int i = newestIndex; i >= oldestIndex; i--) {
-            PlayerLog log = deserialize(lines.get(i));
-            if (log != null) {
-                result.add(log);
+            try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+                String line;
+                long index = 0L;
+                while ((line = reader.readLine()) != null) {
+                    if (line.trim().isEmpty()) continue;
+                    if (index >= startInclusive && index < endExclusive) {
+                        PlayerLog log = deserialize(line);
+                        if (log != null) result.add(log);
+                    }
+                    index++;
+                }
+            } catch (IOException ex) {
+                ex.printStackTrace();
             }
-        }
 
-        return new PagedLogs(result, total, page, maxPages);
+            Collections.reverse(result);
+            return new PagedLogs(result, total, page, maxPages);
+        }
     }
 
     private List<PlayerLog> readAll(Path path) {
@@ -211,7 +223,8 @@ public class FileExporter extends LogExporter {
             String check = decode(split[3]);
             String information = decode(split[4]);
 
-            String formatted = displayFormat.format(new Date(epoch));
+            String formatted = LocalDateTime.ofInstant(new Date(epoch).toInstant(), ZoneId.systemDefault())
+                    .format(DISPLAY_FORMAT);
             return new PlayerLog(player, uuid, check, information, formatted);
         } catch (Exception ignored) {
             return null;
@@ -220,7 +233,8 @@ public class FileExporter extends LogExporter {
 
     private long extractEpoch(PlayerLog log) {
         try {
-            return displayFormat.parse(log.getTimeStamp()).getTime();
+            return LocalDateTime.parse(log.getTimeStamp(), DISPLAY_FORMAT)
+                    .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         } catch (Exception ignored) {
             return 0L;
         }
