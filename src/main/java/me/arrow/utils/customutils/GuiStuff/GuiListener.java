@@ -44,12 +44,17 @@ public class GuiListener implements Listener {
         }
         Player player = (Player) event.getWhoClicked();
 
+        Inventory topInventory = getTopInventory(event);
+        if (topInventory == null || Arrow.getGuiManager() == null
+                || !Arrow.getGuiManager().isArrowInventory(topInventory)) {
+            return;
+        }
+
         String inventoryTitle = getInventoryTitle(event);
         if (inventoryTitle == null) {
             return;
         }
 
-        Inventory topInventory = getTopInventory(event);
         int topSize = topInventory.getSize();
 
         ItemStack clickedItem = event.getCurrentItem();

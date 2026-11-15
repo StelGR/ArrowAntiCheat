@@ -45,10 +45,23 @@ import static me.arrow.utils.customutils.OtherUtility.translate;
 
 public class GuiManager {
     private final Map<UUID, TaskUtils.CancellableTask> infoGuiTasks = new ConcurrentHashMap<>();
+    private final Set<Inventory> arrowInventories = Collections.synchronizedSet(
+            Collections.newSetFromMap(new WeakHashMap<Inventory, Boolean>())
+    );
+
+    private Inventory createInventory(Player owner, int size, String title) {
+        Inventory inventory = Bukkit.createInventory(owner, size, title);
+        arrowInventories.add(inventory);
+        return inventory;
+    }
+
+    public boolean isArrowInventory(Inventory inventory) {
+        return inventory != null && arrowInventories.contains(inventory);
+    }
 
 
     public void openArrowGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Arrow &7- &7Main Menu"));
+        Inventory gui = createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Arrow &7- &7Main Menu"));
 
         gui.setItem(11, generateItem(new ItemStack(Material.BOOK, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage()+"Checks"),
                 Arrays.asList(
@@ -112,7 +125,7 @@ public class GuiManager {
         ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
         String title = translate("&7Info for " + MsgType.MAIN_THEME_COLOR.getMessage() + playerForInfo.getName());
 
-        Inventory gui = Bukkit.createInventory(player, 27, title);
+        Inventory gui = createInventory(player, 27, title);
         Profile playerInfo = Arrow.getInstance().getProfileManager().getProfile(playerForInfo);
 
         if (playerInfo == null) {
@@ -346,7 +359,7 @@ public class GuiManager {
 
     public void openSettingsGUI(Player player) {
         ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
-        Inventory gui = Bukkit.createInventory(player, 45, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Settings"));
+        Inventory gui = createInventory(player, 45, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Settings"));
 
         gui.setItem(10, generateItem(createItem("FIREWORK", "FIREWORK_ROCKET"), translate((Config.Setting.TOGGLE_ALERTS_ON_JOIN.getBoolean() ? "&a" : "&c") + "Alerts on Join"),
                 Arrays.asList(
@@ -508,7 +521,7 @@ public class GuiManager {
 
     public void openBanAnimationGUI(Player player) {
         ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
-        Inventory gui = Bukkit.createInventory(player, 54, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Ban Animations"));
+        Inventory gui = createInventory(player, 54, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Ban Animations"));
 
         List<ItemStack> themedSpacers = createThemedSpacer(54);
         for (int slots = 0; slots < 54; slots++) {
@@ -584,7 +597,7 @@ public class GuiManager {
 
 
     public void openChecksGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Select Category"));
+        Inventory gui = createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Select Category"));
 
         gui.setItem(10, generateItem(new ItemStack(Material.IRON_SWORD, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Combat"),
             Arrays.asList(
@@ -622,7 +635,7 @@ public class GuiManager {
     }
 
     public void openCombatChecksGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Combat Checks"));
+        Inventory gui = createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Combat Checks"));
 
         gui.setItem(10, generateItem(new ItemStack(Material.NETHER_STAR, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Aim Assist"),
         Arrays.asList(translate(guiLine()),
@@ -685,7 +698,7 @@ public class GuiManager {
 
     public void openMovementChecksGUI(Player player) {
         ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
-        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Movement Checks"));
+        Inventory gui = createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Movement Checks"));
 
         gui.setItem(10, generateItem(new ItemStack(Material.FEATHER, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Fly"),
                 Arrays.asList(translate(guiLine()),
@@ -740,7 +753,7 @@ public class GuiManager {
     }
 
     public void openMiscChecksGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(player, 45, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Misc Checks"));
+        Inventory gui = createInventory(player, 45, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Misc Checks"));
 
         gui.setItem(10, generateItem(new ItemStack(Material.TNT, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Bad Packets"),
             Arrays.asList(translate(guiLine()),
@@ -807,7 +820,7 @@ public class GuiManager {
 
 
     public void openArrowCheckGUI(Player player, String checkType, String uiName) {
-        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
+        Inventory gui = createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
 
         int slot = 0;
 
@@ -852,7 +865,7 @@ public class GuiManager {
     }
 
     public void openArrowCheckSpeedGUI(Player player, String checkType1, String checkType2, String uiName) {
-        Inventory gui = Bukkit.createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
+        Inventory gui = createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
 
         int slot = 0;
 

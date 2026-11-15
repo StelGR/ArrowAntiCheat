@@ -108,7 +108,8 @@ public class AutoClickerD extends Check {
             return Double.NaN;
         } else {
             Map<Integer, Integer> map = new HashMap<>();
-            values.stream().mapToInt(Number::intValue).forEach(value -> map.computeIfAbsent(value, k -> 0));
+            values.stream().mapToInt(Number::intValue)
+                    .forEach(value -> map.merge(value, 1, Integer::sum));
             double entropy = map.values().stream().mapToDouble(freq -> (double) freq / n).map(probability -> probability * log2(probability)).sum();
             return -entropy;
         }
