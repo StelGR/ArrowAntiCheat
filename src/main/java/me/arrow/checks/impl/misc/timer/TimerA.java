@@ -60,7 +60,7 @@ public class TimerA extends Check {
             return;
         }
 
-        if (profile.getConnectionData().getTransPing() >= 1000 && !profile.isPingkicked() && profile.getTick() > 120) {
+        if (profile.getConnectionData().getTransPing() >= 1000 && !profile.isPingkicked() && profile.getTick() > 200) {
             if (increaseBuffer() > 50) {
                 profile.kick("Your ping is constantly very high (>= 1000), do something about it.");
                 profile.setPingkicked(true);

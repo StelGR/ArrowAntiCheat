@@ -45,18 +45,18 @@ import static me.arrow.utils.customutils.OtherUtility.translate;
 
 public class GuiManager {
     private final Map<UUID, TaskUtils.CancellableTask> infoGuiTasks = new ConcurrentHashMap<>();
-    private final Set<Inventory> arrowInventories = Collections.synchronizedSet(
-            Collections.newSetFromMap(new WeakHashMap<Inventory, Boolean>())
-    );
 
     private Inventory createInventory(Player owner, int size, String title) {
-        Inventory inventory = Bukkit.createInventory(owner, size, title);
-        arrowInventories.add(inventory);
-        return inventory;
+        return Bukkit.createInventory(owner, size, title);
     }
 
-    public boolean isArrowInventory(Inventory inventory) {
-        return inventory != null && arrowInventories.contains(inventory);
+    public boolean isArrowInventory(Inventory inventory, String title) {
+        if (inventory == null || title == null || !(inventory.getHolder() instanceof Player)) {
+            return false;
+        }
+
+        String plainTitle = ChatColor.stripColor(title);
+        return plainTitle != null && plainTitle.startsWith("Arrow - ");
     }
 
 
@@ -123,7 +123,8 @@ public class GuiManager {
         }
 
         ServerVersion serverVersion = PacketEvents.getAPI().getServerManager().getVersion();
-        String title = translate("&7Info for " + MsgType.MAIN_THEME_COLOR.getMessage() + playerForInfo.getName());
+        String title = translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7Info for "
+                + MsgType.MAIN_THEME_COLOR.getMessage() + playerForInfo.getName());
 
         Inventory gui = createInventory(player, 27, title);
         Profile playerInfo = Arrow.getInstance().getProfileManager().getProfile(playerForInfo);
