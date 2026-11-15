@@ -36,6 +36,7 @@ public class AutoClickerC extends Check {
         if (OtherUtility.isFlying(event.getPacketType())) {
             if (profile.getPredictionData().isDigging()) {
                 movements = 20;
+                cps = 0;
                 return;
             }
 
@@ -49,33 +50,35 @@ public class AutoClickerC extends Check {
             movements++;
         }
         if (profile.getCombatData().isAttackPacket(event.getPacketType())) {
-            cps++;
+            if (!profile.getPredictionData().isDigging()) {
+                cps++;
 
-            if (movements < 10) {
-                delays.add(movements);
+                if (movements < 10) {
+                    delays.add(movements);
 
-                if (delays.size() == 1000) {
+                    if (delays.size() == 1000) {
 
-                    int outliers = (int) delays.stream()
-                            .filter(delay -> delay > 3)
-                            .count();
+                        int outliers = (int) delays.stream()
+                                .filter(delay -> delay > 3)
+                                .count();
 
-                    if (outliers < 7) {
-                        if (++threshold > 1 && cps > 8) {
-                            fail("Outliers",
-                                    "outliers "+ MsgType.MAIN_THEME_COLOR.getMessage() + outliers
-                                            + "\ncps " + MsgType.MAIN_THEME_COLOR.getMessage() + cps
-                                            + "\nbuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + threshold);
+                        if (outliers < 7) {
+                            if (++threshold > 1 && cps > 8) {
+                                fail("Outliers",
+                                        "outliers " + MsgType.MAIN_THEME_COLOR.getMessage() + outliers
+                                                + "\ncps " + MsgType.MAIN_THEME_COLOR.getMessage() + cps
+                                                + "\nbuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + threshold);
+                            }
+                        } else {
+                            threshold -= Math.min(threshold, 1.5);
                         }
-                    } else {
-                        threshold -= Math.min(threshold, 1.5);
+
+                        delays.clear();
                     }
-
-                    delays.clear();
                 }
-            }
 
-            movements = 0;
+                movements = 0;
+            }
         }
     }
 }

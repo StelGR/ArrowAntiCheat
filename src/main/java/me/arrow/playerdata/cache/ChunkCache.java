@@ -340,11 +340,19 @@ public class ChunkCache {
     private static void writePacketBlockState(CachedChunk chunk, int x, int y, int z,
                                               WrappedBlockState state, int combinedBlockId) {
         Material material = PEMaterials.materialFromState(state.getType());
-        if ((material == null || material == Material.AIR) && combinedBlockId >= 0) {
+        // PacketEvents block IDs are global state IDs on modern protocols. Only
+        // interpret them as legacy (block ID << 4 | metadata) values on legacy
+        // servers; otherwise unrelated states can be misread as legacy water.
+        if (LEGACY_BLOCK_DATA_SUPPORTED
+                && (material == null || material == Material.AIR)
+                && combinedBlockId >= 0) {
             material = PEMaterials.materialFromLegacyCombinedId(combinedBlockId);
         }
         if (material == null) return;
         chunk.setState(x, y, z, material, state.getGlobalId(), shouldStoreCollisionState(state));
+        if (!LEGACY_BLOCK_DATA_SUPPORTED && isWaterMaterial(material)) {
+            chunk.setFluidLevel(x, y, z, getFluidLevel(state));
+        }
         chunk.setWaterlogged(x, y, z, isWaterMaterial(material) || PEMaterials.isWaterlogged(state));
         if (LEGACY_BLOCK_DATA_SUPPORTED) {
             int legacyData = PEMaterials.encodeLegacyBlockData(state, combinedBlockId);
@@ -457,6 +465,14 @@ public class ChunkCache {
         } catch (Throwable ignored) {
             return null;
         }
+    }
+
+    /** Returns the cached modern fluid level, or -1 when no fluid metadata is available. */
+    public int getFluidLevel(String worldName, int x, int y, int z) {
+        if (worldName == null) return -1;
+        CachedChunk chunk = getChunk(worldName, x >> 4, z >> 4);
+        if (chunk == null || !chunk.hasCompleteStatefulCollisionData()) return -1;
+        return chunk.getFluidLevel(x & 15, y, z & 15);
     }
 
     /** Returns true after a complete packet chunk has been decoded; entries persist until shutdown. */
@@ -716,7 +732,8 @@ public class ChunkCache {
                                 }
                             }
                             Material material = PEMaterials.materialFromState(type);
-                            if ((material == null || material == Material.AIR)
+                            if (LEGACY_BLOCK_DATA_SUPPORTED
+                                    && (material == null || material == Material.AIR)
                                     && combinedBlockId >= 0) {
                                 material = PEMaterials.materialFromLegacyCombinedId(combinedBlockId);
                             }
@@ -732,6 +749,9 @@ public class ChunkCache {
                                         state.getGlobalId(),
                                         storeState
                                 );
+                                if (!LEGACY_BLOCK_DATA_SUPPORTED && isWaterMaterial(material)) {
+                                    cached.setFluidLevel(localX, worldY, localZ, getFluidLevel(state));
+                                }
 
                                 if (LEGACY_BLOCK_DATA_SUPPORTED) {
                                     int legacyData;
@@ -766,6 +786,35 @@ public class ChunkCache {
         }
         if (fullChunk) cached.setCompleteStatefulCollisionData();
         return cached;
+    }
+
+    /** Extract the compact level/source representation needed by fluid prediction. */
+    private static int getFluidLevel(WrappedBlockState state) {
+        if (state == null) return 0;
+
+        try {
+            return Math.max(0, Math.min(15, state.getLevel()));
+        } catch (Throwable ignored) {
+        }
+
+        String description = String.valueOf(state).toLowerCase(java.util.Locale.ROOT);
+        int levelIndex = description.indexOf("level=");
+        if (levelIndex >= 0) {
+            int start = levelIndex + 6;
+            int end = start;
+            while (end < description.length() && Character.isDigit(description.charAt(end))) end++;
+            if (end > start) {
+                try {
+                    return Math.max(0, Math.min(15, Integer.parseInt(description.substring(start, end))));
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+
+        if (description.contains("falling=true") || description.contains("is_falling=true")) return 8;
+        if (description.contains("source=false") || description.contains("issourceblock=false")
+                || description.contains("issource=false")) return 1;
+        return 0;
     }
 
     public void shutdown() {
@@ -907,6 +956,7 @@ public class ChunkCache {
 
                     // Clear stale waterlogged bit — AIR is never waterlogged
                     sec.setWaterlogged(relX, y & 15, relZ, false);
+                    sec.setFluidLevel(relX, y & 15, relZ, -1);
                 }
 
                 return;
@@ -915,6 +965,7 @@ public class ChunkCache {
             if (sections[idx] == null) sections[idx] = new CachedSection();
             sections[idx].set(relX, y & 15, relZ, material);
             sections[idx].setStateId(relX, y & 15, relZ, -1);
+            sections[idx].setFluidLevel(relX, y & 15, relZ, -1);
             // Clear stale waterlogged bit for non-water materials (e.g. sand/door replacing water)
             if (!ChunkCache.isWaterMaterial(material)) {
                 sections[idx].setWaterlogged(relX, y & 15, relZ, false);
@@ -1017,6 +1068,24 @@ public class ChunkCache {
             return sections[idx].getStateId(relX, y & 15, relZ);
         }
 
+        public int getFluidLevel(int relX, int y, int relZ) {
+            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) return -1;
+            int idx = (y >> 4) + SECTION_OFFSET;
+            if (!validIndex(idx) || sections[idx] == null) return -1;
+            return sections[idx].getFluidLevel(relX, y & 15, relZ);
+        }
+
+        public void setFluidLevel(int relX, int y, int relZ, int level) {
+            if (relX < 0 || relX > 15 || relZ < 0 || relZ > 15) return;
+            int idx = (y >> 4) + SECTION_OFFSET;
+            if (!validIndex(idx)) return;
+            if (sections[idx] == null) {
+                if (level < 0) return;
+                sections[idx] = new CachedSection();
+            }
+            sections[idx].setFluidLevel(relX, y & 15, relZ, level);
+        }
+
         public boolean hasCompleteStatefulCollisionData() {
             return completeStatefulCollisionData;
         }
@@ -1099,6 +1168,9 @@ public class ChunkCache {
          * ONLY allocated on legacy servers.
          */
         private byte[] legacyBlockData;
+
+        // One compact fluid level per block; allocated only for sections with fluids.
+        private volatile byte[] fluidLevels;
 
         private static final Material[] MATERIAL_VALUES = Material.values();
 
@@ -1199,6 +1271,29 @@ public class ChunkCache {
             }
 
             states[index] = stateId;
+        }
+
+        public int getFluidLevel(int localX, int localY, int localZ) {
+            byte[] levels = fluidLevels;
+            if (levels == null) return -1;
+            int index = (localY << 8) | (localZ << 4) | localX;
+            return levels[index] & 0x0F;
+        }
+
+        public void setFluidLevel(int localX, int localY, int localZ, int level) {
+            int index = (localY << 8) | (localZ << 4) | localX;
+            byte[] levels = fluidLevels;
+            if (level < 0) {
+                if (levels != null) levels[index] = 0;
+                return;
+            }
+            if (levels == null) {
+                synchronized (this) {
+                    levels = fluidLevels;
+                    if (levels == null) fluidLevels = levels = new byte[4096];
+                }
+            }
+            levels[index] = (byte) Math.min(15, level);
         }
 
         public int getStateId(

@@ -694,6 +694,15 @@ public class CollisionUtils {
             return new FluidInfo(true, source, falling, level);
         }
 
+        // Modern packet updates keep the fluid level in a compact chunk-cache
+        // nibble, so prediction does not have to guess source water when Bukkit
+        // block data is unavailable on the packet/check thread.
+        int cachedFluidLevel = cache.getFluidLevel(worldName, x, y, z);
+        if (cachedFluidLevel >= 0) {
+            boolean falling = cachedFluidLevel >= 8;
+            return new FluidInfo(true, cachedFluidLevel == 0 && !falling, falling, cachedFluidLevel);
+        }
+
         // 3. Fallback to Bukkit Block
         Block b = getBlock(new CustomLocation(world, x, y, z), true);
         if (b != null) {
