@@ -156,10 +156,6 @@ public class GeneralEventListener implements Listener {
     private final java.util.Map<UUID, TaskUtils.CancellableTask> joinVersionTasks = new java.util.concurrent.ConcurrentHashMap<>();
 
     void process(Event event) {
-        if (event instanceof AsyncPlayerPreLoginEvent) {
-            if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) ((AsyncPlayerPreLoginEvent) event).disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
-        }
-
 //        if (event instanceof PlayerPreLoginEvent) {
 //            if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) ((PlayerPreLoginEvent) event).disallow(PlayerPreLoginEvent.Result.KICK_OTHER,"Server is still loading, please try again later");
 //        }

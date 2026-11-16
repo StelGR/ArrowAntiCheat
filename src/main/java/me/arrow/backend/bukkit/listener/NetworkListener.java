@@ -21,6 +21,7 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
 
     @Override
     public void onPacketReceive(PacketReceiveEvent event) {
+        if (this.plugin.isShuttingDown()) return;
         final Player player = event.getPlayer();
         if (player == null) return;
 
@@ -54,6 +55,7 @@ public class NetworkListener extends PacketListenerAbstract implements PacketLis
 
     @Override
     public void onPacketSend(PacketSendEvent event) {
+        if (this.plugin.isShuttingDown()) return;
         final Player player = event.getPlayer();
         if (player == null) return;
 
