@@ -388,7 +388,8 @@ public class ClientBrandListener implements Data {
                 staff.sendMessage(OtherUtility.translate(MsgType.PREFIX.getMessage() + player.getDisplayName() + MsgType.MAIN_THEME_COLOR.getMessage() + " was kicked due to invalid version."));
             }
         } catch (Throwable e) {
-            OtherUtility.log("Failed to kick/log invalid version: " + e.getMessage());
+            me.arrow.managers.errors.ErrorMonitor.report("ClientBrandListener", "handle-invalid-version",
+                    e, "player=" + player.getName());
         }
 
         Profile prof = this.profile != null ? this.profile : this.plugin.getProfileManager().getProfile(player);

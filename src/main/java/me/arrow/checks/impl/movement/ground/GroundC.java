@@ -2,6 +2,7 @@ package me.arrow.checks.impl.movement.ground;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import lombok.Getter;
 import me.arrow.core.check.CheckType;
 import me.arrow.checks.types.Check;
@@ -9,9 +10,13 @@ import me.arrow.enums.MsgType;
 import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.utils.CollisionUtils;
+import me.arrow.utils.custom.CustomLocation;
+import me.arrow.utils.custom.materials.PEMaterials;
 import me.arrow.utils.customutils.OtherUtility;
+import org.bukkit.Material;
 
 // this is, the ghostblock processor, it blocks world guard block glitching to climb walls
 // and also blocks almost every attempt to ghostblock fly
@@ -74,37 +79,28 @@ public class GroundC extends Check {
                         + "\nlocY (floor) " + MsgType.MAIN_THEME_COLOR.getMessage() + Math.floor(movementData.getLocation().getY())
                         + "\nlocY - locY(floor) difference " + MsgType.MAIN_THEME_COLOR.getMessage() + (movementData.getLocation().getY() - Math.floor(movementData.getLocation().getY()));
 
-
-                int trans = profile.getConnectionData().getClientTickTrans();
-
-                /*
-                 * A real support block can appear or disappear before every ground
-                 * source (collision cache, client world and Bukkit world) agrees.
-                 * The place support helper verifies that the block actually exists,
-                 * so cancelled/ghost tower attempts do not receive this exemption.
-                 */
                 if (exempt("underBreak", profile.getActionData().hasRecentConfirmedUnderBreak(10))) return;
                 if (exempt("towerBlockPlace", profile.getActionData().hasRecentTowerBlockPlace(10, 4))) return;
                 if (exempt("pistonUpdate", profile.getActionData().hasRecentPistonUpdate(10))) return;
 
                 if (Config.Setting.DEBUG.getBoolean() && movementData.isCustomInAir()) {
-                    me.arrow.playerdata.cache.ChunkCache cc = me.arrow.playerdata.cache.ChunkCache.get();
-                    me.arrow.utils.custom.CustomLocation loc = movementData.getLocation();
+                    ChunkCache cc = ChunkCache.get();
+                    CustomLocation loc = movementData.getLocation();
                     int bx = loc.getBlockX(), bz = loc.getBlockZ();
                     double fy = loc.getY();
                     int supportY = (int) Math.floor(fy) - 1;
                     int feetBlockY = (int) Math.floor(fy);
-                    org.bukkit.Material matBelow = cc.getBlock(loc.getWorld().getName(), bx, supportY, bz);
-                    com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState stateBelow = cc.getBlockState(loc.getWorld().getName(), bx, supportY, bz);
-                    org.bukkit.Material feetMaterial = cc.getBlock(loc.getWorld().getName(), bx, feetBlockY, bz);
-                    com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState feetState = cc.getBlockState(loc.getWorld().getName(), bx, feetBlockY, bz);
+                    Material matBelow = cc.getBlock(loc.getWorld().getName(), bx, supportY, bz);
+                    WrappedBlockState stateBelow = cc.getBlockState(loc.getWorld().getName(), bx, supportY, bz);
+                    Material feetMaterial = cc.getBlock(loc.getWorld().getName(), bx, feetBlockY, bz);
+                    WrappedBlockState feetState = cc.getBlockState(loc.getWorld().getName(), bx, feetBlockY, bz);
                     int feetLegacyData = cc.getLegacyBlockData(loc.getWorld().getName(), bx, feetBlockY, bz);
-                    java.util.List<me.arrow.utils.custom.materials.PEMaterials.CollisionBounds> feetBounds = feetState != null
-                            ? me.arrow.utils.custom.materials.PEMaterials.getCollisionBounds(feetState, bx, feetBlockY, bz)
-                            : me.arrow.utils.custom.materials.PEMaterials.getCollisionBounds(feetMaterial, bx, feetBlockY, bz);
+                    java.util.List<PEMaterials.CollisionBounds> feetBounds = feetState != null
+                            ? PEMaterials.getCollisionBounds(feetState, bx, feetBlockY, bz)
+                            : PEMaterials.getCollisionBounds(feetMaterial, bx, feetBlockY, bz);
                     StringBuilder feetBoundsText = new StringBuilder();
                     if (feetBounds != null) {
-                        for (me.arrow.utils.custom.materials.PEMaterials.CollisionBounds box : feetBounds) {
+                        for (PEMaterials.CollisionBounds box : feetBounds) {
                             if (feetBoundsText.length() > 0) feetBoundsText.append(';');
                             feetBoundsText.append(String.format("[%.4f,%.4f]", box.minY, box.maxY));
                         }

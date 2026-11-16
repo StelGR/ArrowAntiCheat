@@ -148,7 +148,7 @@ public abstract class BukkitPlatformBackend {
             try {
                 listener.accept(player);
             } catch (Throwable throwable) {
-                throwable.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("BukkitPlatformBackend", "caught-exception", throwable);
             }
         }
     }

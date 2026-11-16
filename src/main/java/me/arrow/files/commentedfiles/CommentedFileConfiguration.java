@@ -99,7 +99,7 @@ public class CommentedFileConfiguration extends CommentedConfigurationSection {
             if (Stream.of(DumperOptions.class.getDeclaredMethods()).anyMatch(x -> x.getName().equals("setSplitLines")))
                 yamlOptions.setSplitLines(false);
         } catch (ReflectiveOperationException e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfiguration", "caught-exception", e);
         }
 
         return yamlConfiguration.saveToString();

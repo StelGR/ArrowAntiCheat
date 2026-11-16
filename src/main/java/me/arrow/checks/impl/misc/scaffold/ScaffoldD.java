@@ -9,15 +9,15 @@ import me.arrow.core.check.CheckType;
 import me.arrow.core.check.annotation.Experimental;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.ConnectionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.PEMaterials;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import org.bukkit.Material;
-import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
@@ -76,9 +76,15 @@ public class ScaffoldD extends Check {
         int targetY = clickedY + NORMAL_Y[face];
         int targetZ = clickedZ + NORMAL_Z[face];
         MovementData movement = profile.getMovementData();
-        Material clicked = profile.getBlockProcessor().getServerMaterial(clickedX, clickedY, clickedZ);
+        if (movement == null || movement.getLocation() == null || movement.getLocation().getWorld() == null) {
+            decay();
+            return;
+        }
+        String worldName = movement.getLocation().getWorld().getName();
+        ChunkCache cache = ChunkCache.get();
+        Material clicked = cache.getBlock(worldName, clickedX, clickedY, clickedZ);
         Material placed = profile.getBlockProcessor().getBlockPlaceMaterial();
-        Material target = profile.getBlockProcessor().getServerMaterial(targetX, targetY, targetZ);
+        Material target = cache.getBlock(worldName, targetX, targetY, targetZ);
 
         if (!isSidePlacement(movement, clicked, placed, target)) {
             decay();
@@ -87,7 +93,7 @@ public class ScaffoldD extends Check {
 
         PlacementSnapshot placement = snapshotAtPlacement(movement, profile.getRotationData());
         FaceTraceResult trace = placement == null ? FaceTraceResult.UNKNOWN
-                : traceWithLagCompensation(placement, clickedX, clickedY, clickedZ, face);
+                : traceWithLagCompensation(cache, placement, clickedX, clickedY, clickedZ, face);
         if (trace == FaceTraceResult.CLEAR || trace == FaceTraceResult.UNKNOWN) {
             decay();
             return;
@@ -136,11 +142,11 @@ public class ScaffoldD extends Check {
     /**
      * A placement can arrive just after a rapid rotation packet while the
      * server is processing a burst of delayed packets. Use only a very recent
-     * client view as a grace case; never substitute a later server/Bukkit view.
+     * client view as a grace case; never substitute a later cached block view.
      */
-    private FaceTraceResult traceWithLagCompensation(PlacementSnapshot current,
+    private FaceTraceResult traceWithLagCompensation(ChunkCache cache, PlacementSnapshot current,
                                                      int x, int y, int z, int face) {
-        FaceTraceResult currentResult = traceEyeSight(current, x, y, z, face);
+        FaceTraceResult currentResult = traceEyeSight(cache, current, x, y, z, face);
         if (currentResult == FaceTraceResult.CLEAR || currentResult == FaceTraceResult.UNKNOWN) {
             return currentResult;
         }
@@ -152,7 +158,7 @@ public class ScaffoldD extends Check {
         while (iterator.hasNext()) {
             PlacementSnapshot recent = iterator.next();
             long age = now - recent.timestampNanos;
-            if (age <= 0L || age > window || recent.world != current.world) continue;
+            if (age <= 0L || age > window || !recent.worldName.equals(current.worldName)) continue;
 
             // Require the prior view to be spatially close so movement cannot
             // make an unrelated, earlier sight line excuse this placement.
@@ -161,7 +167,7 @@ public class ScaffoldD extends Check {
             double dz = recent.eyeZ - current.eyeZ;
             if (dx * dx + dy * dy + dz * dz > 0.75D * 0.75D) continue;
 
-            FaceTraceResult recentResult = traceEyeSight(recent, x, y, z, face);
+            FaceTraceResult recentResult = traceEyeSight(cache, recent, x, y, z, face);
             if (recentResult == FaceTraceResult.CLEAR) {
                 return FaceTraceResult.CLEAR;
             }
@@ -214,9 +220,9 @@ public class ScaffoldD extends Check {
     }
 
 
-    private FaceTraceResult traceEyeSight(PlacementSnapshot placement,
+    private FaceTraceResult traceEyeSight(ChunkCache cache, PlacementSnapshot placement,
                                                      int x, int y, int z, int face) {
-        if (placement.world == null) {
+        if (placement.worldName == null) {
             return FaceTraceResult.UNKNOWN;
         }
 
@@ -229,7 +235,8 @@ public class ScaffoldD extends Check {
                 horizontal * Math.cos(yawRadians)
         );
         return traceBlockFace(
-                placement.world,
+                cache,
+                placement.worldName,
                 new Vector(placement.eyeX, placement.eyeY, placement.eyeZ),
                 direction,
                 x, y, z, face,
@@ -240,7 +247,8 @@ public class ScaffoldD extends Check {
     private static final double FACE_TRACE_EPSILON = 1.0E-5D;
 
 
-    public static FaceTraceResult traceBlockFace(World world,
+    public static FaceTraceResult traceBlockFace(ChunkCache cache,
+                                                 String worldName,
                                                  Vector eye,
                                                  Vector direction,
                                                  int targetX,
@@ -249,7 +257,7 @@ public class ScaffoldD extends Check {
                                                  int face,
                                                  double maxDistance,
                                                  double tolerance) {
-        if (world == null || eye == null || direction == null || face < 0 || face > 5
+        if (cache == null || worldName == null || eye == null || direction == null || face < 0 || face > 5
                 || maxDistance <= 0.0D) {
             return FaceTraceResult.UNKNOWN;
         }
@@ -261,12 +269,9 @@ public class ScaffoldD extends Check {
         unitDirection.normalize();
 
         try {
-            if (!world.isChunkLoaded(targetX >> 4, targetZ >> 4)) {
-                return FaceTraceResult.UNKNOWN;
-            }
-
-            Block target = world.getBlockAt(targetX, targetY, targetZ);
-            List<PEMaterials.CollisionBounds> targetBounds = PEMaterials.getCollisionBounds(target);
+            List<PEMaterials.CollisionBounds> targetBounds = getCachedCollisionBounds(
+                    cache, worldName, targetX, targetY, targetZ
+            );
             if (targetBounds == null || targetBounds.isEmpty()) {
                 return FaceTraceResult.UNKNOWN;
             }
@@ -306,12 +311,11 @@ public class ScaffoldD extends Check {
                         if (x == targetX && y == targetY && z == targetZ) {
                             continue;
                         }
-                        if (!world.isChunkLoaded(x >> 4, z >> 4)) {
-                            return FaceTraceResult.UNKNOWN;
-                        }
-
-                        Block block = world.getBlockAt(x, y, z);
-                        for (PEMaterials.CollisionBounds bounds : PEMaterials.getCollisionBounds(block)) {
+                        List<PEMaterials.CollisionBounds> blockBounds = getCachedCollisionBounds(
+                                cache, worldName, x, y, z
+                        );
+                        if (blockBounds == null) return FaceTraceResult.UNKNOWN;
+                        for (PEMaterials.CollisionBounds bounds : blockBounds) {
                             double distance = getBlockRayBoxEntryDistance(eye, unitDirection, bounds, faceDistance);
                             if (distance > FACE_TRACE_EPSILON && distance + tolerance < faceDistance) {
                                 return FaceTraceResult.BLOCKED;
@@ -325,6 +329,28 @@ public class ScaffoldD extends Check {
         } catch (Throwable ignored) {
             return FaceTraceResult.UNKNOWN;
         }
+    }
+
+    /** Resolve shapes only from the complete packet cache; null means unknown/incomplete. */
+    private static List<PEMaterials.CollisionBounds> getCachedCollisionBounds(
+            ChunkCache cache, String worldName, int x, int y, int z) {
+        Material material = cache.getBlock(worldName, x, y, z);
+        if (material == null) return null;
+
+        WrappedBlockState state = cache.getBlockState(worldName, x, y, z);
+        if (state != null) {
+            List<PEMaterials.CollisionBounds> stateBounds = PEMaterials.getCollisionBounds(state, x, y, z);
+            if (stateBounds != null) return stateBounds;
+        }
+
+        if (PEMaterials.requiresStatefulCollision(material)) {
+            int legacyData = cache.getLegacyBlockData(worldName, x, y, z);
+            if (legacyData >= 0) {
+                return PEMaterials.getCollisionBounds(material, legacyData, x, y, z);
+            }
+            return null;
+        }
+        return PEMaterials.getCollisionBounds(material, x, y, z);
     }
 
     private static double getFaceIntersectionDistance(Vector origin,
@@ -465,7 +491,8 @@ public class ScaffoldD extends Check {
         double edgeAllowance = 0.035D + Math.min(0.035D, Math.max(0, ping) * 0.00014D);
 
         return new PlacementSnapshot(
-                location.getWorld(), location.getX(), location.getY() + eyeHeight(), location.getZ(),
+                location.getWorld() == null ? null : location.getWorld().getName(),
+                location.getX(), location.getY() + eyeHeight(), location.getZ(),
                 rotation.getYaw(), rotation.getPitch(), reachAllowance, edgeAllowance
         );
     }
@@ -512,14 +539,14 @@ public class ScaffoldD extends Check {
     }
 
     private static final class PlacementSnapshot {
-        private final World world;
+        private final String worldName;
         private final double eyeX, eyeY, eyeZ, reachAllowance, edgeAllowance;
         private final float yaw, pitch;
         private long timestampNanos;
 
-        private PlacementSnapshot(World world, double eyeX, double eyeY, double eyeZ, float yaw, float pitch,
+        private PlacementSnapshot(String worldName, double eyeX, double eyeY, double eyeZ, float yaw, float pitch,
                                   double reachAllowance, double edgeAllowance) {
-            this.world = world;
+            this.worldName = worldName;
             this.eyeX = eyeX;
             this.eyeY = eyeY;
             this.eyeZ = eyeZ;

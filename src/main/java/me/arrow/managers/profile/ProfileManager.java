@@ -153,7 +153,9 @@ public class ProfileManager implements Initializer {
     private void loadProfileData() {
         File dataFolder = Arrow.getInstance().getDataFolder();
         if (!dataFolder.exists() && !dataFolder.mkdirs()) {
-            Arrow.getInstance().getHost().getLogger().warning("Could not create Arrow data folder for profile.yml");
+            me.arrow.managers.errors.ErrorMonitor.reportMessage("ProfileManager", "create-profile-folder",
+                    "Could not create Arrow data folder for profile.yml",
+                    "path=" + dataFolder.getAbsolutePath());
             return;
         }
 
@@ -169,9 +171,8 @@ public class ProfileManager implements Initializer {
         try {
             profileData.save(profileFile);
         } catch (IOException exception) {
-            if (Arrow.getInstance() != null && Arrow.getInstance().getHost() != null) {
-                Arrow.getInstance().getHost().getLogger().warning("Could not save profile.yml: " + exception.getMessage());
-            }
+            me.arrow.managers.errors.ErrorMonitor.report("ProfileManager", "save-profile", exception,
+                    "path=" + profileFile.getAbsolutePath());
         }
     }
 }

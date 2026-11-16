@@ -79,7 +79,7 @@ public class DiscordWebhookQueue {
                 }
             } catch (Throwable throwable) {
                 // Keep one malformed request from terminating the queue worker.
-                throwable.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("DiscordWebhookQueue", "caught-exception", throwable);
             }
         }
     }
@@ -94,8 +94,9 @@ public class DiscordWebhookQueue {
 
             try {
                 result = post(request);
-            } catch (Exception ignored) {
-                System.out.println(request.failureMessage);
+            } catch (Exception failure) {
+                me.arrow.managers.errors.ErrorMonitor.report("DiscordWebhookQueue", "deliver-request", failure,
+                        "failureMessage=" + request.failureMessage);
                 return;
             }
 

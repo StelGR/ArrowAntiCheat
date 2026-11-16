@@ -82,7 +82,7 @@ public class ThemeManager implements Initializer {
 
                 } catch (IOException e) {
 
-                    e.printStackTrace();
+                    me.arrow.managers.errors.ErrorMonitor.report("ThemeManager", "caught-exception", e);
                 }
             }
         }

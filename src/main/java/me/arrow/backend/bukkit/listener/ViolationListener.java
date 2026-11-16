@@ -251,7 +251,8 @@ public class ViolationListener implements Listener {
         try {
             frequency = Config.Setting.WEBHOOK_FREQUENCY.getInt();
         } catch (Exception e) {
-            System.out.println("Webhook Frequency from the config seems to be an invalid number or empty");
+            me.arrow.managers.errors.ErrorMonitor.report("ViolationListener", "read-webhook-frequency", e,
+                    "setting=webhook.frequency");
             return;
         }
 

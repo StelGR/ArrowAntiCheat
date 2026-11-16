@@ -5,6 +5,8 @@ import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import me.arrow.playerdata.cache.ChunkCache;
+import me.arrow.utils.TaskUtils;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -20,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -92,6 +95,8 @@ public class PEMaterials {
     /* Exact server voxel shapes, indexed by PacketEvents' complete block state. */
     private static final Map<Integer, List<LocalCollisionBounds>> STATE_SHAPE_CACHE =
             new ConcurrentHashMap<>(2048);
+    private static final Set<Integer> PENDING_STATE_SHAPE_CACHE = ConcurrentHashMap.newKeySet();
+    private static volatile List<LocalCollisionBounds> MODERN_BREWING_STAND_SHAPE;
 
     private static volatile Constructor<?> legacyAabbConstructor;
     private static volatile Class<?> legacyAabbClass;
@@ -913,7 +918,7 @@ public class PEMaterials {
         if (name.equals("SOUL_SAND")) return lowFullBounds(x, y, z, 0.875D);
         if (name.equals("HOPPER")) return hopperBounds(x, y, z);
         if (name.equals("CAULDRON")) return cauldronBounds(x, y, z);
-        if (name.equals("BREWING_STAND")) return lowFullBounds(x, y, z, 0.125D);
+        if (LEGACY_SERVER && name.equals("BREWING_STAND")) return lowFullBounds(x, y, z, 0.125D);
         if (isFlowerPotName(name)) return flowerPotBounds(x, y, z);
         if (isLilyPadName(name)) return lilyPadBounds(x, y, z);
         if (isRepeaterName(name) || isComparatorName(name)) return lowFullBounds(x, y, z, 0.125D);
@@ -1118,6 +1123,11 @@ public class PEMaterials {
         }
 
         String name = material.name();
+        if (name.equals("BREWING_STAND")) {
+            // Modern servers can provide the real voxel shape from a live
+            // block; material-only fallback must not invent a cuboid.
+            return LEGACY_SERVER ? lowFullBounds(x, y, z, 0.125D) : null;
+        }
         if (isEnchantingTableName(name)) {
             return lowFullBounds(x, y, z, 0.75D);
         }
@@ -1297,6 +1307,13 @@ public class PEMaterials {
 
         if (exact != null) {
             return toWorldBounds(x, y, z, exact);
+        }
+
+        if (!LEGACY_SERVER && isBrewingStandName(stateName(state))) {
+            List<LocalCollisionBounds> brewingShape = MODERN_BREWING_STAND_SHAPE;
+            if (brewingShape != null) return toWorldBounds(x, y, z, brewingShape);
+            requestModernBrewingStandShape(state, world, x, y, z);
+            return null;
         }
 
         Material material = materialFromState(state.getType());
@@ -1518,6 +1535,44 @@ public class PEMaterials {
             return true;
         } catch (Throwable ignored) {
             return false;
+        }
+    }
+
+    private static boolean isBrewingStandName(String name) {
+        return "BREWING_STAND".equals(normalize(name));
+    }
+
+    /**
+     * Learn the modern brewing-stand shape on its owning region, then reuse it
+     * by state ID. Collision checks keep using packet-cache data in the meantime.
+     */
+    private static void requestModernBrewingStandShape(
+            WrappedBlockState expectedState, World world, int x, int y, int z) {
+        if (world == null || expectedState == null) return;
+
+        int stateId = expectedState.getGlobalId();
+        if (STATE_SHAPE_CACHE.containsKey(stateId) || !PENDING_STATE_SHAPE_CACHE.add(stateId)) return;
+
+        Location blockLocation = new Location(world, x + 0.5D, y + 0.5D, z + 0.5D);
+        try {
+            TaskUtils.regionLater(blockLocation, 1L, () -> {
+                try {
+                    if (!world.isChunkLoaded(x >> 4, z >> 4)) return;
+                    Block block = world.getBlockAt(x, y, z);
+                    if (isBrewingStandName(block.getType().name())) {
+                        WrappedBlockState liveState = fromBukkitBlock(block);
+                        if (liveState != null && cacheCollisionShape(liveState, block)) {
+                            MODERN_BREWING_STAND_SHAPE = STATE_SHAPE_CACHE.get(liveState.getGlobalId());
+                        }
+                    }
+                } catch (Throwable ignored) {
+                    // A failed optional cache warmup must not break movement checks.
+                } finally {
+                    PENDING_STATE_SHAPE_CACHE.remove(stateId);
+                }
+            });
+        } catch (Throwable ignored) {
+            PENDING_STATE_SHAPE_CACHE.remove(stateId);
         }
     }
 
@@ -2339,7 +2394,7 @@ public class PEMaterials {
             return cauldronBounds(x, y, z);
         }
         if (name.equals("BREWING_STAND")) {
-            return lowFullBounds(x, y, z, 0.125D);
+            return LEGACY_SERVER ? lowFullBounds(x, y, z, 0.125D) : null;
         }
         if (isFlowerPotName(name)) {
             return flowerPotBounds(x, y, z);

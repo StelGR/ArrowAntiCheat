@@ -57,6 +57,7 @@ public class OmniSprintA extends Check {
     private static final double AIR_HARD_BACKWARD_INPUT_DOT = -0.10D;
 
     private static final double MIN_AIR_INPUT_XZ = 0.0035D;
+    private static final double MIN_GROUND_INPUT_XZ = 0.0035D;
 
     private static final double MIN_GROUND_DELTA_XZ = 0.075D;
     private static final double MIN_AIR_DELTA_XZ = 0.055D;
@@ -110,6 +111,21 @@ public class OmniSprintA extends Check {
 
             MovementPredictionUtil.DirectionalMovement velocityDirection =
                     MovementPredictionUtil.predictDirectionalMovement(deltaX, deltaZ, yaw);
+
+            // Remove the prior frame's expected carry before judging the
+            // direction of current ground input. Velocity alone can stay
+            // sideways for several ticks after the player has turned forward.
+            double groundFriction = movementData.isLastOnGround()
+                    ? movementData.getLastFrictionFactor() * AIR_HORIZONTAL_FRICTION
+                    : AIR_HORIZONTAL_FRICTION;
+            if (!Double.isFinite(groundFriction) || groundFriction <= 0.0D || groundFriction > 1.0D) {
+                groundFriction = AIR_HORIZONTAL_FRICTION;
+            }
+            double groundInputX = deltaX - (lastDeltaX * groundFriction);
+            double groundInputZ = deltaZ - (lastDeltaZ * groundFriction);
+            double groundInputXZ = Math.hypot(groundInputX, groundInputZ);
+            MovementPredictionUtil.DirectionalMovement groundInputDirection =
+                    MovementPredictionUtil.predictDirectionalMovement(groundInputX, groundInputZ, yaw);
 
             double airInputX = deltaX - (lastDeltaX * AIR_HORIZONTAL_FRICTION);
             double airInputZ = deltaZ - (lastDeltaZ * AIR_HORIZONTAL_FRICTION);
@@ -192,17 +208,22 @@ public class OmniSprintA extends Check {
                 return;
             }
 
+            boolean usefulGroundInput =
+                    groundInputXZ > MIN_GROUND_INPUT_XZ
+                            && groundInputDirection.isMoving();
+
             boolean groundImpossible =
-                    velocityDirection.getAbsoluteAngle() >= GROUND_INVALID_ANGLE
-                            || velocityDirection.getDot() < GROUND_MIN_FORWARD_DOT;
+                    groundInputDirection.getAbsoluteAngle() >= GROUND_INVALID_ANGLE
+                            || groundInputDirection.getDot() < GROUND_MIN_FORWARD_DOT;
 
             boolean groundHardImpossible =
-                    velocityDirection.getAbsoluteAngle() >= GROUND_HARD_INVALID_ANGLE
-                            || velocityDirection.getDot() < GROUND_HARD_BACKWARD_DOT;
+                    groundInputDirection.getAbsoluteAngle() >= GROUND_HARD_INVALID_ANGLE
+                            || groundInputDirection.getDot() < GROUND_HARD_BACKWARD_DOT;
 
             boolean groundInvalid =
                     ground
                             && deltaXZ > minimumGroundMovement
+                            && usefulGroundInput
                             && sprinting
                             && lastSprinting
                             && sprintTicks > 1
@@ -241,6 +262,10 @@ public class OmniSprintA extends Check {
             verbose(this.getClass().getSimpleName(), Math.max(groundBuffer, airBuffer), 8,
                     MsgType.MAIN_THEME_COLOR.getMessage() + "* Verbose (OmniSprint)\n" +
                             " * velocitySector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +
+                            "\ngroundInputSector " + MsgType.MAIN_THEME_COLOR.getMessage() + groundInputDirection.getSector() +
+                            "\ngroundInputXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + format(groundInputXZ) +
+                            "\ngroundInputAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(groundInputDirection.getSignedAngle()) +
+                            "\ngroundInputDot " + MsgType.MAIN_THEME_COLOR.getMessage() + format(groundInputDirection.getDot()) +
                             "\nairInputSector " + MsgType.MAIN_THEME_COLOR.getMessage() + airInputDirection.getSector() +
 
                             "\nvelocityAngle " + MsgType.MAIN_THEME_COLOR.getMessage() + format(velocityDirection.getSignedAngle()) +
@@ -284,8 +309,6 @@ public class OmniSprintA extends Check {
             handleGround(groundInvalid, groundHardImpossible);
             handleAir(airInvalid, airInputHardImpossible);
 
-            if (airInputDirection.isForward()) return;
-
             if (groundBuffer > 8.0D) {
                 fail("Sprinting in impossible direction (ground)",
                         "type " + MsgType.MAIN_THEME_COLOR.getMessage() + "ground" +
@@ -306,7 +329,7 @@ public class OmniSprintA extends Check {
                 return;
             }
 
-            if (airBuffer > 6.5D) {
+            if (!airInputDirection.isForward() && airBuffer > 6.5D) {
                 fail("Sprinting in impossible direction (air)",
                         "type " + MsgType.MAIN_THEME_COLOR.getMessage() + "air" +
                                 "\nvelocitySector " + MsgType.MAIN_THEME_COLOR.getMessage() + velocityDirection.getSector() +

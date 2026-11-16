@@ -91,7 +91,8 @@ public class VelocityClientVersionBridge implements PluginMessageListener {
             Bukkit.getLogger().info("[ArrowVersionBridge] Received protocol " + protocol + " -> "
                     + version.getReleaseName() + " for " + player.getName() + " through " + channel);
         } catch (Throwable throwable) {
-            Bukkit.getLogger().warning("[ArrowVersionBridge] Failed to read version message: " + throwable.getMessage());
+            me.arrow.managers.errors.ErrorMonitor.report("VelocityClientVersionBridge", "read-plugin-message",
+                    throwable, "player=" + player.getName() + ",channel=" + channel);
         }
     }
 }

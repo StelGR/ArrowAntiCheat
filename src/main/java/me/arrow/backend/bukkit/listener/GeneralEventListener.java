@@ -68,6 +68,23 @@ public class GeneralEventListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onBlockPlace(BlockPlaceEvent event) {
+        if (!event.isCancelled()) {
+            Profile profile = Arrow.getInstance().getProfileManager().getProfile(event.getPlayer());
+            if (profile != null) {
+                Block placedBlock = event.getBlockPlaced();
+                if (profile.getActionData() != null) {
+                    profile.getActionData().confirmAcceptedUnderPlace(
+                            placedBlock.getX(), placedBlock.getY(), placedBlock.getZ(),
+                            placedBlock.getType(), placedBlock.getWorld()
+                    );
+                }
+                if (profile.getBlockProcessor() != null) {
+                    profile.getBlockProcessor().confirmAcceptedBlockPlacement(
+                            placedBlock.getX(), placedBlock.getY(), placedBlock.getZ()
+                    );
+                }
+            }
+        }
         this.processEvent(event);
     }
 
@@ -392,7 +409,7 @@ public class GeneralEventListener implements Listener {
                         ((InventoryClickEvent) event).setCancelled(true);
                     }
                 } catch (Throwable t) {
-                    t.printStackTrace();
+                    me.arrow.managers.errors.ErrorMonitor.report("GeneralEventListener", "caught-exception", t);
                 }
             }
         }
@@ -446,7 +463,7 @@ public class GeneralEventListener implements Listener {
             });
 
         } catch (Exception exception) {
-            exception.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("GeneralEventListener", "caught-exception", exception);
         }
     }
 

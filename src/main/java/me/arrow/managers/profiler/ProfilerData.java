@@ -1,16 +1,11 @@
 package me.arrow.managers.profiler;
 
-import lombok.Getter;
-
 public class ProfilerData {
-    @Getter
     private long totalTime;
-    @Getter
     private long maxTime;
-    @Getter
     private long calls;
 
-    public void add(long nanos) {
+    public synchronized void add(long nanos) {
         totalTime += nanos;
         calls++;
 
@@ -19,11 +14,23 @@ public class ProfilerData {
         }
     }
 
-    public double getAverageTime() {
+    public synchronized long getTotalTime() {
+        return totalTime;
+    }
+
+    public synchronized long getMaxTime() {
+        return maxTime;
+    }
+
+    public synchronized long getCalls() {
+        return calls;
+    }
+
+    public synchronized double getAverageTime() {
         return calls == 0 ? 0 : (double) totalTime / calls;
     }
 
-    public void reset() {
+    public synchronized void reset() {
         totalTime = 0;
         maxTime = 0;
         calls = 0;

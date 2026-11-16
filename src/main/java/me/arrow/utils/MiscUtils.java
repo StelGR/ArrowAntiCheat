@@ -33,7 +33,7 @@ public class MiscUtils {
             config.load(new InputStreamReader(stream, Charsets.UTF_8));
 
         } catch (IOException | InvalidConfigurationException e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("MiscUtils", "caught-exception", e);
         }
 
         return config;

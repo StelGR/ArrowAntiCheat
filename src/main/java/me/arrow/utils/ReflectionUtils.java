@@ -86,8 +86,7 @@ public class ReflectionUtils {
 
         } catch (Throwable t) {
 
-            t.printStackTrace();
-
+            me.arrow.managers.errors.ErrorMonitor.report("ReflectionUtils", "caught-exception", t);
             return NMS_CLASSES.put(nmsClassName, null);
         }
 
@@ -111,8 +110,7 @@ public class ReflectionUtils {
 
         } catch (Throwable t) {
 
-            t.printStackTrace();
-
+            me.arrow.managers.errors.ErrorMonitor.report("ReflectionUtils", "caught-exception", t);
             OBC_CLASSES.put(obcClassName, null);
 
             return null;
@@ -135,7 +133,7 @@ public class ReflectionUtils {
 
                 return playerConField.get(nmsPlayer);
             } catch (Exception e) {
-                e.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("ReflectionUtils", "caught-exception", e);
             }
         }
 
@@ -153,7 +151,7 @@ public class ReflectionUtils {
             try {
                 sendPacketMethod.invoke(playerConnection, packet);
             } catch (IllegalAccessException | InvocationTargetException e) {
-                e.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("ReflectionUtils", "caught-exception", e);
             }
         }
     }
@@ -162,7 +160,7 @@ public class ReflectionUtils {
         try {
             return getMethod(getOBCClass("entity.CraftEntity"), "getHandle").invoke(entity);
         } catch (IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("ReflectionUtils", "caught-exception", e);
         }
 
         return null;
@@ -177,7 +175,7 @@ public class ReflectionUtils {
 
                 return toBoundingBox(nmsBoundingBox);
             } catch (IllegalAccessException | InvocationTargetException e) {
-                e.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("ReflectionUtils", "caught-exception", e);
             }
         } else {
             return BoundingBox.fromBukkit(entity);
@@ -213,7 +211,7 @@ public class ReflectionUtils {
                 z = (double) getField(boxClass, "minZ").get(box);
             }
         } catch (IllegalAccessException e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("ReflectionUtils", "caught-exception", e);
         }
 
         return new Vector(x, y, z);
@@ -239,7 +237,7 @@ public class ReflectionUtils {
                 z = (double) getField(boxClass, "maxZ").get(box);
             }
         } catch (IllegalAccessException e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("ReflectionUtils", "caught-exception", e);
         }
 
         return new Vector(x, y, z);
@@ -274,8 +272,7 @@ public class ReflectionUtils {
             return method;
         } catch (Exception e) {
 
-            e.printStackTrace();
-
+            me.arrow.managers.errors.ErrorMonitor.report("ReflectionUtils", "caught-exception", e);
             methods.put(methodName, null);
 
             METHODS.put(clazz, methods);
@@ -301,7 +298,7 @@ public class ReflectionUtils {
             FIELDS.put(clazz, fields);
             return field;
         } catch (Exception e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("ReflectionUtils", "caught-exception", e);
             fields.put(fieldName, null);
             FIELDS.put(clazz, fields);
         }

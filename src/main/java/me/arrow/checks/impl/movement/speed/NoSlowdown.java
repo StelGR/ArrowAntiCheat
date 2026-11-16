@@ -42,11 +42,8 @@ public class NoSlowdown extends Check {
             MovementData movementData = profile.getMovementData();
             ActionData actionData = profile.getActionData();
             PredictionData predictionData = profile.getPredictionData();
-
             sneakingTicks = profile.isSneaking() ? sneakingTicks + 1 : 0;
-
             usageTicks = (predictionData.isUseItem() || predictionData.isUseShield() || predictionData.isUseSword()) ? usageTicks + 1 : 0;
-
 
             verbose(this.getClass().getSimpleName(), movementData.getDeltaXZ(), movementData.getDeltaY(), " * Verbose\n * deltaXZ " + movementData.getDeltaXZ()
                     + "\n * spriting " + actionData.isSprinting()

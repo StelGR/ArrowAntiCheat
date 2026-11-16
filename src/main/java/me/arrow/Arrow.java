@@ -16,6 +16,7 @@ import me.arrow.backend.bukkit.listener.NetworkListener;
 import me.arrow.backend.bukkit.listener.ProfileListener;
 import me.arrow.backend.bukkit.listener.ViolationListener;
 import me.arrow.managers.AlertManager;
+import me.arrow.managers.errors.ErrorMonitor;
 import me.arrow.managers.logs.LogManager;
 import me.arrow.managers.profile.ProfileManager;
 import me.arrow.managers.themes.ThemeManager;
@@ -182,6 +183,7 @@ public class Arrow {
 
         instance = this;
         PlatformBackend.initialize(host);
+        (this.configuration = new Config(getHost())).initialize();
 
         PluginManager pm = PlatformBackend.get().getPluginManager();
 
@@ -215,6 +217,9 @@ public class Arrow {
                 return;
             }
 
+            int preloadedChunks = this.chunkCache.preloadLoadedChunks();
+            log(translate("&6" + "➪  Chunk Cache Preloaded &b" + preloadedChunks + "&6 already-loaded chunks"));
+
             log("");
             final String[] HEADER = new String[] {
                     " $$$$$$\\   $$$$$$\\   $$$$$$\\   $$$$$$\\  $$\\  $$\\  $$\\ ",
@@ -235,7 +240,6 @@ public class Arrow {
             log(translate("&6" + "➪  Java Version&7: &b" + System.getProperty("java.version")));
             log("");
 
-            (this.configuration = new Config(getHost())).initialize();
             log(translate("&6" + "➪  Config file Initialized"));
             (this.checks = new Checks(getHost())).initialize();
             log(translate("&6" + "➪  Checks file Initialized"));
@@ -334,8 +338,8 @@ public class Arrow {
                 );
                 log(translate("&6" + "➪  MathUtil Initialized"));
             } catch (ClassNotFoundException e) {
-                log(translate("&cAn error was thrown during initialization, The anticheat may not work properly."));
-                e.printStackTrace();
+                ErrorMonitor.report("Lifecycle", "initialize-math-classes", e,
+                        "classList=fastmath,MathHelper,CollisionUtils,MoveUtils");
             }
 
             this.animationManager = new AnimationManager(getHost());
@@ -431,8 +435,8 @@ public class Arrow {
 
             instance = null;
         } catch (Exception exception) {
-            exception.printStackTrace();
-            log(translate("&cArrow &chad an error while shutting down."));
+            ErrorMonitor.report("Lifecycle", "plugin-shutdown", exception,
+                    "plugin=" + (getHost() == null ? "Arrow" : getHost().getName()));
             return;
         }
 

@@ -5,9 +5,12 @@ import com.github.retrooper.packetevents.protocol.world.chunk.Column;
 import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.protocol.world.states.type.StateType;
 import lombok.Getter;
+import me.arrow.managers.errors.ErrorMonitor;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.*;
+import org.bukkit.block.Block;
 import org.jspecify.annotations.NonNull;
 
 import java.util.HashMap;
@@ -90,6 +93,10 @@ public class ChunkCache {
                         Thread t = new Thread(r, "Arrow-ChunkQueue-Worker-" + id.getAndIncrement());
                         t.setDaemon(true);
                         t.setPriority(Thread.NORM_PRIORITY);
+                        t.setUncaughtExceptionHandler((thread, failure) -> {
+                            ErrorMonitor.report("ChunkCache", "uncaught-worker", failure,
+                                    "thread=" + thread.getName());
+                        });
                         return t;
                     }
                 },
@@ -98,6 +105,10 @@ public class ChunkCache {
 
         this.evictionThread = new Thread(this::runEvictionWorker, "Arrow-ChunkCache-Eviction");
         this.evictionThread.setDaemon(true);
+        this.evictionThread.setUncaughtExceptionHandler((thread, failure) -> {
+            ErrorMonitor.report("ChunkCache", "uncaught-eviction-worker", failure,
+                    "thread=" + thread.getName());
+        });
         this.evictionThread.start();
     }
 
@@ -224,6 +235,8 @@ public class ChunkCache {
                 }
             } catch (Throwable ignored) {
                 // A failed eviction must not stop future cache cleanup.
+                ErrorMonitor.report("ChunkCache", "eviction-worker",
+                        ignored, "queueSize=" + evictionQueue.size());
             }
         }
     }
@@ -286,9 +299,132 @@ public class ChunkCache {
         scheduleEvictionIfUnviewed(worldName, chunkX, chunkZ);
     }
 
+    /**
+     * Seeds the packet cache from chunks already loaded in memory during plugin startup.
+     * Must run synchronously before movement listeners begin querying the cache.
+     * This deliberately does not call World#getChunkAt and therefore never loads
+     * additional chunks from disk.
+     *
+     * @return number of chunks fully cached
+     */
+    public int preloadLoadedChunks() {
+        long profileStart = Profiler.startChunkCache();
+        try {
+        if (!Bukkit.isPrimaryThread()) {
+            IllegalStateException failure = new IllegalStateException(
+                    "Loaded chunk preload must run on the Bukkit server thread");
+            ErrorMonitor.report("ChunkCache", "startup-preload-thread", failure,
+                    "thread=" + Thread.currentThread().getName());
+            return 0;
+        }
+
+        int cachedCount = 0;
+        for (World world : Bukkit.getWorlds()) {
+            if (world == null) continue;
+
+            int minY = getWorldMinHeight(world);
+            int maxY = world.getMaxHeight();
+            Chunk[] loadedChunks;
+            try {
+                loadedChunks = world.getLoadedChunks();
+            } catch (Throwable failure) {
+                ErrorMonitor.report("ChunkCache", "startup-list-loaded-chunks", failure,
+                        "world=" + world.getName());
+                continue;
+            }
+
+            for (Chunk bukkitChunk : loadedChunks) {
+                if (bukkitChunk == null) continue;
+                int chunkX = bukkitChunk.getX();
+                int chunkZ = bukkitChunk.getZ();
+                try {
+                    CachedChunk cached = new CachedChunk(chunkX, chunkZ);
+                    cached.setFullChunkData(true);
+
+                    for (int y = minY; y < maxY; y++) {
+                        for (int localX = 0; localX < 16; localX++) {
+                            for (int localZ = 0; localZ < 16; localZ++) {
+                                Block block = bukkitChunk.getBlock(localX, y, localZ);
+                                Material material = block.getType();
+                                String materialName = material.name();
+                                if (material == Material.AIR || "CAVE_AIR".equals(materialName)
+                                        || "VOID_AIR".equals(materialName)) {
+                                    continue;
+                                }
+
+                                WrappedBlockState state = PEMaterials.fromBukkitBlock(block);
+                                if (state == null) {
+                                    throw new IllegalStateException("Could not convert block state for "
+                                            + materialName + " at " + block.getX() + "," + y + "," + block.getZ());
+                                }
+
+                                int combinedBlockId = -1;
+                                if (LEGACY_BLOCK_DATA_SUPPORTED) {
+                                    combinedBlockId = getLegacyCombinedBlockId(block);
+                                }
+                                writePacketBlockState(cached, localX, y, localZ, state, combinedBlockId);
+                            }
+                        }
+                    }
+
+                    cached.setCompleteStatefulCollisionData();
+                    synchronized (cacheUpdateLock) {
+                        putChunkInternal(world.getName(), chunkX, chunkZ, cached);
+                    }
+                    cachedCount++;
+                } catch (Throwable failure) {
+                    String context = "world=" + world.getName() + ",chunkX=" + chunkX + ",chunkZ=" + chunkZ
+                            + ",minY=" + minY + ",maxY=" + maxY;
+                    ErrorMonitor.report("ChunkCache", "startup-preload-chunk", failure, context);
+                }
+            }
+        }
+
+        if (cachedCount > 0) initialized = true;
+        return cachedCount;
+        } finally {
+            Profiler.stopChunkCache("preloadLoadedChunks", profileStart);
+        }
+    }
+
+    /** Reads pre-flattening block IDs without linking against APIs that removed these methods. */
+    private static int getLegacyCombinedBlockId(Block block) {
+        try {
+            Object rawTypeId = block.getClass().getMethod("getTypeId").invoke(block);
+            Object rawData = block.getClass().getMethod("getData").invoke(block);
+            if (rawTypeId instanceof Number && rawData instanceof Number) {
+                return (((Number) rawTypeId).intValue() << 4) | (((Number) rawData).intValue() & 0xF);
+            }
+        } catch (Throwable ignored) {
+        }
+        return -1;
+    }
+
+    private static int getWorldMinHeight(World world) {
+        try {
+            Object value = world.getClass().getMethod("getMinHeight").invoke(world);
+            if (value instanceof Number) return ((Number) value).intValue();
+        } catch (Throwable ignored) {
+        }
+        return 0;
+    }
+
     private void putChunkInternal(String worldName, int chunkX, int chunkZ, CachedChunk chunk) {
         worldChunks.computeIfAbsent(worldName, k -> new ConcurrentHashMap<>())
                 .put(chunkKey(chunkX, chunkZ), chunk);
+    }
+
+    private void markChunkIncomplete(String worldName, int chunkX, int chunkZ) {
+        synchronized (cacheUpdateLock) {
+            markChunkIncompleteLocked(worldName, chunkX, chunkZ);
+        }
+    }
+
+    private void markChunkIncompleteLocked(String worldName, int chunkX, int chunkZ) {
+        CachedChunk chunk = getChunk(worldName, chunkX, chunkZ);
+        if (chunk != null) {
+            chunk.setCompleteStatefulCollisionData(false);
+        }
     }
 
     public void clear() {
@@ -321,6 +457,28 @@ public class ChunkCache {
         int cx = x >> 4;
         int cz = z >> 4;
         long key = chunkKey(cx, cz);
+
+        try {
+            resolvePacketMaterial(state, combinedBlockId);
+        } catch (Throwable failure) {
+            synchronized (cacheUpdateLock) {
+                if (isChunkQueued(worldName, cx, cz)) {
+                    long blockKey = (((long) y) << 8) | ((long) (z & 15) << 4) | (x & 15);
+                    pendingBlockUpdates
+                            .computeIfAbsent(worldName, ignored -> new HashMap<>())
+                            .computeIfAbsent(key, ignored -> new HashMap<>())
+                            .put(blockKey, new PendingBlockState(state, combinedBlockId));
+                }
+                markChunkIncompleteLocked(worldName, cx, cz);
+            }
+            String context = "world=" + worldName + ",x=" + x + ",y=" + y + ",z=" + z
+                    + ",chunkX=" + cx + ",chunkZ=" + cz
+                    + ",state=" + state.getType().getName()
+                    + ",combinedBlockId=" + combinedBlockId;
+            ErrorMonitor.report("ChunkCache", "map-block-update", failure, context);
+            return;
+        }
+
         synchronized (cacheUpdateLock) {
             if (isChunkQueued(worldName, cx, cz)) {
                 long blockKey = (((long) y) << 8) | ((long) (z & 15) << 4) | (x & 15);
@@ -339,16 +497,7 @@ public class ChunkCache {
 
     private static void writePacketBlockState(CachedChunk chunk, int x, int y, int z,
                                               WrappedBlockState state, int combinedBlockId) {
-        Material material = PEMaterials.materialFromState(state.getType());
-        // PacketEvents block IDs are global state IDs on modern protocols. Only
-        // interpret them as legacy (block ID << 4 | metadata) values on legacy
-        // servers; otherwise unrelated states can be misread as legacy water.
-        if (LEGACY_BLOCK_DATA_SUPPORTED
-                && (material == null || material == Material.AIR)
-                && combinedBlockId >= 0) {
-            material = PEMaterials.materialFromLegacyCombinedId(combinedBlockId);
-        }
-        if (material == null) return;
+        Material material = resolvePacketMaterial(state, combinedBlockId);
         chunk.setState(x, y, z, material, state.getGlobalId(), shouldStoreCollisionState(state));
         if (!LEGACY_BLOCK_DATA_SUPPORTED && isWaterMaterial(material)) {
             chunk.setFluidLevel(x, y, z, getFluidLevel(state));
@@ -361,6 +510,34 @@ public class ChunkCache {
             }
             if (legacyData >= 0) chunk.setLegacyBlockData(x, y, z, legacyData);
         }
+    }
+
+    private static Material resolvePacketMaterial(WrappedBlockState state, int combinedBlockId) {
+        if (state == null || state.getType() == null) {
+            throw new IllegalStateException("Packet contains a null block state/type");
+        }
+
+        StateType type = state.getType();
+        Material material = PEMaterials.materialFromState(type);
+        // PacketEvents block IDs are global state IDs on modern protocols. Only
+        // interpret them as legacy (block ID << 4 | metadata) values on legacy
+        // servers; otherwise unrelated states can be misread as legacy water.
+        if (LEGACY_BLOCK_DATA_SUPPORTED
+                && (material == null || material == Material.AIR)
+                && combinedBlockId >= 0) {
+            Material legacyMaterial = PEMaterials.materialFromLegacyCombinedId(combinedBlockId);
+            if (legacyMaterial != null) material = legacyMaterial;
+        }
+
+        if (material == null || (material == Material.AIR && !type.isAir())) {
+            Material fallback = PEMaterials.matchMaterialCompat(type.getName());
+            if (fallback != null) material = fallback;
+        }
+
+        if (material == null || (material == Material.AIR && !type.isAir())) {
+            throw new IllegalStateException("Unmapped non-air block state '" + type.getName() + "'");
+        }
+        return material;
     }
 
     /** Stores legacy metadata; bit 0x10 marks double slabs when old materials collapse their state. */
@@ -385,10 +562,12 @@ public class ChunkCache {
     }
 
     private void applyPendingBlockUpdates(String worldName, int cx, int cz, CachedChunk chunk) {
+        long profileStart = Profiler.startChunkCache();
+        try {
         Map<Long, Map<Long, PendingBlockState>> worldUpdates = pendingBlockUpdates.get(worldName);
+        long key = chunkKey(cx, cz);
         if (worldUpdates != null) {
-            Map<Long, PendingBlockState> updates = worldUpdates.remove(chunkKey(cx, cz));
-            if (worldUpdates.isEmpty()) pendingBlockUpdates.remove(worldName);
+            Map<Long, PendingBlockState> updates = worldUpdates.get(key);
             if (updates != null) {
                 for (Map.Entry<Long, PendingBlockState> entry : updates.entrySet()) {
                     long blockKey = entry.getKey();
@@ -398,13 +577,14 @@ public class ChunkCache {
                     PendingBlockState pending = entry.getValue();
                     writePacketBlockState(chunk, x, y, z, pending.state, pending.combinedBlockId);
                 }
+                worldUpdates.remove(key);
+                if (worldUpdates.isEmpty()) pendingBlockUpdates.remove(worldName);
             }
         }
 
         Map<Long, Map<Long, Integer>> worldLegacy = pendingLegacyBlockData.get(worldName);
         if (worldLegacy == null) return;
-        Map<Long, Integer> legacy = worldLegacy.remove(chunkKey(cx, cz));
-        if (worldLegacy.isEmpty()) pendingLegacyBlockData.remove(worldName);
+        Map<Long, Integer> legacy = worldLegacy.get(key);
         if (legacy == null) return;
         for (Map.Entry<Long, Integer> entry : legacy.entrySet()) {
             long blockKey = entry.getKey();
@@ -412,6 +592,11 @@ public class ChunkCache {
             int z = (int) ((blockKey >>> 4) & 15L);
             int y = (int) (blockKey >> 8);
             chunk.setLegacyBlockData(x, y, z, entry.getValue());
+        }
+        worldLegacy.remove(key);
+        if (worldLegacy.isEmpty()) pendingLegacyBlockData.remove(worldName);
+        } finally {
+            Profiler.stopChunkCache("applyPendingUpdates", profileStart);
         }
     }
 
@@ -424,6 +609,8 @@ public class ChunkCache {
     }
 
     public Material getBlock(String worldName, int x, int y, int z) {
+        long profileStart = Profiler.startChunkCache();
+        try {
         if (worldName == null) return Material.AIR;
         int cx = x >> 4;
         int cz = z >> 4;
@@ -432,6 +619,9 @@ public class ChunkCache {
             return chunk.get(x & 15, y, z & 15);
         }
         return null;
+        } finally {
+            Profiler.stopChunkCache("blockLookup", profileStart);
+        }
     }
 
 
@@ -612,12 +802,15 @@ public class ChunkCache {
             return;
         }
 
+        long enqueueStart = Profiler.startChunkCache();
         try {
             chunkExecutor.execute(() -> {
+                long workerStart = Profiler.startChunkCache();
                 boolean releasedQueued = false;
                 try {
                     CachedChunk cached =
-                            parsePacketColumn(
+                            parsePacketColumnWithRetry(
+                                    worldName,
                                     chunkX,
                                     chunkZ,
                                     minY,
@@ -656,8 +849,8 @@ public class ChunkCache {
                             }
 
                             for (PendingColumnUpdate update : updates) {
-                                CachedChunk partial = parsePacketColumn(
-                                        chunkX, chunkZ, update.minY, update.sections, update.fullChunk
+                                CachedChunk partial = parsePacketColumnWithRetry(
+                                        worldName, chunkX, chunkZ, update.minY, update.sections, update.fullChunk
                                 );
                                 if (partial == null) continue;
                                 synchronized (cacheUpdateLock) {
@@ -674,17 +867,29 @@ public class ChunkCache {
                         scheduleEvictionIfUnviewed(worldName, chunkX, chunkZ);
                         return;
                     }
-                } catch (Throwable ignored) {
+                } catch (Throwable failure) {
+                    markChunkIncomplete(worldName, chunkX, chunkZ);
+                    String context = "world=" + worldName + ",chunkX=" + chunkX + ",chunkZ=" + chunkZ
+                            + ",minY=" + minY + ",fullChunk=" + fullChunk
+                            + ",worker=" + Thread.currentThread().getName();
+                    ErrorMonitor.report("ChunkCache", "packet-chunk-worker", failure, context);
                 } finally {
                     if (!releasedQueued) unmarkQueued(worldName, chunkX, chunkZ);
+                    Profiler.stopChunkCache("packetChunkWorker", workerStart);
                 }
             });
+            Profiler.stopChunkCache("enqueuePacketChunk", enqueueStart);
         } catch (RejectedExecutionException ignored) {
+            Profiler.stopChunkCache("enqueuePacketChunk", enqueueStart);
             unmarkQueued(
                     worldName,
                     chunkX,
                     chunkZ
             );
+            ErrorMonitor.report("ChunkCache", "enqueue-packet-chunk", ignored,
+                    "world=" + worldName + ",chunkX=" + chunkX + ",chunkZ=" + chunkZ
+                            + ",queueSize=" + chunkExecutor.getQueue().size()
+                            + ",shutdown=" + chunkExecutor.isShutdown());
         }
     }
 
@@ -692,18 +897,58 @@ public class ChunkCache {
      * Highly optimized, allocation-free parser for PacketEvents Column chunk packets.
      */
     public CachedChunk parsePacketColumn(int chunkX, int chunkZ, int minY, Column column) {
-        return column == null ? null : parsePacketColumn(
-                chunkX, chunkZ, minY, column.getChunks(), column.isFullChunk()
+        return column == null ? null : parsePacketColumnWithRetry(
+                null, chunkX, chunkZ, minY, column.getChunks(), column.isFullChunk()
         );
     }
 
     public CachedChunk parsePacketColumn(int chunkX, int chunkZ, int minY, BaseChunk[] sections) {
-        return parsePacketColumn(chunkX, chunkZ, minY, sections, true);
+        return parsePacketColumnWithRetry(null, chunkX, chunkZ, minY, sections, true);
     }
 
-    private CachedChunk parsePacketColumn(int chunkX, int chunkZ, int minY,
-                                          BaseChunk[] sections, boolean fullChunk) {
+    private CachedChunk parsePacketColumnWithRetry(String worldName, int chunkX, int chunkZ, int minY,
+                                                   BaseChunk[] sections, boolean fullChunk) {
         if (sections == null) return null;
+
+        long parseStart = Profiler.startChunkCache();
+        Throwable lastFailure = null;
+        try {
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                long attemptStart = Profiler.startChunkCache();
+                try {
+                    CachedChunk parsed = parsePacketColumnStrict(chunkX, chunkZ, minY, sections, fullChunk);
+                    if (worldName != null) {
+                        synchronized (cacheUpdateLock) {
+                            applyPendingBlockUpdates(worldName, chunkX, chunkZ, parsed);
+                        }
+                    }
+                    return parsed;
+                } catch (Throwable failure) {
+                    lastFailure = failure;
+                } finally {
+                    Profiler.stopChunkCache("parseAttempt", attemptStart);
+                }
+            }
+
+            if (worldName != null) {
+                markChunkIncomplete(worldName, chunkX, chunkZ);
+            }
+            String context = "world=" + (worldName == null ? "<direct-parse>" : worldName)
+                    + ",chunkX=" + chunkX + ",chunkZ=" + chunkZ + ",minY=" + minY
+                    + ",sections=" + sections.length + ",fullChunk=" + fullChunk;
+            ErrorMonitor.report("ChunkCache", "parse-packet-column", lastFailure, context);
+            return null;
+        } finally {
+            Profiler.stopChunkCache("parsePacketColumn", parseStart);
+        }
+    }
+
+    private CachedChunk parsePacketColumnStrict(int chunkX, int chunkZ, int minY,
+                                               BaseChunk[] sections, boolean fullChunk) {
+        if (sections == null) return null;
+        if (fullChunk && sections.length == 0) {
+            throw new IllegalStateException("Full chunk packet contains no sections");
+        }
 
         CachedChunk cached = new CachedChunk(chunkX, chunkZ);
         cached.setFullChunkData(fullChunk);
@@ -715,6 +960,10 @@ public class ChunkCache {
             if (fullChunk || section != null) cached.markSectionPresent(sectionY);
             if (section == null || section.isEmpty()) continue;
 
+            if (sectionY < -4 || sectionY > 23) {
+                throw new IllegalStateException("Non-empty chunk section outside cache height: " + sectionY);
+            }
+
             int baseY = sectionY << 4;
 
             for (int localX = 0; localX < 16; localX++) {
@@ -722,8 +971,9 @@ public class ChunkCache {
                     for (int localZ = 0; localZ < 16; localZ++) {
                         try {
                             WrappedBlockState state = section.get(localX, localY, localZ);
-                            StateType type = state.getType();
-
+                            if (state == null || state.getType() == null) {
+                                throw new IllegalStateException("Packet contains a null block state");
+                            }
                             int combinedBlockId = -1;
                             if (LEGACY_BLOCK_DATA_SUPPORTED) {
                                 try {
@@ -731,13 +981,8 @@ public class ChunkCache {
                                 } catch (Throwable ignored) {
                                 }
                             }
-                            Material material = PEMaterials.materialFromState(type);
-                            if (LEGACY_BLOCK_DATA_SUPPORTED
-                                    && (material == null || material == Material.AIR)
-                                    && combinedBlockId >= 0) {
-                                material = PEMaterials.materialFromLegacyCombinedId(combinedBlockId);
-                            }
-                            if (material != null && material != Material.AIR) {
+                            Material material = resolvePacketMaterial(state, combinedBlockId);
+                            if (material != Material.AIR) {
                                 int worldY = baseY + localY;
                                 boolean storeState = shouldStoreCollisionState(state);
 
@@ -779,7 +1024,13 @@ public class ChunkCache {
                                     cached.setWaterlogged(localX, worldY, localZ, true);
                                 }
                             }
-                        } catch (Throwable ignored) { }
+                        } catch (Throwable failure) {
+                            throw new IllegalStateException(
+                                    "Failed decoding chunk block at " + (chunkX * 16 + localX) + ","
+                                            + (baseY + localY) + "," + (chunkZ * 16 + localZ),
+                                    failure
+                            );
+                        }
                     }
                 }
             }
@@ -896,7 +1147,8 @@ public class ChunkCache {
     public static class CachedChunk {
         // Covers sectionY -4 (Y=-64, 1.18+) through 23 (Y=383, theoretical max).
         // 1.7–1.17 worlds use sectionY 0–15, 1.18+ worlds use -4–19.
-        // Any sectionY outside this range (exotic modded worlds) is silently ignored.
+        // Non-empty sections outside this range cause packet parsing to fail instead
+        // of being silently treated as air and marking the chunk complete.
         private static final int SECTION_OFFSET = 4;
         private static final int SECTION_COUNT  = 28; // indices 0..27 = sectionY -4..23
 
@@ -1092,6 +1344,10 @@ public class ChunkCache {
 
         public void setCompleteStatefulCollisionData() {
             this.completeStatefulCollisionData = true;
+        }
+
+        private void setCompleteStatefulCollisionData(boolean complete) {
+            this.completeStatefulCollisionData = complete;
         }
 
         private void setFullChunkData(boolean fullChunk) {

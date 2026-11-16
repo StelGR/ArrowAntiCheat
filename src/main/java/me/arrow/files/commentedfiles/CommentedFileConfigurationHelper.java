@@ -38,7 +38,7 @@ public class CommentedFileConfigurationHelper {
             try {
                 file.createNewFile();
             } catch (IOException e) {
-                e.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfigurationHelper", "caught-exception", e);
             }
         }
 
@@ -81,7 +81,7 @@ public class CommentedFileConfigurationHelper {
             reader.close();
             return configStream;
         } catch (IOException e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfigurationHelper", "caught-exception", e);
             return null;
         }
     }
@@ -109,7 +109,7 @@ public class CommentedFileConfigurationHelper {
             reader.close();
             return comments;
         } catch (IOException e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfigurationHelper", "caught-exception", e);
             return 0;
         }
     }
@@ -209,7 +209,7 @@ public class CommentedFileConfigurationHelper {
             writer.write(stringBuilder.toString());
             writer.flush();
         } catch (IOException e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfigurationHelper", "caught-exception", e);
         }
     }
 
