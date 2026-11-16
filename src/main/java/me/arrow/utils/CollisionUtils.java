@@ -2,8 +2,6 @@ package me.arrow.utils;
 
 import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import lombok.Getter;
-import me.arrow.Arrow;
-import me.arrow.backend.bukkit.nms.NmsInstance;
 import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.MaterialType;
@@ -11,7 +9,6 @@ import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -456,18 +453,12 @@ public class CollisionUtils {
             for (int bz = minBZ; bz <= maxBZ; bz++) {
                 for (int by = minBY; by <= maxBY; by++) {
                     Material mat = cache.getBlock(worldName, bx, by, bz);
-                    if (mat == null) {
-                        Block b = getBlock(new CustomLocation(world, bx, by, bz), true);
-                        if (b != null) {
-                            mat = Arrow.getInstance().getNmsManager().getNmsInstance().getType(b);
-                        }
-                    }
                     if (mat == null || mat == Material.AIR) {
                         continue;
                     }
 
                     boolean isWater = ChunkCache.isWaterMaterial(mat);
-                    boolean isWaterlogged = !isWater && (cache.isWaterLogged(worldName, bx, by, bz) || isWaterLogged(world, bx, by, bz));
+                    boolean isWaterlogged = !isWater && cache.isWaterLogged(worldName, bx, by, bz);
 
                     if (!isWater && !isWaterlogged) {
                         continue;
@@ -591,15 +582,9 @@ public class CollisionUtils {
         final ChunkCache cache = ChunkCache.get();
 
         Material mat = cache.getBlock(worldName, x, y, z);
-        if (mat == null) {
-            Block b = getBlock(new CustomLocation(world, x, y, z), true);
-            if (b != null) {
-                mat = Arrow.getInstance().getNmsManager().getNmsInstance().getType(b);
-            }
-        }
 
         boolean isWaterMat = ChunkCache.isWaterMaterial(mat);
-        boolean isWaterlogged = !isWaterMat && (cache.isWaterLogged(worldName, x, y, z) || isWaterLogged(world, x, y, z));
+        boolean isWaterlogged = !isWaterMat && cache.isWaterLogged(worldName, x, y, z);
 
         if (!isWaterMat && !isWaterlogged) {
             return new FluidInfo(false, false, false, 0);
@@ -701,84 +686,6 @@ public class CollisionUtils {
         if (cachedFluidLevel >= 0) {
             boolean falling = cachedFluidLevel >= 8;
             return new FluidInfo(true, cachedFluidLevel == 0 && !falling, falling, cachedFluidLevel);
-        }
-
-        // 3. Fallback to Bukkit Block
-        Block b = getBlock(new CustomLocation(world, x, y, z), true);
-        if (b != null) {
-            try {
-                Object bd = b.getBlockData();
-                if (bd != null) {
-                    Boolean explicitSource = null;
-                    Boolean explicitFalling = null;
-                    int parsedLevel = -1;
-
-                    try {
-                        Method m = bd.getClass().getMethod("isSourceBlock");
-                        explicitSource = (Boolean) m.invoke(bd);
-                    } catch (Throwable ignored) {
-                        try {
-                            Method m = bd.getClass().getMethod("isSource");
-                            explicitSource = (Boolean) m.invoke(bd);
-                        } catch (Throwable ignored2) {}
-                    }
-
-                    try {
-                        Method m = bd.getClass().getMethod("isFalling");
-                        explicitFalling = (Boolean) m.invoke(bd);
-                    } catch (Throwable ignored) {}
-
-                    if (bd instanceof org.bukkit.block.data.Levelled) {
-                        parsedLevel = ((org.bukkit.block.data.Levelled) bd).getLevel();
-                    }
-
-                    String bdStr = bd.toString().toLowerCase(Locale.ROOT);
-                    if (explicitSource == null) {
-                        if (bdStr.contains("issourceblock=true") || bdStr.contains("source=true") || bdStr.contains("is_source_block=true") || bdStr.contains("issource=true")) {
-                            explicitSource = true;
-                        } else if (bdStr.contains("issourceblock=false") || bdStr.contains("source=false") || bdStr.contains("is_source_block=false") || bdStr.contains("issource=false")) {
-                            explicitSource = false;
-                        }
-                    }
-
-                    if (explicitFalling == null) {
-                        if (bdStr.contains("falling=true") || bdStr.contains("is_falling=true")) {
-                            explicitFalling = true;
-                        }
-                    }
-
-                    if (parsedLevel == -1) {
-                        int idx = bdStr.indexOf("level=");
-                        if (idx != -1) {
-                            int end = idx + 6;
-                            while (end < bdStr.length() && Character.isDigit(bdStr.charAt(end))) {
-                                end++;
-                            }
-                            try {
-                                parsedLevel = Integer.parseInt(bdStr.substring(idx + 6, end));
-                            } catch (Throwable ignored) {}
-                        }
-                    }
-
-                    boolean falling = explicitFalling != null ? explicitFalling : (parsedLevel >= 8);
-                    if (explicitSource != null) {
-                        boolean source = explicitSource;
-                        int level = parsedLevel >= 0 ? parsedLevel : (source ? 0 : 1);
-                        return new FluidInfo(true, source, falling, level);
-                    }
-                    if (parsedLevel >= 0) {
-                        boolean source = (parsedLevel == 0 && !falling);
-                        return new FluidInfo(true, source, falling, parsedLevel);
-                    }
-                }
-            } catch (Throwable ignored) {}
-
-            try {
-                byte data = b.getData();
-                boolean falling = (data & 0x8) != 0;
-                int level = data & 0x7;
-                return new FluidInfo(true, level == 0 && !falling, falling, level);
-            } catch (Throwable ignored) {}
         }
 
         return new FluidInfo(true, true, false, 0); // Default to source water block
@@ -1008,13 +915,6 @@ public class CollisionUtils {
         if (cached != null && cached != Material.AIR) {
             return cached;
         }
-        Block block = getBlock(location, true);
-        if (block != null) {
-            Material type = Arrow.getInstance().getNmsManager().getNmsInstance().getType(block);
-            if (type != null && type != Material.AIR) {
-                return type;
-            }
-        }
         return cached != null ? cached : Material.AIR;
     }
 
@@ -1076,53 +976,12 @@ public class CollisionUtils {
 
     public static boolean isWaterLogged(final World world, final int x, final int y, final int z) {
         if (world == null) return false;
-        if (me.arrow.playerdata.cache.ChunkCache.get().isWaterLogged(world, x, y, z)) return true;
-        Block block = getBlock(new CustomLocation(world, x, y, z), true);
-        if (block != null) {
-            boolean wl = Arrow.getInstance().getNmsManager().getNmsInstance().isWaterLogged(block);
-            return wl;
-        }
-        return false;
+        return ChunkCache.get().isWaterLogged(world, x, y, z);
     }
 
     public static boolean isWaterLogged(final CustomLocation location) {
         if (location == null || location.getWorld() == null) return false;
         return isWaterLogged(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
-    }
-
-    private static Block getBlockAsync(final CustomLocation location) {
-        if (location == null || location.getWorld() == null) {
-            return null;
-        }
-
-        if (TaskUtils.isFoliaServer()) {
-            if (!TaskUtils.isOwnedByCurrentRegion(location)) {
-                return null;
-            }
-        }
-
-        try {
-            return location.getBlock();
-        } catch (Throwable ignored) {
-            return null;
-        }
-    }
-
-    public static Block getBlock(final CustomLocation location, boolean async) {
-        if (location == null || location.getWorld() == null) {
-            return null;
-        }
-        if (TaskUtils.isFoliaServer() && !TaskUtils.isOwnedByCurrentRegion(location)) {
-            return null;
-        }
-        if (async) {
-            return getBlockAsync(location);
-        }
-        try {
-            return location.getBlock();
-        } catch (Throwable ignored) {
-            return null;
-        }
     }
 
     public static NearbyBlocksResult getNearbyBlocks(final CustomLocation location, final boolean async) {
@@ -1134,8 +993,6 @@ public class CollisionUtils {
                                                      final boolean async) {
 
         NearbyBlocksResult result = new NearbyBlocksResult();
-
-        NmsInstance nms = Arrow.getInstance().getNmsManager().getNmsInstance();
 
         /*
         A list that we'll be using in order to detect duplicate blocks.
@@ -1180,15 +1037,13 @@ public class CollisionUtils {
                 above:
                 {
                     cloned.setY(aboveY);
-                    final Block above = getBlock(cloned, async);
-                    result.handle(cloned, above, nms);
+                    result.handle(cloned);
                 }
 
                 under:
                 {
                     cloned.setY(underY);
-                    final Block under = getBlock(cloned, async);
-                    result.handle(cloned, under, nms);
+                    result.handle(cloned);
                 }
 
                 /*
@@ -1200,21 +1055,19 @@ public class CollisionUtils {
                 middle:
                 {
                     cloned.setY(middleY);
-                    final Block middle = getBlock(cloned, async);
-                    result.handle(cloned, middle, nms);
+                    result.handle(cloned);
                 }
 
                 below:
                 {
                     cloned.setY(locationY);
-                    final Block below = getBlock(cloned, async);
-                    result.handle(cloned, below, nms);
+                    result.handle(cloned);
                 }
             }
         }
 
         /* Ground and ceiling state come from collision shapes, not the wider nearby-material scan. */
-        result.resolveExactCollision(location, previousLocation, async, nms);
+        result.resolveExactCollision(location, previousLocation);
 
         return result;
     }
@@ -1227,37 +1080,27 @@ public class CollisionUtils {
         private boolean exactGroundSupport, landingGroundSupport, blockAbove, nearWaterLogged;
         private boolean unresolvedCollisionShape;
 
-        private void handle(CustomLocation location, Block block, NmsInstance nms) {
+        private void handle(CustomLocation location) {
 
             Material type = null;
             if (location != null) {
                 type = me.arrow.playerdata.cache.ChunkCache.get().getBlock(location);
             }
-            if ((type == null || type == Material.AIR) && block != null) {
-                type = nms.getType(block);
-            }
-
             if (type == null || type == Material.AIR) return;
 
             // [LAVA-DIAG] log when lava is detected in handle()
             if (me.arrow.files.Config.Setting.DEBUG.getBoolean()
                     && (type == Material.LAVA || type.name().contains("LAVA"))) {
-                String _src = (location != null
-                        && me.arrow.playerdata.cache.ChunkCache.get().getBlock(location) != null
-                        && me.arrow.playerdata.cache.ChunkCache.get().getBlock(location) != Material.AIR)
-                        ? "cache" : "bukkit";
                 me.arrow.utils.customutils.OtherUtility.log(
                         "[LAVA-DIAG/handle] LAVA found! loc=" + (location != null
                                 ? location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ()
                                 : "null")
-                        + " src=" + _src
                         + " type=" + type.name());
             }
 
             if (!this.nearWaterLogged) {
                 if (type.name().contains("WATER")
-                        || (location != null && ChunkCache.get().isWaterLogged(location))
-                        || (block != null && nms.isWaterLogged(block))) {
+                        || (location != null && ChunkCache.get().isWaterLogged(location))) {
                     this.nearWaterLogged = true;
                 }
             }
@@ -1267,8 +1110,7 @@ public class CollisionUtils {
             this.blockTypes.add(type);
         }
 
-        private void resolveExactCollision(CustomLocation location, CustomLocation previousLocation,
-                                           boolean async, NmsInstance nms) {
+        private void resolveExactCollision(CustomLocation location, CustomLocation previousLocation) {
             if (location == null || location.getWorld() == null) {
                 return;
             }
@@ -1322,6 +1164,11 @@ public class CollisionUtils {
                         probe.setZ(z + 0.5D);
 
                         Material material = ChunkCache.get().getBlock(probe);
+                        if (material == null && !ChunkCache.get().isChunkLoaded(probe)) {
+                            // Do not interpret an uncached chunk as air or valid ground.
+                            this.unresolvedCollisionShape = true;
+                            continue;
+                        }
 
                         // [GROUND-DIAG] log sand blocks and [LAVA-DIAG] log lava blocks near feet
                         if (me.arrow.files.Config.Setting.DEBUG.getBoolean()) {
@@ -1399,49 +1246,12 @@ public class CollisionUtils {
                                     ? PEMaterials.getCollisionBounds(cachedState, location.getWorld(), x, y, z)
                                     : null;
                         }
-                        Block block = null;
-
-                        if (material == null || (material == Material.AIR && y <= feetY && (y + MAX_SUPPORT_HEIGHT) >= feetY)) {
-                            block = getBlock(probe, async);
-                            if (block != null) {
-                                Material live = nms.getType(block);
-                                if (live != null && live != Material.AIR) {
-                                    material = live;
-                                } else if (material == null && live != null) {
-                                    material = live;
-                                }
-                            }
-                        }
-
                         boolean trapdoorCandidate = PEMaterials.isTrapdoor(material)
                                 || PEMaterials.isTrapdoor(cachedState);
                         boolean snowLayerCandidate = PEMaterials.isSnowLayer(material)
                                 || PEMaterials.isSnowLayer(cachedState);
-                        if (trapdoorCandidate && block == null) {
-                            block = getBlock(probe, async);
-                        }
-                        if (trapdoorCandidate && block != null) {
-                            Material live = nms.getType(block);
-                            if (live != null && live != Material.AIR) {
-                                material = live;
-                            }
-                            // The live 1.8 block data is authoritative for the bottom/top half bit.
-                            boxes = PEMaterials.getCollisionBounds(block);
-                        }
-                        if (snowLayerCandidate && block == null) {
-                            block = getBlock(probe, async);
-                        }
-                        if (snowLayerCandidate && block != null) {
-                            Material live = nms.getType(block);
-                            if (live != null && live != Material.AIR) {
-                                material = live;
-                            }
-                            // On 1.8, Block.getData() carries the actual snow height (0-7).
-                            boxes = PEMaterials.getCollisionBounds(block);
-                        }
-
-                        // If an old-version partial block is present in the packet state but
-                        // its live block data is not available yet, don't count it as air.
+                        // If packet state and cached legacy metadata do not contain enough
+                        // shape data, leave it unresolved rather than reading the live world.
                         if (boxes == null && (needsExactStateShape || trapdoorCandidate || snowLayerCandidate)) {
                             this.unresolvedCollisionShape = true;
                         }
@@ -1457,24 +1267,11 @@ public class CollisionUtils {
 
                         if (!this.nearWaterLogged) {
                             if ((material != null && material.name().contains("WATER"))
-                                    || me.arrow.playerdata.cache.ChunkCache.get().isWaterLogged(probe)
-                                    || (block != null && nms.isWaterLogged(block))) {
+                                    || me.arrow.playerdata.cache.ChunkCache.get().isWaterLogged(probe)) {
                                 this.nearWaterLogged = true;
                             }
                         }
 
-                        if (boxes == null && PEMaterials.requiresStatefulCollision(material)) {
-                            if (block == null) {
-                                block = getBlock(probe, async);
-                            }
-                        }
-                        if (boxes == null && block != null) {
-                            if (cachedState != null && PEMaterials.cacheCollisionShape(cachedState, block)) {
-                                boxes = PEMaterials.getCollisionBounds(cachedState, location.getWorld(), x, y, z);
-                            } else {
-                                boxes = PEMaterials.getCollisionBounds(block);
-                            }
-                        }
                         if (boxes == null) {
                             boxes = PEMaterials.getCollisionBounds(material, x, y, z);
                         }
