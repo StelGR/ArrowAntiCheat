@@ -41,7 +41,7 @@ public class FileExporter extends LogExporter {
 
                 clearOldLogFiles();
             } catch (Exception ex) {
-                ex.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("FileExporter", "caught-exception", ex);
             }
         });
     }
@@ -86,7 +86,7 @@ public class FileExporter extends LogExporter {
                     }
                 }
             } catch (IOException ex) {
-                ex.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("FileExporter", "caught-exception", ex);
             }
         }
     }
@@ -108,7 +108,7 @@ public class FileExporter extends LogExporter {
                     .filter(path -> path.getFileName().toString().endsWith(".log"))
                     .forEach(path -> all.addAll(readAll(path)));
         } catch (IOException ex) {
-            ex.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("FileExporter", "caught-exception", ex);
         }
 
         all.sort((a, b) -> Long.compare(extractEpoch(b), extractEpoch(a)));
@@ -148,7 +148,7 @@ public class FileExporter extends LogExporter {
                     }
                 }
             } catch (IOException ex) {
-                ex.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("FileExporter", "caught-exception", ex);
                 return new PagedLogs(new ArrayList<>(), 0, 1, 1);
             }
 
@@ -172,7 +172,7 @@ public class FileExporter extends LogExporter {
                     index++;
                 }
             } catch (IOException ex) {
-                ex.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("FileExporter", "caught-exception", ex);
             }
 
             Collections.reverse(result);
@@ -194,7 +194,7 @@ public class FileExporter extends LogExporter {
                     }
                 }
             } catch (IOException ex) {
-                ex.printStackTrace();
+                me.arrow.managers.errors.ErrorMonitor.report("FileExporter", "caught-exception", ex);
             }
         }
 
@@ -259,7 +259,7 @@ public class FileExporter extends LogExporter {
                         }
                     });
         } catch (IOException ex) {
-            ex.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("FileExporter", "caught-exception", ex);
         }
     }
 

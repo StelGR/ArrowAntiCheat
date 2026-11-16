@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
 
 public class AnimationManager {
 
@@ -83,7 +82,9 @@ public class AnimationManager {
                     finish(uuid, true);
                 }
             } catch (Throwable throwable) {
-                plugin.getLogger().log(Level.SEVERE, "Animation failed for " + player.getName(), throwable);
+                me.arrow.managers.errors.ErrorMonitor.report("AnimationManager", "animation-tick", throwable,
+                        "player=" + player.getName() + ",animation="
+                                + activeAnimation.animation.getClass().getSimpleName());
                 finish(uuid, true);
             }
         }, 0L, 1L);
@@ -108,14 +109,16 @@ public class AnimationManager {
         try {
             activeAnimation.animation.finish();
         } catch (Throwable throwable) {
-            plugin.getLogger().log(Level.SEVERE, "Animation finish failed", throwable);
+            me.arrow.managers.errors.ErrorMonitor.report("AnimationManager", "animation-finish", throwable,
+                    "playerId=" + uuid);
         }
 
         if (runCallback && activeAnimation.finished != null) {
             try {
                 activeAnimation.finished.run();
             } catch (Throwable throwable) {
-                plugin.getLogger().log(Level.SEVERE, "Animation callback failed", throwable);
+                me.arrow.managers.errors.ErrorMonitor.report("AnimationManager", "animation-callback", throwable,
+                        "playerId=" + uuid);
             }
         }
     }

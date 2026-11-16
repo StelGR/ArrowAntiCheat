@@ -44,10 +44,36 @@ import static me.arrow.utils.customutils.OtherUtility.translate;
 // these are our GUIs we need to create a player owner on them to prevent pulling a vulcan, as vanilla chests have null owners
 
 public class GuiManager {
+    private static final int CHECK_MENU_SIZE = 54;
+    private static final int CHECK_MENU_BACK_SLOT = 49;
+    private static final int[] CHECK_MENU_CONTENT_SLOTS = {
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34,
+            37, 38, 39, 40, 41, 42, 43
+    };
+
     private final Map<UUID, TaskUtils.CancellableTask> infoGuiTasks = new ConcurrentHashMap<>();
 
     private Inventory createInventory(Player owner, int size, String title) {
         return Bukkit.createInventory(owner, size, title);
+    }
+
+    private void addCheckMenuFrame(Inventory gui) {
+        List<ItemStack> themedGlass = createThemedSpacer(CHECK_MENU_SIZE);
+        for (int slot = 0; slot < 9; slot++) {
+            gui.setItem(slot, themedGlass.get(slot));
+            gui.setItem(45 + slot, themedGlass.get(45 + slot));
+        }
+        for (int row = 1; row < 5; row++) {
+            gui.setItem(row * 9, themedGlass.get(row * 9));
+            gui.setItem(row * 9 + 8, themedGlass.get(row * 9 + 8));
+        }
+    }
+
+    private void addCheckMenuBackButton(Inventory gui) {
+        gui.setItem(CHECK_MENU_BACK_SLOT, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
+                Arrays.asList(translate(guiLine()), translate("&7Click to go back."), translate(guiLine()))));
     }
 
     public boolean isArrowInventory(Inventory inventory, String title) {
@@ -821,21 +847,24 @@ public class GuiManager {
 
 
     public void openArrowCheckGUI(Player player, String checkType, String uiName) {
-        Inventory gui = createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
+        Inventory gui = createInventory(player, CHECK_MENU_SIZE,
+                translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
+        addCheckMenuFrame(gui);
 
-        int slot = 0;
+        int checkIndex = 0;
 
         for (Check check : Arrow.getInstance().getProfileManager().getProfile(player).getCheckHolder().getChecks()) {
             String className = check.getClass().getSimpleName();
             if (className.startsWith(checkType)
                     || ("Fly".equals(checkType) && className.startsWith("Gravity"))
                     || ("Interact".equals(checkType) && className.startsWith("FastBreak"))) {
+                if (checkIndex >= CHECK_MENU_CONTENT_SLOTS.length) break;
                 String enabledStatus = check.isEnabled() ? "§a✓" : "§c✗";
                 String punishableStatus = check.isCanPunish() ? "§a✓" : "§c✗";
 
                 Material bookMaterial = check.isEnabled() ? Material.ENCHANTED_BOOK : Material.BOOK;
 
-                gui.setItem(slot, generateItem(new ItemStack(bookMaterial, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + check.getFullCheckName()),
+                gui.setItem(CHECK_MENU_CONTENT_SLOTS[checkIndex++], generateItem(new ItemStack(bookMaterial, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + check.getFullCheckName()),
                 Arrays.asList(translate(guiLine()),
                         translate("&fEnabled: " + enabledStatus),
                         translate("&fPunishable: " + punishableStatus),
@@ -847,37 +876,30 @@ public class GuiManager {
                         translate("&7" + check.getDescription()),
                         translate(guiLine())), false, check.isEnabled()));
 
-                slot++;
-
-                if (slot >= 27) {
-                    break;
-                }
             }
         }
 
-
-        gui.setItem(26, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
-        Arrays.asList(translate(guiLine()),
-                translate("&7Click to go back."),
-                translate(guiLine())
-        )));
+        addCheckMenuBackButton(gui);
 
         player.openInventory(gui);
     }
 
     public void openArrowCheckSpeedGUI(Player player, String checkType1, String checkType2, String uiName) {
-        Inventory gui = createInventory(player, 27, translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
+        Inventory gui = createInventory(player, CHECK_MENU_SIZE,
+                translate(MsgType.MAIN_THEME_COLOR.getMessage() + "Arrow &7- &7" + uiName));
+        addCheckMenuFrame(gui);
 
-        int slot = 0;
+        int checkIndex = 0;
 
         for (Check check : Arrow.getInstance().getProfileManager().getProfile(player).getCheckHolder().getChecks()) {
             if (check.getClass().getSimpleName().startsWith(checkType1) || check.getClass().getSimpleName().startsWith(checkType2)) {
+                if (checkIndex >= CHECK_MENU_CONTENT_SLOTS.length) break;
                 String enabledStatus = check.isEnabled() ? "§a✓" : "§c✗";
                 String punishableStatus = check.isCanPunish() ? "§a✓" : "§c✗";
 
                 Material bookMaterial = check.isEnabled() ? Material.ENCHANTED_BOOK : Material.BOOK;
 
-                gui.setItem(slot, generateItem(new ItemStack(bookMaterial, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + check.getFullCheckName()),
+                gui.setItem(CHECK_MENU_CONTENT_SLOTS[checkIndex++], generateItem(new ItemStack(bookMaterial, 1), translate(MsgType.MAIN_THEME_COLOR.getMessage() + check.getFullCheckName()),
                 Arrays.asList(translate(guiLine()),
                         translate("&fEnabled: " + enabledStatus),
                         translate("&fPunishable: " + punishableStatus),
@@ -889,19 +911,10 @@ public class GuiManager {
                         translate("&7" + check.getDescription()),
                         translate(guiLine())), false, check.isEnabled()));
 
-                slot++;
-
-                if (slot >= 27) {
-                    break;
-                }
             }
         }
 
-
-        gui.setItem(26, generateItem(new ItemStack(Material.BARRIER, 1), translate("&cBack"),
-        Arrays.asList(translate(guiLine()),
-                translate("&7Click to go back."),
-                translate(guiLine()))));
+        addCheckMenuBackButton(gui);
 
         player.openInventory(gui);
     }

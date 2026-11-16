@@ -578,14 +578,10 @@ public class GuiUtility {
         }
 
         String mainRaw = theme.getConfig().getString("main_theme_color", "&6");
-        String secondaryRaw = theme.getConfig().getString("second_theme_color", "&f");
-
         String mainColor = ChatColor.translateAlternateColorCodes('&', mainRaw);
-        String secondaryColor = ChatColor.translateAlternateColorCodes('&', secondaryRaw);
 
         for (int i = 0; i < amount; i++) {
-            String currentColor = (i % 2 == 0) ? secondaryColor : mainColor;
-            items.add(createColoredSpacer(currentColor, currentColor));
+            items.add(createColoredSpacer(mainColor, mainColor));
         }
         return items;
     }

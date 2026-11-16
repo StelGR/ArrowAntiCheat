@@ -288,7 +288,7 @@ public class SetbackProcessor implements Processor {
 
         } catch (Exception e) {
             setbackDebug(profile, "&cSetback failed: &7" + e.getMessage());
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("SetbackProcessor", "caught-exception", e);
         }
     }
 

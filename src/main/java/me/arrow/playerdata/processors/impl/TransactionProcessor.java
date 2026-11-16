@@ -114,7 +114,9 @@ public class TransactionProcessor implements Runnable {
                 kickForTransactionTimeout();
             }
         } catch (Exception e) {
-            OtherUtility.log("TransactionProcessor error: " + e.getMessage());
+            me.arrow.managers.errors.ErrorMonitor.report("TransactionProcessor", "process-transaction",
+                    e, "player=" + (profile == null ? "unknown" : profile.getPlayer().getName())
+                            + ",attempts=" + attempts);
         } finally {
             Profiler.stop("TransactionProcessor processTransactions", start);
         }
@@ -248,7 +250,8 @@ public class TransactionProcessor implements Runnable {
                 }
             }
         } catch (Exception e) {
-            OtherUtility.log("Failed to kick/log transaction timeout: " + e.getMessage());
+            me.arrow.managers.errors.ErrorMonitor.report("TransactionProcessor", "handle-transaction-timeout",
+                    e, "player=" + (profile == null ? "unknown" : profile.getPlayer().getName()));
         } finally {
             stopTransaction();
         }

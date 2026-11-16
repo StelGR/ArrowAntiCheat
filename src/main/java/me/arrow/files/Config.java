@@ -129,6 +129,7 @@ public class Config implements Initializer {
 
         BENCHMARK("benchmark", "", "Benchmark Settings"),
         BENCHMARK_ENABLED("benchmark.enabled", false, "Should we benchmark the anticheat? only enable if you are having performance issues, and want to diagnose"),
+        CHUNK_CACHE_PROFILER_ENABLED("benchmark.chunk_cache_enabled", false, "Collect chunk cache timing statistics in /arrow profiler."),
 
         SIMULATION_MODE("simulation_mode", false, "Should we enable simulation mode (parody)"),
         CANCEL_DUPLICATE_PACKET("cancel_duplicate_packet", true, "Should duplicate 1.17+ movement packets (from item use, attack, or bow spam) be cancelled? Recommended: true"),
@@ -137,7 +138,8 @@ public class Config implements Initializer {
         NEURAL_SERVER_URL("neural.server_url", "https://cloud.arrow-anticheat.xyz/", "The URL of the neural network inference server.", "Training is controlled from the server itself"),
         NEURAL_DAMAGE_REDUCTION("neural.damage_reduction", true, "Should suspicious players with low trust factor have their damage reduced?", "At 50 trust: 100% damage, for every 10 trust lost under 50, damage is reduced by 10% (down to 0% at -50 trust)."),
 
-        DEBUG("debug", false, "DO NOT TOUCH UNLESS YOU KNOW WHAT YOU ARE DOING");
+        DEBUG("debug", false, "DO NOT TOUCH UNLESS YOU KNOW WHAT YOU ARE DOING"),
+        ERROR_REPORTING("error_reporting", false, "Enable Arrow's custom, contextual error reports. When disabled, Arrow suppresses its own error output.");
 
         @Getter
         private final String key;

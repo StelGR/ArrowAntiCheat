@@ -380,6 +380,9 @@ public class SpeedB extends Check {
                 return;
             }
 
+            // Keep the server's effective movement attribute: on-ground
+            // acceleration can already include its sprint modifier. The
+            // client/server sprint mismatch candidate below covers packet order.
             float movementSpeed = (float) SpeedUtilities.getMovementSpeedAttribute(profile);
             if (!Float.isFinite(movementSpeed) || movementSpeed <= 0.0F) {
                 movementSpeed = 0.1F;
@@ -416,6 +419,12 @@ public class SpeedB extends Check {
                 // Karhu's getCurrentFriction(): raw block slipperiness, not
                 // the 0.91 velocity carry multiplier above. Boat surface is 0.6F.
                 float rawFriction = wasOnBoat ? 0.6F : movementData.getFrictionFactor();
+                if (!Float.isFinite(rawFriction) || rawFriction <= 0.0F || rawFriction > 1.5F) {
+                    // An uninitialized/invalid friction sample would otherwise
+                    // divide by zero (or invert the acceleration prediction).
+                    resetMovement(deltaX, deltaZ);
+                    return;
+                }
                 friction = rawFriction;
                 // Modern (>1.12.2) uses 0.21600002, legacy uses 0.16277136
                 boolean modernMovement = profile.getVersion().isNewerThan(ClientVersion.V_1_12_2);

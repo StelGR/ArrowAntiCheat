@@ -18,6 +18,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerCh
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUnloadChunk;
 import me.arrow.backend.bukkit.PlatformBackend;
+import me.arrow.managers.errors.ErrorMonitor;
 import me.arrow.utils.custom.materials.PEMaterials;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -165,7 +166,9 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                     }
                 }
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable failure) {
+            reportPacketFailure(event, "resolve-world", failure, null);
+        }
         return null;
     }
 
@@ -201,7 +204,8 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                         PEMaterials.encodeLegacyBlockData(state, combinedBlockId)
                 );
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable failure) {
+            reportPacketFailure(event, "block-change", failure, null);
         }
     }
 
@@ -219,10 +223,13 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             boolean markedLoaded = false;
             boolean legacyServer = isLegacyServer();
             for (WrapperPlayServerMultiBlockChange.EncodedBlock block : wrapper.getBlocks()) {
+                int x = -1;
+                int y = -1;
+                int z = -1;
                 try {
-                    int x = block.getX();
-                    int y = block.getY();
-                    int z = block.getZ();
+                    x = block.getX();
+                    y = block.getY();
+                    z = block.getZ();
 
                     if (!markedLoaded && event.getPlayer() instanceof Player) {
                         Player player = event.getPlayer();
@@ -240,10 +247,13 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                                 PEMaterials.encodeLegacyBlockData(state, combinedBlockId)
                         );
                     }
-                } catch (Throwable ignored) {
+                } catch (Throwable failure) {
+                    reportPacketFailure(event, "multi-block-change-entry", failure,
+                            "x=" + x + ",y=" + y + ",z=" + z);
                 }
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable failure) {
+            reportPacketFailure(event, "multi-block-change", failure, null);
         }
     }
 
@@ -266,7 +276,8 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
             }
             final int minY = getPacketMinY(event.getUser());
             cache.queuePacketChunk(worldName, chunkX, chunkZ, minY, column);
-        } catch (Throwable ignored) {
+        } catch (Throwable failure) {
+            reportPacketFailure(event, "chunk-data", failure, null);
         }
     }
 
@@ -274,7 +285,8 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
         try {
             return PacketEvents.getAPI().getServerManager().getVersion()
                     .isOlderThan(ServerVersion.V_1_13);
-        } catch (Throwable ignored) {
+        } catch (Throwable failure) {
+            ErrorMonitor.report("ChunkCacheListener", "detect-legacy-server", failure);
             return false;
         }
     }
@@ -287,7 +299,8 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                         ? user.getMinWorldHeight()
                         : -64;
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable failure) {
+            reportPacketFailure(user, "read-packet-min-height", failure, null);
         }
         return 0;
     }
@@ -313,7 +326,8 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                 }
                 cache.queuePacketChunk(worldName, chunkX, chunkZ, minY, chunks[i]);
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable failure) {
+            reportPacketFailure(event, "chunk-data-bulk", failure, null);
         }
     }
 
@@ -329,7 +343,40 @@ public class ChunkCacheListener extends PacketListenerAbstract implements Packet
                     wrapper.getChunkX(),
                     wrapper.getChunkZ()
             );
+        } catch (Throwable failure) {
+            reportPacketFailure(event, "chunk-unload", failure, null);
+        }
+    }
+
+    private void reportPacketFailure(PacketSendEvent event, String operation, Throwable failure, String extra) {
+        String playerName = "unknown";
+        String packetName = "unknown";
+        try {
+            if (event.getPlayer() instanceof Player) playerName = ((Player) event.getPlayer()).getName();
+            packetName = String.valueOf(event.getPacketType());
+        } catch (Throwable ignored) {
+            // Keep diagnostic construction from masking the original packet failure.
+        }
+        String context = "world=" + (worldNameForDiagnostics(event))
+                + ",player=" + playerName + ",packet=" + packetName
+                + (extra == null ? "" : "," + extra);
+        ErrorMonitor.report("ChunkCacheListener", operation, failure, context);
+    }
+
+    private void reportPacketFailure(User user, String operation, Throwable failure, String extra) {
+        String context = "user=" + (user == null ? "unknown" : user.getUUID())
+                + ",clientVersion=" + (user == null ? "unknown" : user.getClientVersion())
+                + (extra == null ? "" : "," + extra);
+        ErrorMonitor.report("ChunkCacheListener", operation, failure, context);
+    }
+
+    private String worldNameForDiagnostics(PacketSendEvent event) {
+        try {
+            if (event.getPlayer() instanceof Player) {
+                return ((Player) event.getPlayer()).getWorld().getName();
+            }
         } catch (Throwable ignored) {
         }
+        return "unknown";
     }
 }

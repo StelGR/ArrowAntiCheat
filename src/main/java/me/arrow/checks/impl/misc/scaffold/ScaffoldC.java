@@ -6,12 +6,17 @@ import me.arrow.core.check.annotation.Experimental;
 import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.movement.prediction.MovementPredictionUtil;
 import me.arrow.checks.types.Check;
+import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
+import me.arrow.playerdata.cache.ChunkCache;
 import me.arrow.playerdata.data.impl.ActionData;
 import me.arrow.playerdata.data.impl.MovementData;
 import me.arrow.playerdata.data.impl.RotationData;
 import me.arrow.utils.customutils.OtherUtility;
+import me.arrow.utils.custom.materials.MaterialType;
+import org.bukkit.Material;
+import org.bukkit.World;
 
 @Experimental
 public class ScaffoldC extends Check {
@@ -100,7 +105,7 @@ public class ScaffoldC extends Check {
 
         int trans = getClientTickTrans();
 
-        if (!profile.isAirBridging(profile.getMovementData().getLocation().toBukkit())) {
+        if (!isAirBridgingFromCache(profile.getMovementData())) {
             decayState();
             resetBridgeStreakIfExpired(sinceBridgePlaceTicks > BRIDGE_STREAK_TIMEOUT_TICKS + trans);
             return;
@@ -420,15 +425,30 @@ public class ScaffoldC extends Check {
         }
 
         double deltaY = movementData.getDeltaY();
+        double jumpBoostAllowance = SpeedUtilities.getJumpBoostPotionLevel(profile) * 0.1D;
+        double maximumJumpDelta = LEGIT_JUMP_MAX + jumpBoostAllowance;
 
         if (movementData.isLastOnGround() && !movementData.isOnGround()) {
-            return deltaY > LEGIT_JUMP_MIN && deltaY < LEGIT_JUMP_MAX;
+            return deltaY > LEGIT_JUMP_MIN && deltaY < maximumJumpDelta;
         }
 
         return movementData.getClientAirTicks() <= 8
                 && deltaY > 0.0D
-                && deltaY < LEGIT_JUMP_MAX
+                && deltaY < maximumJumpDelta
                 && movementData.getLastDeltaY() > -0.10D;
+    }
+
+    /** Uses only packet-populated cache data; an unavailable chunk is not treated as air. */
+    private boolean isAirBridgingFromCache(MovementData movementData) {
+        if (movementData == null || movementData.getLocation() == null) return false;
+        World world = movementData.getLocation().getWorld();
+        if (world == null) return false;
+
+        int x = movementData.getLocation().getBlockX();
+        int y = movementData.getLocation().getBlockY() - 3;
+        int z = movementData.getLocation().getBlockZ();
+        Material below = ChunkCache.get().getBlock(world.getName(), x, y, z);
+        return below != null && MaterialType.isMaterial(below.name(), MaterialType.AIR);
     }
 
     private boolean switchedBackwardSide(MovementPredictionUtil.MovementSector current,

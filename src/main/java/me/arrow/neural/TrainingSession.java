@@ -119,7 +119,7 @@ public class TrainingSession {
                 writer.newLine();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("TrainingSession", "caught-exception", e);
             return null;
         }
 

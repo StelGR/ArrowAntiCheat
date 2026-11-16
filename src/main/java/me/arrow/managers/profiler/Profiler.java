@@ -16,10 +16,25 @@ public class Profiler {
         return Config.Setting.BENCHMARK_ENABLED.getBoolean() ? System.nanoTime() : 0L;
     }
 
-    public static void stop(String name, long start) {
-        if (!Config.Setting.BENCHMARK_ENABLED.getBoolean()) {
-            return;
+    public static long startChunkCache() {
+        try {
+            return Config.Setting.BENCHMARK_ENABLED.getBoolean()
+                    || Config.Setting.CHUNK_CACHE_PROFILER_ENABLED.getBoolean()
+                    ? System.nanoTime() : 0L;
+        } catch (Throwable ignored) {
+            // Startup chunk preloading can begin before the config has loaded.
+            return 0L;
         }
+    }
+
+    public static void stopChunkCache(String name, long start) {
+        if (start == 0L) return;
+        PROFILES.computeIfAbsent("ChunkCache." + name, ignored -> new ProfilerData())
+                .add(System.nanoTime() - start);
+    }
+
+    public static void stop(String name, long start) {
+        if (start == 0L || !Config.Setting.BENCHMARK_ENABLED.getBoolean()) return;
 
         long elapsed = System.nanoTime() - start;
 

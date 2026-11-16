@@ -49,6 +49,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 // this is a GPT improved processor from MrPlugin, it syncs ghost blocks (does not work on 1.8)
 // and properly accounts for world guard blocks, so it really helps fix alot of bugs with ghost blocks
@@ -133,6 +134,7 @@ public class BlockProcessor implements Data {
 
     final Object ghostBlockLock = new Object();
     Map<Long, Integer> selfSyncedBlocks = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedQueue<Vector> acceptedBlockPlacements = new ConcurrentLinkedQueue<>();
     final Object syncQueueLock = new Object();
     Map<Long, SyncBlock> queuedSyncBlocks = new LinkedHashMap<>();
     volatile boolean syncFlushQueued;
@@ -305,6 +307,7 @@ public class BlockProcessor implements Data {
 
     void handleMovementPacket(PacketReceiveEvent event) {
         // Advances timers, refreshes ghost contact state, confirms pending placements, and drains queued sync packets.
+        clearAcceptedBlockPlacements();
         this.blockUpdateTicks++;
         this.lastGhostLiquidWebTick++;
         this.lastPendingPhysicsPlaceTick++;
@@ -465,6 +468,33 @@ public class BlockProcessor implements Data {
             this.lastAttemptedPlaceMaterial = null;
             this.currentBlockCords = null;
             this.pendingPlacementTicks = 0;
+        }
+    }
+
+    /**
+     * Records a successful Bukkit placement for the next player packet. Legacy
+     * clients may not receive a distinct block-change packet for a block they
+     * already predicted locally, so the packet-only confirmation path can
+     * incorrectly retain it as a cancelled/ghost placement.
+     */
+    public void confirmAcceptedBlockPlacement(int x, int y, int z) {
+        acceptedBlockPlacements.add(new Vector(x, y, z));
+    }
+
+    private void clearAcceptedBlockPlacements() {
+        Vector placed;
+        while ((placed = acceptedBlockPlacements.poll()) != null) {
+            removeGhostBlock(placed);
+            clearPendingNormalBlockPlacementContext(placed);
+            clearRecentCancelledBlockPlacementContext(placed);
+
+            if (sameBlockVector(currentBlockCords, placed)) {
+                currentBlockCords = null;
+                blockPlaceMaterial = null;
+                lastAttemptedPlaceMaterial = null;
+                pendingPlacementTicks = 0;
+                main = null;
+            }
         }
     }
 

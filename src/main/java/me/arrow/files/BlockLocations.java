@@ -17,7 +17,10 @@ public class BlockLocations {
         if (!file.exists())
             try {
                 file.createNewFile();
-            } catch (IOException ee) { ee.printStackTrace(); }
+            } catch (IOException ee) {
+                me.arrow.managers.errors.ErrorMonitor.report("BlockLocations", "create-data-file", ee,
+                        "path=" + file.getAbsolutePath());
+            }
         info = YamlConfiguration.loadConfiguration(file);
     }
 
@@ -29,7 +32,8 @@ public class BlockLocations {
         try {
             info.save(file);
         } catch (IOException e) {
-            System.out.println("Could not save file.");
+            me.arrow.managers.errors.ErrorMonitor.report("BlockLocations", "save-data-file", e,
+                    "path=" + (file == null ? "unknown" : file.getAbsolutePath()));
         }
     }
 

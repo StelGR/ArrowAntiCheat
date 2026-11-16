@@ -241,7 +241,8 @@ public class VelocityAlertBridge implements PluginMessageListener {
             }
 
         } catch (Throwable throwable) {
-            Bukkit.getLogger().warning("[ArrowAlertBridge] Failed to read forwarded alert: " + throwable.getMessage());
+            me.arrow.managers.errors.ErrorMonitor.report("VelocityAlertBridge", "read-forwarded-alert",
+                    throwable, "onlinePlayers=" + Bukkit.getOnlinePlayers().size());
         }
     }
 

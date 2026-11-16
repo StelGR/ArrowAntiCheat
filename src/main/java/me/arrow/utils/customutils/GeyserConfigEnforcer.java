@@ -50,7 +50,8 @@ public class GeyserConfigEnforcer {
         try {
             config.save(configFile);
         } catch (IOException e) {
-            plugin.getLogger().warning("Failed to save Geyser config.yml: " + e.getMessage());
+            me.arrow.managers.errors.ErrorMonitor.report("GeyserConfigEnforcer", "save-config", e,
+                    "path=" + configFile.getAbsolutePath());
             return false;
         }
 

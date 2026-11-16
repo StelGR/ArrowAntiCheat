@@ -51,7 +51,9 @@ public class Hastebin {
             String response = readResponse(connection, responseCode);
 
             if (responseCode < 200 || responseCode >= 300) {
-                System.out.println("[Arrow] mclo.gs upload failed HTTP " + responseCode + ": " + response);
+                me.arrow.managers.errors.ErrorMonitor.reportMessage("Hastebin", "upload-http-response",
+                        "mclo.gs upload returned HTTP " + responseCode,
+                        "response=" + response);
                 return null;
             }
 
@@ -64,14 +66,16 @@ public class Hastebin {
             Matcher errorMatcher = ERROR_PATTERN.matcher(response);
 
             if (errorMatcher.find()) {
-                System.out.println("[Arrow] mclo.gs upload failed: " + errorMatcher.group(1));
+                me.arrow.managers.errors.ErrorMonitor.reportMessage("Hastebin", "upload-error-response",
+                        errorMatcher.group(1), "response=" + response);
             } else {
-                System.out.println("[Arrow] mclo.gs upload returned unexpected response: " + response);
+                me.arrow.managers.errors.ErrorMonitor.reportMessage("Hastebin", "upload-invalid-response",
+                        "mclo.gs upload returned an unexpected response", "response=" + response);
             }
 
             return null;
         } catch (Exception exception) {
-            exception.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("Hastebin", "caught-exception", exception);
             return null;
         } finally {
             if (connection != null) {

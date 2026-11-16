@@ -410,7 +410,7 @@ public class GuiListener implements Listener {
 
         String plainTitle = ChatColor.stripColor(inventoryTitle);
 
-        if (rawSlot == 26 && clickedItem.getType() == Material.BARRIER) {
+        if (topSize == 54 && rawSlot == topSize - 5 && clickedItem.getType() == Material.BARRIER) {
             if (plainTitle.contains("Vehicle")
                     || plainTitle.contains("Fly")
                     || plainTitle.contains("Speed")

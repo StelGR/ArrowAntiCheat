@@ -15,7 +15,6 @@ import me.arrow.Arrow;
 import me.arrow.core.check.annotation.Experimental;
 import me.arrow.core.check.CheckType;
 import me.arrow.checks.types.Check;
-import me.arrow.enums.MsgType;
 import me.arrow.managers.profile.Profile;
 import me.arrow.backend.bukkit.PlatformBackend;
 import me.arrow.playerdata.cache.ChunkCache;
@@ -115,7 +114,7 @@ public class InteractD extends Check {
             WrapperPlayClientAttack packet = new WrapperPlayClientAttack(event);
             Player target = resolveTarget(packet.getEntityId());
             if (target != null) {
-                handleAttack(target);
+                handleAttack(target, event);
             }
             return;
         }
@@ -126,7 +125,7 @@ public class InteractD extends Check {
             if (packet.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
                 Player target = resolveTarget(packet.getEntityId());
                 if (target != null) {
-                    handleAttack(target);
+                    handleAttack(target, event);
                 }
             }
         }
@@ -189,7 +188,7 @@ public class InteractD extends Check {
     //  Direct eye-to-target rays catch wall-hitting regardless of
     //  what rotation the client sends.
     // ══════════════════════════════════════════════════════════════════
-    private void handleAttack(Player target) {
+    private void handleAttack(Player target, PacketReceiveEvent event) {
         if (!isEnabled() || isExempt(target)) {
             wallHitBuffer = Math.max(0.0D, wallHitBuffer - 0.25D);
             return;
@@ -314,24 +313,7 @@ public class InteractD extends Check {
         wallHitBuffer = Math.min(BUFFER_MAX, wallHitBuffer + BUFFER_INCREMENT);
 
         if (wallHitBuffer >= BUFFER_THRESHOLD) {
-            Vector3i hitPos = nearestHit.position;
-            String matName = nearestHit.material != null ? nearestHit.material.name() : "UNKNOWN";
-            double distToTarget = eye.distance(new Vector(tx, ty + targetHeight * 0.5D, tz));
-
-            fail("Attacking player through block",
-                    "target " + MsgType.MAIN_THEME_COLOR.getMessage() + target.getName()
-                            + "\nhitBlock " + MsgType.MAIN_THEME_COLOR.getMessage() + matName
-                            + "\nhitLocation " + MsgType.MAIN_THEME_COLOR.getMessage()
-                                + new Vector(hitPos.getX(), hitPos.getY(), hitPos.getZ())
-                            + "\nblockDistance " + MsgType.MAIN_THEME_COLOR.getMessage()
-                                + String.format("%.2f", nearestHit.distance)
-                            + "\ntargetDistance " + MsgType.MAIN_THEME_COLOR.getMessage()
-                                + String.format("%.2f", distToTarget)
-                            + "\nyaw " + MsgType.MAIN_THEME_COLOR.getMessage() + attackerRotation.getYaw()
-                            + "\npitch " + MsgType.MAIN_THEME_COLOR.getMessage() + attackerRotation.getPitch()
-                            + "\nping " + MsgType.MAIN_THEME_COLOR.getMessage() + ping
-                            + "\nbuffer " + MsgType.MAIN_THEME_COLOR.getMessage() + wallHitBuffer);
-
+            event.setCancelled(true);
             wallHitBuffer = BUFFER_RESET_AFTER_FLAG;
         }
     }

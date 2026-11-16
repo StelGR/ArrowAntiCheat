@@ -26,7 +26,7 @@ public class Theme {
             this.config = MiscUtils.loadConfigurationUTF_8(this.file);
             this.config.save(this.file);
         } catch (IOException e) {
-            e.printStackTrace();
+            me.arrow.managers.errors.ErrorMonitor.report("Theme", "caught-exception", e);
         }
     }
 

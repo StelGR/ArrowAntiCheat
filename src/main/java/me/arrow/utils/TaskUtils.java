@@ -2,6 +2,7 @@ package me.arrow.utils;
 
 import me.arrow.Arrow;
 import me.arrow.backend.bukkit.PlatformBackend;
+import me.arrow.managers.errors.ErrorMonitor;
 import me.arrow.utils.custom.CustomLocation;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -26,12 +27,16 @@ public class TaskUtils {
             Executors.newScheduledThreadPool(Math.max(2, Runtime.getRuntime().availableProcessors() / 2), r -> {
                 Thread t = new Thread(r, "Arrow-Async");
                 t.setDaemon(true);
+                t.setUncaughtExceptionHandler((thread, failure) -> ErrorMonitor.report(
+                        "TaskUtils", "uncaught-async-worker", failure,
+                        "thread=" + thread.getName()));
                 return t;
             });
 
     private TaskUtils() {}
 
     public static void task(Runnable runnable) {
+        runnable = monitored(runnable, "main-thread-task");
         if (FOLIA) {
             runFoliaGlobal(runnable);
         } else {
@@ -44,6 +49,8 @@ public class TaskUtils {
             try {
                 return callable.call();
             } catch (Exception e) {
+                ErrorMonitor.report("TaskUtils", "callSync-inline", e,
+                        "thread=" + Thread.currentThread().getName());
                 return null;
             }
         }
@@ -57,17 +64,21 @@ public class TaskUtils {
         });
         try {
             return future.get(5, TimeUnit.SECONDS);
-        } catch (Throwable ignored) {
+        } catch (Throwable failure) {
+            ErrorMonitor.report("TaskUtils", "callSync-wait", failure,
+                    "timeoutSeconds=5,thread=" + Thread.currentThread().getName());
             return null;
         }
     }
 
     public static CancellableTask taskAsync(Runnable runnable) {
+        runnable = monitored(runnable, "async-task");
         ScheduledFuture<?> future = ASYNC_POOL.schedule(runnable, 0L, TimeUnit.MILLISECONDS);
         return () -> future.cancel(false);
     }
 
     public static CancellableTask taskLaterAsync(Runnable runnable, long delayTicks) {
+        runnable = monitored(runnable, "delayed-async-task");
         ScheduledFuture<?> future = ASYNC_POOL.schedule(
                 runnable,
                 delayTicks * 50L,
@@ -78,13 +89,14 @@ public class TaskUtils {
 
     public static CancellableTask taskTimerAsync(Runnable runnable, long delayTicks, long periodTicks) {
         long safePeriod = Math.max(1L, periodTicks);
+        Runnable monitored = monitored(runnable, "repeating-async-task");
 
         ScheduledFuture<?> future = ASYNC_POOL.scheduleAtFixedRate(
                 () -> {
                     try {
-                        runnable.run();
+                        monitored.run();
                     } catch (Throwable throwable) {
-                        throwable.printStackTrace();
+                        // Keep repeating tasks alive after an individual failure.
                     }
                 },
                 delayTicks * 50L,
@@ -96,6 +108,7 @@ public class TaskUtils {
     }
 
     public static void taskLater(Runnable runnable, long delay) {
+        runnable = monitored(runnable, "delayed-main-thread-task");
         if (FOLIA) {
             runFoliaGlobalLater(runnable, delay);
         } else {
@@ -104,6 +117,7 @@ public class TaskUtils {
     }
 
     public static CancellableTask taskTimer(Runnable runnable, long delay, long period) {
+        runnable = monitored(runnable, "repeating-main-thread-task");
         long safePeriod = safePeriod(period);
 
         if (FOLIA) {
@@ -122,13 +136,25 @@ public class TaskUtils {
         return Math.max(1L, period);
     }
 
+    private static Runnable monitored(Runnable runnable, String operation) {
+        if (runnable == null) return () -> { };
+        return () -> {
+            try {
+                runnable.run();
+            } catch (Throwable failure) {
+                ErrorMonitor.report("TaskUtils", operation, failure,
+                        "thread=" + Thread.currentThread().getName());
+            }
+        };
+    }
+
     private static void runFoliaGlobal(Runnable runnable) {
         try {
             Object scheduler = Bukkit.class.getMethod("getGlobalRegionScheduler").invoke(null);
             Method execute = scheduler.getClass().getMethod("execute", Plugin.class, Runnable.class);
             execute.invoke(scheduler, PLUGIN, runnable);
         } catch (Exception e) {
-            e.printStackTrace();
+            ErrorMonitor.report("TaskUtils", "schedule-folia-global-task", e);
         }
     }
 
@@ -143,7 +169,7 @@ public class TaskUtils {
             );
             runDelayed.invoke(scheduler, PLUGIN, (Consumer<Object>) task -> runnable.run(), delay);
         } catch (Exception e) {
-            e.printStackTrace();
+            ErrorMonitor.report("TaskUtils", "schedule-folia-delayed-task", e);
         }
     }
 
@@ -172,7 +198,7 @@ public class TaskUtils {
                 } catch (Exception ignored) {}
             };
         } catch (Exception e) {
-            e.printStackTrace();
+            ErrorMonitor.report("TaskUtils", "schedule-folia-repeating-task", e);
             return () -> {};
         }
     }
@@ -207,6 +233,7 @@ public class TaskUtils {
 
     public static void entity(Entity entity, Runnable runnable) {
         if (entity == null) return;
+        runnable = monitored(runnable, "entity-task");
 
         if (FOLIA) {
             runFoliaEntity(entity, runnable);
@@ -217,6 +244,7 @@ public class TaskUtils {
 
     public static void entityLater(Entity entity, long delay, Runnable runnable) {
         if (entity == null) return;
+        runnable = monitored(runnable, "delayed-entity-task");
 
         if (FOLIA) {
             runFoliaEntityLater(entity, delay, runnable);
@@ -227,6 +255,7 @@ public class TaskUtils {
 
     public static CancellableTask entityTimer(Entity entity, long delay, long period, Runnable runnable) {
         if (entity == null) return () -> {};
+        runnable = monitored(runnable, "repeating-entity-task");
 
         long safePeriod = safePeriod(period);
 
@@ -240,6 +269,7 @@ public class TaskUtils {
 
     public static void regionLater(Location location, long delay, Runnable runnable) {
         if (location == null) return;
+        runnable = monitored(runnable, "delayed-region-task");
 
         if (FOLIA) {
             runFoliaRegionLater(location, delay, runnable);
@@ -266,7 +296,8 @@ public class TaskUtils {
                     null
             );
         } catch (Throwable throwable) {
-            throwable.printStackTrace();
+            ErrorMonitor.report("TaskUtils", "schedule-folia-entity-task", throwable,
+                    "entity=" + entity.getType());
         }
     }
 
@@ -290,7 +321,8 @@ public class TaskUtils {
                     delay
             );
         } catch (Throwable throwable) {
-            throwable.printStackTrace();
+            ErrorMonitor.report("TaskUtils", "schedule-folia-delayed-entity-task", throwable,
+                    "entity=" + entity.getType());
         }
     }
 
@@ -322,7 +354,8 @@ public class TaskUtils {
                 } catch (Throwable ignored) {}
             };
         } catch (Throwable throwable) {
-            throwable.printStackTrace();
+            ErrorMonitor.report("TaskUtils", "schedule-folia-repeating-entity-task", throwable,
+                    "entity=" + entity.getType());
             return () -> {};
         }
     }
@@ -347,12 +380,16 @@ public class TaskUtils {
                     delay
             );
         } catch (Throwable throwable) {
-            throwable.printStackTrace();
+            ErrorMonitor.report("TaskUtils", "schedule-folia-delayed-region-task", throwable,
+                    "world=" + (location.getWorld() == null ? "unknown" : location.getWorld().getName())
+                            + ",x=" + location.getBlockX() + ",y=" + location.getBlockY()
+                            + ",z=" + location.getBlockZ());
         }
     }
 
     public static void teleport(Player player, Location location, PlayerTeleportEvent.TeleportCause cause, Runnable after) {
         if (player == null || location == null) return;
+        Runnable monitoredAfter = after == null ? null : monitored(after, "teleport-completion");
 
         if (!FOLIA) {
             Bukkit.getScheduler().runTask(PLUGIN, () -> {
@@ -360,8 +397,8 @@ public class TaskUtils {
 
                 player.teleport(location, cause);
 
-                if (after != null) {
-                    after.run();
+                if (monitoredAfter != null) {
+                    monitoredAfter.run();
                 }
             });
             return;
@@ -381,8 +418,8 @@ public class TaskUtils {
 
                 if (futureObject instanceof CompletableFuture<?>) {
                     ((CompletableFuture<?>) futureObject).thenRun(() -> {
-                        if (after != null) {
-                            player(player, after);
+                        if (monitoredAfter != null) {
+                            player(player, monitoredAfter);
                         }
                     });
                 }
@@ -393,14 +430,17 @@ public class TaskUtils {
 
                 if (futureObject instanceof CompletableFuture<?>) {
                     ((CompletableFuture<?>) futureObject).thenRun(() -> {
-                        if (after != null) {
-                            player(player, after);
+                        if (monitoredAfter != null) {
+                            player(player, monitoredAfter);
                         }
                     });
                 }
             }
         } catch (Throwable throwable) {
-            throwable.printStackTrace();
+            ErrorMonitor.report("TaskUtils", "teleport", throwable,
+                    "player=" + player.getName() + ",world="
+                            + (location.getWorld() == null ? "unknown" : location.getWorld().getName())
+                            + ",x=" + location.getX() + ",y=" + location.getY() + ",z=" + location.getZ());
         }
     }
 

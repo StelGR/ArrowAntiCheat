@@ -245,6 +245,31 @@ public class ActionData implements Data {
                 && isLastConfirmedUnderPlaceStillValid();
     }
 
+    /**
+     * Records an accepted Bukkit placement as authoritative evidence. The packet
+     * prediction can miss a placement when the chunk cache updates before the
+     * prediction task reads the old block state, so use the uncancelled server
+     * event to confirm it while still requiring the placed block to be under
+     * the player's recent movement positions.
+     */
+    public void confirmAcceptedUnderPlace(int x, int y, int z, Material type, World world) {
+        if (world == null || !isSupportMaterial(type) || profile.getMovementData() == null) {
+            return;
+        }
+
+        if (!isPacketPositionInFootSupportArea(x, y, z, type, 2.25D)) {
+            return;
+        }
+
+        lastConfirmedUnderPlaceTicks = 0;
+        lastConfirmedUnderPlaceX = x;
+        lastConfirmedUnderPlaceY = y;
+        lastConfirmedUnderPlaceZ = z;
+        lastConfirmedUnderPlaceTopY = y + getBlockTopHeight(type);
+        lastConfirmedUnderPlaceType = type;
+        lastConfirmedUnderPlaceWorldName = world.getName();
+    }
+
     public boolean hasRecentBlockUpdateUnder(int ticks) {
         return sinceBlockUpdateUnderTicks <= ticks;
     }
@@ -606,7 +631,7 @@ public class ActionData implements Data {
          * WorldGuard / cancelled placement / corrective packet case:
          * if the server did not really keep a support block here, this must not count.
          */
-        if (!isSupportMaterial(actual)) {
+        if (actual != null && !isSupportMaterial(actual)) {
             return false;
         }
 

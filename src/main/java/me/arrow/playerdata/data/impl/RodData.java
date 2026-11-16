@@ -168,7 +168,10 @@ public class RodData implements Data {
         // schedule reelingTicks reset on main thread
         TaskUtils.task(() -> {
             try { if (profile != null) profile.getReelingTicks().reset(); }
-            catch (Throwable t) { OtherUtility.log("[Arrow] error resetting reeling ticks: " + t); }
+            catch (Throwable t) {
+                me.arrow.managers.errors.ErrorMonitor.report("RodData", "reset-reeling-ticks", t,
+                        "profilePresent=" + (profile != null));
+            }
         });
     }
 
