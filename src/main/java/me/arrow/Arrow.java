@@ -217,8 +217,8 @@ public class Arrow {
                 return;
             }
 
-            int preloadedChunks = this.chunkCache.preloadLoadedChunks();
-            log(translate("&6" + "➪  Chunk Cache Preloaded &b" + preloadedChunks + "&6 already-loaded chunks"));
+            this.chunkCache.preloadLoadedChunksAsync(preloadedChunks -> {
+
 
             log("");
             final String[] HEADER = new String[] {
@@ -350,27 +350,23 @@ public class Arrow {
             me.arrow.neural.NeuralNetManager.initialize();
             log(translate("\u00266" + "➪  Neural Network Manager Initialized"));
 
-            long endTime = System.currentTimeMillis();
+            log("");
+            log(translate("&6" + "➪  Chunk Cache Preloaded &b" + preloadedChunks + "&6 already-loaded chunks"));
 
+            long endTime = System.currentTimeMillis();
             log("");
             log(translate("&6" + "➪  Plugin loaded in &b" + (endTime - startTime) + "ms"));
             log("");
             log(translate("&6" + "➪  Arrow &ahas been successfully enabled."));
             log(translate("&6" + "=================================================================="));
             log("");
-
-
-
-        }, 10L);
-
-
-        TaskUtils.taskLater(() -> {
-            if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThanOrEquals(ServerVersion.V_1_14_4)) {
+            if (PacketEvents.getAPI().getServerManager().getVersion()
+                    .isOlderThanOrEquals(ServerVersion.V_1_14_4)) {
                 log(translate("&e[WARN] This server is running a depricated version, meaning the anticheat will still work, but you will not receive any priority or proper support for updates, if there is an issue, you may still report it but do not expect any fix to be implemented."));
             }
-
             hasLoaded = true;
-        }, 120L);
+            });
+        }, 10L);
     }
 
     public void onDisable() {
