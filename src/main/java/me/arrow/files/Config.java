@@ -309,7 +309,20 @@ public class Config implements Initializer {
          */
         private void loadValue() {
             if (this.value != null) return;
-            this.value = Arrow.getInstance().getConfiguration().get(this.key);
+            Arrow arrow = Arrow.getInstance();
+            if (arrow == null || arrow.isShuttingDown()) {
+                this.value = this.defaultValue;
+                return;
+            }
+
+            try {
+                Object configuredValue = arrow.getConfiguration().get(this.key);
+                this.value = configuredValue != null ? configuredValue : this.defaultValue;
+            } catch (Throwable ignored) {
+                // Packet callbacks can race plugin teardown; defaults keep a
+                // final in-flight callback from crashing while config closes.
+                this.value = this.defaultValue;
+            }
         }
     }
 }

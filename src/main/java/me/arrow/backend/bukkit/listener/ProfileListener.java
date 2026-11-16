@@ -22,9 +22,12 @@ public class ProfileListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        if (this.plugin.isShuttingDown()) return;
 
-        if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) {
-            player.kickPlayer("Server is still loading, please wait.");
+        if (this.plugin.getProfileManager() == null) {
+            // Initialization can overlap a join during /updatearrow. Defer
+            // profile creation instead of disconnecting a valid player.
+            waitForProfileManager(player, 1, 100);
             return;
         }
 
@@ -46,6 +49,20 @@ public class ProfileListener implements Listener {
         }
 
         syncPreferences(player);
+    }
+
+    private void waitForProfileManager(Player player, int attempt, int maxAttempts) {
+        TaskUtils.playerLater(player, 1L, () -> {
+            if (!player.isOnline() || this.plugin.isShuttingDown()) return;
+            if (this.plugin.getProfileManager() == null) {
+                if (attempt < maxAttempts) waitForProfileManager(player, attempt + 1, maxAttempts);
+                return;
+            }
+
+            this.plugin.getProfileManager().createProfile(player);
+            syncPreferences(player);
+            resolveClientBrand(player, 5);
+        });
     }
 
     private void resolveClientBrand(Player player, int attemptsRemaining) {
@@ -78,6 +95,8 @@ public class ProfileListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onLeave(PlayerQuitEvent event) {
-        this.plugin.getProfileManager().removeProfile(event.getPlayer());
+        if (this.plugin.getProfileManager() != null) {
+            this.plugin.getProfileManager().removeProfile(event.getPlayer());
+        }
     }
 }

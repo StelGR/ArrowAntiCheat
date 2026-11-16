@@ -60,6 +60,11 @@ public class Profiler {
         PROFILES.values().forEach(ProfilerData::reset);
     }
 
+    /** Clears all metric names and values for a fresh plugin session. */
+    public static void clear() {
+        PROFILES.clear();
+    }
+
     public static Map<String, ProfilerData> getProfiles() {
         return PROFILES;
     }

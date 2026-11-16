@@ -1,6 +1,7 @@
 package me.arrow;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.PacketListenerCommon;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.Getter;
@@ -146,6 +147,12 @@ public class Arrow {
     public boolean hasLoaded;
 
     @Getter
+    private volatile boolean shuttingDown;
+
+    private PacketListenerCommon networkPacketListener;
+    private PacketListenerCommon chunkCachePacketListener;
+
+    @Getter
     public static boolean reloading = false;
 
         /**
@@ -178,10 +185,14 @@ public class Arrow {
 
     // Called by the Bukkit plugin entrypoint.
     public void onEnable() {
-
         long startTime = System.currentTimeMillis();
 
+        // /updatearrow creates a fresh profiling session; discard measurements
+        // left by the previous classloader before any startup work begins.
+        me.arrow.managers.profiler.Profiler.clear();
         instance = this;
+        shuttingDown = false;
+        hasLoaded = false;
         PlatformBackend.initialize(host);
         (this.configuration = new Config(getHost())).initialize();
 
@@ -204,7 +215,7 @@ public class Arrow {
             floodgatePresent = false;
             geyserPresent = false;
         }
-        hasLoaded = false;
+
 
         TaskUtils.taskLater(() -> {
             PacketEvents.setAPI(SpigotPacketEventsBuilder.build(Arrow.getInstance().getHost()));
@@ -218,153 +229,156 @@ public class Arrow {
             }
 
             this.chunkCache.preloadLoadedChunksAsync(preloadedChunks -> {
+                log("");
+                final String[] HEADER = new String[]{
+                        " $$$$$$\\   $$$$$$\\   $$$$$$\\   $$$$$$\\  $$\\  $$\\  $$\\ ",
+                        " \\____$$\\ $$  __$$\\ $$  __$$\\ $$  __$$\\ $$ | $$ | $$ |",
+                        " $$$$$$$ |$$ |  \\__|$$ |  \\__|$$ /  $$ |$$ | $$ | $$ |",
+                        "$$  __$$ |$$ |      $$ |      $$ |  $$ |$$ | $$ | $$ | ",
+                        "\\$$$$$$$ |$$ |      $$ |      \\$$$$$$  |\\$$$$$\\$$$$  |",
+                        " \\_______|\\__|      \\__|       \\______/  \\_____\\____/ "
+                };
+                List<String> printMessage = new ArrayList<>(Arrays.asList(HEADER));
+                printMessage.forEach(msg -> log(translate("&6" + msg)));
+                printMessage.removeAll(Arrays.asList(HEADER));
+                log("");
+                log(translate("&6" + "=================================================================="));
+                log(translate("&6" + "➪  Version&7: &b" + getVersion()));
+                log(translate("&6" + "➪  Platform&7: &b" + PlatformBackend.get().getPlatformType().getFriendlyName()));
+                log(translate("&6" + "➪  Server Version&7: &b" + PacketEvents.getAPI().getServerManager().getVersion().getReleaseName()));
+                log(translate("&6" + "➪  Java Version&7: &b" + System.getProperty("java.version")));
+                log("");
 
+                log(translate("&6" + "➪  Config file Initialized"));
+                (this.checks = new Checks(getHost())).initialize();
+                log(translate("&6" + "➪  Checks file Initialized"));
 
-            log("");
-            final String[] HEADER = new String[] {
-                    " $$$$$$\\   $$$$$$\\   $$$$$$\\   $$$$$$\\  $$\\  $$\\  $$\\ ",
-                    " \\____$$\\ $$  __$$\\ $$  __$$\\ $$  __$$\\ $$ | $$ | $$ |",
-                    " $$$$$$$ |$$ |  \\__|$$ |  \\__|$$ /  $$ |$$ | $$ | $$ |",
-                    "$$  __$$ |$$ |      $$ |      $$ |  $$ |$$ | $$ | $$ | ",
-                    "\\$$$$$$$ |$$ |      $$ |      \\$$$$$$  |\\$$$$$\\$$$$  |",
-                    " \\_______|\\__|      \\__|       \\______/  \\_____\\____/ "
-            };
-            List<String> printMessage = new ArrayList<>(Arrays.asList(HEADER));
-            printMessage.forEach(msg -> log (translate("&6" + msg)));
-            printMessage.removeAll(Arrays.asList(HEADER));
-            log("");
-            log(translate("&6" + "=================================================================="));
-            log(translate("&6" + "➪  Version&7: &b" + getVersion()));
-            log(translate("&6" + "➪  Platform&7: &b" + PlatformBackend.get().getPlatformType().getFriendlyName()));
-            log(translate("&6" + "➪  Server Version&7: &b" + PacketEvents.getAPI().getServerManager().getVersion().getReleaseName()));
-            log(translate("&6" + "➪  Java Version&7: &b" + System.getProperty("java.version")));
-            log("");
+                this.threadManager = new ThreadManager();
+                PlatformBackend.get().registerListener(new BukkitThreadListener(this, threadManager));
+                log(translate("&6" + "➪  Thread Manager Initialized"));
 
-            log(translate("&6" + "➪  Config file Initialized"));
-            (this.checks = new Checks(getHost())).initialize();
-            log(translate("&6" + "➪  Checks file Initialized"));
+                (this.profileManager = new ProfileManager()).initialize();
+                log(translate("&6" + "➪  Profile Manager Initialized"));
 
-            PacketEvents.getAPI().getEventManager().registerListener(new NetworkListener(this));
-            log(translate("&6" + "➪  NetworkListener Initialized"));
+                // Register only after ProfileManager exists. PacketEvents may
+                // deliver immediately, which previously caused a null-manager
+                // exception during a live reload.
+                this.networkPacketListener = PacketEvents.getAPI().getEventManager()
+                        .registerListener(new NetworkListener(this));
+                log(translate("&6" + "➪  NetworkListener Initialized"));
 
-            this.threadManager = new ThreadManager();
-            PlatformBackend.get().registerListener(new BukkitThreadListener(this, threadManager));
-            log(translate("&6" + "➪  Thread Manager Initialized"));
+                (this.alertManager = new AlertManager()).initialize();
+                log(translate("&6" + "➪  Alert Manager Initialized"));
 
-            (this.profileManager = new ProfileManager()).initialize();
-            log(translate("&6" + "➪  Profile Manager Initialized"));
+                (this.themeManager = new ThemeManager(getHost())).initialize();
+                log(translate("&6" + "➪  Theme Manager Initialized"));
+                (this.logManager = new LogManager(getHost())).initialize();
+                log(translate("&6" + "➪  Log Manager Initialized"));
+                try {
+                    this.serverEdition = PlatformBackend.get().getServer().getClass().getPackage().getName().substring(22);
+                } catch (Throwable ignored) {
+                    this.serverEdition = "Unknown";
+                }
 
-            (this.alertManager = new AlertManager()).initialize();
-            log(translate("&6" + "➪  Alert Manager Initialized"));
+                logBedrockSupport();
 
-            (this.themeManager = new ThemeManager(getHost())).initialize();
-            log(translate("&6" + "➪  Theme Manager Initialized"));
-            (this.logManager = new LogManager(getHost())).initialize();
-            log(translate("&6" + "➪  Log Manager Initialized"));
-            try {
-                this.serverEdition = PlatformBackend.get().getServer().getClass().getPackage().getName().substring(22);
-            } catch (Throwable ignored) {
-                this.serverEdition = "Unknown";
-            }
+                if (getInstance().getHost() != null) {
+                    VelocityClientVersionBridge.register(getInstance().getHost());
+                    VelocityAlertBridge.register(getInstance().getHost());
+                    VelocityAlertBridge.syncOnlinePreferences();
+                    log(translate("&6" + "➪  Velocity Bridge Channels Initialized"));
+                }
 
-            logBedrockSupport();
+                TickTask tickTask = new TickTask(this);
+                TaskUtils.taskTimer(
+                        tickTask,
+                        1L,
+                        1L
+                );
+                log(translate("&6" + "➪  TickTask Initialized"));
+                if (Config.Setting.LOGS_ENABLED.getBoolean()) {
+                    LogsTask logsTask = new LogsTask(this);
+                    TaskUtils.taskTimerAsync(
+                            logsTask,
+                            6000L,
+                            6000L
+                    );
+                    log(translate("&6" + "➪  LogTask Initialized"));
+                }
 
-            if (getInstance().getHost() != null) {
-                VelocityClientVersionBridge.register(getInstance().getHost());
-                VelocityAlertBridge.register(getInstance().getHost());
-                VelocityAlertBridge.syncOnlinePreferences();
-                log(translate("&6" + "➪  Velocity Bridge Channels Initialized"));
-            }
-
-            TickTask tickTask = new TickTask(this);
-            TaskUtils.taskTimer(
-                    tickTask,
-                    1L,
-                    1L
-            );
-            log(translate("&6" + "➪  TickTask Initialized"));
-            if (Config.Setting.LOGS_ENABLED.getBoolean()) {
-                LogsTask logsTask = new LogsTask(this);
+                ViolationTask violationTask = new ViolationTask(this);
                 TaskUtils.taskTimerAsync(
-                        logsTask,
-                        6000L,
-                        6000L
+                        violationTask,
+                        Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L,
+                        Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L
                 );
-                log(translate("&6" + "➪  LogTask Initialized"));
-            }
+                this.violationListener = new ViolationListener(this);
+                PlatformBackend.get().registerListener(new ProfileListener(this));
+                PlatformBackend.get().registerListener(this.violationListener);
+                PlatformBackend.get().registerListener(new GeneralEventListener());
+                PlatformBackend.get().registerListener(new GuiListener());
+                me.arrow.playerdata.cache.ChunkCacheListener chunkCacheListener =
+                        new me.arrow.playerdata.cache.ChunkCacheListener(this.chunkCache);
+                PlatformBackend.get().registerListener(chunkCacheListener);
+                this.chunkCachePacketListener = PacketEvents.getAPI().getEventManager()
+                        .registerListener(chunkCacheListener);
 
-            ViolationTask violationTask = new ViolationTask(this);
-            TaskUtils.taskTimerAsync(
-                    violationTask,
-                    Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L,
-                    Config.Setting.CHECK_SETTINGS_VIOLATION_RESET_INTERVAL.getLong() * 1200L
-            );
-            this.violationListener = new ViolationListener(this);
-            PlatformBackend.get().registerListener(new ProfileListener(this));
-            PlatformBackend.get().registerListener(this.violationListener);
-            PlatformBackend.get().registerListener(new GeneralEventListener());
-            PlatformBackend.get().registerListener(new GuiListener());
-            me.arrow.playerdata.cache.ChunkCacheListener chunkCacheListener =
-                    new me.arrow.playerdata.cache.ChunkCacheListener(this.chunkCache);
-            PlatformBackend.get().registerListener(chunkCacheListener);
-            PacketEvents.getAPI().getEventManager().registerListener(chunkCacheListener);
+                log(translate("&6" + "➪  Listeners Initialized"));
 
-            log(translate("&6" + "➪  Listeners Initialized"));
+                ArrowAPIProvider.set(new ArrowAPIImpl(profileManager));
 
-            ArrowAPIProvider.set(new ArrowAPIImpl(profileManager));
+                log(translate("&6" + "➪  API Initialized"));
 
-            log(translate("&6" + "➪  API Initialized"));
+                if (getHost() != null) {
+                    Objects.requireNonNull(getHost().getCommand("arrow")).setExecutor(new CommandManager(this));
+                    log(translate("&6" + "➪  Command Manager Initialized"));
+                }
 
-            if (getHost() != null) {
-                Objects.requireNonNull(getHost().getCommand("arrow")).setExecutor(new CommandManager(this));
-                log(translate("&6" + "➪  Command Manager Initialized"));
-            }
+                if (getHost() != null && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean() && getHost().getCommand("stuck") != null) {
+                    Objects.requireNonNull(getHost().getCommand("stuck")).setExecutor(new Stuck());
+                }
 
-            if (getHost() != null && Config.Setting.TEST_SERVER_MODE_ENABLED.getBoolean() && getHost().getCommand("stuck") != null) {
-                Objects.requireNonNull(getHost().getCommand("stuck")).setExecutor(new Stuck());
-            }
+                if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
+                    System.setProperty("com.viaversion.handlePingsAsInvAcknowledgements", "true");
+                }
+                try {
+                    MiscUtils.initializeClasses(
+                            "me.arrow.utils.fastmath.FastMath",
+                            "me.arrow.utils.fastmath.NumbersUtils",
+                            "me.arrow.utils.fastmath.FastMathLiteralArrays",
+                            "me.arrow.utils.minecraft.MathHelper",
+                            "me.arrow.utils.CollisionUtils",
+                            "me.arrow.utils.MoveUtils"
+                    );
+                    log(translate("&6" + "➪  MathUtil Initialized"));
+                } catch (ClassNotFoundException e) {
+                    ErrorMonitor.report("Lifecycle", "initialize-math-classes", e,
+                            "classList=fastmath,MathHelper,CollisionUtils,MoveUtils");
+                }
 
-            if (PacketEvents.getAPI().getServerManager().getVersion().isNewerThanOrEquals(ServerVersion.V_1_13)) {
-                System.setProperty("com.viaversion.handlePingsAsInvAcknowledgements", "true");
-            }
-            try {
-                MiscUtils.initializeClasses(
-                        "me.arrow.utils.fastmath.FastMath",
-                        "me.arrow.utils.fastmath.NumbersUtils",
-                        "me.arrow.utils.fastmath.FastMathLiteralArrays",
-                        "me.arrow.utils.minecraft.MathHelper",
-                        "me.arrow.utils.CollisionUtils",
-                        "me.arrow.utils.MoveUtils"
-                );
-                log(translate("&6" + "➪  MathUtil Initialized"));
-            } catch (ClassNotFoundException e) {
-                ErrorMonitor.report("Lifecycle", "initialize-math-classes", e,
-                        "classList=fastmath,MathHelper,CollisionUtils,MoveUtils");
-            }
+                this.animationManager = new AnimationManager(getHost());
+                log(translate("&6" + "➪  Animation Manager initialized"));
 
-            this.animationManager = new AnimationManager(getHost());
-            log(translate("&6" + "➪  Animation Manager initialized"));
+                CollisionProcessor.start();
 
-            CollisionProcessor.start();
+                me.arrow.neural.NeuralNetManager.initialize();
+                log(translate("\u00266" + "➪  Neural Network Manager Initialized"));
 
-            me.arrow.neural.NeuralNetManager.initialize();
-            log(translate("\u00266" + "➪  Neural Network Manager Initialized"));
+                log("");
+                log(translate("&6" + "➪  Chunk Cache Preloaded &b" + preloadedChunks + "&6 already-loaded chunks"));
 
-            log("");
-            log(translate("&6" + "➪  Chunk Cache Preloaded &b" + preloadedChunks + "&6 already-loaded chunks"));
-
-            long endTime = System.currentTimeMillis();
-            log("");
-            log(translate("&6" + "➪  Plugin loaded in &b" + (endTime - startTime) + "ms"));
-            log("");
-            log(translate("&6" + "➪  Arrow &ahas been successfully enabled."));
-            log(translate("&6" + "=================================================================="));
-            log("");
-            if (PacketEvents.getAPI().getServerManager().getVersion()
-                    .isOlderThanOrEquals(ServerVersion.V_1_14_4)) {
-                log(translate("&e[WARN] This server is running a depricated version, meaning the anticheat will still work, but you will not receive any priority or proper support for updates, if there is an issue, you may still report it but do not expect any fix to be implemented."));
-            }
-            hasLoaded = true;
+                long endTime = System.currentTimeMillis();
+                log("");
+                log(translate("&6" + "➪  Plugin loaded in &b" + (endTime - startTime) + "ms"));
+                log("");
+                log(translate("&6" + "➪  Arrow &ahas been successfully enabled."));
+                log(translate("&6" + "=================================================================="));
+                log("");
+                if (PacketEvents.getAPI().getServerManager().getVersion()
+                        .isOlderThanOrEquals(ServerVersion.V_1_14_4)) {
+                    log(translate("&e[WARN] This server is running a depricated version, meaning the anticheat will still work, but you will not receive any priority or proper support for updates, if there is an issue, you may still report it but do not expect any fix to be implemented."));
+                }
+                hasLoaded = true;
             });
         }, 10L);
     }
@@ -372,9 +386,28 @@ public class Arrow {
     public void onDisable() {
         long startTime = System.currentTimeMillis();
 
+        // Stop accepting packet callbacks before tearing down state or allowing
+        // ArrowLoader to unload this classloader. Keep PacketEvents' other
+        // plugins' listeners intact by unregistering only Arrow's handles.
+        shuttingDown = true;
+        hasLoaded = false;
         try {
-            hasLoaded = false;
+            if (PacketEvents.getAPI() != null) {
+                if (networkPacketListener != null) {
+                    PacketEvents.getAPI().getEventManager().unregisterListener(networkPacketListener);
+                    networkPacketListener = null;
+                }
+                if (chunkCachePacketListener != null) {
+                    PacketEvents.getAPI().getEventManager().unregisterListener(chunkCachePacketListener);
+                    chunkCachePacketListener = null;
+                }
+            }
+        } catch (Throwable failure) {
+            ErrorMonitor.report("Lifecycle", "unregister-packet-listeners", failure,
+                    "plugin=" + (getHost() == null ? "Arrow" : getHost().getName()));
+        }
 
+        try {
             if (this.logManager != null) {
                 this.logManager.shutdown();
             }

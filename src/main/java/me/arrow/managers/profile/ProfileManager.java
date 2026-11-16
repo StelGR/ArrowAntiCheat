@@ -14,7 +14,6 @@ import org.bukkit.entity.Player;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -34,13 +33,9 @@ public class ProfileManager implements Initializer {
 
         if (PlatformBackend.get().getServer() == null) return;
 
-        if (!Arrow.getInstance().isHasLoaded() && !Arrow.isReloading()) {
-            PlatformBackend.get().getServer().getOnlinePlayers().stream().filter(Objects::nonNull).forEach(player -> player.kickPlayer("Server is still loading, please wait."));
-            return;
-        }
         PlatformBackend.get().getServer().getOnlinePlayers()
                 .stream()
-                .filter(Objects::nonNull)
+                .filter(player -> player != null && player.isOnline())
                 .forEach(this::createProfile);
     }
 
