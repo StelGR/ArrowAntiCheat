@@ -5,6 +5,7 @@ import me.arrow.enums.Permissions;
 import me.arrow.files.Config;
 import me.arrow.backend.bukkit.listener.ClientBrandListener;
 import me.arrow.managers.Initializer;
+import me.arrow.utils.TaskUtils;
 import me.arrow.backend.bukkit.PlatformBackend;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -25,6 +26,7 @@ public class ProfileManager implements Initializer {
     private final Map<UUID, Profile> profiles = new ConcurrentHashMap<>();
     private File profileFile;
     private FileConfiguration profileData;
+    private TaskUtils.CancellableTask profileSaveTask;
 
     @Override
     public void initialize() {
@@ -91,7 +93,7 @@ public class ProfileManager implements Initializer {
             }
         }
         profileData.set(path + ".total-logs", profile.getTotalLogs());
-        saveProfileData();
+        scheduleProfileSave();
     }
 
     public Profile getProfile(Player player) {
@@ -108,6 +110,11 @@ public class ProfileManager implements Initializer {
 
     @Override
     public synchronized void shutdown() {
+        if (profileSaveTask != null) {
+            profileSaveTask.cancel();
+            profileSaveTask = null;
+        }
+
         for (Profile profile : this.profiles.values()) {
             if (profile == null || profileData == null) continue;
 
@@ -127,6 +134,20 @@ public class ProfileManager implements Initializer {
         }
         saveProfileData();
         this.profiles.clear();
+    }
+
+    private synchronized void scheduleProfileSave() {
+        if (profileSaveTask != null) return;
+
+        profileSaveTask = TaskUtils.taskTimer(() -> {
+            synchronized (ProfileManager.this) {
+                if (profileSaveTask != null) {
+                    profileSaveTask.cancel();
+                    profileSaveTask = null;
+                }
+                saveProfileData();
+            }
+        }, 20L, 20L);
     }
 
     private void loadProfileData() {
