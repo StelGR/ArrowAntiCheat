@@ -9,6 +9,7 @@ import me.arrow.managers.errors.ErrorMonitor;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.utils.custom.CustomLocation;
 import me.arrow.utils.custom.materials.PEMaterials;
+import me.arrow.utils.TaskUtils;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.jspecify.annotations.NonNull;
@@ -23,6 +24,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.lang.reflect.Method;
 
 /**
  * Thread-safe, packet-driven Chunk and Block Cache for ArrowAntiCheat.
@@ -41,6 +44,9 @@ public class ChunkCache {
     }
 
     private static final boolean LEGACY_BLOCK_DATA_SUPPORTED;
+    private static final Method MATERIAL_GET_BY_ID = findLegacyMaterialMethod();
+    private static final Map<Integer, Material> LEGACY_MATERIAL_CACHE = new ConcurrentHashMap<>();
+    private static final Map<Integer, WrappedBlockState> LEGACY_SNAPSHOT_STATE_CACHE = new ConcurrentHashMap<>();
 
     static {
         boolean legacy = false;
@@ -92,7 +98,9 @@ public class ChunkCache {
                     public Thread newThread(@NonNull Runnable r) {
                         Thread t = new Thread(r, "Arrow-ChunkQueue-Worker-" + id.getAndIncrement());
                         t.setDaemon(true);
-                        t.setPriority(Thread.NORM_PRIORITY);
+                        // Chunk parsing is background work; let server and network
+                        // threads win CPU time when the machine is busy.
+                        t.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 1));
                         t.setUncaughtExceptionHandler((thread, failure) -> {
                             ErrorMonitor.report("ChunkCache", "uncaught-worker", failure,
                                     "thread=" + thread.getName());
@@ -300,104 +308,282 @@ public class ChunkCache {
     }
 
     /**
-     * Seeds the packet cache from chunks already loaded in memory during plugin startup.
-     * Must run synchronously before movement listeners begin querying the cache.
-     * This deliberately does not call World#getChunkAt and therefore never loads
-     * additional chunks from disk.
-     *
-     * @return number of chunks fully cached
+     * Seeds the cache from chunks already loaded at startup without scanning their
+     * blocks on the server thread. Bukkit creates each immutable ChunkSnapshot on
+     * the main thread; conversion and cache construction then run on the existing
+     * chunk workers. The bounded capture loop works on Bukkit 1.7 through modern
+     * versions and never requests a chunk that was not already loaded.
      */
-    public int preloadLoadedChunks() {
+    public void preloadLoadedChunksAsync(Consumer<Integer> completion) {
         long profileStart = Profiler.startChunkCache();
-        try {
         if (!Bukkit.isPrimaryThread()) {
             IllegalStateException failure = new IllegalStateException(
-                    "Loaded chunk preload must run on the Bukkit server thread");
+                    "Loaded chunk snapshots must be captured on the Bukkit server thread");
             ErrorMonitor.report("ChunkCache", "startup-preload-thread", failure,
                     "thread=" + Thread.currentThread().getName());
-            return 0;
+            return;
         }
 
-        int cachedCount = 0;
+        List<StartupChunk> chunks = new ArrayList<>();
         for (World world : Bukkit.getWorlds()) {
             if (world == null) continue;
-
-            int minY = getWorldMinHeight(world);
-            int maxY = world.getMaxHeight();
-            Chunk[] loadedChunks;
             try {
-                loadedChunks = world.getLoadedChunks();
+                int minY = getWorldMinHeight(world);
+                int maxY = world.getMaxHeight();
+                for (Chunk chunk : world.getLoadedChunks()) {
+                    if (chunk != null) {
+                        chunks.add(new StartupChunk(world, chunk, minY, maxY));
+                    }
+                }
             } catch (Throwable failure) {
                 ErrorMonitor.report("ChunkCache", "startup-list-loaded-chunks", failure,
                         "world=" + world.getName());
-                continue;
-            }
-
-            for (Chunk bukkitChunk : loadedChunks) {
-                if (bukkitChunk == null) continue;
-                int chunkX = bukkitChunk.getX();
-                int chunkZ = bukkitChunk.getZ();
-                try {
-                    CachedChunk cached = new CachedChunk(chunkX, chunkZ);
-                    cached.setFullChunkData(true);
-
-                    for (int y = minY; y < maxY; y++) {
-                        for (int localX = 0; localX < 16; localX++) {
-                            for (int localZ = 0; localZ < 16; localZ++) {
-                                Block block = bukkitChunk.getBlock(localX, y, localZ);
-                                Material material = block.getType();
-                                String materialName = material.name();
-                                if (material == Material.AIR || "CAVE_AIR".equals(materialName)
-                                        || "VOID_AIR".equals(materialName)) {
-                                    continue;
-                                }
-
-                                WrappedBlockState state = PEMaterials.fromBukkitBlock(block);
-                                if (state == null) {
-                                    throw new IllegalStateException("Could not convert block state for "
-                                            + materialName + " at " + block.getX() + "," + y + "," + block.getZ());
-                                }
-
-                                int combinedBlockId = -1;
-                                if (LEGACY_BLOCK_DATA_SUPPORTED) {
-                                    combinedBlockId = getLegacyCombinedBlockId(block);
-                                }
-                                writePacketBlockState(cached, localX, y, localZ, state, combinedBlockId);
-                            }
-                        }
-                    }
-
-                    cached.setCompleteStatefulCollisionData();
-                    synchronized (cacheUpdateLock) {
-                        putChunkInternal(world.getName(), chunkX, chunkZ, cached);
-                    }
-                    cachedCount++;
-                } catch (Throwable failure) {
-                    String context = "world=" + world.getName() + ",chunkX=" + chunkX + ",chunkZ=" + chunkZ
-                            + ",minY=" + minY + ",maxY=" + maxY;
-                    ErrorMonitor.report("ChunkCache", "startup-preload-chunk", failure, context);
-                }
             }
         }
+        Profiler.stopChunkCache("preloadLoadedChunks", profileStart);
+        new StartupPreload(chunks, completion).start();
+    }
 
-        if (cachedCount > 0) initialized = true;
-        return cachedCount;
-        } finally {
-            Profiler.stopChunkCache("preloadLoadedChunks", profileStart);
+    private final class StartupPreload {
+        private static final int MAX_SNAPSHOTS_PER_TICK = 2;
+        private final List<StartupChunk> chunks;
+        private final Consumer<Integer> completion;
+        private int nextIndex;
+        private int inFlight;
+        private int cachedCount;
+        private boolean finished;
+        private TaskUtils.CancellableTask ticker;
+
+        private StartupPreload(List<StartupChunk> chunks, Consumer<Integer> completion) {
+            this.chunks = chunks;
+            this.completion = completion;
+        }
+
+        private void start() {
+            ticker = TaskUtils.taskTimer(this::captureBatch, 1L, 1L);
+        }
+
+        private void captureBatch() {
+            if (!running || finished) {
+                cancel();
+                return;
+            }
+
+            int captured = 0;
+            int workerLimit = Math.max(1, chunkExecutor.getMaximumPoolSize());
+            while (captured < MAX_SNAPSHOTS_PER_TICK && inFlight < workerLimit
+                    && nextIndex < chunks.size()) {
+                StartupChunk source = chunks.get(nextIndex++);
+                boolean reservedWorker = false;
+                try {
+                    if (!source.world.isChunkLoaded(source.chunk.getX(), source.chunk.getZ())) continue;
+                    org.bukkit.ChunkSnapshot snapshot = source.chunk.getChunkSnapshot();
+                    inFlight++;
+                    reservedWorker = true;
+                    chunkExecutor.execute(() -> parseStartupSnapshot(source, snapshot));
+                    captured++;
+                } catch (Throwable failure) {
+                    if (reservedWorker) inFlight--;
+                    ErrorMonitor.report("ChunkCache", "startup-snapshot", failure,
+                            "world=" + source.worldName + ",chunkX=" + source.chunkX
+                                    + ",chunkZ=" + source.chunkZ);
+                }
+            }
+
+            if (nextIndex >= chunks.size() && inFlight == 0) finish();
+        }
+
+        private void parseStartupSnapshot(StartupChunk source, org.bukkit.ChunkSnapshot snapshot) {
+            long workerStart = Profiler.startChunkCache();
+            CachedChunk cached = null;
+            Throwable failure = null;
+            try {
+                cached = buildStartupSnapshot(source, snapshot);
+            } catch (Throwable parseFailure) {
+                failure = parseFailure;
+            } finally {
+                Profiler.stopChunkCache("startupChunkWorker", workerStart);
+            }
+
+            final CachedChunk parsed = cached;
+            final Throwable parseFailure = failure;
+            TaskUtils.task(() -> {
+                if (!running || finished) return;
+                if (parseFailure == null && parsed != null) {
+                    synchronized (cacheUpdateLock) {
+                        putChunkInternal(source.worldName, source.chunkX, source.chunkZ, parsed);
+                    }
+                    cachedCount++;
+                } else if (parseFailure != null) {
+                    ErrorMonitor.report("ChunkCache", "startup-preload-chunk", parseFailure,
+                            "world=" + source.worldName + ",chunkX=" + source.chunkX
+                                    + ",chunkZ=" + source.chunkZ + ",minY=" + source.minY
+                                    + ",maxY=" + source.maxY);
+                }
+                inFlight--;
+                if (nextIndex >= chunks.size() && inFlight == 0) finish();
+            });
+        }
+
+        private void finish() {
+            if (finished) return;
+            finished = true;
+            cancel();
+            initialized = cachedCount > 0;
+            if (completion != null) completion.accept(cachedCount);
+        }
+
+        private void cancel() {
+            if (ticker != null) {
+                ticker.cancel();
+                ticker = null;
+            }
         }
     }
 
-    /** Reads pre-flattening block IDs without linking against APIs that removed these methods. */
-    private static int getLegacyCombinedBlockId(Block block) {
+    private static CachedChunk buildStartupSnapshot(StartupChunk source,
+                                                     org.bukkit.ChunkSnapshot snapshot) throws Exception {
+        CachedChunk cached = new CachedChunk(source.chunkX, source.chunkZ);
+        cached.setFullChunkData(true);
+        SnapshotReader reader = new SnapshotReader(snapshot);
+        for (int y = source.minY; y < source.maxY; y++) {
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    Object rawType = reader.read(reader.blockType, x, y, z);
+                    Object rawTypeId = reader.read(reader.blockTypeId, x, y, z);
+                    Object rawData = reader.read(reader.blockData, x, y, z);
+                    Material material = rawType instanceof Material
+                            ? (Material) rawType
+                            : rawTypeId instanceof Number
+                                    ? materialFromLegacyTypeId(((Number) rawTypeId).intValue())
+                                    : null;
+                    String name = material == null ? null : material.name();
+                    if (material == Material.AIR || "CAVE_AIR".equals(name) || "VOID_AIR".equals(name)) continue;
+
+                    int legacyId = rawTypeId instanceof Number ? ((Number) rawTypeId).intValue() : -1;
+                    int legacyData = rawData instanceof Number ? ((Number) rawData).intValue() & 0xF : 0;
+                    Object blockData = rawData instanceof Number ? null : rawData;
+                    int combinedBlockId = LEGACY_BLOCK_DATA_SUPPORTED && legacyId >= 0
+                            ? (legacyId << 4) | legacyData : -1;
+                    WrappedBlockState state = LEGACY_BLOCK_DATA_SUPPORTED && combinedBlockId >= 0
+                            ? LEGACY_SNAPSHOT_STATE_CACHE.get(combinedBlockId) : null;
+                    if (state == null) state = PEMaterials.fromBukkitBlockData(blockData);
+                    if (state == null && material != null) {
+                        state = LEGACY_BLOCK_DATA_SUPPORTED && combinedBlockId >= 0
+                                ? legacySnapshotState(combinedBlockId, material, legacyData)
+                                : PEMaterials.fromBukkitMaterialData(
+                                        new org.bukkit.material.MaterialData(material, (byte) legacyData));
+                    }
+                    if (state == null && material != null) state = PEMaterials.fromBukkitMaterial(material);
+                    if (state == null || state.getType() == null) {
+                        if (legacyId == 0 || material == Material.AIR) continue;
+                        throw new IllegalStateException("Could not map snapshot block at " + x + "," + y + "," + z
+                                + " (type=" + rawType + ",typeId=" + rawTypeId + ")");
+                    }
+                    if (state.getType().isAir()) continue;
+
+                    writePacketBlockState(cached, x, y, z, state, combinedBlockId);
+                }
+            }
+        }
+        cached.setCompleteStatefulCollisionData();
+        return cached;
+    }
+
+    private static Material materialFromLegacyTypeId(int typeId) {
+        Material cached = LEGACY_MATERIAL_CACHE.get(typeId);
+        if (cached != null) return cached;
         try {
-            Object rawTypeId = block.getClass().getMethod("getTypeId").invoke(block);
-            Object rawData = block.getClass().getMethod("getData").invoke(block);
-            if (rawTypeId instanceof Number && rawData instanceof Number) {
-                return (((Number) rawTypeId).intValue() << 4) | (((Number) rawData).intValue() & 0xF);
+            Object material = MATERIAL_GET_BY_ID == null ? null : MATERIAL_GET_BY_ID.invoke(null, typeId);
+            if (material instanceof Material) {
+                Material mapped = (Material) material;
+                Material previous = LEGACY_MATERIAL_CACHE.putIfAbsent(typeId, mapped);
+                return previous == null ? mapped : previous;
             }
         } catch (Throwable ignored) {
         }
-        return -1;
+        return null;
+    }
+
+    private static WrappedBlockState legacySnapshotState(int combinedBlockId, Material material, int data) {
+        WrappedBlockState cached = LEGACY_SNAPSHOT_STATE_CACHE.get(combinedBlockId);
+        if (cached != null) return cached;
+        WrappedBlockState state = PEMaterials.fromBukkitMaterialData(
+                new org.bukkit.material.MaterialData(material, (byte) data));
+        if (state == null) return null;
+        WrappedBlockState previous = LEGACY_SNAPSHOT_STATE_CACHE.putIfAbsent(combinedBlockId, state);
+        return previous == null ? state : previous;
+    }
+
+    private static Method findLegacyMaterialMethod() {
+        try {
+            return Material.class.getMethod("getMaterial", int.class);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static final class StartupChunk {
+        private final World world;
+        private final Chunk chunk;
+        private final String worldName;
+        private final int chunkX;
+        private final int chunkZ;
+        private final int minY;
+        private final int maxY;
+
+        private StartupChunk(World world, Chunk chunk, int minY, int maxY) {
+            this.world = world;
+            this.chunk = chunk;
+            this.worldName = world.getName();
+            this.chunkX = chunk.getX();
+            this.chunkZ = chunk.getZ();
+            this.minY = minY;
+            this.maxY = maxY;
+        }
+    }
+
+    private static final class SnapshotReader {
+        private final org.bukkit.ChunkSnapshot snapshot;
+        private final Method blockType;
+        private final Method blockTypeId;
+        private final Method blockData;
+
+        private SnapshotReader(org.bukkit.ChunkSnapshot snapshot) {
+            this.snapshot = snapshot;
+            Class<?> type;
+            try {
+                // Resolve against the public Bukkit interface so access also works
+                // when a server's concrete snapshot implementation is non-public.
+                type = Class.forName("org.bukkit.ChunkSnapshot");
+            } catch (Throwable ignored) {
+                type = snapshot.getClass();
+            }
+            this.blockType = findSnapshotMethod(type, "getBlockType");
+            this.blockTypeId = findSnapshotMethod(type, "getBlockTypeId");
+            this.blockData = findSnapshotMethod(type, "getBlockData");
+        }
+
+        private Object read(Method method, int x, int y, int z) throws Exception {
+            if (method == null) return null;
+            try {
+                return method.invoke(snapshot, x, y, z);
+            } catch (Throwable ignored) {
+                // These compatibility accessors were removed or changed across
+                // Bukkit versions. A failed legacy accessor must not prevent the
+                // modern block type/data accessor from providing the state.
+                return null;
+            }
+        }
+
+        private static Method findSnapshotMethod(Class<?> type, String name) {
+            try {
+                Method method = type.getMethod(name, int.class, int.class, int.class);
+                return method;
+            } catch (Throwable ignored) {
+                return null;
+            }
+        }
     }
 
     private static int getWorldMinHeight(World world) {
