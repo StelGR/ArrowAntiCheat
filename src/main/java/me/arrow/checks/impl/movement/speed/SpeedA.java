@@ -218,7 +218,7 @@ public class SpeedA extends Check {
                     failDetails = "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
                             + "\nexpected deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + expectedSpeed
                             + "\nblock friction " + MsgType.MAIN_THEME_COLOR.getMessage() + blockFriction
-                            + "\npredictedWater " + MsgType.MAIN_THEME_COLOR.getMessage() + predictedDifference
+                            + "\npredictedWater " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getExpectedWaterDeltaXZ() + " | " + movementData.getWaterMomentumBonus()
                             + "\nstrafe sector " + MsgType.MAIN_THEME_COLOR.getMessage() + inputDirection.getSector()
                             + "\nisSprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getActionData().isSprinting()
                             + "\nserverGroundTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + serverGroundTicks;
