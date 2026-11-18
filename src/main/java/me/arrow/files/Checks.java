@@ -65,7 +65,7 @@ public class Checks implements Initializer {
             changed |= setting.setIfNotExists(this.configuration);
         }
 
-        if (changed || this.configuration.hasExcessiveBlankLines()) this.configuration.save();
+        if (changed || this.configuration.needsFormatting()) this.configuration.save();
     }
 
     private Object[] readCheckSettings(String check, String[] paths) {

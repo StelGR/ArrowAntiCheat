@@ -1,6 +1,7 @@
 package me.arrow.files.commentedfiles;
 
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.yaml.snakeyaml.DumperOptions;
 
@@ -50,7 +51,32 @@ public class CommentedFileConfiguration extends CommentedConfigurationSection {
     }
 
     public void reloadConfig() {
-        this.config = YamlConfiguration.loadConfiguration(this.helper.getConfigContent(this.file));
+        YamlConfiguration reloaded = new YamlConfiguration();
+        try {
+            reloaded.load(this.file);
+        } catch (Exception e) {
+            me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfiguration", "caught-exception", e);
+            return;
+        }
+
+        copyCommentKeys(this.config, reloaded);
+        this.config = reloaded;
+    }
+
+    private void copyCommentKeys(ConfigurationSection source, ConfigurationSection destination) {
+        String commentPrefix = this.helper.getPluginName() + "_COMMENT_";
+        for (String key : source.getKeys(false)) {
+            Object value = source.get(key);
+            if (key.startsWith(commentPrefix)) {
+                destination.set(key, value);
+            } else if (value instanceof ConfigurationSection) {
+                ConfigurationSection destinationSection = destination.getConfigurationSection(key);
+                if (destinationSection == null) {
+                    destinationSection = destination.createSection(key);
+                }
+                copyCommentKeys((ConfigurationSection) value, destinationSection);
+            }
+        }
     }
 
     public void save() {
@@ -71,8 +97,8 @@ public class CommentedFileConfiguration extends CommentedConfigurationSection {
         this.helper.saveConfig(config, file, compactLines);
     }
 
-    public boolean hasExcessiveBlankLines() {
-        return this.helper.hasExcessiveBlankLines(this.file);
+    public boolean needsFormatting() {
+        return this.helper.needsFormatting(this.file);
     }
 
     private String getConfigAsString() {
