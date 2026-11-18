@@ -1256,8 +1256,11 @@ public class CollisionUtils {
                             this.unresolvedCollisionShape = true;
                         }
 
+                        boolean pistonHead = PEMaterials.isPistonHead(material)
+                                || PEMaterials.isPistonHead(cachedState);
                         if ((material == null || material == Material.AIR)
-                                && (boxes == null || boxes.isEmpty())) {
+                                && (boxes == null || boxes.isEmpty())
+                                && !pistonHead) {
                             continue;
                         }
 
@@ -1280,38 +1283,77 @@ public class CollisionUtils {
                             this.unresolvedCollisionShape = true;
                         }
 
-                        if (boxes == null || boxes.isEmpty()) {
+                        if ((boxes == null || boxes.isEmpty()) && !pistonHead) {
                             continue;
                         }
 
-                        for (PEMaterials.CollisionBounds box : boxes) {
-                            if (!this.exactGroundSupport
-                                    && overlapsHorizontally(
-                                            box,
-                                            location.getX() - GROUND_PLAYER_HALF_WIDTH,
-                                            location.getZ() - GROUND_PLAYER_HALF_WIDTH,
-                                            location.getX() + GROUND_PLAYER_HALF_WIDTH,
-                                            location.getZ() + GROUND_PLAYER_HALF_WIDTH
-                                    )
-                                    && Math.abs(box.maxY - feetY) <= GROUND_SUPPORT_VERTICAL_TOLERANCE) {
-                                this.exactGroundSupport = true;
-                            }
+                        boolean pistonHeadHasExactSupport = false;
+                        if (boxes != null) {
+                            for (PEMaterials.CollisionBounds box : boxes) {
+                                if (!this.exactGroundSupport
+                                        && overlapsHorizontally(
+                                                box,
+                                                location.getX() - GROUND_PLAYER_HALF_WIDTH,
+                                                location.getZ() - GROUND_PLAYER_HALF_WIDTH,
+                                                location.getX() + GROUND_PLAYER_HALF_WIDTH,
+                                                location.getZ() + GROUND_PLAYER_HALF_WIDTH
+                                        )
+                                        && Math.abs(box.maxY - feetY) <= GROUND_SUPPORT_VERTICAL_TOLERANCE) {
+                                    this.exactGroundSupport = true;
+                                    if (pistonHead) pistonHeadHasExactSupport = true;
+                                }
 
-                            if (!this.landingGroundSupport
-                                    && descending
-                                    && overlapsHorizontally(
-                                            box,
-                                            sweepMinX, sweepMinZ,
-                                            sweepMaxX, sweepMaxZ
-                                    )
-                                    && Math.abs(box.maxY - feetY) <= GROUND_SUPPORT_VERTICAL_TOLERANCE) {
-                                this.landingGroundSupport = true;
-                            }
+                                if (!this.landingGroundSupport
+                                        && descending
+                                        && overlapsHorizontally(
+                                                box,
+                                                sweepMinX, sweepMinZ,
+                                                sweepMaxX, sweepMaxZ
+                                        )
+                                        && Math.abs(box.maxY - feetY) <= GROUND_SUPPORT_VERTICAL_TOLERANCE) {
+                                    this.landingGroundSupport = true;
+                                }
 
-                            if (!this.blockAbove && box.intersects(
-                                    playerMinX, headMinY, playerMinZ,
-                                    playerMaxX, headMaxY, playerMaxZ)) {
-                                this.blockAbove = true;
+                                if (!this.blockAbove && box.intersects(
+                                        playerMinX, headMinY, playerMinZ,
+                                        playerMaxX, headMaxY, playerMaxZ)) {
+                                    this.blockAbove = true;
+                                }
+                            }
+                        }
+
+                        /*
+                         * Prefer the exact state shape above. If it does not
+                         * meet the player's feet, retry a piston head using
+                         * each legal facing. This covers stale/mismatched
+                         * packet state while keeping the fallback scoped to
+                         * actual piston-head blocks.
+                         */
+                        if (pistonHead && !pistonHeadHasExactSupport) {
+                            for (PEMaterials.CollisionBounds possibleBox :
+                                    PEMaterials.possiblePistonHeadBounds(x, y, z)) {
+                                if (!this.exactGroundSupport
+                                        && overlapsHorizontally(
+                                                possibleBox,
+                                                location.getX() - GROUND_PLAYER_HALF_WIDTH,
+                                                location.getZ() - GROUND_PLAYER_HALF_WIDTH,
+                                                location.getX() + GROUND_PLAYER_HALF_WIDTH,
+                                                location.getZ() + GROUND_PLAYER_HALF_WIDTH
+                                        )
+                                        && Math.abs(possibleBox.maxY - feetY) <= GROUND_SUPPORT_VERTICAL_TOLERANCE) {
+                                    this.exactGroundSupport = true;
+                                }
+
+                                if (!this.landingGroundSupport
+                                        && descending
+                                        && overlapsHorizontally(
+                                                possibleBox,
+                                                sweepMinX, sweepMinZ,
+                                                sweepMaxX, sweepMaxZ
+                                        )
+                                        && Math.abs(possibleBox.maxY - feetY) <= GROUND_SUPPORT_VERTICAL_TOLERANCE) {
+                                    this.landingGroundSupport = true;
+                                }
                             }
                         }
                     }
