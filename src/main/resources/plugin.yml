@@ -1,6 +1,6 @@
 main: me.arrow.backend.bukkit.ArrowBukkitPlugin
 name: Arrow
-version: aaaad
+version: aaaaf
 api-version: '1.13'
 authors: [Stel]
 prefix: Arrow

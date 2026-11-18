@@ -1638,9 +1638,29 @@ public class PEMaterials {
             facing = facingFromLegacyData(legacyData & 0x7);
         }
         if (facing == null) {
-            facing = "UP";
+            /*
+             * Packet/world caches can briefly have the piston-head material
+             * without its facing state. Assuming UP invents a different rod
+             * top (0.75 instead of the horizontal head's 0.625), so a player
+             * standing on the real neck is incorrectly treated as airborne.
+             * Preserve possible support until the facing state is available.
+             */
+            return possiblePistonHeadBounds(x, y, z);
         }
 
+        return pistonHeadBoundsForFacing(facing, x, y, z);
+    }
+
+    /** Possible top surfaces used only when an exact piston-head shape did not support the player. */
+    public static List<CollisionBounds> possiblePistonHeadBounds(int x, int y, int z) {
+        List<CollisionBounds> possibleBounds = new ArrayList<>(12);
+        for (String possibleFacing : new String[] {"DOWN", "UP", "NORTH", "SOUTH", "WEST", "EAST"}) {
+            possibleBounds.addAll(pistonHeadBoundsForFacing(possibleFacing, x, y, z));
+        }
+        return possibleBounds;
+    }
+
+    private static List<CollisionBounds> pistonHeadBoundsForFacing(String facing, int x, int y, int z) {
         List<CollisionBounds> boxes = new ArrayList<>(2);
         switch (facing) {
             case "DOWN":
