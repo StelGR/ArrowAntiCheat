@@ -20,11 +20,12 @@ import me.arrow.managers.AlertManager;
 import me.arrow.managers.errors.ErrorMonitor;
 import me.arrow.managers.logs.LogManager;
 import me.arrow.managers.profile.ProfileManager;
+import me.arrow.managers.profiler.Profiler;
 import me.arrow.managers.themes.ThemeManager;
 import me.arrow.backend.bukkit.listener.BukkitThreadListener;
 import me.arrow.core.thread.ThreadManager;
 import me.arrow.backend.bukkit.nms.NmsManager;
-import me.arrow.playerdata.data.impl.RodData;
+import me.arrow.playerdata.cache.ChunkCache;import me.arrow.playerdata.data.impl.RodData;
 import me.arrow.playerdata.processors.impl.CollisionProcessor;
 import me.arrow.tasks.LogsTask;
 import me.arrow.tasks.TickTask;
@@ -104,9 +105,6 @@ public class Arrow {
     private static final GuiManager guiManager = new GuiManager();
 
     @Getter
-    private final String version = "b108";
-
-    @Getter
     private final JavaPlugin host;     // the Bukkit plugin entrypoint
     private final File dataFolder;     // where configs/checks are stored
 
@@ -138,7 +136,7 @@ public class Arrow {
     private ThemeManager themeManager;
 
     @Getter
-    private final me.arrow.playerdata.cache.ChunkCache chunkCache = me.arrow.playerdata.cache.ChunkCache.get();
+    private final ChunkCache chunkCache = ChunkCache.get();
 
     @Getter
     private AnimationManager animationManager;
@@ -183,13 +181,17 @@ public class Arrow {
         return new File("config/arrow");
     }
 
+    public String getVersion() {
+        return host != null ? host.getDescription().getVersion() : "dev";
+    }
+
     // Called by the Bukkit plugin entrypoint.
     public void onEnable() {
         long startTime = System.currentTimeMillis();
 
         // /updatearrow creates a fresh profiling session; discard measurements
         // left by the previous classloader before any startup work begins.
-        me.arrow.managers.profiler.Profiler.clear();
+        Profiler.clear();
         instance = this;
         shuttingDown = false;
         hasLoaded = false;

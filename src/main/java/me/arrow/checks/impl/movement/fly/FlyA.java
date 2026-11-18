@@ -333,8 +333,8 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (profile.isExempt().vehicle()) {
-            ChatUtils.debugExempt("vehicle", "FlyA");
+        if (exempt("vehicle", profile.isExempt().vehicle() || profile.getVehicleData().getSinceVehicleTicks() <= 2)) {
+            debugExempt("vehicle", "Fly A");
             return true;
         }
 
