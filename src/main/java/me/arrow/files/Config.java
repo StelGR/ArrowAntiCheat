@@ -54,9 +54,8 @@ public class Config implements Initializer {
 
         this.configuration = CommentedFileConfiguration.loadConfiguration(this.plugin, configFile);
 
-        String buildVersion = Arrow.getInstance() != null ? Arrow.getInstance().getVersion() : "dev";
-        if (!buildVersion.equals(this.configuration.getString("version"))) {
-            this.configuration.set("version", buildVersion);
+        if (this.configuration.contains("version")) {
+            this.configuration.set("version", null);
             changed = true;
         }
 
@@ -69,7 +68,7 @@ public class Config implements Initializer {
             changed |= setting.setIfNotExists(this.configuration);
         }
 
-        if (changed) this.configuration.save();
+        if (changed || this.configuration.hasExcessiveBlankLines()) this.configuration.save();
     }
 
     @Override

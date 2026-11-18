@@ -42,16 +42,23 @@ import me.arrow.backend.bukkit.PlatformBackend;
 import me.arrow.utils.versionutils.impl.VelocityClientVersionBridge;
 import me.arrow.utils.versionutils.impl.VelocityAlertBridge;
 import me.stel.API.ArrowAPIProvider;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 import static me.arrow.utils.customutils.OtherUtility.log;
 import static me.arrow.utils.customutils.OtherUtility.translate;
@@ -182,7 +189,39 @@ public class Arrow {
     }
 
     public String getVersion() {
+        String packagedVersion = getPackagedVersion();
+        if (packagedVersion != null && !packagedVersion.trim().isEmpty()) {
+            return packagedVersion.trim();
+        }
         return host != null ? host.getDescription().getVersion() : "dev";
+    }
+
+    private String getPackagedVersion() {
+        try {
+            URL source = Arrow.class.getProtectionDomain().getCodeSource().getLocation();
+            File sourceFile = new File(source.toURI());
+            if (sourceFile.isFile()) {
+                try (JarFile jar = new JarFile(sourceFile)) {
+                    JarEntry entry = jar.getJarEntry("plugin.yml");
+                    if (entry != null) {
+                        try (InputStream stream = jar.getInputStream(entry);
+                             InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+                            return YamlConfiguration.loadConfiguration(reader).getString("version");
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        try (InputStream stream = Arrow.class.getResourceAsStream("/plugin.yml")) {
+            if (stream == null) return null;
+            try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+                return YamlConfiguration.loadConfiguration(reader).getString("version");
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     // Called by the Bukkit plugin entrypoint.
