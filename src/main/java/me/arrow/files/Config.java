@@ -54,6 +54,12 @@ public class Config implements Initializer {
 
         this.configuration = CommentedFileConfiguration.loadConfiguration(this.plugin, configFile);
 
+        String buildVersion = Arrow.getInstance() != null ? Arrow.getInstance().getVersion() : "dev";
+        if (!buildVersion.equals(this.configuration.getString("version"))) {
+            this.configuration.set("version", buildVersion);
+            changed = true;
+        }
+
         if (setHeaderFooter) this.configuration.addComments(HEADER);
 
         for (Setting setting : Setting.values()) {

@@ -8,6 +8,7 @@
     <description>A simple and efficient anticheat</description>
     <build>
         <directory>${project.basedir}/build-target</directory>
+        <finalName>Arrow</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

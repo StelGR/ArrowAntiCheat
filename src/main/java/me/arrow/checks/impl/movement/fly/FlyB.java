@@ -197,7 +197,6 @@ public class FlyB extends Check {
         if (exempt("recentDamage", profile.getDamageData().hasAnyCause(IGNORED_CAUSES, 6 + (profile.getConnectionData().getClientTickTrans() * 2)))) return true;
 
         if (exempt("cancelled", profile.shouldCancel())) { resetBuffer(); return true; }
-        if (exempt("vehicle", profile.isExempt().isVehicle())) { resetBuffer(); return true; }
         if (exempt("slimeBounce", profile.isBouncingOnSlime())) { resetBuffer(); return true; }
         if (exempt("onBoat", movementData.isOnBoat())) { resetBuffer(); return true; }
         if (exempt("nearBoat", movementData.isNearBoat())) { resetBuffer(); return true; }
@@ -231,7 +230,7 @@ public class FlyB extends Check {
             return true;
         }
 
-        if (profile.getVehicleData().getSinceVehicleTicks() < 1 + (profile.getConnectionData().getClientTickTrans() * 2)) {
+        if (exempt("vehicle", profile.isExempt().vehicle() || profile.getVehicleData().getSinceVehicleTicks() <= 2)) {
             debugExempt("vehicle", "Fly B");
             return true;
         }
