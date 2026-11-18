@@ -71,6 +71,10 @@ public class CommentedFileConfiguration extends CommentedConfigurationSection {
         this.helper.saveConfig(config, file, compactLines);
     }
 
+    public boolean hasExcessiveBlankLines() {
+        return this.helper.hasExcessiveBlankLines(this.file);
+    }
+
     private String getConfigAsString() {
         if (!(this.config instanceof YamlConfiguration))
             throw new UnsupportedOperationException("Cannot get config string of non-YamlConfiguration");

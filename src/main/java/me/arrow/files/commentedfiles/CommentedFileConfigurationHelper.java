@@ -114,6 +114,20 @@ public class CommentedFileConfigurationHelper {
         }
     }
 
+    public boolean hasExcessiveBlankLines(File file) {
+        if (file == null || !file.exists()) {
+            return false;
+        }
+
+        try {
+            String contents = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+            return Pattern.compile("(?:\\r?\\n[ \\t]*){3,}").matcher(contents).find();
+        } catch (IOException e) {
+            me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfigurationHelper", "caught-exception", e);
+            return false;
+        }
+    }
+
     private String prepareConfigString(String configString) {
         boolean lastLine = false;
 
@@ -158,7 +172,8 @@ public class CommentedFileConfigurationHelper {
      * @param compactLines - If lines should forcefully be separated by only one newline character
      */
     public void saveConfig(String configString, File file, boolean compactLines) {
-        String configuration = this.prepareConfigString(configString).replaceAll("\n\n", "\n");
+        String configuration = this.prepareConfigString(configString)
+                .replaceAll("(?m)\\n(?:[ \\t]*\\n)+", "\n\n");
 
         // Apply post-processing to config string to make it pretty
         StringBuilder stringBuilder = new StringBuilder();
@@ -206,7 +221,9 @@ public class CommentedFileConfigurationHelper {
         }
 
         try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(file.getAbsolutePath()), StandardCharsets.UTF_8)) {
-            writer.write(stringBuilder.toString());
+            String formatted = stringBuilder.toString()
+                    .replaceAll("(?:\\r?\\n[ \\t]*){3,}", "\n\n");
+            writer.write(formatted);
             writer.flush();
         } catch (IOException e) {
             me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfigurationHelper", "caught-exception", e);
