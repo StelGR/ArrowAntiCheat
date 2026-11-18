@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Scanner;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -57,29 +58,36 @@ public class CommentedFileConfigurationHelper {
 
         try {
             int commentNum = 0;
-
             String pluginName = this.getPluginName();
-
             StringBuilder whole = new StringBuilder();
-            BufferedReader reader = Files.newBufferedReader(Paths.get(file.getAbsolutePath()), StandardCharsets.UTF_8);
+            List<String> lines = Files.readAllLines(Paths.get(file.getAbsolutePath()), StandardCharsets.UTF_8);
 
-            String currentLine;
-            while ((currentLine = reader.readLine()) != null) {
-                // Convert comments into keys
+            for (int i = 0; i < lines.size(); i++) {
+                String currentLine = lines.get(i);
                 if (currentLine.trim().startsWith("#")) {
-                    String addLine = currentLine.replaceAll(Pattern.quote("'"), Matcher.quoteReplacement("''"))
-                            .replaceFirst("#", pluginName + "_COMMENT_" + commentNum++ + ": '") + "'";
-                    whole.append(addLine).append("\n");
+                    int marker = currentLine.indexOf('#');
+                    int currentIndent = marker;
+                    int targetIndent = nextContentIndent(lines, i + 1);
+                    String indentation = currentLine.substring(0, marker);
+                    int previousContentLine = previousContentLine(lines, i - 1);
+
+                    // Older saves left comments flush-left inside a nested YAML section.
+                    // Only align them when they follow an existing YAML node. Leading
+                    // file-header comments must remain at the document root.
+                    if (previousContentLine >= 0 && targetIndent > currentIndent) {
+                        indentation = lines.get(nextContentLine(lines, i + 1)).substring(0, targetIndent);
+                    }
+
+                    String commentText = currentLine.substring(marker + 1).replace("'", "''");
+                    whole.append(indentation)
+                            .append(pluginName).append("_COMMENT_").append(commentNum++)
+                            .append(": '").append(commentText).append("'\n");
                 } else {
-                    whole.append(currentLine).append("\n");
+                    whole.append(currentLine).append('\n');
                 }
             }
 
-            String config = whole.toString();
-            Reader configStream = new StringReader(config);
-
-            reader.close();
-            return configStream;
+            return new StringReader(whole.toString());
         } catch (IOException e) {
             me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfigurationHelper", "caught-exception", e);
             return null;
@@ -114,18 +122,67 @@ public class CommentedFileConfigurationHelper {
         }
     }
 
-    public boolean hasExcessiveBlankLines(File file) {
+    public boolean needsFormatting(File file) {
         if (file == null || !file.exists()) {
             return false;
         }
 
         try {
             String contents = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
-            return Pattern.compile("(?:\\r?\\n[ \\t]*){3,}").matcher(contents).find();
+            if (Pattern.compile("(?:\\r?\\n[ \\t]*){3,}").matcher(contents).find()) {
+                return true;
+            }
+
+            List<String> lines = Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
+            for (int i = 0; i < lines.size(); i++) {
+                String line = lines.get(i);
+                int marker = line.indexOf('#');
+                if (marker >= 0 && previousContentLine(lines, i - 1) >= 0
+                        && line.substring(0, marker).trim().isEmpty()
+                        && nextContentIndent(lines, i + 1) > marker) {
+                    return true;
+                }
+            }
+            return false;
         } catch (IOException e) {
             me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfigurationHelper", "caught-exception", e);
             return false;
         }
+    }
+
+    private int nextContentIndent(List<String> lines, int start) {
+        int lineIndex = nextContentLine(lines, start);
+        return lineIndex < 0 ? 0 : leadingWhitespace(lines.get(lineIndex));
+    }
+
+    private int nextContentLine(List<String> lines, int start) {
+        for (int i = start; i < lines.size(); i++) {
+            String line = lines.get(i);
+            String trimmed = line.trim();
+            if (!trimmed.isEmpty() && !trimmed.startsWith("#")) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int previousContentLine(List<String> lines, int start) {
+        for (int i = start; i >= 0; i--) {
+            String line = lines.get(i);
+            String trimmed = line.trim();
+            if (!trimmed.isEmpty() && !trimmed.startsWith("#")) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int leadingWhitespace(String line) {
+        int index = 0;
+        while (index < line.length() && (line.charAt(index) == ' ' || line.charAt(index) == '\t')) {
+            index++;
+        }
+        return index;
     }
 
     private String prepareConfigString(String configString) {
