@@ -48,6 +48,15 @@ public class VehicleData implements Data {
     @Setter
     private int vehicleMoveTicks;
 
+    @Getter
+    private float steerForward, steerSideways;
+
+    @Getter
+    private boolean steerJump;
+
+    @Getter
+    private int steerAgeTicks = 1000;
+
     private final Profile profile;
 
     public VehicleData(Profile profile) {
@@ -63,6 +72,15 @@ public class VehicleData implements Data {
 
                 if (wrapperPlayClientSteerVehicle.isUnmount()) {
                     profile.getVehicleTicks().reset();
+                    steerForward = 0.0F;
+                    steerSideways = 0.0F;
+                    steerJump = false;
+                    steerAgeTicks = 1000;
+                } else {
+                    steerForward = wrapperPlayClientSteerVehicle.getForward();
+                    steerSideways = wrapperPlayClientSteerVehicle.getSideways();
+                    steerJump = wrapperPlayClientSteerVehicle.isJump();
+                    steerAgeTicks = 0;
                 }
             }
 
@@ -70,6 +88,10 @@ public class VehicleData implements Data {
                     || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION)
                     || event.getPacketType().equals(PacketType.Play.Client.PLAYER_ROTATION)
                     || event.getPacketType().equals(PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION)) {
+
+                if (steerAgeTicks < 1000) {
+                    steerAgeTicks = Math.min(1000, steerAgeTicks + 1);
+                }
 
                 if (profile.getPlayer().isInsideVehicle()) {
                     sinceVehicleTicks = 0;

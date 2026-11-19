@@ -61,22 +61,35 @@ public class CommentedFileConfigurationHelper {
             String pluginName = this.getPluginName();
             StringBuilder whole = new StringBuilder();
             List<String> lines = Files.readAllLines(Paths.get(file.getAbsolutePath()), StandardCharsets.UTF_8);
+            int firstContentLine = nextContentLine(lines, 0);
 
             for (int i = 0; i < lines.size(); i++) {
                 String currentLine = lines.get(i);
                 if (currentLine.trim().startsWith("#")) {
-                    int marker = currentLine.indexOf('#');
-                    int currentIndent = marker;
-                    int targetIndent = nextContentIndent(lines, i + 1);
-                    String indentation = currentLine.substring(0, marker);
-                    int previousContentLine = previousContentLine(lines, i - 1);
-
-                    // Older saves left comments flush-left inside a nested YAML section.
-                    // Only align them when they follow an existing YAML node. Leading
-                    // file-header comments must remain at the document root.
-                    if (previousContentLine >= 0 && targetIndent > currentIndent) {
-                        indentation = lines.get(nextContentLine(lines, i + 1)).substring(0, targetIndent);
+                    int commentBlockEnd = i + 1;
+                    while (commentBlockEnd < lines.size()
+                            && lines.get(commentBlockEnd).trim().startsWith("#")) {
+                        commentBlockEnd++;
                     }
+
+                    boolean leadingHeader = i < firstContentLine;
+                    if (!leadingHeader && !hasYamlValueAfter(lines, commentBlockEnd)) {
+                        // Ignore orphan comment blocks left behind by older saves. If we
+                        // re-imported them as metadata they would be copied forward on
+                        // every reload and keep bloating the user's file.
+                        i = commentBlockEnd - 1;
+                        continue;
+                    }
+
+                    int marker = currentLine.indexOf('#');
+                    int nextContentLine = nextContentLine(lines, i + 1);
+                    String indentation = nextContentLine < 0
+                            ? ""
+                            : lines.get(nextContentLine).substring(0, leadingWhitespace(lines.get(nextContentLine)));
+
+                    // Synthetic comment keys must be siblings of the next YAML value.
+                    // Reusing the source comment indentation can reopen a nested section
+                    // after a root key and make an otherwise valid config unreadable.
 
                     String commentText = currentLine.substring(marker + 1).replace("'", "''");
                     whole.append(indentation)
@@ -134,8 +147,20 @@ public class CommentedFileConfigurationHelper {
             }
 
             List<String> lines = Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
+            int firstContentLine = nextContentLine(lines, 0);
             for (int i = 0; i < lines.size(); i++) {
                 String line = lines.get(i);
+                if (line.trim().startsWith("#")) {
+                    int commentBlockEnd = i + 1;
+                    while (commentBlockEnd < lines.size()
+                            && lines.get(commentBlockEnd).trim().startsWith("#")) {
+                        commentBlockEnd++;
+                    }
+                    if (i >= firstContentLine && !hasYamlValueAfter(lines, commentBlockEnd)) {
+                        return true;
+                    }
+                }
+
                 int marker = line.indexOf('#');
                 if (marker >= 0 && previousContentLine(lines, i - 1) >= 0
                         && line.substring(0, marker).trim().isEmpty()
@@ -148,6 +173,17 @@ public class CommentedFileConfigurationHelper {
             me.arrow.managers.errors.ErrorMonitor.report("CommentedFileConfigurationHelper", "caught-exception", e);
             return false;
         }
+    }
+
+    private boolean hasYamlValueAfter(List<String> lines, int start) {
+        for (int i = start; i < lines.size(); i++) {
+            String trimmed = lines.get(i).trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            return !trimmed.startsWith("#");
+        }
+        return false;
     }
 
     private int nextContentIndent(List<String> lines, int start) {

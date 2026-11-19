@@ -21,6 +21,7 @@ import org.bukkit.World;
 import org.bukkit.entity.*;
 
 import java.util.Locale;
+import java.util.UUID;
 
 @Experimental
 public class VehicleA extends Check {
@@ -31,11 +32,12 @@ public class VehicleA extends Check {
     double lastDeltaZ;
     double lastDeltaXZ;
     double lastSurfaceFriction = 0.6D;
+    private UUID trackedVehicleId;
     double violations;
     private final VehicleSupport.IceState iceState = new VehicleSupport.IceState();
 
     public VehicleA(Profile profile) {
-        super(profile, CheckType.VEHICLE, "A", "Predicts vehicle movement and validates impossible motion");
+        super(profile, CheckType.VEHICLE, "A", "Enforces vehicle speed and vertical movement limits");
     }
 
     @Override
@@ -59,15 +61,7 @@ public class VehicleA extends Check {
         }
 
         final Entity vehicle = profile.getPlayer().getVehicle();
-        if (!(vehicle instanceof Pig)
-                && !(vehicle instanceof Boat)
-                && !(vehicle instanceof Horse)
-                && !(vehicle instanceof Mule)
-                && !(vehicle instanceof Donkey)
-                && !(vehicle instanceof Llama)
-                && !(vehicle instanceof Camel)
-                && !(vehicle instanceof Ravager)
-                && !(vehicle instanceof HappyGhast)) {
+        if (!isBoat(vehicle) && !isMinecart(vehicle) && !(vehicle instanceof LivingEntity)) {
             syncState();
             return;
         }
@@ -100,25 +94,28 @@ public class VehicleA extends Check {
             return;
         }
 
-        if (lastVehicleLocation == null || lastVehicleLocation.getWorld() == null) {
-            lastVehicleLocation = current.clone();
+        UUID currentVehicleId = vehicle.getUniqueId();
+        if (trackedVehicleId != null && !trackedVehicleId.equals(currentVehicleId)) {
+            lastVehicleLocation = null;
             lastDeltaX = 0.0D;
             lastDeltaY = 0.0D;
             lastDeltaZ = 0.0D;
             lastDeltaXZ = 0.0D;
+            violations = 0.0D;
+        }
+        trackedVehicleId = currentVehicleId;
+
+        if (lastVehicleLocation == null || lastVehicleLocation.getWorld() == null) {
             lastSurfaceFriction = isBoat(vehicle) ? VehicleSupport.surfaceFriction(current) : 0.6D;
             iceState.update(isBoat(vehicle) && VehicleSupport.isIceSurface(lastSurfaceFriction));
+            syncState(current, 0.0D, 0.0D, 0.0D, 0.0D);
             return;
         }
 
         if (!lastVehicleLocation.getWorld().equals(current.getWorld())) {
-            lastVehicleLocation = current.clone();
-            lastDeltaX = 0.0D;
-            lastDeltaY = 0.0D;
-            lastDeltaZ = 0.0D;
-            lastDeltaXZ = 0.0D;
             lastSurfaceFriction = isBoat(vehicle) ? VehicleSupport.surfaceFriction(current) : 0.6D;
             iceState.update(isBoat(vehicle) && VehicleSupport.isIceSurface(lastSurfaceFriction));
+            syncState(current, 0.0D, 0.0D, 0.0D, 0.0D);
             return;
         }
 
@@ -129,7 +126,7 @@ public class VehicleA extends Check {
 
         final boolean boat = isBoat(vehicle);
         final boolean livingMount = !boat && vehicle instanceof LivingEntity;
-        final boolean minecart = isMinecart(vehicle);
+        final boolean minecart = VehicleSupport.isMinecart(vehicle);
 
         final boolean vehicleInWater = isVehicleInWater(current);
         final boolean vehicleNearWater = vehicleInWater || isVehicleNearWater(current);
@@ -139,6 +136,8 @@ public class VehicleA extends Check {
         final double effectiveSurfaceFriction = Math.max(surfaceFriction, carryFriction);
         final boolean vehicleOnIce = boat && VehicleSupport.isIceSurface(surfaceFriction);
         iceState.update(vehicleOnIce);
+        final VehicleSupport.RailState railState = minecart ? VehicleSupport.railState(current) : VehicleSupport.RailState.NONE;
+        final double minecartSpeedCap = minecart ? VehicleSupport.minecartMaxSpeed(vehicle) : 0.4D;
 
         final boolean onIce = boat ? vehicleOnIce : movementData.isOnIce() || movementData.getSinceMovingOnIceTicks() < 6;
         final boolean onSlime = movementData.isOnSlime() || movementData.isOnExtendedHitboxSlime() || movementData.getSinceMovingOnSlimeTicks() < 6;
@@ -166,7 +165,7 @@ public class VehicleA extends Check {
             verbose(getClass().getSimpleName(), violations, 0,
                     debug(vehicle, boat, livingMount, minecart, vehicleInWater, vehicleNearWater, vehicleOnWaterSurface,
                             onIce, onSlime, deltaX, deltaY, deltaZ, deltaXZ,
-                            0.0D, 0.0D, 0.0D, 0.0D, surfaceFriction, carryFriction, "skip"));
+                            0.0D, 0.0D, surfaceFriction, carryFriction, "skip"));
             lastSurfaceFriction = surfaceFriction;
             syncState(current, deltaX, deltaY, deltaZ, deltaXZ);
             return;
@@ -179,49 +178,49 @@ public class VehicleA extends Check {
         final boolean horseJumpPhase = horse && (jumpWindow || deltaY > 0.08D || lastDeltaY > 0.08D);
 
         double horizontalCap = getHorizontalCap(vehicle, boat, livingMount, minecart, vehicleInWater, vehicleNearWater, vehicleOnWaterSurface, onIce, onSlime);
-        double accelCap = getAccelerationCap(vehicle, boat, livingMount, minecart, vehicleInWater, vehicleNearWater, vehicleOnWaterSurface, onIce, onSlime);
+        if (minecart && railState.known && railState.onRail) {
+            horizontalCap = minecartSpeedCap;
+        }
         if (boat && !vehicleNearWater) {
             horizontalCap = Math.max(horizontalCap, 0.14D + Math.max(0.0D, effectiveSurfaceFriction - 0.6D) * 1.4D);
-            accelCap = Math.max(accelCap, 0.06D + Math.max(0.0D, effectiveSurfaceFriction - 0.6D) * 0.45D);
         }
         if (horseJumpPhase) {
             double horseSpeed = VehicleSupport.horseSpeed(vehicle);
             horizontalCap = Math.max(horizontalCap, horseSpeed + 0.25D);
-            accelCap = Math.max(accelCap, horseSpeed + 0.18D);
         }
         final double verticalCap = getVerticalCap(vehicle, boat, livingMount, minecart, horseJumpPhase || jumpWindow, vehicleInWater, vehicleNearWater, vehicleOnWaterSurface);
 
-        final double predictedXZ = predictHorizontal(lastDeltaXZ, boat, livingMount, minecart, vehicleInWater, vehicleNearWater, vehicleOnWaterSurface, onIce, onSlime, carryFriction);
         final double tolerance = getTolerance(boat, livingMount, minecart, vehicleInWater, vehicleNearWater, vehicleOnWaterSurface);
+        final double totalSpeed = Math.sqrt((deltaXZ * deltaXZ) + (deltaY * deltaY));
 
         boolean invalid = false;
         String reason = null;
 
-        if (deltaXZ > Math.max(horizontalCap, predictedXZ) + tolerance) {
+        if (minecart && railState.known && railState.onRail && totalSpeed > minecartSpeedCap + tolerance) {
             invalid = true;
-            reason = "horizontal-too-fast";
-        } else if (deltaXZ - lastDeltaXZ > accelCap) {
+            reason = "minecart-over-max-rail-speed";
+        } else if (minecart && (!railState.known || !railState.onRail)
+                && deltaXZ > Math.max(horizontalCap, minecartSpeedCap * 2.0D) + tolerance) {
             invalid = true;
-            reason = "horizontal-acceleration";
+            reason = "minecart-derailed-too-fast";
+        } else if (!minecart && deltaXZ > horizontalCap + tolerance) {
+            invalid = true;
+            reason = "horizontal-speed-limit";
         }
 
-        if (!invalid && deltaY > verticalCap) {
+        // Rail gradients produce legitimate vertical displacement. Their full
+        // 3D speed is checked against the cart's configured max speed above.
+        if (!invalid && !(minecart && railState.onRail) && deltaY > verticalCap) {
             invalid = true;
             reason = "vertical-rise";
         }
 
         if (!invalid && boat && !vehicleNearWater && effectiveSurfaceFriction <= 0.65D) {
-            double dryLandLimit = Math.max(0.16D, predictedXZ + tolerance);
+            double dryLandLimit = Math.max(0.16D, horizontalCap + tolerance);
             if (deltaY > 0.02D || deltaXZ > dryLandLimit) {
                 invalid = true;
                 reason = "boat-dry-land-motion";
             }
-        }
-
-        if (!invalid && boat && !vehicleNearWater && effectiveSurfaceFriction <= 0.65D
-                && deltaXZ > 0.06D && deltaXZ - lastDeltaXZ > Math.max(0.04D, accelCap)) {
-            invalid = true;
-            reason = "boat-dry-land-accel";
         }
 
         if (!invalid && livingMount) {
@@ -235,10 +234,15 @@ public class VehicleA extends Check {
                     invalid = true;
                     reason = "horse-invalid-jump-physics";
                 }
-            } else if (!jumpWindow && deltaY > 0.08D) {
+            } else if (VehicleSupport.hasFreeVerticalControl(vehicle)) {
+                if (deltaY > Math.max(0.25D, VehicleSupport.mountSpeed(vehicle) * 2.0D)) {
+                    invalid = true;
+                    reason = "mount-vertical-speed-limit";
+                }
+            } else if (!jumpWindow && !vehicleData.isSteerJump() && deltaY > 0.08D) {
                 invalid = true;
                 reason = "mount-unexpected-rise";
-            } else if (jumpWindow && deltaY > 0.58D) {
+            } else if ((jumpWindow || vehicleData.isSteerJump()) && deltaY > 0.80D) {
                 invalid = true;
                 reason = "mount-impossible-jump";
             }
@@ -247,14 +251,14 @@ public class VehicleA extends Check {
         verbose(getClass().getSimpleName(), violations, 0,
                 debug(vehicle, boat, livingMount, minecart, vehicleInWater, vehicleNearWater, vehicleOnWaterSurface,
                         onIce, onSlime, deltaX, deltaY, deltaZ, deltaXZ,
-                        horizontalCap, accelCap, verticalCap, predictedXZ, surfaceFriction, carryFriction, reason));
+                        horizontalCap, verticalCap, surfaceFriction, carryFriction, reason));
 
         if (invalid) {
             if (++violations > 2.0D) {
                 fail("Invalid vehicle movement",
                         debug(vehicle, boat, livingMount, minecart, vehicleInWater, vehicleNearWater, vehicleOnWaterSurface,
                                 onIce, onSlime, deltaX, deltaY, deltaZ, deltaXZ,
-                                horizontalCap, accelCap, verticalCap, predictedXZ, surfaceFriction, carryFriction, reason));
+                                horizontalCap, verticalCap, surfaceFriction, carryFriction, reason));
                 violations = 0.0D;
             }
         } else {
@@ -291,26 +295,7 @@ public class VehicleA extends Check {
     }
 
     private boolean isVehicleInWater(Location location) {
-        if (location == null || location.getWorld() == null) {
-            return false;
-        }
-
-        World world = location.getWorld();
-        int baseX = location.getBlockX();
-        int baseY = location.getBlockY();
-        int baseZ = location.getBlockZ();
-
-        for (int y = -1; y <= 1; y++) {
-            for (int x = -1; x <= 1; x++) {
-                for (int z = -1; z <= 1; z++) {
-                    if (isWaterLike(world, baseX + x, baseY + y, baseZ + z)) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
+        return VehicleSupport.hasWaterContact(location);
     }
 
     private boolean isVehicleNearWater(Location location) {
@@ -337,20 +322,7 @@ public class VehicleA extends Check {
     }
 
     private boolean isVehicleOnWaterSurface(Location location) {
-        if (location == null || location.getWorld() == null) {
-            return false;
-        }
-
-        World world = location.getWorld();
-        int baseX = location.getBlockX();
-        int baseY = location.getBlockY();
-        int baseZ = location.getBlockZ();
-
-        return isWaterLike(world, baseX, baseY - 1, baseZ)
-                || isWaterLike(world, baseX + 1, baseY - 1, baseZ)
-                || isWaterLike(world, baseX - 1, baseY - 1, baseZ)
-                || isWaterLike(world, baseX, baseY - 1, baseZ + 1)
-                || isWaterLike(world, baseX, baseY - 1, baseZ - 1);
+        return VehicleSupport.isOnWaterSurface(location);
     }
 
     private boolean isWaterLike(World world, int x, int y, int z) {
@@ -373,40 +345,6 @@ public class VehicleA extends Check {
         }
 
         return CollisionUtils.isWaterLogged(world, x, y, z);
-    }
-
-    private double predictHorizontal(double lastDeltaXZ,
-                                     boolean boat,
-                                     boolean livingMount,
-                                     boolean minecart,
-                                     boolean vehicleInWater,
-                                     boolean vehicleNearWater,
-                                     boolean vehicleOnWaterSurface,
-                                     boolean onIce,
-                                     boolean onSlime,
-                                     double surfaceFriction) {
-        if (boat) {
-            double drag = vehicleInWater || vehicleOnWaterSurface ? 0.96D
-                    : surfaceFriction;
-            double impulse = vehicleInWater || vehicleOnWaterSurface ? 0.08D
-                    : 0.04D;
-
-            if (onSlime) {
-                impulse += 0.05D;
-            }
-
-            return (lastDeltaXZ * drag) + impulse;
-        }
-
-        if (minecart) {
-            return (lastDeltaXZ * 0.92D) + 0.08D;
-        }
-
-        if (livingMount) {
-            return (lastDeltaXZ * 0.90D) + 0.07D;
-        }
-
-        return (lastDeltaXZ * 0.90D) + 0.06D;
     }
 
     private double getHorizontalCap(Entity vehicle,
@@ -441,63 +379,13 @@ public class VehicleA extends Check {
         }
 
         if (livingMount) {
-            final String type = vehicle.getType().name().toUpperCase(Locale.ROOT);
-
-            double cap;
-            if (type.contains("HORSE")) {
-                cap = VehicleSupport.horseSpeed(vehicle) + 0.15D;
-            } else if (type.contains("DONKEY") || type.contains("MULE") || type.contains("LLAMA")) {
-                cap = 0.30D;
-            } else if (type.contains("PIG") || type.contains("STRIDER") || type.contains("CAMEL")) {
-                cap = 0.28D;
-            } else {
-                cap = 0.26D;
+            if (VehicleSupport.isHorse(vehicle)) {
+                return VehicleSupport.horseHorizontalSpeedPerTick(vehicle);
             }
-
-            return cap;
+            return VehicleSupport.mountSpeed(vehicle) + 0.15D;
         }
 
         return 0.30D;
-    }
-
-    private double getAccelerationCap(Entity vehicle,
-                                      boolean boat,
-                                      boolean livingMount,
-                                      boolean minecart,
-                                      boolean vehicleInWater,
-                                      boolean vehicleNearWater,
-                                      boolean vehicleOnWaterSurface,
-                                      boolean onIce,
-                                      boolean onSlime) {
-        if (boat) {
-            double cap = vehicleInWater || vehicleOnWaterSurface ? 0.12D : 0.06D;
-
-            if (vehicleNearWater && !vehicleInWater && !vehicleOnWaterSurface) {
-                cap += 0.02D;
-            }
-
-            if (onIce) {
-                cap += 0.05D;
-            }
-
-            if (onSlime) {
-                cap += 0.03D;
-            }
-
-            return cap;
-        }
-
-        if (minecart) {
-            return 0.20D;
-        }
-
-        if (livingMount) {
-            return VehicleSupport.isHorse(vehicle)
-                    ? Math.max(0.14D, VehicleSupport.horseSpeed(vehicle) * 0.60D)
-                    : 0.14D;
-        }
-
-        return 0.12D;
     }
 
     private double getVerticalCap(Entity vehicle,
@@ -565,9 +453,7 @@ public class VehicleA extends Check {
                          double deltaZ,
                          double deltaXZ,
                          double horizontalCap,
-                         double accelCap,
                          double verticalCap,
-                         double predictedXZ,
                          double surfaceFriction,
                          double carryFriction,
                          String reason) {
@@ -589,9 +475,7 @@ public class VehicleA extends Check {
                 + "\ndeltaY " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaY
                 + "\ndeltaZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaZ
                 + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
-                + "\npredictedXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + predictedXZ
                 + "\nhorizontalCap " + MsgType.MAIN_THEME_COLOR.getMessage() + horizontalCap
-                + "\naccelCap " + MsgType.MAIN_THEME_COLOR.getMessage() + accelCap
                 + "\nverticalCap " + MsgType.MAIN_THEME_COLOR.getMessage() + verticalCap
                 + "\nvehicleTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVehicleData().getVehicleTicks()
                 + "\nsinceNearVehicleTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVehicleData().getSinceNearVehicleTicks();
@@ -600,6 +484,7 @@ public class VehicleA extends Check {
     private void syncState() {
         final Entity vehicle = profile.getPlayer() != null ? profile.getPlayer().getVehicle() : null;
         if (vehicle == null) {
+            trackedVehicleId = null;
             lastVehicleLocation = null;
             lastDeltaX = 0.0D;
             lastDeltaY = 0.0D;
@@ -611,6 +496,7 @@ public class VehicleA extends Check {
         }
 
         lastSurfaceFriction = isBoat(vehicle) ? VehicleSupport.surfaceFriction(vehicle.getLocation()) : 0.6D;
+        trackedVehicleId = vehicle.getUniqueId();
         iceState.update(isBoat(vehicle) && VehicleSupport.isIceSurface(lastSurfaceFriction));
         syncState(vehicle.getLocation(), 0.0D, 0.0D, 0.0D, 0.0D);
     }

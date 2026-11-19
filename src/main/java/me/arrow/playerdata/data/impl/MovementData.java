@@ -125,8 +125,10 @@ public class MovementData implements Data {
 
     /** Authoritative fall-flying flag from the player's own metadata packet. */
     boolean metadataGliding;
-    float elytraMomentumBonus;
+    float horizontalMomentumBonus;
+    float verticalMomentumBonus;
     float lastElytraHorizontalSpeed;
+    float lastElytraVerticalSpeed;
     boolean lastElytraPose;
 
     @Getter
@@ -548,6 +550,7 @@ public class MovementData implements Data {
                     && !nearHoney
                     && !nearClimbable
                     && !nearPowderSnow
+//                    && !insideLiquid
                     && !profile.shouldCancel()
                     && !profile.getPlayer().isInsideVehicle()
                     && !isNearBoat()
@@ -1288,8 +1291,12 @@ public class MovementData implements Data {
         }
     }
 
-    public float elytraMomentum() {
-        return Math.max(0.0F, elytraMomentumBonus);
+    public float elytraHorizontalMomentum() {
+        return Math.max(0.0F, horizontalMomentumBonus);
+    }
+
+    public float elytraVerticalMomentum() {
+        return Math.max(0.0F, verticalMomentumBonus);
     }
 
     public boolean isGlidingNow() {
@@ -1335,9 +1342,11 @@ public class MovementData implements Data {
             // reserved for the post-glide grace so checks aren't exempted mid-flight.
             if (packetMoving) {
                 lastElytraHorizontalSpeed = (float) Math.max(0.0D, deltaXZ);
+                lastElytraVerticalSpeed = (float) Math.abs(deltaY);
             }
             if (!lastElytraPose) {
-                elytraMomentumBonus = 0.0F;
+                horizontalMomentumBonus = 0.0F;
+                verticalMomentumBonus = 0.0F;
             }
             lastElytraPose = true;
             return;
@@ -1348,23 +1357,30 @@ public class MovementData implements Data {
             // Otherwise retain the last non-zero glide movement sample above.
             if (packetMoving) {
                 lastElytraHorizontalSpeed = (float) Math.max(0.0D, deltaXZ);
+                lastElytraVerticalSpeed = (float) Math.abs(deltaY);
             }
-            elytraMomentumBonus = lastElytraHorizontalSpeed;
+            horizontalMomentumBonus = lastElytraHorizontalSpeed;
+            verticalMomentumBonus = lastElytraVerticalSpeed;
             lastElytraHorizontalSpeed = 0.0F;
+            lastElytraVerticalSpeed = 0.0F;
             lastElytraPose = false;
             return;
         }
 
-        if (elytraMomentumBonus <= 0.0F) return;
+        if (horizontalMomentumBonus <= 0.0F && verticalMomentumBonus <= 0.0F) return;
 
         // Air drag is 0.91. Ground drag is block slipperiness × 0.91.
         float friction = (isOnGround() || isServerGround())
                 ? getFrictionFactor() * 0.91F
                 : 0.91F;
-        elytraMomentumBonus *= friction;
+        horizontalMomentumBonus *= friction;
+        verticalMomentumBonus *= friction;
 
-        if (elytraMomentumBonus <= 0.0001F) {
-            elytraMomentumBonus = 0.0F;
+        if (horizontalMomentumBonus <= 0.0001F) {
+            horizontalMomentumBonus = 0.0F;
+        }
+        if (verticalMomentumBonus <= 0.0001F) {
+            verticalMomentumBonus = 0.0F;
         }
     }
 

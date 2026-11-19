@@ -457,7 +457,7 @@ public class GravityUtility {
         }
 
         // Gliding / Elytra
-        if (data.isGlidingOrRecentlyGlided(30) || data.elytraMomentum() > 0) {
+        if (data.isGlidingOrRecentlyGlided(30) || data.elytraHorizontalMomentum() > 0 || data.elytraVerticalMomentum() > 0) {
             ChatUtils.debugExempt("gliding", checkName);
             return true;
         }

@@ -3,6 +3,7 @@ package me.arrow.managers.themes;
 import lombok.Getter;
 import me.arrow.Arrow;
 import me.arrow.files.Config;
+import me.arrow.enums.MsgType;
 import me.arrow.managers.Initializer;
 import me.arrow.managers.themes.impl.*;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -86,6 +87,8 @@ public class ThemeManager implements Initializer {
                 }
             }
         }
+
+        MsgType.refreshThemeMessages();
     }
 
     public void reload() {
@@ -95,6 +98,7 @@ public class ThemeManager implements Initializer {
 
     public void setThemeFromName(String name) {
         this.theme = getThemeByName(name);
+        MsgType.refreshThemeMessages();
     }
 
     public Theme getThemeByName(String name) {

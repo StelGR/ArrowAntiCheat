@@ -174,7 +174,7 @@ public class ClientWorldTracker implements Data {
         if (center == null && location != null) center = new Vector(location.getBlockX(), location.getBlockY(), location.getBlockZ());
         if (center == null || profile.getBlockProcessor() == null) return;
         int x = center.getBlockX(), y = center.getBlockY(), z = center.getBlockZ();
-        profile.getBlockProcessor().syncRealBlocksInBoxAsync(x - 1, y - 1, z - 1, x + 1, y + 2, z + 1, 36, true);
+        profile.getBlockProcessor().syncRealBlocksInBoxAsync(x - 2, y - 2, z - 2, x + 2, y + 2, z + 2, 125, true);
     }
 
     public boolean hasPendingNear(int x, int y, int z, int margin) {

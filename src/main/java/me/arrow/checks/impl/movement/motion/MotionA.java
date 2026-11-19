@@ -186,7 +186,7 @@ public class MotionA extends Check {
         if (exempt("reelingIn", profile.getExempt().isReelingIn())) return true;
         if (exempt("predictUpwards", movementData.getSincePredictUpwardsTicks() < 10)) return true;
         if (exempt("predictDownwards", movementData.getSincePredictDownwardsTicks() < 10)) return true;
-        if (exempt("elytraMomentum", movementData.elytraMomentum() > 0)) return true;
+        if (exempt("verticalMomentum", movementData.elytraVerticalMomentum() > 0)) return true;
         if (exempt("underGhostBlock", profile.getBlockProcessor().isUnderGhostBlock())) return true;
         if (exempt("gliding", profile.getMovementData().isGlidingOrRecentlyGlided(30))) return true;
 
@@ -215,4 +215,3 @@ public class MotionA extends Check {
         return false;
     }
 }
-

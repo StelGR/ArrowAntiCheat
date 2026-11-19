@@ -127,6 +127,13 @@ public class ReachA extends Check {
             return;
         }
 
+        // Enforce the absolute 4.5-block cap on the attack packet itself.
+        // This is intentionally a silent cancellation: it must not add VL,
+        // trigger a fail, or create an alert in the delayed reach check.
+        if (cancelAttackBeyondHardLimit(targetEntityId, event.getTimestamp(), event)) {
+            return;
+        }
+
         synchronized (pendingAttacks) {
             if (pendingAttacks.size() >= 4) {
                 pendingAttacks.remove(0);
@@ -137,6 +144,110 @@ public class ReachA extends Check {
                     event.getTimestamp()
             ));
         }
+    }
+
+    private boolean cancelAttackBeyondHardLimit(int entityId, long attackTimestamp, PacketReceiveEvent event) {
+        if (profile == null || profile.getPlayer() == null || profile.getMovementData() == null
+                || profile.getRotationData() == null) {
+            return false;
+        }
+
+        Player target = getPlayerByEntityId(entityId);
+        if (target == null || !target.isOnline() || target == profile.getPlayer()) {
+            return false;
+        }
+
+        Profile targetProfile = Arrow.getInstance().getProfileManager().getProfile(target);
+        if (targetProfile == null || targetProfile.getMovementData() == null) {
+            return false;
+        }
+
+        MovementData attackerMovement = profile.getMovementData();
+        CustomLocation attackerLocation = attackerMovement.getLocation();
+        if (attackerLocation == null || attackerLocation.getWorld() == null) {
+            return false;
+        }
+
+        int attackerPingTicks = getPingTicks(profile);
+        int targetPingTicks = getPingTicks(targetProfile);
+        List<CustomLocation> targetSamples = getHardReachTargetSamples(
+                targetProfile,
+                entityId,
+                attackTimestamp,
+                attackerPingTicks,
+                targetPingTicks
+        );
+        if (targetSamples.isEmpty()) {
+            return false;
+        }
+
+        boolean swimming = isSwimmingOrGliding(profile.getPlayer());
+        boolean sneaking = isSneaking(profile);
+        double eyeHeight = swimming ? 0.4D
+                : (sneaking ? (hasModernSneakingDimensions() ? 1.27D : 1.54D) : 1.62D);
+        Vector eye = new Vector(attackerLocation.getX(), attackerLocation.getY() + eyeHeight, attackerLocation.getZ());
+        double minimumDistance = Double.MAX_VALUE;
+
+        for (CustomLocation sample : targetSamples) {
+            if (sample == null || sample.getWorld() == null || sample.getWorld() != attackerLocation.getWorld()) {
+                continue;
+            }
+
+            BoundingBox box = createPlayerBox(target, sample, 0.0D, 0.0D);
+            minimumDistance = Math.min(minimumDistance, distancePointToBox(eye, box));
+        }
+
+        if (minimumDistance > 4.5D && minimumDistance < Double.MAX_VALUE) {
+            event.setCancelled(true);
+            return true;
+        }
+        return false;
+    }
+
+    private List<CustomLocation> getHardReachTargetSamples(Profile targetProfile,
+                                                            int entityId,
+                                                            long attackTimestamp,
+                                                            int attackerPingTicks,
+                                                            int targetPingTicks) {
+        if (!profile.isBedrockPlayer() && profile.getReachEntityTracker() != null) {
+            try {
+                ReachEntityTracker.RenderSnapshot snapshot = profile.getReachEntityTracker().getRenderSnapshot(
+                        entityId,
+                        targetProfile.getPlayer().getUniqueId(),
+                        targetProfile.getPlayer().getWorld(),
+                        attackTimestamp,
+                        getPingMillis(profile),
+                        MIN_HISTORY_SAMPLES
+                );
+                if (snapshot != null && snapshot.getCandidates() != null && !snapshot.getCandidates().isEmpty()) {
+                    return snapshot.getCandidates();
+                }
+            } catch (Throwable ignored) {
+                // Fall back to the target's server-side movement history.
+            }
+        }
+
+        SampleList<CustomLocation> history = targetProfile.getMovementData().getPastLocations();
+        if (history == null || history.size() < 2) {
+            return Collections.emptyList();
+        }
+
+        List<CustomLocation> samples = snapshotSamples(history);
+        int amount = getHistoryAmount(samples.size(), attackerPingTicks, targetPingTicks);
+        List<CustomLocation> recentHistory = getLastSamples(samples, amount);
+        List<CustomLocation> compensated = getCompensatedSamples(
+                recentHistory,
+                attackerPingTicks,
+                MIN_HISTORY_SAMPLES
+        );
+        return compensated.isEmpty() ? recentHistory : compensated;
+    }
+
+    private double distancePointToBox(Vector point, BoundingBox box) {
+        double dx = Math.max(Math.max(box.minX - point.getX(), 0.0D), point.getX() - box.maxX);
+        double dy = Math.max(Math.max(box.minY - point.getY(), 0.0D), point.getY() - box.maxY);
+        double dz = Math.max(Math.max(box.minZ - point.getZ(), 0.0D), point.getZ() - box.maxZ);
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     private void processAttack(int entityId, long attackTimestamp) {
