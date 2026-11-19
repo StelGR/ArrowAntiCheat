@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** Opt-in, rate-limited diagnostics for recoverable Arrow failures. */
-public final class ErrorMonitor {
+public class ErrorMonitor {
 
     private static final long REPORT_INTERVAL_NANOS = 30_000_000_000L;
     private static final int MAX_TRACKED_FAILURES = 4096;

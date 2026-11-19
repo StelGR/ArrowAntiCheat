@@ -97,7 +97,7 @@ public class IllegalMoveB extends Check {
                 limit += 0.2;
             }
 
-            if (movementData.elytraMomentum() > 0) return;
+            if (movementData.elytraHorizontalMomentum() > 0) return;
 
             if (exempt("velocity", profile.getVelocityData().getVelocityTicks() <= 6)) return;
 
@@ -166,4 +166,3 @@ public class IllegalMoveB extends Check {
         return false;
     }
 }
-

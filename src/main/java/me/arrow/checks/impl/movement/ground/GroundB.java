@@ -6,7 +6,6 @@ import me.arrow.core.check.CheckType;
 import me.arrow.checks.impl.movement.speed.SpeedMath.SpeedUtilities;
 import me.arrow.checks.types.Check;
 import me.arrow.enums.MsgType;
-import me.arrow.files.Config;
 import me.arrow.managers.profile.Profile;
 import me.arrow.managers.profiler.Profiler;
 import me.arrow.playerdata.data.impl.MovementData;
@@ -125,7 +124,7 @@ public class GroundB extends Check {
             )
                     && movementData.getDeltaXZ() > (speedlimit)
                     && movementData.getSinceRiptidingTicks() > 40 + profile.getConnectionData().getClientTickTrans()
-                    && movementData.elytraMomentum() == 0;
+                    && movementData.elytraHorizontalMomentum() == 0;
 
 
             if (inAir) {

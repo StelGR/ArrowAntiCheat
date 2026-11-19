@@ -440,9 +440,19 @@ public class GeneralEventListener implements Listener {
                     return;
                 }
 
+                String worldName = Config.Setting.TEST_SERVER_MODE_WORLD.getString();
+                World testWorld = PlatformBackend.get().getServer().getWorld(worldName);
+                if (testWorld == null) {
+                    player.sendMessage(translate("&cTest server mode is enabled, but its configured world '"
+                            + worldName + "' is not loaded. Set test_server_mode.world to an existing world."));
+                    Bukkit.getLogger().warning("[Arrow] Test server mode is enabled, but configured world '"
+                            + worldName + "' is not loaded.");
+                    return;
+                }
+
                 Location spawn = parseLocation(
                         Config.Setting.TEST_SERVER_MODE_BUILD_ZONE_SPAWN.getString(),
-                        Config.Setting.TEST_SERVER_MODE_WORLD.getString()
+                        worldName
                 );
 
                 TaskUtils.teleport(player, spawn, PlayerTeleportEvent.TeleportCause.PLUGIN, () -> {

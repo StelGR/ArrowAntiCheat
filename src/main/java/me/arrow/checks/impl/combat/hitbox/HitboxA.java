@@ -48,6 +48,12 @@ public class HitboxA extends Check {
 
     @Override
     public void handle(PacketReceiveEvent event) {
+        // Reach A can silently cancel attacks beyond its hard range limit.
+        // Do not turn an already-cancelled packet into a separate hitbox flag.
+        if (event.isCancelled()) {
+            return;
+        }
+
         if (event.getPacketType().equals(PacketType.Play.Client.ATTACK)) {
             WrapperPlayClientAttack attack = new WrapperPlayClientAttack(event);
             handleAttack(attack.getEntityId(), event);

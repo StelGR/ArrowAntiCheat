@@ -162,7 +162,7 @@ public class SpeedA extends Check {
                                     movementData.getExpectedWaterDeltaXZ();
 
                             predictedDifference = expectedWaterXZ;
-                            allowedLimit = expectedWaterXZ + 0.01D;
+                            allowedLimit = expectedWaterXZ + 0.02D;
 
                         } else {
 
@@ -210,7 +210,7 @@ public class SpeedA extends Check {
 
                     allowedLimit += movementData.isColliding() ? 0.05 : 0;
 
-                    allowedLimit += movementData.elytraMomentum();
+                    allowedLimit += movementData.elytraHorizontalMomentum();
 
                     expectedSpeed = allowedLimit;
 
@@ -417,7 +417,7 @@ public class SpeedA extends Check {
                         airLimit += 0.1;
                     }
 
-                    airLimit += movementData.elytraMomentum();
+                    airLimit += movementData.elytraHorizontalMomentum();
 
                     expectedSpeed = airLimit;
                     difference = deltaXZ - expectedSpeed;
@@ -501,7 +501,7 @@ public class SpeedA extends Check {
                 "\n * " + second + "airTicks c|s " + main + clientAirTicks + '|' + movementData.getCustomAirTicks() +
                 "\n * " + second + "maxJumpHeight " + main + MoveUtils.getJumpMotion(profile) +
                 "\n * " + second + "isTeleporting " + main + profile.isExempt().isTeleports() +
-                "\n * " + second + "elytraMomentumBonus " + main + movementData.elytraMomentum() +
+                "\n * " + second + "horizontalMomentumBonus " + main + movementData.elytraHorizontalMomentum() +
                 "\n * " + second + "dolphinGraceMomentumBonus " + main + movementData.getDolphinGraceBoost() +
                 "\n * " + second + "airTickAdditions " + main + airLimitDebug +
                 "\n * " + second + "difference " + main + (deltaXZ - expectedSpeed);

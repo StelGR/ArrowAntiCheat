@@ -238,7 +238,7 @@ public class BlockProcessor implements Data {
                         || isKnownGhostNear(placedVector, 2.25D)
                         || isPlayerNearAnyGhost();
 
-        if (knownGhostNearInteraction && autoCorrectGhostBlocks) {
+        if (knownGhostNearInteraction && isGhostBlockSyncEnabled()) {
             syncGhostInteractionArea(clickedVector, placedVector);
         }
 
@@ -328,10 +328,9 @@ public class BlockProcessor implements Data {
 
         keepPendingPlacementPhysicsExemption();
 
-        if (autoCorrectGhostBlocks
-                && Config.Setting.GHOST_BLOCK_FIX.getBoolean()
+        if (isGhostBlockSyncEnabled()
                 && this.lastGhostInteractionAreaSyncTick > GHOST_INTERACTION_AREA_SYNC_COOLDOWN_TICKS) {
-            syncRealBlocksAroundPlayer(1, 1, 2);
+            syncRealBlocksAroundPlayer(2, 2, 2);
             this.lastGhostInteractionAreaSyncTick = 0;
         }
 
@@ -528,7 +527,7 @@ public class BlockProcessor implements Data {
                 MAX_CANCELLED_PLACE_GHOST_TICKS
         );
 
-        if (autoCorrectGhostBlocks) {
+        if (isGhostBlockSyncEnabled()) {
             syncCancelledPlacementArea(vector);
         }
 
@@ -875,7 +874,7 @@ public class BlockProcessor implements Data {
         if (vector != null) {
             addGhostBlock(vector, material, "physics-placement-cancelled", MAX_CANCELLED_PLACE_GHOST_TICKS);
 
-            if (autoCorrectGhostBlocks) {
+            if (isGhostBlockSyncEnabled()) {
                 syncCancelledPlacementArea(vector);
             }
         }
@@ -1227,7 +1226,7 @@ public class BlockProcessor implements Data {
 
     void syncBlockUpdatePatch(int x, int y, int z, Material packetMaterial) {
         // Queues the smallest useful repair patch around a server-side block update.
-        if (!autoCorrectGhostBlocks) {
+        if (!isGhostBlockSyncEnabled()) {
             return;
         }
 
@@ -1467,7 +1466,7 @@ public class BlockProcessor implements Data {
                      * Nearby ghosts should be synced, but they must not refresh
                      * lastGhostBlockTick / lastGhostLiquidWebTick.
                      */
-                    if (autoCorrectGhostBlocks && ghost.syncCooldownTicks <= 0) {
+                    if (isGhostBlockSyncEnabled() && ghost.syncCooldownTicks <= 0) {
                         syncRealBlockToClient(ghost.position);
 
                         ghost.syncCooldownTicks = GHOST_SYNC_COOLDOWN_TICKS;
@@ -1485,7 +1484,7 @@ public class BlockProcessor implements Data {
                         this.lastGhostLiquidWebTick = 0;
                     }
 
-                    if (autoCorrectGhostBlocks && ghost.syncCooldownTicks <= 0) {
+                    if (isGhostBlockSyncEnabled() && ghost.syncCooldownTicks <= 0) {
                         syncRealBlockToClient(ghost.position);
                         syncRealBlockToClient(ghost.position.clone().add(new Vector(0, 1, 0)));
                         syncRealBlockToClient(ghost.position.clone().add(new Vector(0, -1, 0)));
@@ -2117,7 +2116,7 @@ public class BlockProcessor implements Data {
 
     void syncSmallInteractionArea(Vector clickedVector, Vector placedVector) {
         // Queues one or two block corrections around ignored interactions.
-        if (!autoCorrectGhostBlocks) {
+        if (!isGhostBlockSyncEnabled()) {
             return;
         }
 
@@ -2160,9 +2159,13 @@ public class BlockProcessor implements Data {
         enqueueRealBlockSync(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ(), removeStoredGhost);
     }
 
+    private boolean isGhostBlockSyncEnabled() {
+        return autoCorrectGhostBlocks && Config.Setting.GHOST_BLOCK_FIX.getBoolean();
+    }
+
     void enqueueRealBlockSync(int x, int y, int z, boolean removeStoredGhost) {
         // Adds a block coordinate to the deduplicated paced sync queue.
-        if (!autoCorrectGhostBlocks || data.getPlayer() == null || !data.getPlayer().isOnline()) {
+        if (!isGhostBlockSyncEnabled() || data.getPlayer() == null || !data.getPlayer().isOnline()) {
             return;
         }
 
@@ -2209,6 +2212,11 @@ public class BlockProcessor implements Data {
 
     void flushQueuedSyncBlocks() {
         Player player = data.getPlayer();
+
+        if (!isGhostBlockSyncEnabled()) {
+            clearSyncQueue();
+            return;
+        }
 
         if (player == null || !player.isOnline()) {
             clearSyncQueue();
@@ -2582,7 +2590,7 @@ public class BlockProcessor implements Data {
 
     void syncGhostInteractionArea(Vector clickedVector, Vector placedVector) {
         // Queues corrections around an existing ghostblock interaction.
-        if (!autoCorrectGhostBlocks) {
+        if (!isGhostBlockSyncEnabled()) {
             return;
         }
 
@@ -2640,7 +2648,7 @@ public class BlockProcessor implements Data {
 
     void syncRealBlocksAroundPlayer(int radiusXZ, int down, int up) {
         // Queues a tiny repair area around the player.
-        if (!autoCorrectGhostBlocks || data.getPlayer() == null || !data.getPlayer().isOnline()) {
+        if (!isGhostBlockSyncEnabled() || data.getPlayer() == null || !data.getPlayer().isOnline()) {
             return;
         }
 
@@ -2677,7 +2685,7 @@ public class BlockProcessor implements Data {
     }
     void syncCancelledPlacementArea(Vector vector) {
         // Queues a compact correction area for confirmed cancelled placements.
-        if (!autoCorrectGhostBlocks) {
+        if (!isGhostBlockSyncEnabled()) {
             return;
         }
 
@@ -2734,7 +2742,7 @@ public class BlockProcessor implements Data {
 
     void syncRealBlocksInBoxAsync(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int maxBlocks, boolean force) {
         // Queues a bounded box of real server blocks instead of sending them all immediately.
-        if (!autoCorrectGhostBlocks || data.getPlayer() == null || !data.getPlayer().isOnline()) {
+        if (!isGhostBlockSyncEnabled() || data.getPlayer() == null || !data.getPlayer().isOnline()) {
             return;
         }
 

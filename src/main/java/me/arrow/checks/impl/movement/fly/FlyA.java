@@ -348,7 +348,7 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (movementData.isGlidingOrRecentlyGlided(20)) {
+        if (movementData.isGlidingOrRecentlyGlided(20) || movementData.elytraVerticalMomentum() > 0) {
             ChatUtils.debugExempt("elytraGlide", "FlyA");
             return true;
         }
@@ -368,8 +368,8 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (movementData.elytraMomentum() > 0) {
-            ChatUtils.debugExempt("elytraMomentum", "FlyA");
+        if (movementData.elytraVerticalMomentum() > 0) {
+            ChatUtils.debugExempt("verticalMomentum", "FlyA");
             return true;
         }
 
