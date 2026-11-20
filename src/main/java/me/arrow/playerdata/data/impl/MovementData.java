@@ -4,14 +4,11 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
-import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPosition;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPositionAndRotation;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerRotation;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import lombok.Getter;
 import lombok.Setter;
 import me.arrow.Arrow;
@@ -53,7 +50,6 @@ import static me.arrow.utils.custom.materials.MaterialType.*;
 @Getter
 @Setter
 public class MovementData implements Data {
-
 
     @Getter
     @Setter
@@ -107,7 +103,7 @@ public class MovementData implements Data {
     int clientAirTicks, serverAirTicks, serverGroundTicks, serverGroundTicksPlus, lastServerGroundTicks, nearGroundTicks, lastNearGroundTicks,
             clientGroundTicks, lastNearWallTicks,
             lastFrictionFactorUpdateTicks, lastNearEdgeTicks,
-            customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sinceGlidingTicks = 100000, glidingTicks, sincePowderSnowTicks, sinceElytraEquipTicks,
+            customAirTicks, nearWallTicks, sinceExplosionTicks, sinceCollideTicks, sincePowderSnowTicks,
             sinceOnGhostBlock = 1000, sinceGlitchedInsideBlockTicks, sinceOnGround, sinceRiptidingTicks, sinceBubbleTicks, sincePredictUpwardsTicks, sincePredictDownwardsTicks, sincePredictUpwardsTicksWithoutMaterial, sincePredictDownwardsTicksWithoutMaterial, sinceSpeedPotionEffectTicks, sinceNearGhastTicks, movingOnSoulTicks, movingOnSoulBlocksTicks, movingTicks, sinceMovingOnSlimeTicks, sinceMovingOnIceTicks, movingOnHoneyTicks, sinceMovingOnHoneyTicks, slimeTicks, soulTicks, honeyTicks, sinceSlimeTicks, sinceSoulTicks, sinceHoneyTicks, iceTicks, sinceIceTicks, sinceMovingUpTicks, sinceMovingDownTicks, sinceDolphinGraceTicks, dolphinGraceTicks, ladderTicks, sinceInsideWaterTicks, sinceNearWaterTicks, sinceOnBoatTicks = 1000, sinceNearBoatTicks = 1000, sinceUnderBoatTicks = 1000, sinceNearBoatSideTicks = 1000, sinceUnderblockTicks = 1000, sinceLevitationEffectTicks, sinceJumpBoostEffectTicks, sinceSlowFallingEffectTicks, tick, sinceTeleportTicks, sinceNearSlimeTicks, sinceNearPistonTicks, sinceMovingUnderBlockTicks;
 
     @Getter
@@ -123,13 +119,8 @@ public class MovementData implements Data {
 
     boolean packetMoving;
 
-    /** Authoritative fall-flying flag from the player's own metadata packet. */
-    boolean metadataGliding;
-    float horizontalMomentumBonus;
-    float verticalMomentumBonus;
-    float lastElytraHorizontalSpeed;
-    float lastElytraVerticalSpeed;
-    boolean lastElytraPose;
+    @Getter
+    private final ElytraData elytraData;
 
     @Getter
     CollisionUtils.NearbyBlocksResult nearbyBlocksResult;
@@ -153,6 +144,7 @@ public class MovementData implements Data {
 
     public MovementData(Profile profile) {
         this.profile = profile;
+        this.elytraData = new ElytraData(profile);
 
         this.equipment = new Equipment();
         this.setbackProcessor = new SetbackProcessor(profile);
@@ -274,41 +266,7 @@ public class MovementData implements Data {
 
     @Override
     public void processSend(PacketSendEvent event) {
-        if (!event.getPacketType().equals(PacketType.Play.Server.ENTITY_METADATA)
-                || profile.getPlayer() == null) {
-            return;
-        }
-
-        WrapperPlayServerEntityMetadata metadata;
-
-        try {
-            metadata = new WrapperPlayServerEntityMetadata(event);
-        } catch (Throwable ignored) {
-            return;
-        }
-
-        if (metadata.getEntityId() != profile.getPlayer().getEntityId()) {
-            return;
-        }
-
-        try {
-            for (EntityData<?> entry : metadata.getEntityMetadata()) {
-                if (entry.getIndex() != 0 || !(entry.getValue() instanceof Byte)) {
-                    continue;
-                }
-                Byte flags = (Byte) entry.getValue();
-
-                metadataGliding = (flags & 0x80) == 0x80;
-
-                if (metadataGliding && profile.isWearingFunctionalElytra()) {
-                    sinceGlidingTicks = 0;
-                    glidingTicks = Math.max(glidingTicks, 1);
-                }
-
-                break;
-            }
-        } catch (Throwable ignored) {
-        }
+        elytraData.processSend(event);
     }
 
     private void publishCoreMovement(WrapperPlayClientPlayerFlying packet, long timestamp) {
@@ -1177,7 +1135,7 @@ public class MovementData implements Data {
                     .getNmsInstance()
                     .isRiptiding(profile.getPlayer());
 
-            boolean glidingNow = isGlidingNow();
+            boolean glidingNow = elytraData.isGlidingNow();
 
             boolean predictUp = verticalMove == MovementPredictionUtil.VerticalMove.UP;
             boolean predictDown = verticalMove == MovementPredictionUtil.VerticalMove.DOWN;
@@ -1219,12 +1177,11 @@ public class MovementData implements Data {
             sinceExplosionTicks = OtherUtility.isZero(velocity) ? sinceExplosionTicks + 1 : 0;
 
             sinceCollideTicks = isColliding ? 0 : sinceCollideTicks + 1;
-            sinceGlidingTicks = glidingNow ? 0 : sinceGlidingTicks + 1;
-            glidingTicks = glidingNow ? glidingTicks + 1 : 0;
-
-            updateElytraMomentum();
-
-            sinceElytraEquipTicks = profile.isWearingFunctionalElytra() ?  0 : sinceElytraEquipTicks + 1;
+            boolean hasGroundSupport = nearbyBlocksResult != null
+                    && (nearbyBlocksResult.hasExactGroundSupport()
+                    || nearbyBlocksResult.hasLandingGroundSupport());
+            elytraData.update(glidingNow, profile.isWearingFunctionalElytra(), packetMoving,
+                    deltaX, deltaY, deltaZ, hasGroundSupport, lastFrictionFactor);
             serverAirTicks = isServerGround() ? 0 : serverAirTicks + 1;
             serverGroundTicksPlus = isServerGround() ? serverGroundTicksPlus + 1 : 0;
 
@@ -1292,96 +1249,103 @@ public class MovementData implements Data {
     }
 
     public float elytraHorizontalMomentum() {
-        return Math.max(0.0F, horizontalMomentumBonus);
+        return elytraData.elytraHorizontalMomentum(packetMoving);
     }
 
     public float elytraVerticalMomentum() {
-        return Math.max(0.0F, verticalMomentumBonus);
+        return elytraData.elytraVerticalMomentum(packetMoving);
+    }
+
+    public boolean isPostElytraModelActive() {
+        return elytraData.isPostElytraModelActive();
+    }
+
+    public double getPostElytraCarryX() {
+        return elytraData.getPostElytraCarryX(packetMoving);
+    }
+
+    public double getPostElytraCarryY() {
+        return elytraData.getPostElytraCarryY(packetMoving);
+    }
+
+    /**
+     * Preserve the movement-data facade while the Elytra-specific prediction
+     * and exemption rules live in ElytraData.
+     */
+    public boolean hasValidPostElytraMomentum() {
+        return elytraData.hasValidPostElytraMomentum(packetMoving, deltaXZ, deltaY);
+    }
+
+    public double getPostElytraCarryZ() {
+        return elytraData.getPostElytraCarryZ(packetMoving);
+    }
+
+    public double getLastPostElytraCarryX() {
+        return elytraData.getLastPostElytraCarryX();
+    }
+
+    public double getLastPostElytraCarryY() {
+        return elytraData.getLastPostElytraCarryY();
+    }
+
+    public double getLastPostElytraCarryZ() {
+        return elytraData.getLastPostElytraCarryZ();
+    }
+
+    public double getPostElytraAdjustedDeltaX() {
+        return deltaX - elytraData.getPostElytraCarryX(packetMoving);
+    }
+
+    public double getPostElytraAdjustedDeltaY() {
+        return deltaY - elytraData.getPostElytraCarryY(packetMoving);
+    }
+
+    public double getPostElytraAdjustedDeltaZ() {
+        return deltaZ - elytraData.getPostElytraCarryZ(packetMoving);
+    }
+
+    public double getPostElytraAdjustedLastDeltaX() {
+        return lastDeltaX - elytraData.getLastPostElytraCarryX();
+    }
+
+    public double getPostElytraAdjustedLastDeltaZ() {
+        return lastDeltaZ - elytraData.getLastPostElytraCarryZ();
     }
 
     public boolean isGlidingNow() {
-        return profile != null
-                && profile.isWearingFunctionalElytra()
-                && (metadataGliding || ReflectionUtils.isGliding(profile.getPlayer()));
+        return elytraData.isGlidingNow();
     }
 
     public boolean isGlidingOrRecentlyGlided() {
-        return isGlidingOrRecentlyGlided(30);
+        return elytraData.isGlidingOrRecentlyGlided();
     }
 
     public boolean isGlidingOrRecentlyGlided(int baseGraceTicks) {
-        if (profile == null || !profile.isWearingFunctionalElytra()) {
-            return false;
-        }
-
-        if (isGlidingNow() || glidingTicks > 0) {
-            return true;
-        }
-
-        int transTicks = 0;
-        int pingTicks = 0;
-        try {
-            transTicks = Math.max(0, profile.getConnectionData().getClientTickTrans());
-            pingTicks = Math.max(0, profile.getConnectionData().getTransPing() / 50);
-        } catch (Throwable ignored) {
-        }
-
-        int maxLag = Math.max(transTicks, pingTicks);
-        // Generous lag compensation for laggy players up to 10,000ms ping (200 ticks * 4 = 800 ticks)
-        int lagComp = Math.min(800, maxLag * 4);
-        int maxExemptTicks = baseGraceTicks + lagComp;
-
-        return sinceGlidingTicks < maxExemptTicks;
+        return elytraData.isGlidingOrRecentlyGlided(baseGraceTicks);
     }
 
-    private void updateElytraMomentum() {
-        boolean elytraPose = isGlidingNow();
-        if (elytraPose) {
-            // Keep the last real horizontal movement sample separately while
-            // gliding. Positionless packets zero deltaXZ, and momentumBonus is
-            // reserved for the post-glide grace so checks aren't exempted mid-flight.
-            if (packetMoving) {
-                lastElytraHorizontalSpeed = (float) Math.max(0.0D, deltaXZ);
-                lastElytraVerticalSpeed = (float) Math.abs(deltaY);
-            }
-            if (!lastElytraPose) {
-                horizontalMomentumBonus = 0.0F;
-                verticalMomentumBonus = 0.0F;
-            }
-            lastElytraPose = true;
-            return;
-        }
+    public int getSinceGlidingTicks() {
+        return elytraData.getSinceGlidingTicks();
+    }
 
-        if (lastElytraPose) {
-            // If the pose ended on a position packet, use that final speed.
-            // Otherwise retain the last non-zero glide movement sample above.
-            if (packetMoving) {
-                lastElytraHorizontalSpeed = (float) Math.max(0.0D, deltaXZ);
-                lastElytraVerticalSpeed = (float) Math.abs(deltaY);
-            }
-            horizontalMomentumBonus = lastElytraHorizontalSpeed;
-            verticalMomentumBonus = lastElytraVerticalSpeed;
-            lastElytraHorizontalSpeed = 0.0F;
-            lastElytraVerticalSpeed = 0.0F;
-            lastElytraPose = false;
-            return;
-        }
+    public void setSinceGlidingTicks(int value) {
+        elytraData.setSinceGlidingTicks(value);
+    }
 
-        if (horizontalMomentumBonus <= 0.0F && verticalMomentumBonus <= 0.0F) return;
+    public int getGlidingTicks() {
+        return elytraData.getGlidingTicks();
+    }
 
-        // Air drag is 0.91. Ground drag is block slipperiness × 0.91.
-        float friction = (isOnGround() || isServerGround())
-                ? getFrictionFactor() * 0.91F
-                : 0.91F;
-        horizontalMomentumBonus *= friction;
-        verticalMomentumBonus *= friction;
+    public void setGlidingTicks(int value) {
+        elytraData.setGlidingTicks(value);
+    }
 
-        if (horizontalMomentumBonus <= 0.0001F) {
-            horizontalMomentumBonus = 0.0F;
-        }
-        if (verticalMomentumBonus <= 0.0001F) {
-            verticalMomentumBonus = 0.0F;
-        }
+    public int getSinceElytraEquipTicks() {
+        return elytraData.getSinceElytraEquipTicks();
+    }
+
+    public void setSinceElytraEquipTicks(int value) {
+        elytraData.setSinceElytraEquipTicks(value);
     }
 
     private float dolphinGraceMomentum;

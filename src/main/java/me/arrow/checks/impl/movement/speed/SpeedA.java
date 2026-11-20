@@ -58,8 +58,10 @@ public class SpeedA extends Check {
             return;
         }
 
-        double deltaXZ = movementData.getDeltaXZ();
-        double deltaY = movementData.getDeltaY();
+        double deltaX = movementData.getPostElytraAdjustedDeltaX();
+        double deltaY = movementData.getPostElytraAdjustedDeltaY();
+        double deltaZ = movementData.getPostElytraAdjustedDeltaZ();
+        double deltaXZ = Math.hypot(deltaX, deltaZ);
         double blockFriction = movementData.getFrictionFactor();
         predictedDifference = 0.0D;
 
@@ -101,10 +103,10 @@ public class SpeedA extends Check {
                 if (!exempt) {
                     double allowedLimit = SpeedUtilities.computeGroundLimit(profile, MoveUtils.GROUND_BASE_SPEED);
 
-                    double deltaX = movementData.getDeltaX();
-                    double deltaZ = movementData.getDeltaZ();
-                    double lastDeltaX = movementData.getLastDeltaX();
-                    double lastDeltaZ = movementData.getLastDeltaZ();
+                    double deltaX = movementData.getPostElytraAdjustedDeltaX();
+                    double deltaZ = movementData.getPostElytraAdjustedDeltaZ();
+                    double lastDeltaX = movementData.getPostElytraAdjustedLastDeltaX();
+                    double lastDeltaZ = movementData.getPostElytraAdjustedLastDeltaZ();
                     float yaw = rotationData.getYaw();
 
                     double inputX = deltaX - (lastDeltaX * movementData.getFrictionFactor());
@@ -209,8 +211,6 @@ public class SpeedA extends Check {
                     }
 
                     allowedLimit += movementData.isColliding() ? 0.05 : 0;
-
-                    allowedLimit += movementData.elytraHorizontalMomentum();
 
                     expectedSpeed = allowedLimit;
 
@@ -417,8 +417,6 @@ public class SpeedA extends Check {
                         airLimit += 0.1;
                     }
 
-                    airLimit += movementData.elytraHorizontalMomentum();
-
                     expectedSpeed = airLimit;
                     difference = deltaXZ - expectedSpeed;
                     failDetails = "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
@@ -501,7 +499,10 @@ public class SpeedA extends Check {
                 "\n * " + second + "airTicks c|s " + main + clientAirTicks + '|' + movementData.getCustomAirTicks() +
                 "\n * " + second + "maxJumpHeight " + main + MoveUtils.getJumpMotion(profile) +
                 "\n * " + second + "isTeleporting " + main + profile.isExempt().isTeleports() +
-                "\n * " + second + "horizontalMomentumBonus " + main + movementData.elytraHorizontalMomentum() +
+                "\n * " + second + "postElytraCarryX/Y/Z " + main
+                        + movementData.getPostElytraCarryX() + "/"
+                        + movementData.getPostElytraCarryY() + "/"
+                        + movementData.getPostElytraCarryZ() +
                 "\n * " + second + "dolphinGraceMomentumBonus " + main + movementData.getDolphinGraceBoost() +
                 "\n * " + second + "airTickAdditions " + main + airLimitDebug +
                 "\n * " + second + "difference " + main + (deltaXZ - expectedSpeed);
@@ -522,7 +523,8 @@ public class SpeedA extends Check {
         if (exempt("vehicle", profile.isExempt().vehicle() || profile.getVehicleData().getSinceVehicleTicks() <= 2)) return true;
         if (exempt("recentGhostBlock", movementData.getSinceOnGhostBlock() < 2 + (profile.getConnectionData().getClientTickTrans() * 2))) return true;
 
-        if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30))) return true;
+        if (exempt("gliding", movementData.isGlidingOrRecentlyGlided(30)
+                && !movementData.isPostElytraModelActive())) return true;
         if (exempt("soulSoil", movementData.getMovingOnSoulBlocksTicks() > 0)) return true;
 
         return false;

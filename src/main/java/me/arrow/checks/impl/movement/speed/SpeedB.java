@@ -48,11 +48,18 @@ public class SpeedB extends Check {
         ActionData actionData = profile.getActionData();
         RotationData rotationData = profile.getRotationData();
 
-        double deltaX = movementData.getDeltaX();
-        double deltaZ = movementData.getDeltaZ();
-        double deltaY = movementData.getDeltaY();
-        double deltaXZ = movementData.getDeltaXZ();
-        double lastDeltaXZ = movementData.getLastDeltaXZ();
+        if (movementData.isGlidingNow()) {
+            resetMovement(0.0D, 0.0D);
+            return;
+        }
+
+        double deltaX = movementData.getPostElytraAdjustedDeltaX();
+        double deltaZ = movementData.getPostElytraAdjustedDeltaZ();
+        double deltaY = movementData.getPostElytraAdjustedDeltaY();
+        double deltaXZ = Math.hypot(deltaX, deltaZ);
+        double lastDeltaX = movementData.getPostElytraAdjustedLastDeltaX();
+        double lastDeltaZ = movementData.getPostElytraAdjustedLastDeltaZ();
+        double lastDeltaXZ = Math.hypot(lastDeltaX, lastDeltaZ);
 
         if (exempt("cancelled", profile.shouldCancel())) { resetMovement(deltaX, deltaZ); return; }
         if (exempt("dead", profile.getPlayer().isDead())) { resetMovement(deltaX, deltaZ); return; }
@@ -71,8 +78,8 @@ public class SpeedB extends Check {
 
         double velocityH = profile.getVelocityData().getTotalHorizontalVelocity();
         float deltaYaw = rotationData.getDeltaYaw();
-        double mdAccel = movementData.getAccelXZ();
         double accel = Math.abs(deltaXZ - lastDeltaXZ);
+        double mdAccel = accel;
 
 
         runPrediction(movementData, actionData);
@@ -113,8 +120,15 @@ public class SpeedB extends Check {
         }
 
         // Speed C's entry conditions, translated only to Arrow's shared data.
-        if (exempt("belowAttributeSpeed", movementData.getDeltaXZ() < attributeSpeed)) { resetPredictionBuffers(); return; }
-        if (exempt("lowLastDeltaXZ", movementData.getLastDeltaXZ() < offsetMove() + 0.01)) { resetPredictionBuffers(); return; }
+        double measuredDeltaX = movementData.getPostElytraAdjustedDeltaX();
+        double measuredDeltaZ = movementData.getPostElytraAdjustedDeltaZ();
+        double measuredDeltaXZ = Math.hypot(measuredDeltaX, measuredDeltaZ);
+        double previousDeltaXZ = Math.hypot(
+                movementData.getPostElytraAdjustedLastDeltaX(),
+                movementData.getPostElytraAdjustedLastDeltaZ()
+        );
+        if (exempt("belowAttributeSpeed", measuredDeltaXZ < attributeSpeed)) { resetPredictionBuffers(); return; }
+        if (exempt("lowLastDeltaXZ", previousDeltaXZ < offsetMove() + 0.01)) { resetPredictionBuffers(); return; }
         if (exempt("nearClimbable", movementData.isNearClimbable())) { resetPredictionBuffers(); return; }
         if (exempt("cancelled", profile.shouldCancel())) { resetPredictionBuffers(); return; }
         if (exempt("velocity", profile.getVelocityData().isTakingVelocity())) { resetPredictionBuffers(); return; }
@@ -131,7 +145,7 @@ public class SpeedB extends Check {
         final double leniency = getLeniency(0.003D, movementData, actionData);
         double predicted = sim.getOutputXZ();
 
-        double diff = movementData.getDeltaXZ() - predicted;
+        double diff = measuredDeltaXZ - predicted;
 
         verbose(this.getClass().getSimpleName(), getBuffer(), 2, "Verbose" + "\npredicted " + predicted
                 + "\nlowest " + sim.getLowestMatch()
@@ -147,7 +161,7 @@ public class SpeedB extends Check {
                 + "\nleniency " + leniency
                 + "\nleniencyReason " + leniencyReason
                 + "\nsprinting " + sim.isSprinting()
-                + "\ndeltaXZ " + movementData.getDeltaXZ()
+                + "\ndeltaXZ " + measuredDeltaXZ
                 + "\nvel " + profile.getVelocityData().getTotalVelocity()
                 + "\nuseItem " + sim.isUseItem()
                 + "\nmoveTicks " + movementData.getMovingTicks()
@@ -165,7 +179,7 @@ public class SpeedB extends Check {
                         + "\ndiff " + MsgType.MAIN_THEME_COLOR.getMessage() + diff
                         + "\nleniency " + MsgType.MAIN_THEME_COLOR.getMessage() + leniency
                         + "\nsprinting " + MsgType.MAIN_THEME_COLOR.getMessage() + sim.isSprinting()
-                        + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getDeltaXZ()
+                        + "\ndeltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + measuredDeltaXZ
                         + "\nvel " + MsgType.MAIN_THEME_COLOR.getMessage() + profile.getVelocityData().getTotalVelocity()
                         + "\nuseItem " + MsgType.MAIN_THEME_COLOR.getMessage() + sim.isUseItem()
                         + "\nmoveTicks " + MsgType.MAIN_THEME_COLOR.getMessage() + movementData.getMovingTicks()
