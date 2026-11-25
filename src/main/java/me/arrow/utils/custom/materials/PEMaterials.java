@@ -107,6 +107,11 @@ public class PEMaterials {
     private PEMaterials() {
     }
 
+    /** Whether this server needs the pre-1.13 metadata collision fallbacks. */
+    public static boolean usesLegacyServerShapes() {
+        return LEGACY_SERVER;
+    }
+
     public static WrappedBlockState fromBukkitBlock(Block block) {
         if (block == null) {
             return null;
@@ -618,6 +623,10 @@ public class PEMaterials {
         return material != null && isAnvilName(normalize(material.name()));
     }
 
+    public static boolean isAnvil(WrappedBlockState state) {
+        return state != null && isAnvilName(stateName(state));
+    }
+
     private static List<CollisionBounds> anvilBounds(int legacyData, int x, int y, int z) {
         if (legacyData < 0) {
             return Collections.singletonList(new CollisionBounds(x, y, z, x + 1.0D, y + 1.0D, z + 1.0D));
@@ -886,7 +895,7 @@ public class PEMaterials {
     }
 
     private static List<CollisionBounds> knownLegacyBlockBounds(
-            WrappedBlockState state, Material material, int x, int y, int z) {
+            WrappedBlockState state, Material material, World world, int x, int y, int z) {
         String stateBlockName = state == null ? "" : stateName(state);
         String materialName = material == null ? "" : normalize(material.name());
         if (isTrapdoorName(stateBlockName) || isTrapdoorName(materialName)) {
@@ -910,6 +919,10 @@ public class PEMaterials {
             return cakeBounds(extractLegacyData(state, material), x, y, z);
         }
         if (isAnvilName(stateBlockName) || isAnvilName(materialName)) {
+            if (!LEGACY_SERVER) {
+                requestModernAnvilShape(state, world, x, y, z);
+                return null;
+            }
             return anvilBounds(extractLegacyData(state, material), x, y, z);
         }
         String name = material == null || material == Material.AIR || materialName.isEmpty()
@@ -1317,7 +1330,7 @@ public class PEMaterials {
         }
 
         Material material = materialFromState(state.getType());
-        List<CollisionBounds> knownBounds = knownLegacyBlockBounds(state, material, x, y, z);
+        List<CollisionBounds> knownBounds = knownLegacyBlockBounds(state, material, world, x, y, z);
         if (knownBounds != null) {
             return knownBounds;
         }
@@ -1381,6 +1394,10 @@ public class PEMaterials {
             return null;
         }
         if (isAnvilName(stateBlockName) || isAnvilName(name)) {
+            if (!LEGACY_SERVER) {
+                requestModernAnvilShape(state, world, x, y, z);
+                return null;
+            }
             return anvilBounds(extractLegacyData(state, material), x, y, z);
         }
         if (isSkullName(stateBlockName) || isSkullName(name)) {
@@ -1567,6 +1584,38 @@ public class PEMaterials {
                     }
                 } catch (Throwable ignored) {
                     // A failed optional cache warmup must not break movement checks.
+                } finally {
+                    PENDING_STATE_SHAPE_CACHE.remove(stateId);
+                }
+            });
+        } catch (Throwable ignored) {
+            PENDING_STATE_SHAPE_CACHE.remove(stateId);
+        }
+    }
+
+    /**
+     * Anvil collision has orientation-specific edge geometry. Load the live
+     * voxel shape instead of approximating it from legacy metadata on modern
+     * servers, so support checks match the little lower edge of the anvil.
+     */
+    private static void requestModernAnvilShape(
+            WrappedBlockState expectedState, World world, int x, int y, int z) {
+        if (world == null || expectedState == null) return;
+
+        int stateId = expectedState.getGlobalId();
+        if (STATE_SHAPE_CACHE.containsKey(stateId) || !PENDING_STATE_SHAPE_CACHE.add(stateId)) return;
+
+        Location blockLocation = new Location(world, x + 0.5D, y + 0.5D, z + 0.5D);
+        try {
+            TaskUtils.regionLater(blockLocation, 1L, () -> {
+                try {
+                    if (!world.isChunkLoaded(x >> 4, z >> 4)) return;
+                    Block block = world.getBlockAt(x, y, z);
+                    if (isAnvil(block.getType())) {
+                        cacheCollisionShape(expectedState, block);
+                    }
+                } catch (Throwable ignored) {
+                    // A failed optional shape warmup must not break movement checks.
                 } finally {
                     PENDING_STATE_SHAPE_CACHE.remove(stateId);
                 }

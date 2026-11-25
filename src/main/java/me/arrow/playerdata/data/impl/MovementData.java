@@ -1276,6 +1276,18 @@ public class MovementData implements Data {
         return elytraData.hasValidPostElytraMomentum(packetMoving, deltaXZ, deltaY);
     }
 
+    public boolean hasPostElytraMomentum() {
+        return elytraData.hasPostElytraMomentum();
+    }
+
+    public boolean hasExtendedMomentum() {
+        return elytraData.hasExtendedMomentum();
+    }
+
+    public boolean hasPostElytraHorizontalMomentum() {
+        return elytraData.hasPostElytraHorizontalMomentum();
+    }
+
     public double getPostElytraCarryZ() {
         return elytraData.getPostElytraCarryZ(packetMoving);
     }

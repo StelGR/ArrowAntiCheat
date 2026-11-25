@@ -16,7 +16,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
 /** Serializes dig tracking and captures Bukkit player data on the server thread. */
-public final class FastBreakTracker {
+public class FastBreakTracker {
 
     private Session session;
 

@@ -15,10 +15,12 @@ public class ElytraData {
     /** ElytraA's generous max-firework allowances: dive horizontal and straight-up vertical. */
     private static final double MAX_POST_ELYTRA_HORIZONTAL_CARRY = 7.5D;
     private static final double MAX_POST_ELYTRA_UPWARD_CARRY = 3.5D;
-    private static final double POST_ELYTRA_CARRY_TOLERANCE = 0.30D;
-    private static final double POST_ELYTRA_EXIT_HORIZONTAL_DRAG = 0.95D;
+    // The exit packet may still carry the final full glide delta; begin air drag next tick.
+    private static final double POST_ELYTRA_EXIT_HORIZONTAL_DRAG = 1.25D;
     private static final double POST_ELYTRA_HORIZONTAL_EPSILON = 0.0002D;
     private static final double POST_ELYTRA_VERTICAL_CARRY_END = -0.60D;
+    private static final int EXTENDED_VERTICAL_MOMENTUM_TICKS = 18;
+    private static final int EXTENDED_HORIZONTAL_MOMENTUM_TICKS = 6;
 
     private final Profile profile;
 
@@ -49,6 +51,8 @@ public class ElytraData {
     private boolean postElytraVerticalActive;
     private boolean postElytraFirstHorizontalUpdate;
     private boolean previousPacketMoving;
+    private int extendedVerticalMomentumTicks;
+    private int extendedHorizontalMomentumTicks;
 
     public ElytraData(Profile profile) {
         this.profile = profile;
@@ -136,6 +140,21 @@ public class ElytraData {
         return postElytraHorizontalActive || postElytraVerticalActive;
     }
 
+    public boolean hasPostElytraMomentum() {
+        return isPostElytraModelActive();
+    }
+
+    public boolean hasPostElytraHorizontalMomentum() {
+        return postElytraHorizontalActive;
+    }
+
+    /** Keeps momentum allowance active briefly after modeled Elytra carry ends. */
+    public boolean hasExtendedMomentum() {
+        return hasPostElytraMomentum()
+                || extendedVerticalMomentumTicks > 0
+                || extendedHorizontalMomentumTicks > 0;
+    }
+
     public double getPostElytraCarryX(boolean packetMoving) {
         return packetMoving && postElytraHorizontalActive ? postElytraDeltaX : 0.0D;
     }
@@ -161,28 +180,7 @@ public class ElytraData {
     }
 
     public boolean hasValidPostElytraMomentum(boolean packetMoving, double deltaXZ, double deltaY) {
-        // A handoff packet without position has no new delta to compare. Allow
-        // only the first couple of packets after glide exit; repeated stationary
-        // packets must return to the normal FlyA path.
-        if (!packetMoving) return isPostElytraModelActive() && sinceGlidingTicks <= 2;
-
-        double horizontalCarry = Math.hypot(
-                getPostElytraCarryX(true), getPostElytraCarryZ(true));
-        double verticalCarry = getPostElytraCarryY(true);
-        if (horizontalCarry <= POST_ELYTRA_HORIZONTAL_EPSILON && Math.abs(verticalCarry) <= 0.015D) {
-            return false;
-        }
-
-        boolean horizontalWithinCarry = horizontalCarry > POST_ELYTRA_HORIZONTAL_EPSILON
-                && deltaXZ <= horizontalCarry + POST_ELYTRA_CARRY_TOLERANCE;
-        boolean verticalWithinCarry = Math.abs(verticalCarry) > 0.015D
-                && deltaY <= Math.abs(verticalCarry) + POST_ELYTRA_CARRY_TOLERANCE;
-
-        // Horizontal carry can explain horizontal speed, but it cannot excuse
-        // upward movement that exceeds the capped vertical Elytra carry.
-        if (deltaY > Math.max(0.0D, verticalCarry) + POST_ELYTRA_CARRY_TOLERANCE) return false;
-
-        return horizontalWithinCarry || verticalWithinCarry;
+        return hasPostElytraMomentum();
     }
 
     private void updateMomentum(boolean glidingNow, boolean packetMoving,
@@ -206,17 +204,23 @@ public class ElytraData {
             lastPostElytraDeltaY = previousPacketMoving ? lastElytraDeltaY : 0.0D;
             lastPostElytraDeltaZ = previousPacketMoving ? lastElytraDeltaZ : 0.0D;
 
-            double drag = getPostElytraHorizontalDrag(true, hasGroundSupport, lastFrictionFactor);
+            double exitDeltaY = packetMoving ? Math.max(lastElytraDeltaY, deltaY) : lastElytraDeltaY;
+            boolean grounded = hasGroundSupport && deltaY <= 0.0D && exitDeltaY <= 0.0D;
+            double drag = getPostElytraHorizontalDrag(true, grounded, lastFrictionFactor);
             double horizontalSpeed = Math.hypot(lastElytraDeltaX, lastElytraDeltaZ);
             double horizontalScale = horizontalSpeed > MAX_POST_ELYTRA_HORIZONTAL_CARRY
                     ? MAX_POST_ELYTRA_HORIZONTAL_CARRY / horizontalSpeed
                     : 1.0D;
-            double cappedGlideY = Math.min(lastElytraDeltaY, MAX_POST_ELYTRA_UPWARD_CARRY);
-            double vertical = (cappedGlideY - 0.08D) * 0.98D;
-            if (hasGroundSupport) vertical = 0.0D;
+            // A firework can produce its final upward boost on the same packet
+            // that reports the Elytra removal. Include that sample once, under
+            // the same hard cap, then let the model decay it without learning
+            // any more speed from later packets.
+            double cappedGlideY = Math.min(exitDeltaY, MAX_POST_ELYTRA_UPWARD_CARRY);
 
             postElytraDeltaX = packetMoving ? lastElytraDeltaX * drag * horizontalScale : lastElytraDeltaX * horizontalScale;
-            postElytraDeltaY = packetMoving ? vertical : cappedGlideY;
+            // The exit packet can still contain the last complete glide delta;
+            // gravity is applied starting on the following movement update.
+            postElytraDeltaY = grounded ? 0.0D : cappedGlideY;
             postElytraDeltaZ = packetMoving ? lastElytraDeltaZ * drag * horizontalScale : lastElytraDeltaZ * horizontalScale;
             postElytraFirstHorizontalUpdate = !packetMoving;
             lastElytraPose = false;
@@ -238,6 +242,14 @@ public class ElytraData {
             lastPostElytraDeltaX = 0.0D;
             lastPostElytraDeltaY = 0.0D;
             lastPostElytraDeltaZ = 0.0D;
+            boolean grounded = hasGroundSupport && postElytraDeltaY <= 0.0D;
+            double drag = getPostElytraHorizontalDrag(postElytraFirstHorizontalUpdate,
+                    grounded, lastFrictionFactor);
+            postElytraDeltaX *= drag;
+            postElytraDeltaZ *= drag;
+            postElytraFirstHorizontalUpdate = false;
+            postElytraDeltaY = grounded ? 0.0D : (postElytraDeltaY - 0.08D) * 0.98D;
+            updatePostElytraActivity();
             previousPacketMoving = false;
             return;
         }
@@ -246,12 +258,13 @@ public class ElytraData {
         lastPostElytraDeltaY = previousPacketMoving ? postElytraDeltaY : 0.0D;
         lastPostElytraDeltaZ = previousPacketMoving ? postElytraDeltaZ : 0.0D;
 
+        boolean grounded = hasGroundSupport && deltaY <= 0.0D && postElytraDeltaY <= 0.0D;
         double drag = getPostElytraHorizontalDrag(postElytraFirstHorizontalUpdate,
-                hasGroundSupport, lastFrictionFactor);
+                grounded, lastFrictionFactor);
         postElytraDeltaX *= drag;
         postElytraDeltaZ *= drag;
         postElytraFirstHorizontalUpdate = false;
-        postElytraDeltaY = hasGroundSupport
+        postElytraDeltaY = grounded
                 ? 0.0D
                 : (postElytraDeltaY - 0.08D) * 0.98D;
 
@@ -273,10 +286,25 @@ public class ElytraData {
     }
 
     private void updatePostElytraActivity() {
+        boolean wasHorizontalActive = postElytraHorizontalActive;
+        boolean wasVerticalActive = postElytraVerticalActive;
+
         postElytraHorizontalActive = Math.hypot(postElytraDeltaX, postElytraDeltaZ)
                 > POST_ELYTRA_HORIZONTAL_EPSILON;
         postElytraVerticalActive = Math.abs(postElytraDeltaY) > 0.015D
                 && postElytraDeltaY > POST_ELYTRA_VERTICAL_CARRY_END;
+
+        extendedHorizontalMomentumTicks = postElytraHorizontalActive
+                ? 0
+                : wasHorizontalActive
+                ? EXTENDED_HORIZONTAL_MOMENTUM_TICKS
+                : Math.max(0, extendedHorizontalMomentumTicks - 1);
+        extendedVerticalMomentumTicks = postElytraVerticalActive
+                ? 0
+                : wasVerticalActive
+                ? EXTENDED_VERTICAL_MOMENTUM_TICKS
+                : Math.max(0, extendedVerticalMomentumTicks - 1);
+
         if (!postElytraHorizontalActive) {
             postElytraDeltaX = 0.0D;
             postElytraDeltaZ = 0.0D;
@@ -294,5 +322,7 @@ public class ElytraData {
         postElytraHorizontalActive = false;
         postElytraVerticalActive = false;
         postElytraFirstHorizontalUpdate = false;
+        extendedVerticalMomentumTicks = 0;
+        extendedHorizontalMomentumTicks = 0;
     }
 }

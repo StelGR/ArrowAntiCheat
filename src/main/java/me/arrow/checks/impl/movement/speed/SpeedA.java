@@ -417,6 +417,16 @@ public class SpeedA extends Check {
                         airLimit += 0.1;
                     }
 
+                    int elytraPingTicks = Math.min(6,
+                            Math.max(0, profile.getConnectionData().getClientTickTrans()));
+                    boolean recentElytraCarry = movementData.hasPostElytraMomentum()
+                            || movementData.getSinceGlidingTicks() <= 1 + elytraPingTicks;
+                    if (recentElytraCarry && elytraPingTicks > 1) {
+                        double elytraPingAllowance = Math.min(0.25D, (elytraPingTicks - 1) * 0.05D);
+                        airLimit += elytraPingAllowance;
+                        airLimitDebug += ", elytraPing(" + elytraPingAllowance + ")";
+                    }
+
                     expectedSpeed = airLimit;
                     difference = deltaXZ - expectedSpeed;
                     failDetails = "deltaXZ " + MsgType.MAIN_THEME_COLOR.getMessage() + deltaXZ
@@ -517,6 +527,16 @@ public class SpeedA extends Check {
 
     boolean isExemptGround(MovementData movementData) {
         if (exempt("cancelled", profile.shouldCancel())) return true;
+        if (movementData.hasPostElytraHorizontalMomentum()) {
+            resetBuffer();
+            return true;
+        }
+        int elytraPingTicks = Math.min(6,
+                Math.max(0, profile.getConnectionData().getClientTickTrans()));
+        if (elytraPingTicks > 0 && movementData.getSinceGlidingTicks() <= 1 + elytraPingTicks) {
+            resetBuffer();
+            return true;
+        }
         if (exempt("onBoat", movementData.isOnBoat())) return true;
         if (exempt("teleports", movementData.getSinceTeleportTicks() <= 2 || profile.isExempt().isTeleports())) return true;
         if (exempt("notRespawned", !profile.isExempt().isRespawned())) return true;

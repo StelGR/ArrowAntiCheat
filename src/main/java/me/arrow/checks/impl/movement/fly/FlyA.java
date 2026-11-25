@@ -368,7 +368,7 @@ public class FlyA extends Check {
             return true;
         }
 
-        if (movementData.hasValidPostElytraMomentum()) {
+        if (movementData.hasExtendedMomentum()) {
             ChatUtils.debugExempt("elytraMomentum", "FlyA");
             return true;
         }

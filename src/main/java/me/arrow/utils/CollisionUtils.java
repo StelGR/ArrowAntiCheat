@@ -1222,7 +1222,8 @@ public class CollisionUtils {
                                 || PEMaterials.isCake(material)
                                 || PEMaterials.isCocoa(material)
                                 || PEMaterials.isEndPortalFrame(material)
-                                || PEMaterials.isAnvil(material)
+                                || ((PEMaterials.isAnvil(material) || PEMaterials.isAnvil(cachedState))
+                                && PEMaterials.usesLegacyServerShapes())
                                 || PEMaterials.isStair(material)
                                 || PEMaterials.isPistonHead(material)
                                 || PEMaterials.isPistonBase(material));
